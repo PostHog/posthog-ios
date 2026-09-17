@@ -130,6 +130,54 @@
             #expect(resolve(host, window, CGPoint(x: 10, y: 10))?.viewHierarchy.first?.label == "swiftui-target")
         }
 
+        @Test func labelMarkerFindsMatchingCousinAndClearsSupersededTarget() {
+            let (window, host) = fixture()
+            defer { window.isHidden = true }
+            let controls = UIView(frame: host.bounds)
+            let markers = UIView(frame: host.bounds)
+            host.addSubview(controls)
+            host.addSubview(markers)
+            let first = UIButton(frame: CGRect(x: 0, y: 0, width: 100, height: 40))
+            let second = UIButton(frame: CGRect(x: 0, y: 100, width: 100, height: 40))
+            controls.addSubview(first)
+            controls.addSubview(second)
+            let marker = PostHogLabelTaggerView(label: "moving-label")
+            markers.addSubview(marker)
+            marker.frame = first.frame
+            marker.layoutSubviews()
+            #expect(first.postHogLabel == "moving-label")
+            marker.frame = second.frame
+            marker.layoutSubviews()
+            #expect(first.postHogLabel == nil)
+            #expect(second.postHogLabel == "moving-label")
+            marker.frame.origin.y = 200
+            marker.layoutSubviews()
+            #expect(second.postHogLabel == nil)
+            #expect(marker.taggedView == nil)
+        }
+
+        @Test func edgeReleaseOutsideMarkerDoesNotCapture() {
+            guard #available(iOS 13.4, *) else { return }
+            let (window, host) = fixture()
+            let marker = PostHogLabelTaggerView(label: "edge-target")
+            marker.frame = CGRect(x: 0, y: 0, width: 20, height: 40)
+            host.addSubview(marker)
+            let publisher = TapTestPublisher()
+            let processor = TapTestProcessor()
+            let observer = SwiftUITapAutocapture(processor: processor, publisher: publisher)
+            observer.setEnabled(true)
+            defer { observer.setEnabled(false) }
+            let touch = PointerTestTouch(target: host, window: window)
+            touch.point = CGPoint(x: 18, y: 10)
+            let event = PointerTestEvent(touch: touch)
+            publisher.onApplicationEvent.invoke((event, Date()))
+            touch.point = CGPoint(x: 22, y: 10)
+            touch.recordedPhase = .ended
+            touch.recordedTimestamp = 1.1
+            publisher.onApplicationEvent.invoke((event, Date()))
+            #expect(processor.events.isEmpty)
+        }
+
         @Test func observerStartIsIdempotentAndStopRemovesSubscription() {
             let publisher = TapTestPublisher()
             let processor = TapTestProcessor()
@@ -213,6 +261,7 @@
         let targetWindow: UIWindow
         var recordedPhase: UITouch.Phase = .began
         var recordedTimestamp: TimeInterval = 1
+        var point = CGPoint(x: 10, y: 10)
         init(target: UIView, window: UIWindow) {
             self.target = target
             targetWindow = window
@@ -224,7 +273,7 @@
         override var view: UIView? { target }
         override var window: UIWindow? { targetWindow }
         override func location(in _: UIView?) -> CGPoint {
-            CGPoint(x: 10, y: 10)
+            point
         }
     }
 

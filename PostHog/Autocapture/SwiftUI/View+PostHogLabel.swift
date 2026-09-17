@@ -98,15 +98,18 @@
             //       L PostHogLabelViewTagger (ViewRepresentable)
             //           L PostHogLabelTaggerView (UIView) <- we are here
             //
-            if let view = findCousinView(of: PostHogSwiftUITaggable.self),
-               let window,
-               !bounds.isEmpty,
-               window.convert(bounds, from: self).insetBy(dx: -1, dy: -1).contains(window.convert(view.bounds, from: view)),
-               window.convert(view.bounds, from: view).insetBy(dx: -1, dy: -1).contains(window.convert(bounds, from: self))
-            {
-                taggedView = view
-                view.postHogLabel = label
+            let view: PostHogSwiftUITaggable? = findCousinView(of: PostHogSwiftUITaggable.self) { view in
+                guard let window, !bounds.isEmpty else { return false }
+                let markerBounds = window.convert(bounds, from: self)
+                let viewBounds = window.convert(view.bounds, from: view)
+                return markerBounds.insetBy(dx: -1, dy: -1).contains(viewBounds)
+                    && viewBounds.insetBy(dx: -1, dy: -1).contains(markerBounds)
             }
+            if taggedView !== view {
+                taggedView?.postHogLabel = nil
+            }
+            taggedView = view
+            view?.postHogLabel = label
             // Pure SwiftUI elements use this marker's live bounds during tap resolution.
             // Do not tag a shared hosting ancestor: it can contain many labeled controls.
         }
@@ -118,9 +121,9 @@
             taggedView = nil
         }
 
-        private func findCousinView<T>(of _: T.Type) -> T? {
+        private func findCousinView<T>(of _: T.Type, matching predicate: (T) -> Bool) -> T? {
             for sibling in superview?.siblings() ?? [] {
-                if let match = sibling.child(of: T.self) {
+                if let match = sibling.child(of: T.self, matching: predicate) {
                     return match
                 }
             }
@@ -137,10 +140,13 @@
             } ?? []
         }
 
-        func child<T>(of type: T.Type) -> T? {
+        func child<T>(of type: T.Type, matching predicate: (T) -> Bool) -> T? {
             for child in subviews {
-                if let curT = child as? T ?? child.child(of: type) {
-                    return curT
+                if let match = child as? T, predicate(match) {
+                    return match
+                }
+                if let match = child.child(of: type, matching: predicate) {
+                    return match
                 }
             }
             return nil

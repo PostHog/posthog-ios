@@ -105,7 +105,9 @@
                 classifier.move(to: point)
             case .ended:
                 guard touchID == ObjectIdentifier(touch), let candidate,
-                      classifier.end(at: point, timestamp: touch.timestamp)
+                      classifier.end(at: point, timestamp: touch.timestamp),
+                      let endTarget = SwiftUITapElementResolver.resolve(hit: window.hitTest(point, with: nil), window: window, point: point),
+                      endTarget.getElementChain() == candidate.getElementChain()
                 else {
                     cancel()
                     return
@@ -244,14 +246,16 @@
                     }
                 }
             }
-            if #available(iOS 18.0, *),
-               let element = root.accessibilityHitTest(point, event: nil) as? NSObject,
-               element !== root
-            {
-                visit(element, depth: 0, path: "")
-                // Indexed traversal must still assign a path to an unlabeled hit-test leaf.
-                visited.removeAll(keepingCapacity: true)
-            }
+            #if compiler(>=6.0)
+                if #available(iOS 18.0, *),
+                   let element = root.accessibilityHitTest(point, event: nil) as? NSObject,
+                   element !== root
+                {
+                    visit(element, depth: 0, path: "")
+                    // Indexed traversal must still assign a path to an unlabeled hit-test leaf.
+                    visited.removeAll(keepingCapacity: true)
+                }
+            #endif
             visit(root, depth: 0, path: "")
             return (best ?? fallback, excluded)
         }

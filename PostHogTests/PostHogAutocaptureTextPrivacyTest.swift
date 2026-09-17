@@ -10,10 +10,10 @@
         @Test("Existing text capture is the default")
         func defaultRetainsText() throws {
             let config = PostHogConfig(projectToken: testProjectToken)
-            #expect(config.captureElementText)
+            #expect(config.captureAutocaptureElementText)
             let button = UIButton()
             button.setTitle("  SYNTHETIC_BUTTON  ", for: .normal)
-            let event = try #require(button.eventData(touchCoordinates: nil, captureElementText: config.captureElementText))
+            let event = try #require(button.eventData(touchCoordinates: nil, captureElementText: config.captureAutocaptureElementText))
             #expect(event.value == "SYNTHETIC_BUTTON")
             #expect(event.getElementChain().contains("text=\"SYNTHETIC_BUTTON\""))
         }
@@ -109,7 +109,7 @@
             defer { server.stop() }
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.captureElementInteractions = false
-            config.captureElementText = captureText
+            config.captureAutocaptureElementText = captureText
             config.rageClickConfig.enabled = true
             config.rageClickConfig.minimumTapCount = 3
             config.captureScreenViews = false
@@ -161,7 +161,7 @@
             defer { server.stop() }
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.captureElementInteractions = true
-            config.captureElementText = captureText
+            config.captureAutocaptureElementText = captureText
             config.captureScreenViews = false
             config.captureApplicationLifecycleEvents = false
             config.preloadFeatureFlags = false

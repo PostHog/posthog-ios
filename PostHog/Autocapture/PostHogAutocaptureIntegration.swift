@@ -16,7 +16,7 @@
         private weak var postHog: PostHogSDK?
         private var debounceTimers: [Int: Timer] = [:]
 
-        var captureElementText: Bool { postHog?.config.captureElementText ?? true }
+        var captureElementText: Bool { postHog?.config.captureAutocaptureElementText ?? true }
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
             installIfNeeded(using: Self.integrationInstallState) {

@@ -2,4 +2,4 @@
 "posthog-ios": minor
 ---
 
-Prototype an opt-in autocapture mode that omits control text while preserving the existing default.
+Add captureAutocaptureElementText to optionally omit autocapture control text while preserving the existing default.

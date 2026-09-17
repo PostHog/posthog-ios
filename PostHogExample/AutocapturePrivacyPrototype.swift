@@ -30,9 +30,9 @@
             let config = PostHogConfig(projectToken: token, host: host)
             config.debug = true
             if environment["POSTHOG_CAPTURE_ELEMENT_TEXT"] == "0" {
-                config.captureElementText = false
+                config.captureAutocaptureElementText = false
             }
-            capturesText = config.captureElementText
+            capturesText = config.captureAutocaptureElementText
             config.captureElementInteractions = true
             config.captureScreenViews = false
             config.captureApplicationLifecycleEvents = false
@@ -46,7 +46,7 @@
             config.persistOptOut = false
             config.flushAt = 1
             config.flushIntervalSeconds = 1
-            let capturesText = config.captureElementText
+            let capturesText = config.captureAutocaptureElementText
             config.setBeforeSend { [weak self] event in
                 event.properties["sdk_prototype"] = "autocapture-text-privacy"
                 event.properties["sdk_prototype_run"] = run

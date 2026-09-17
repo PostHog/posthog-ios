@@ -82,7 +82,7 @@
                 return
             }
 
-            let captureElementText = postHog?.config.captureElementText ?? true
+            let captureElementText = postHog?.config.captureAutocaptureElementText ?? true
             let eventData = hitView?.eventData(touchCoordinates: touchCoordinates, captureElementText: captureElementText)
             let elementsChain = eventData?.getElementChain(captureElementText: captureElementText) ?? ""
 

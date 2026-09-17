@@ -1,5 +1,11 @@
 ## Next
 
+## 3.77.1
+
+### Patch Changes
+
+- 985f3e0: Leave open-text survey inputs empty when no placeholder is configured.
+
 ## 3.77.0
 
 ### Minor Changes

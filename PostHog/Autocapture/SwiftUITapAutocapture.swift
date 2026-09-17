@@ -193,7 +193,7 @@
                 )
             }
             // The title formatter reads the target tag and aria label, not attr_id.
-            // Reuse only the developer identifier; never read accessibility display text.
+            // Reuse only the developer identifier; never include accessibility display text.
             let target = PostHogAutocaptureEventTracker.Element(
                 text: "", targetClass: accessibility.traits.contains(.button) ? "button" : "SwiftUIElement",
                 baseClass: nil, label: label, ariaLabel: developerLabel
@@ -234,7 +234,10 @@
                         traitArea = frame.width * frame.height
                     }
                     let id = accessibilityIdentifier(of: object)
-                    if id?.localizedCaseInsensitiveContains("ph-no-capture") == true || object.accessibilityTraits.contains(.notEnabled) {
+                    if id?.localizedCaseInsensitiveContains("ph-no-capture") == true
+                        || object.accessibilityLabel?.localizedCaseInsensitiveContains("ph-no-capture") == true
+                        || object.accessibilityTraits.contains(.notEnabled)
+                    {
                         excluded = true
                     }
                     if object.isAccessibilityElement, !path.isEmpty, frame.width * frame.height < fallbackArea {

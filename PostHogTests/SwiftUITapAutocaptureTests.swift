@@ -102,6 +102,17 @@
             #expect(SwiftUITapElementResolver.identifier(in: root, at: CGPoint(x: 20, y: 20)).excluded)
         }
 
+        @Test(arguments: ["ph-no-capture", "Private PH-NO-CAPTURE control"])
+        func accessibilityLabelExclusionPreventsStructuralFallback(label: String) {
+            let (window, host) = fixture()
+            let element = UIAccessibilityElement(accessibilityContainer: host)
+            element.accessibilityFrame = window.convert(CGRect(x: 0, y: 0, width: 100, height: 60), to: window.screen.coordinateSpace)
+            element.accessibilityTraits = .button
+            element.accessibilityLabel = label
+            host.accessibilityElements = [element]
+            #expect(resolve(host, window, CGPoint(x: 20, y: 20)) == nil)
+        }
+
         @Test func smallestNestedMarkerWins() {
             let (window, host) = fixture()
             for (label, size) in [("outer", CGFloat(150)), ("inner", CGFloat(50))] {

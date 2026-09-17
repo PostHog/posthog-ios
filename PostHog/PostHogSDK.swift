@@ -607,7 +607,10 @@ let maxRetryDelay = 30.0
                                  userPropertiesSetOnce: [String: Any]? = nil,
                                  groups: [String: String]? = nil,
                                  appendSharedProps: Bool = true,
-                                 timestamp: Date? = nil) -> [String: Any]
+                                 timestamp: Date? = nil,
+                                 // Snapshot callers pass true: resolving the session read-only keeps a
+                                 // background crash-context refresh from rotating an idle session.
+                                 readOnlySession: Bool = false) -> [String: Any]
     {
         var props: [String: Any] = [:]
 
@@ -616,7 +619,7 @@ let maxRetryDelay = 30.0
         // A caller-supplied $session_id wins so replay snapshots never land in the wrong session.
         let propSessionId = properties?["$session_id"] as? String
         let sessionId: String? = propSessionId.isNilOrEmpty
-            ? sessionManager.getSessionId(at: timestamp ?? now())
+            ? sessionManager.getSessionId(at: timestamp ?? now(), readOnly: readOnlySession)
             : propSessionId
 
         if appendSharedProps {
@@ -3129,7 +3132,8 @@ let maxRetryDelay = 30.0
             userPropertiesSetOnce: nil,
             groups: nil,
             appendSharedProps: true,
-            timestamp: nil
+            timestamp: nil,
+            readOnlySession: true
         )
         for key in Self.pointInTimeDebugKeys {
             eventProperties.removeValue(forKey: key)

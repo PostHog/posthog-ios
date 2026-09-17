@@ -27,6 +27,11 @@
 
         private var isEnabled: Bool = false
 
+        /// Last reported status handed to the crash context, so a reload that moved nothing doesn't
+        /// rebuild the whole snapshot. Guards only itself.
+        private let statusNotifyLock = NSLock()
+        private var lastNotifiedStatusKey: String?
+
         private let windowViewsLock = NSLock()
         private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
         private let installedPluginsLock = NSLock()
@@ -213,6 +218,7 @@
                 featureFlagsLoadedToken = nil
                 eventCapturedToken = nil
                 self.postHog = nil
+                statusNotifyLock.withLock { lastNotifiedStatusKey = nil }
 
                 // Clear buffer delegate
                 replayQueue?.bufferDelegate = nil
@@ -324,7 +330,17 @@
         /// next launch, so refresh it whenever `$recording_status` can change. Never call this while
         /// holding `bufferingLock`: it re-enters `debugProperties()`.
         private func notifyRecordingStatusChanged() {
-            postHog?.notifyContextDidChange()
+            guard let postHog else { return }
+
+            let key = Self.statusKey(debugProperties())
+            let changed = statusNotifyLock.withLock { () -> Bool in
+                guard lastNotifiedStatusKey != key else { return false }
+                lastNotifiedStatusKey = key
+                return true
+            }
+            guard changed else { return }
+
+            postHog.notifyContextDidChange()
         }
 
         /// Stops session replay recording.
@@ -495,6 +511,11 @@
         }
 
         func applyRemoteConfig(remoteConfig: [String: Any]?) {
+            // Every branch below can move a reported value without calling start()/stop() — a changed
+            // minimum duration or a replaced trigger list, say — so re-snapshot once at the end
+            // regardless. `notifyRecordingStatusChanged` drops the call when nothing actually moved.
+            defer { notifyRecordingStatusChanged() }
+
             updatePlugins(from: remoteConfig)
             updateEventTriggers(from: remoteConfig)
             updateCachedMinimumDuration()
@@ -1793,6 +1814,21 @@
         /// Shared by `$sdk_debug_replay_linked_flag_trigger_status` and `$sdk_debug_replay_event_trigger_status`.
         static func triggerStatus(isConfigured: Bool, isActivated: Bool) -> String {
             !isConfigured ? "trigger_disabled" : (isActivated ? "trigger_activated" : "trigger_pending")
+        }
+
+        /// Only the values the crash snapshot keeps: the point-in-time counters are stripped from it,
+        /// so they must not force a rebuild on every flags reload.
+        static func statusKey(_ props: [String: Any]) -> String {
+            var parts = [
+                "$recording_status",
+                "$sdk_debug_replay_flush_hold_reason",
+                "$sdk_debug_replay_linked_flag_trigger_status",
+                "$sdk_debug_replay_event_trigger_status",
+                "$sdk_debug_replay_capture_mode",
+            ].map { props[$0] as? String ?? "" }
+            parts.append(String(props["$sdk_debug_replay_throttle_delay_ms"] as? Int ?? -1))
+            parts.append((props["$sdk_debug_replay_pending_trigger_conditions"] as? [String] ?? []).joined(separator: ","))
+            return parts.joined(separator: "|")
         }
 
         /// `$recording_status` / `$sdk_debug_*` replay properties for the event being captured. The

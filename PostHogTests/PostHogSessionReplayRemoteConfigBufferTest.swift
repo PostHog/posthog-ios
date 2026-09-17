@@ -645,8 +645,7 @@
             integration.applyRemoteConfig(remoteConfig: nil)
 
             let resultsLock = NSLock()
-            var statuses: [String?] = []
-            var badHoldReasons = 0
+            var samples: [(status: String?, bufferLength: Int?)] = []
 
             let group = DispatchGroup()
             let captureQueue = DispatchQueue(label: "test.concurrent-debug-properties", attributes: .concurrent)
@@ -656,15 +655,17 @@
                 group.enter()
                 captureQueue.async {
                     defer { group.leave() }
+                    // The status comes from `bufferingLock` and the buffer length from the replay
+                    // queue's own lock, so one call pairs two acquisitions — where a torn read would
+                    // show up. Only the shape of each value is asserted: a concurrent stop() may
+                    // legitimately land between the two reads, so asserting a relation between them
+                    // would flake.
                     let props = integration.debugProperties()
-                    let status = props["$recording_status"] as? String
-                    let holdReason = props["$sdk_debug_replay_flush_hold_reason"]
-                    resultsLock.withLock {
-                        statuses.append(status)
-                        if status != "buffering", holdReason != nil {
-                            badHoldReasons += 1
-                        }
-                    }
+                    let sample = (
+                        status: props["$recording_status"] as? String,
+                        bufferLength: props["$sdk_debug_replay_internal_buffer_length"] as? Int
+                    )
+                    resultsLock.withLock { samples.append(sample) }
                 }
             }
 
@@ -673,8 +674,9 @@
 
             group.wait()
 
-            #expect(statuses.allSatisfy { $0 == "active" || $0 == "buffering" || $0 == "disabled" })
-            #expect(badHoldReasons == 0)
+            #expect(samples.count == iterations)
+            #expect(samples.allSatisfy { $0.status == "active" || $0.status == "buffering" || $0.status == "disabled" })
+            #expect(samples.allSatisfy { ($0.bufferLength ?? -1) >= 0 })
         }
     }
 #endif

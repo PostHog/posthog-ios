@@ -12,6 +12,8 @@
 #endif
 
 final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
+    var supportsSurveyResume: Bool { true }
+
     #if os(iOS)
         private var surveysWindow: UIWindow?
         private var displayController: SurveyDisplayController?

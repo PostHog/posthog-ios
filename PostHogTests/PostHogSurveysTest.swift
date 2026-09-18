@@ -1884,9 +1884,39 @@ enum PostHogSurveysTest {
 
     @Suite("Test conditional branching", .serialized)
     class TestConfitionalBranchingLogic {
+        let postHog: PostHogSDK
+        let server = MockPostHogServer()
+
+        init() {
+            server.start()
+            let config = PostHogConfig(projectToken: "test_survey_branching", host: "http://localhost:9090")
+            config._surveys = true
+            config.enableSwizzling = false
+            config.disableRemoteConfigForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.captureApplicationLifecycleEvents = false
+            config.setBeforeSend { _ in nil }
+            PostHogStorage(config).reset()
+            postHog = PostHogSDK.with(config)
+        }
+
+        deinit {
+            postHog.close()
+            server.stop()
+        }
+
+        private func getSut() -> PostHogSurveyIntegration {
+            let sut = PostHogSurveyIntegration()
+            PostHogSurveyIntegration.clearInstalls()
+            #expect(sut.install(postHog) == .installed)
+            sut.stop()
+            return sut
+        }
+
         @Test("returns next question index when no branching")
         func returnsNextQuestionIndexWhenNoBranching() throws {
-            let sut = PostHogSurveyIntegration()
+            let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -1923,7 +1953,7 @@ enum PostHogSurveysTest {
 
         @Test("completes survey with single question")
         func completesSurveyWithSingleQuestion() throws {
-            let sut = PostHogSurveyIntegration()
+            let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -1944,7 +1974,7 @@ enum PostHogSurveysTest {
 
         @Test("ends survey when branching is end")
         func endsSurveyWhenBranchingIsEnd() throws {
-            let sut = PostHogSurveyIntegration()
+            let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -1966,7 +1996,7 @@ enum PostHogSurveysTest {
 
         @Test("jumps to specific question when branching to specific question")
         func jumpsToSpecificQuestionWhenBranchingToSpecificQuestion() throws {
-            let sut = PostHogSurveyIntegration()
+            let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -2009,7 +2039,7 @@ enum PostHogSurveysTest {
 
         @Test("jumps to last question when branching is out of bounds")
         func jumpsToLastQuestionWhenBranchingOutOfBounds() throws {
-            let sut = PostHogSurveyIntegration()
+            let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -2039,7 +2069,7 @@ enum PostHogSurveysTest {
 
         @Test("handles single choice response based branching")
         func handlesSingleChoiceResponseBasedBranching() throws {
-            let sut = PostHogSurveyIntegration()
+            let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -2118,7 +2148,7 @@ enum PostHogSurveysTest {
 
         @Test("handles rating response based branching for scale 3")
         func handlesRatingResponseBasedBranchingForScale3() {
-            let sut = PostHogSurveyIntegration()
+            let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -2160,7 +2190,7 @@ enum PostHogSurveysTest {
 
         @Test("handles rating response based branching for scale 5")
         func handlesRatingResponseBasedBranchingForScale5() {
-            let sut = PostHogSurveyIntegration()
+            let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -2205,7 +2235,7 @@ enum PostHogSurveysTest {
 
         @Test("handles rating response based branching for scale 7")
         func handlesRatingResponseBasedBranchingForScale7() {
-            let sut = PostHogSurveyIntegration()
+            let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -2252,7 +2282,7 @@ enum PostHogSurveysTest {
 
         @Test("handles NPS rating response based branching for scale 10")
         func handlesNPSRatingResponseBasedBranchingForScale10() {
-            let sut = PostHogSurveyIntegration()
+            let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",

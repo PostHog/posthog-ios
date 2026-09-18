@@ -68,6 +68,7 @@ let maxRetryDelay = 30.0
     private(set) var replayQueue: PostHogReplayQueue?
     private(set) var logsQueue: PostHogQueue<PostHogLogRecord>?
     private(set) var storage: PostHogStorage?
+    private var surveyIdentityGeneration: String?
     #if !os(watchOS)
         private var reachability: Reachability?
     #endif
@@ -668,6 +669,27 @@ let maxRetryDelay = 30.0
         pushSubscriptionHandler?.retryIfNeeded()
     }
 
+    func surveyEventDistinctId(generation: String?) -> String? {
+        guard let storage else { return nil }
+        let snapshot = storage.withSurveyState { currentGeneration -> (epoch: String, distinctId: String?)? in
+            guard generation == nil || generation == currentGeneration,
+                  storage.isSurveyGenerationCurrent(currentGeneration) else { return nil }
+            if surveyIdentityGeneration != currentGeneration {
+                config.storageManager?.reset()
+                surveyIdentityGeneration = currentGeneration
+            }
+            return (currentGeneration, storage.getString(forKey: .distinctId) ?? storage.getString(forKey: .anonymousId))
+        }
+        guard let snapshot else { return nil }
+        if let distinctId = snapshot.distinctId { return distinctId }
+        // Identity generation may call user code, so it cannot hold the shared file lock.
+        _ = getDistinctId()
+        return storage.withSurveyState { currentGeneration in
+            guard currentGeneration == snapshot.epoch else { return nil }
+            return storage.getString(forKey: .distinctId) ?? storage.getString(forKey: .anonymousId)
+        }
+    }
+
     /// Resets local identity, super properties, feature flag cache, and session state.
     ///
     /// Call this when a user logs out. The next captured event will use a new anonymous identity
@@ -688,8 +710,12 @@ let maxRetryDelay = 30.0
         }
 
         // storage also removes all feature flags
-        storage?.reset(keepAnonymousId: config.reuseAnonymousId)
-        config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
+        if let storage {
+            storage.withSurveyState { _ in
+                storage.reset(keepAnonymousId: config.reuseAnonymousId)
+                config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
+            }
+        }
         flagCallReportedLock.withLock {
             flagCallReported.removeAll()
         }
@@ -2557,7 +2583,6 @@ let maxRetryDelay = 30.0
             bufferToClear?.clear()
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
-            config = PostHogConfig(projectToken: "")
             remoteConfig = nil
             storage = nil
             #if !os(watchOS)
@@ -2574,6 +2599,7 @@ let maxRetryDelay = 30.0
             toggleHedgeLog(false)
 
             uninstallIntegrations()
+            config = PostHogConfig(projectToken: "")
         }
         // Outside setupLock to avoid lock-ordering coupling between
         // setupLock and lastScreenLock.

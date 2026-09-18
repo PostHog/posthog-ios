@@ -43,7 +43,7 @@ public typealias OnPostHogSurveyShown = (_ survey: PostHogDisplaySurvey) -> Void
 ///   - survey: The current survey being displayed
 ///   - index: The index of the question being answered
 ///   - response: The user's response to the question
-/// - Returns: The next survey state, or `nil` to leave the displayed survey state unchanged.
+/// - Returns: The next survey state, or `nil` if the attempt is no longer valid. The built-in renderer closes an invalidated survey.
 public typealias OnPostHogSurveyResponse = (_ survey: PostHogDisplaySurvey, _ index: Int, _ response: PostHogSurveyResponse) -> PostHogNextSurveyQuestion?
 
 /// To be called when a survey is dismissed
@@ -52,7 +52,22 @@ public typealias OnPostHogSurveyClosed = (_ survey: PostHogDisplaySurvey) -> Voi
 
 /// Delegate used by the SDK to present surveys and receive survey lifecycle callbacks.
 @objc public protocol PostHogSurveysDelegate {
+    /// Whether this delegate can resume unfinished surveys. Defaults to `false` when omitted.
+    ///
+    /// Return `true` only if the renderer starts at `survey.initialQuestionIndex`.
+    /// The SDK restores the saved answers and submission ID for that attempt.
+    /// Delegates that omit this property or return `false` start a fresh attempt at question 0.
+    ///
+    /// For example, a renderer that supports the restored position can opt in with:
+    /// ```swift
+    /// var supportsSurveyResume: Bool { true }
+    /// // In renderSurvey, initialize the renderer at survey.initialQuestionIndex.
+    /// ```
+    @objc optional var supportsSurveyResume: Bool { get }
+
     /// Called when an activated PostHog survey needs to be rendered on the app's UI
+    /// Delegates that opt in through `supportsSurveyResume` must start at
+    /// `survey.initialQuestionIndex` to resume an unfinished survey.
     ///
     /// - Parameters:
     ///   - survey: The survey to be displayed to the user
@@ -86,4 +101,10 @@ public typealias OnPostHogSurveyClosed = (_ survey: PostHogDisplaySurvey) -> Voi
     /// Called when surveys are stopped to clean up any UI elements and reset the survey display state.
     /// This method should handle the dismissal of any active surveys and cleanup of associated resources.
     @objc func cleanupSurveys()
+}
+
+struct SurveyCallbacks {
+    let shown: OnPostHogSurveyShown
+    let response: OnPostHogSurveyResponse
+    let closed: OnPostHogSurveyClosed
 }

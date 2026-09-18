@@ -458,6 +458,47 @@ class PostHogSurveyEventsTest {
         #expect(matching.isEmpty)
     }
 
+    @Test("custom delegates resume only when opted in", arguments: ["legacy", "disabled", "enabled"])
+    func customDelegateResume(capability: String) throws {
+        let postHog = getSut()
+        defer { postHog.reset()
+            postHog.close()
+        }
+        var events: [PostHogEvent] = []
+        postHog.config.setBeforeSend { events.append($0)
+            return nil
+        }
+        let survey = try partialResponseSurvey(enabled: true, properties: ["start_date": 0, "internal_targeting_flag_key": "already-answered"])
+        let first = try getSurveyIntegration(postHog)
+        first.setShownSurvey(survey)
+        _ = first.getNextQuestion(index: 0, response: .openEnded("Saved"))
+        let originalId = try #require(first.testActiveSubmissionId)
+        first.uninstall(postHog)
+
+        let supportsResume = capability == "enabled"
+        postHog.config._surveysConfig.surveysDelegate = capability == "legacy"
+            ? LegacySurveyDelegate() : ResumeSurveyDelegate(supportsResume)
+        let resumed = try getSurveyIntegration(postHog)
+        defer { resumed.uninstall(postHog) }
+        resumed.setSurveys([survey])
+        var matching: [PostHogSurvey] = []
+        resumed.getActiveMatchingSurveys { matching = $0 }
+        #expect(matching.count == (supportsResume ? 1 : 0))
+
+        resumed.setShownSurvey(survey)
+        #expect(resumed.testActiveQuestionIndex == (supportsResume ? 1 : 0))
+        #expect((resumed.testActiveSubmissionId == originalId) == supportsResume)
+        let callbacks = resumed.testSurveyCallbacks()
+        if !supportsResume {
+            let next = try #require(callbacks.response(survey.toDisplaySurvey(), 0, .openEnded(nil)))
+            #expect(next.questionIndex == 1)
+        }
+        let completed = try #require(callbacks.response(survey.toDisplaySurvey(), 1, .openEnded("Final")))
+        #expect(completed.isSurveyCompleted)
+        let sent = try #require(events.last { $0.event == "survey sent" })
+        #expect(sent.properties["$survey_response_first"] as? String == (supportsResume ? "Saved" : nil))
+    }
+
     @Test("new iterations and ended or removed surveys discard old progress", arguments: [false, true])
     func staleSurveyProgress(ended: Bool) throws {
         let postHog = getSut()
@@ -1037,5 +1078,25 @@ class PostHogSurveyEventsTest {
 
         postHog.close()
         postHog.reset()
+    }
+}
+
+private class LegacySurveyDelegate: NSObject, PostHogSurveysDelegate {
+    func renderSurvey(
+        _: PostHogDisplaySurvey,
+        onSurveyShown _: @escaping OnPostHogSurveyShown,
+        onSurveyResponse _: @escaping OnPostHogSurveyResponse,
+        onSurveyClosed _: @escaping OnPostHogSurveyClosed
+    ) {}
+
+    func cleanupSurveys() {}
+}
+
+private final class ResumeSurveyDelegate: LegacySurveyDelegate {
+    @objc let supportsSurveyResume: Bool
+
+    init(_ supportsSurveyResume: Bool) {
+        self.supportsSurveyResume = supportsSurveyResume
+        super.init()
     }
 }

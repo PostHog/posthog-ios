@@ -828,7 +828,8 @@
                 guard let storage else { return }
                 storage.withSurveyState { generation in
                     if activeSurvey == nil {
-                        let progress = progressStore?.load(survey) ?? SurveyProgress(
+                        let saved = supportsSurveyResume ? progressStore?.load(survey) : nil
+                        let progress = saved ?? SurveyProgress(
                             resetEpoch: generation, submissionId: UUID().uuidString,
                             questionOrder: SurveyProgress.questionOrder(for: survey)
                         )
@@ -846,14 +847,18 @@
                         activeSurveyResponseQuestionText = progress.questionText
                         activeSurveyResponseLanguage = progress.language
                         activeSurveyQuestionIndex = progress.questionIndex
-                        activeProgressWasPersisted = progressStore?.load(survey) != nil
+                        activeProgressWasPersisted = saved != nil
                     }
                 }
             }
         }
 
+        private var supportsSurveyResume: Bool {
+            config?._surveysConfig.surveysDelegate.supportsSurveyResume == true
+        }
+
         private func hasProgress(_ survey: PostHogSurvey) -> Bool {
-            progressStore?.load(survey) != nil
+            supportsSurveyResume && progressStore?.load(survey) != nil
         }
 
         private func persistActiveProgressLocked() {

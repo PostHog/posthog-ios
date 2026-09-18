@@ -115,9 +115,9 @@
         func accessibilityTraitsDetermineLogicalButtonRole(isButton: Bool) throws {
             let (window, host) = fixture(content: Color.clear
                 .accessibilityElement()
-                .accessibilityIdentifier("Checkout")
-                .accessibilityLabel("PRIVATE_DISPLAY_TEXT")
-                .accessibilityAddTraits(isButton ? .isButton : .isStaticText))
+                .accessibility(identifier: "Checkout")
+                .accessibility(label: Text("PRIVATE_DISPLAY_TEXT"))
+                .accessibility(addTraits: isButton ? .isButton : .isStaticText))
             let event = try #require(resolve(host, window, CGPoint(x: window.bounds.midX, y: window.bounds.midY)))
             #expect(event.viewHierarchy.first?.targetClass == (isButton ? "button" : "SwiftUIElement"))
             #expect(event.getElementChain().contains("attr__aria-label=\"Checkout\""))
@@ -128,8 +128,8 @@
         @Test func structuralFallbackIsNotAnAriaLabel() throws {
             let (window, host) = fixture(content: Color.clear
                 .accessibilityElement()
-                .accessibilityLabel("PRIVATE_DISPLAY_TEXT")
-                .accessibilityAddTraits(.isButton))
+                .accessibility(label: Text("PRIVATE_DISPLAY_TEXT"))
+                .accessibility(addTraits: .isButton))
             let event = try #require(resolve(host, window, CGPoint(x: window.bounds.midX, y: window.bounds.midY)))
             #expect(event.viewHierarchy.first?.label == "SwiftUIElement[0]")
             #expect(!event.getElementChain().contains("attr__aria-label"))
@@ -150,8 +150,8 @@
         func accessibilityLabelExclusionPreventsStructuralFallback(label: String) {
             let (window, host) = fixture(content: Color.clear
                 .accessibilityElement()
-                .accessibilityLabel(label)
-                .accessibilityAddTraits(.isButton))
+                .accessibility(label: Text(label))
+                .accessibility(addTraits: .isButton))
             #expect(resolve(host, window, CGPoint(x: window.bounds.midX, y: window.bounds.midY)) == nil)
         }
 

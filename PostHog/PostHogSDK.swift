@@ -588,12 +588,16 @@ let maxRetryDelay = 30.0
     }
 
     /// `$sdk_debug_session_start` / `$sdk_debug_current_session_duration` / `$sdk_debug_pending_queue_size`.
-    private func sessionDebugProperties() -> [String: Any] {
+    /// `at` is the event's resolved time, the same instant the session was resolved against: a
+    /// backdated capture that rotates the session reports 0, not the size of the backdate (js
+    /// measures against the latest snapshot's timestamp too). Clamped, since a backdated event
+    /// that doesn't rotate can predate the live session's start.
+    private func sessionDebugProperties(at eventTime: Date) -> [String: Any] {
         var props: [String: Any] = [:]
         if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
-            let nowSeconds = now().timeIntervalSince1970
+            let elapsed = eventTime.timeIntervalSince1970 - sessionStart
             props["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
-            props["$sdk_debug_current_session_duration"] = Int64((nowSeconds - sessionStart) * 1000)
+            props["$sdk_debug_current_session_duration"] = Int64(max(0, elapsed) * 1000)
         }
         if let depth = queue?.depth {
             props["$sdk_debug_pending_queue_size"] = depth
@@ -617,9 +621,10 @@ let maxRetryDelay = 30.0
         // Resolve the session before any $sdk_debug_* snapshot below: getSessionId(at:) can rotate
         // here, so the debug keys must describe the session this event lands in (mirrors posthog-js).
         // A caller-supplied $session_id wins so replay snapshots never land in the wrong session.
+        let eventTime = timestamp ?? now()
         let propSessionId = properties?["$session_id"] as? String
         let sessionId: String? = propSessionId.isNilOrEmpty
-            ? sessionManager.getSessionId(at: timestamp ?? now(), readOnly: readOnlySession)
+            ? sessionManager.getSessionId(at: eventTime, readOnly: readOnlySession)
             : propSessionId
 
         if appendSharedProps {
@@ -666,7 +671,7 @@ let maxRetryDelay = 30.0
             #else
                 props["$recording_status"] = "disabled"
             #endif
-            props.merge(sessionDebugProperties()) { _, new in new }
+            props.merge(sessionDebugProperties(at: eventTime)) { _, new in new }
 
             // Only stamp if the caller didn't supply a non-empty value —
             // `merging(properties)` below keeps the existing value on conflict,

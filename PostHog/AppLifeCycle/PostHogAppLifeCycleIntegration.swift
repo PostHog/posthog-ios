@@ -25,6 +25,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     private static var pendingInstallOrUpdate: (event: String, properties: [String: Any])?
 
     private weak var postHog: PostHogSDK?
+    private var ownsLifecycleCapture = false
 
     // True if the app is launched for the first time
     private var isFreshAppLaunch = true
@@ -44,6 +45,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
         }
 
         return installIfNeeded(using: Self.integrationInstallState) {
+            ownsLifecycleCapture = true
             self.postHog = postHog
 
             start()
@@ -52,12 +54,14 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     }
 
     func uninstall(_ postHog: PostHogSDK) {
-        guard self.postHog === postHog else { return }
+        // The weak SDK reference is already nil when uninstall runs from SDK deinit.
+        guard ownsLifecycleCapture else { return }
 
         uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
             // uninstall only for integration instance
             stop()
             self.postHog = nil
+            ownsLifecycleCapture = false
         }
     }
 

@@ -130,6 +130,30 @@ class PostHogIntegrationInstallationTest {
         second.close()
     }
 
+    @Test("lifecycle ownership is released when the SDK is released", arguments: [false, true])
+    func lifecycleOwnershipReleasedWithSDK(explicitClose: Bool) throws {
+        var first: PostHogSDK? = getSut(
+            projectToken: "test_project_token",
+            captureApplicationLifecycleEvents: true,
+            enableSwizzling: false
+        )
+        weak var released = first
+        #expect(first?.getAppLifeCycleIntegration() != nil)
+        if explicitClose {
+            first?.close()
+        }
+        first = nil
+        try #require(released == nil)
+
+        let replacement = getSut(
+            projectToken: "test_project_token",
+            captureApplicationLifecycleEvents: true,
+            enableSwizzling: false
+        )
+        defer { replacement.close() }
+        #expect(replacement.getAppLifeCycleIntegration() != nil)
+    }
+
     @Test("screen view integration installed only once, on first instance")
     func screenViewIntegrationInstalledOnce() async {
         let first = getSut(projectToken: "test_project_token", captureScreenViews: true)

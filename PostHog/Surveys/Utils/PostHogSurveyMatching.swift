@@ -326,4 +326,12 @@
         }
     }
 
+    #if TESTING
+        extension PostHogSurveyMatchType {
+            var matchFunction: (_ targets: [String], _ value: String) -> Bool {
+                matches
+            }
+        }
+    #endif
+
 #endif

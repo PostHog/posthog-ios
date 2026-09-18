@@ -26,94 +26,28 @@ struct TrackedRequest: Codable {
 
 /// URLProtocol subclass that intercepts all HTTP requests
 class RequestInterceptor: URLProtocol {
-    static var trackedRequests: [TrackedRequest] = []
-    static var totalEventsSent: Int = 0
-
-    private static let condition = NSCondition()
-    private static var _inFlightCount = 0
-    private static let proxySession = URLSession(configuration: .default)
-
-    static var inFlightCount: Int {
-        condition.lock()
-        defer { condition.unlock() }
-        return _inFlightCount
-    }
-
-    private static func incrementInFlight() {
-        condition.lock()
-        _inFlightCount += 1
-        condition.broadcast()
-        condition.unlock()
-    }
-
-    private static func decrementInFlight() {
-        condition.lock()
-        _inFlightCount = max(0, _inFlightCount - 1)
-        condition.broadcast()
-        condition.unlock()
-    }
-
-    /// Returns once the in-flight count has been 0 for `stabilityWindow` after seeing at least
-    /// one request, or after `gracePeriod` if nothing flew. Times out after `timeout`.
-    static func waitForFlushSettle(
-        timeout: TimeInterval = 30.0,
-        gracePeriod: TimeInterval = 0.1,
-        stabilityWindow: TimeInterval = 2.5
-    ) async {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global().async {
-                let absoluteDeadline = Date().addingTimeInterval(timeout)
-                var sawRequest = false
-                var idleSince: Date?
-
-                condition.lock()
-                defer { condition.unlock() }
-
-                while Date() < absoluteDeadline {
-                    if _inFlightCount > 0 {
-                        sawRequest = true
-                        idleSince = nil
-                    } else if idleSince == nil {
-                        idleSince = Date()
-                    }
-
-                    let wakeBy: Date = {
-                        guard let since = idleSince else { return absoluteDeadline }
-                        let window = sawRequest ? stabilityWindow : gracePeriod
-                        return min(since.addingTimeInterval(window), absoluteDeadline)
-                    }()
-
-                    if Date() >= wakeBy {
-                        if _inFlightCount == 0 {
-                            continuation.resume()
-                            return
-                        }
-                        continue
-                    }
-
-                    condition.wait(until: wakeBy)
-                }
-                print("[INTERCEPTOR] waitForFlushSettle timed out after \(timeout)s with \(_inFlightCount) in flight")
-                continuation.resume()
-            }
+    private static let trackerLock = NSLock()
+    private static var currentTracker = RequestTracker()
+    static var tracker: RequestTracker {
+        get {
+            trackerLock.lock()
+            defer { trackerLock.unlock() }
+            return currentTracker
+        }
+        set {
+            trackerLock.lock()
+            defer { trackerLock.unlock() }
+            currentTracker = newValue
         }
     }
+
+    private static let proxySession = URLSession(configuration: .default)
+    private var proxyTask: URLSessionDataTask?
 
     override class func canInit(with request: URLRequest) -> Bool {
-        // Only intercept requests to the mock server (not to real PostHog endpoints)
-        guard let url = request.url else { return false }
-
-        // Intercept /batch and /e/ endpoints, but not /flags/ or /config
-        let urlString = url.absoluteString
-        if urlString.contains("/batch") || urlString.contains("/e/") || urlString.contains("/s/"),
-           !urlString.contains("/flags"),
-           !urlString.contains("/config")
-        {
-            print("[INTERCEPTOR] Can handle: \(urlString)")
-            return true
-        }
-
-        return false
+        // Flags use the SDK's session directly. Only analytics uploads need passive
+        // UUID/acknowledgment observation for the adapter's flush and state endpoints.
+        request.url?.path == "/batch"
     }
 
     override class func canonicalRequest(for request: URLRequest) -> URLRequest {
@@ -135,11 +69,10 @@ class RequestInterceptor: URLProtocol {
         // Actually perform the request. Keep the proxy session alive for the process;
         // a local URLSession can be deallocated while the task is still running, which
         // leaves /flush waiting forever for in-flight interception to settle.
-        let task = Self.proxySession.dataTask(with: proxiedRequest) { [weak self] data, response, error in
-            // Decrement only after every URLProtocol client callback has fired, so the SDK
-            // has fully processed the response (including any sync retry/queue hand-off)
-            // before waitForFlushSettle can see in-flight = 0.
-            defer { Self.decrementInFlight() }
+        let tracker = Self.tracker
+        let startedAt = Int64(Date().timeIntervalSince1970 * 1000)
+        proxyTask = Self.proxySession.dataTask(with: proxiedRequest) { [weak self] data, response, error in
+            defer { tracker.endRequest() }
             print("[INTERCEPTOR] Task completed for: \(proxiedRequest.url?.absoluteString ?? "nil"), error: \(error?.localizedDescription ?? "none")")
             guard let self = self else { return }
 
@@ -154,7 +87,8 @@ class RequestInterceptor: URLProtocol {
             }
 
             // Track the request (pass the captured body)
-            self.trackRequest(request: proxiedRequest, response: httpResponse, requestBody: requestBody)
+            self.trackRequest(request: proxiedRequest, response: httpResponse, requestBody: requestBody,
+                              tracker: tracker, startedAt: startedAt)
 
             // Forward the response to the client in URLProtocol's expected order.
             self.client?.urlProtocol(self, didReceive: httpResponse, cacheStoragePolicy: .notAllowed)
@@ -163,12 +97,12 @@ class RequestInterceptor: URLProtocol {
             }
             self.client?.urlProtocolDidFinishLoading(self)
         }
-        Self.incrementInFlight()
-        task.resume()
+        tracker.beginRequest()
+        proxyTask?.resume()
     }
 
     override func stopLoading() {
-        // Nothing to do
+        proxyTask?.cancel()
     }
 
     private static func extractBody(from request: URLRequest) -> Data? {
@@ -200,7 +134,9 @@ class RequestInterceptor: URLProtocol {
         return data.isEmpty ? nil : data
     }
 
-    private func trackRequest(request: URLRequest, response: HTTPURLResponse, requestBody: Data?) {
+    private func trackRequest(request: URLRequest, response: HTTPURLResponse, requestBody: Data?,
+                              tracker: RequestTracker, startedAt: Int64)
+    {
         guard let url = request.url else { return }
 
         print("[INTERCEPTOR] Tracking request to: \(url.absoluteString)")
@@ -248,42 +184,7 @@ class RequestInterceptor: URLProtocol {
             }
         }
 
-        // Extract retry count from URL
-        let retryCount: Int
-        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-           let retryParam = components.queryItems?.first(where: { $0.name == "retry_count" }),
-           let retryValue = retryParam.value,
-           let retry = Int(retryValue)
-        {
-            retryCount = retry
-        } else {
-            retryCount = 0
-        }
-
-        let trackedRequest = TrackedRequest(
-            timestampMs: Int64(Date().timeIntervalSince1970 * 1000),
-            statusCode: response.statusCode,
-            retryAttempt: retryCount,
-            eventCount: eventCount,
-            uuidList: uuidList
-        )
-
-        RequestInterceptor.trackedRequests.append(trackedRequest)
-
-        if response.statusCode == 200 {
-            RequestInterceptor.totalEventsSent += eventCount
-            print("[INTERCEPTOR] Successfully sent \(eventCount) events (total: \(RequestInterceptor.totalEventsSent))")
-        }
-    }
-
-    static func reset() {
-        trackedRequests = []
-        totalEventsSent = 0
-        condition.lock()
-        _inFlightCount = 0
-        condition.broadcast()
-        condition.unlock()
-        print("[INTERCEPTOR] Reset state")
+        tracker.observeResponse(status: response.statusCode, uuids: uuidList, timestampMs: startedAt)
     }
 }
 

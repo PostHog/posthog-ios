@@ -1,4 +1,9 @@
-# PostHog iOS SDK Compliance Adapter - Work in Progress
+# PostHog iOS SDK Compliance Adapter - Historical Notes
+
+> This is the original adapter development log, not current SDK behavior or test
+> results. Its retry, body-observation, SDK-classification, and API proposals are
+> obsolete. See [README.md](README.md) for the current public-API macOS profile and
+> read the latest CI artifacts for results.
 
 ## Final Results
 

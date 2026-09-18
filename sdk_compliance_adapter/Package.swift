@@ -23,5 +23,10 @@ let package = Package(
                 .define("TESTING"),
             ]
         ),
+        .testTarget(
+            name: "AdapterTests",
+            dependencies: ["PostHogIOSComplianceAdapter"],
+            path: "Tests"
+        ),
     ]
 )

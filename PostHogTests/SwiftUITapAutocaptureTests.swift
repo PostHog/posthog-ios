@@ -1,11 +1,58 @@
 #if os(iOS)
     @testable import PostHog
+    import SwiftUI
     import Testing
     import UIKit
 
     @Suite(.serialized)
     @MainActor
     struct SwiftUITapAutocaptureTests {
+        @Test func hostingNamedUIKitViewKeepsGestureCapture() {
+            let view = ImageHostingView()
+            let processor = TapTestProcessor()
+            let previousProcessor = PostHogAutocaptureEventTracker.eventProcessor
+            PostHogAutocaptureEventTracker.eventProcessor = processor
+            defer { PostHogAutocaptureEventTracker.eventProcessor = previousProcessor }
+            let tap = UITapGestureRecognizer()
+            view.addGestureRecognizer(tap)
+            tap.state = .ended
+            #expect(processor.events.count == 1)
+            #expect(processor.events.first?.viewHierarchy.first?.targetClass == "ImageHostingView")
+        }
+
+        @Test func genuineSwiftUIHostingViewCapturesOnlyThroughTouchObserver() {
+            guard #available(iOS 13.4, *) else { return }
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let controller = UIHostingController(rootView: Color.clear)
+            window.rootViewController = controller
+            window.isHidden = false
+            let host = controller.view!
+            host.accessibilityIdentifier = "swiftui-dedup-target"
+            let publisher = TapTestPublisher()
+            let processor = TapTestProcessor()
+            let observer = SwiftUITapAutocapture(processor: processor, publisher: publisher)
+            let previousProcessor = PostHogAutocaptureEventTracker.eventProcessor
+            PostHogAutocaptureEventTracker.eventProcessor = processor
+            observer.setEnabled(true)
+            defer {
+                observer.setEnabled(false)
+                PostHogAutocaptureEventTracker.eventProcessor = previousProcessor
+                window.isHidden = true
+            }
+            let touch = PointerTestTouch(target: host, window: window)
+            let event = PointerTestEvent(touch: touch)
+            publisher.onApplicationEvent.invoke((event, Date()))
+            let tap = UITapGestureRecognizer()
+            host.addGestureRecognizer(tap)
+            tap.state = .ended
+            #expect(processor.events.isEmpty)
+            touch.recordedPhase = .ended
+            touch.recordedTimestamp = 1.1
+            publisher.onApplicationEvent.invoke((event, Date()))
+            #expect(processor.events.count == 1)
+            #expect(processor.events.first?.viewHierarchy.first?.label == "swiftui-dedup-target")
+        }
+
         @Test func tapClassifierAcceptsShortStationaryTouchOnlyOnce() {
             var classifier = SwiftUITapClassifier()
             classifier.begin(at: .zero, timestamp: 10)
@@ -58,7 +105,7 @@
             host.addSubview(marker)
             let event = try #require(resolve(host, window, CGPoint(x: 20, y: 20)))
             #expect(event.viewHierarchy.first?.targetClass == "SwiftUIElement")
-            #expect(event.getElementChain().hasPrefix("SwiftUIElement:attr_id=\"Product card\"attr__aria-label=\"Product card\";PrototypeHostingView"))
+            #expect(event.getElementChain().hasPrefix("SwiftUIElement:attr_id=\"Product card\"attr__aria-label=\"Product card\";"))
             #expect(event.viewHierarchy.dropFirst().first?.label == nil)
             let hasNoDisplayText = event.viewHierarchy.allSatisfy(\.text.isEmpty)
             #expect(hasNoDisplayText)
@@ -66,27 +113,24 @@
 
         @Test(arguments: [true, false])
         func accessibilityTraitsDetermineLogicalButtonRole(isButton: Bool) throws {
-            let (window, host) = fixture()
-            let element = UIAccessibilityElement(accessibilityContainer: host)
-            element.accessibilityFrame = window.convert(CGRect(x: 0, y: 0, width: 100, height: 60), to: window.screen.coordinateSpace)
-            element.accessibilityIdentifier = "Checkout"
-            element.accessibilityLabel = "PRIVATE_DISPLAY_TEXT"
-            element.accessibilityTraits = isButton ? .button : .staticText
-            host.accessibilityElements = [element]
-            let event = try #require(resolve(host, window, CGPoint(x: 20, y: 20)))
+            let (window, host) = fixture(content: Color.clear
+                .accessibilityElement()
+                .accessibilityIdentifier("Checkout")
+                .accessibilityLabel("PRIVATE_DISPLAY_TEXT")
+                .accessibilityAddTraits(isButton ? .isButton : .isStaticText))
+            let event = try #require(resolve(host, window, CGPoint(x: window.bounds.midX, y: window.bounds.midY)))
             #expect(event.viewHierarchy.first?.targetClass == (isButton ? "button" : "SwiftUIElement"))
             #expect(event.getElementChain().contains("attr__aria-label=\"Checkout\""))
             #expect(!event.getElementChain().contains("PRIVATE_DISPLAY_TEXT"))
-            #expect(event.viewHierarchy.dropFirst().first?.targetClass == "PrototypeHostingView")
+            #expect(event.viewHierarchy.dropFirst().first?.targetClass == String(describing: type(of: host)).components(separatedBy: "<").first)
         }
 
         @Test func structuralFallbackIsNotAnAriaLabel() throws {
-            let (window, host) = fixture()
-            let element = UIAccessibilityElement(accessibilityContainer: host)
-            element.accessibilityFrame = window.convert(CGRect(x: 0, y: 0, width: 100, height: 60), to: window.screen.coordinateSpace)
-            element.accessibilityTraits = .button
-            host.accessibilityElements = [element]
-            let event = try #require(resolve(host, window, CGPoint(x: 20, y: 20)))
+            let (window, host) = fixture(content: Color.clear
+                .accessibilityElement()
+                .accessibilityLabel("PRIVATE_DISPLAY_TEXT")
+                .accessibilityAddTraits(.isButton))
+            let event = try #require(resolve(host, window, CGPoint(x: window.bounds.midX, y: window.bounds.midY)))
             #expect(event.viewHierarchy.first?.label == "SwiftUIElement[0]")
             #expect(!event.getElementChain().contains("attr__aria-label"))
         }
@@ -104,13 +148,11 @@
 
         @Test(arguments: ["ph-no-capture", "Private PH-NO-CAPTURE control"])
         func accessibilityLabelExclusionPreventsStructuralFallback(label: String) {
-            let (window, host) = fixture()
-            let element = UIAccessibilityElement(accessibilityContainer: host)
-            element.accessibilityFrame = window.convert(CGRect(x: 0, y: 0, width: 100, height: 60), to: window.screen.coordinateSpace)
-            element.accessibilityTraits = .button
-            element.accessibilityLabel = label
-            host.accessibilityElements = [element]
-            #expect(resolve(host, window, CGPoint(x: 20, y: 20)) == nil)
+            let (window, host) = fixture(content: Color.clear
+                .accessibilityElement()
+                .accessibilityLabel(label)
+                .accessibilityAddTraits(.isButton))
+            #expect(resolve(host, window, CGPoint(x: window.bounds.midX, y: window.bounds.midY)) == nil)
         }
 
         @Test func smallestNestedMarkerWins() {
@@ -289,11 +331,16 @@
         }
 
         private func fixture() -> (UIWindow, UIView) {
+            fixture(content: Color.clear)
+        }
+
+        private func fixture<Content: View>(content: Content) -> (UIWindow, UIView) {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
-            let host = PrototypeHostingView(frame: window.bounds)
-            window.addSubview(host)
+            let controller = UIHostingController(rootView: content.edgesIgnoringSafeArea(.all))
+            window.rootViewController = controller
             window.isHidden = false
-            return (window, host)
+            controller.view.layoutIfNeeded()
+            return (window, controller.view)
         }
 
         private func resolve(_ view: UIView, _ window: UIWindow, _ point: CGPoint) -> PostHogAutocaptureEventTracker.EventData? {
@@ -305,7 +352,7 @@
         @objc var accessibilityIdentifier: String?
     }
 
-    private final class PrototypeHostingView: UIView {}
+    private final class ImageHostingView: UIView {}
 
     private final class TapTestPublisher: ApplicationEventPublishing {
         var subscriberCount = 0

@@ -204,8 +204,8 @@
         }
 
         static func isSwiftUI(_ view: UIView) -> Bool {
-            let name = String(describing: type(of: view))
-            return name.contains("Hosting") || name.contains("SwiftUI") || name.hasPrefix("PlatformGroup")
+            let name = String(reflecting: type(of: view))
+            return name.hasPrefix("SwiftUI.") || name.hasPrefix("SwiftUICore.")
         }
 
         /// Public accessibility-container APIs support flattened SwiftUI views without depending

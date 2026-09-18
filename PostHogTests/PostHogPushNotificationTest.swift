@@ -1422,6 +1422,33 @@
                 #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
             }
 
+            @Test("an app-owned token survives optOut/optIn: DELETE then a fresh POST, no flush needed")
+            func sdkAppOwnedTokenSurvivesOptOutRoundTrip() async throws {
+                let sut = getSDK()
+                defer { sut.close() }
+
+                sut.registerPushNotificationToken("deadbeef01", appId: "com.example.app")
+                #expect(await waitFor { self.server.pushSubscriptionRequests.count == 1 })
+
+                sut.optOut()
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+
+                sut.optIn()
+
+                // Neither the app nor flush() re-registers the token: opt-in alone resubscribes from the
+                // parked record, under whatever identity is current by then (opt-out rotates the anonymous id).
+                #expect(await waitFor {
+                    guard let delete = self.server.pushSubscriptionRequests.firstIndex(where: { $0.httpMethod == "DELETE" }) else {
+                        return false
+                    }
+                    return self.server.pushSubscriptionRequests[delete...].contains { $0.httpMethod == "POST" }
+                })
+                #expect(server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count == 1)
+                let last = try #require(server.pushSubscriptionRequests.last)
+                let resent = try #require(server.parseRequest(last))
+                #expect(resent["device_token"] as? String == "deadbeef01")
+            }
+
             @Test("opted out: unregisterPushNotificationToken sends no request")
             func sdkUnregisterNoRequestWhenOptedOut() async throws {
                 let sut = getSDK(optOut: true)
@@ -1461,13 +1488,21 @@
             sut.storage?.setDictionary(forKey: .pushSubscription, contents: [
                 "deviceToken": "deadbeef",
                 "appId": "com.example.test",
+                "deliveredForDistinctId": "user-old",
             ])
 
             sut.flush()
 
             #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
             #expect(server.pushSubscriptionRequests.allSatisfy { $0.httpMethod == "DELETE" })
-            #expect(await waitFor { sut.storage?.getDictionary(forKey: .pushSubscription) == nil })
+            let del = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
+            #expect(try #require(server.parseRequest(del))["distinct_id"] as? String == "user-old")
+
+            // The record is parked rather than removed, so opting back in resubscribes this device.
+            let storage = try #require(sut.storage)
+            let parked = try #require(record(storage))
+            #expect(parked["deviceToken"] == "deadbeef")
+            #expect(parked["deliveredForDistinctId"] == nil)
         }
 
         @Test("setup retries a persisted subscription from a previous launch")
@@ -1495,6 +1530,42 @@
             #expect(await waitFor { self.server.pushSubscriptionRequests.count == 1 })
             let body = try #require(server.parseRequest(server.pushSubscriptionRequests[0]))
             #expect(body["device_token"] as? String == "tok-from-last-launch")
+        }
+
+        @Test("config.optOut before setup: one DELETE, the record parked, nothing on a later flush")
+        func optedOutSetupUnregistersOnceAndParksRecord() async throws {
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            config.optOut = true
+            config.captureApplicationLifecycleEvents = false
+            config.captureScreenViews = false
+            config.capturePushNotificationSubscriptions = false
+            config.capturePushNotificationOpened = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+
+            let storage = PostHogStorage(config)
+            storage.reset()
+            storage.remove(key: .pushPendingUnregister)
+            storage.setDictionary(forKey: .pushSubscription, contents: [
+                "deviceToken": "tok-from-last-launch",
+                "appId": "com.example.test",
+                "deliveredForDistinctId": "user-old",
+            ])
+
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.count == 1 })
+            let del = try #require(server.pushSubscriptionRequests.first)
+            #expect(del.httpMethod == "DELETE")
+            #expect(try #require(server.parseRequest(del))["distinct_id"] as? String == "user-old")
+            #expect(try #require(record(storage))["deliveredForDistinctId"] == nil)
+
+            sut.flush()
+
+            try await Task.sleep(nanoseconds: 300_000_000)
+            #expect(server.pushSubscriptionRequests.count == 1)
         }
 
         @Test("reset re-registers the persisted push subscription instead of dropping it (decision 5/6)")
@@ -2053,15 +2124,22 @@
 
         @Test("opt-out unregisters the device so Workflows stop targeting it")
         func optOutUnregistersDevice() async throws {
-            let (handler, storage, _) = makeHandler()
+            let lock = NSLock()
+            var allowed = true
+            let (handler, storage, _) = makeHandler(isAllowedProvider: { lock.withLock { allowed } })
 
             handler.send(deviceToken: "abcdef", appId: "com.example.app")
             #expect(await waitFor { self.delivered(storage) })
 
+            // optOut() flips the consent gate before calling the handler; without that the parked
+            // record would read as a queued registration for this identity and supersede the DELETE.
+            lock.withLock { allowed = false }
             handler.onOptOut()
 
             #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
-            #expect(record(storage) == nil)
+            let parked = try #require(record(storage))
+            #expect(parked["deviceToken"] == "abcdef")
+            #expect(parked["deliveredForDistinctId"] == nil)
         }
 
         @Test("opt-out DELETEs the identity the subscription was delivered to, not the current one")
@@ -2082,7 +2160,135 @@
             #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
             let del = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
             #expect(try #require(server.parseRequest(del))["distinct_id"] as? String == "anon-1")
-            #expect(record(storage) == nil)
+            // The token is parked, not forgotten: opt-in resubscribes it under the current identity.
+            #expect(try #require(record(storage))["deliveredForDistinctId"] == nil)
+        }
+
+        @Test("opting back in resubscribes the parked token without a second DELETE")
+        func optInResubscribesParkedToken() async throws {
+            let lock = NSLock()
+            var allowed = true
+            let (handler, storage, _) = makeHandler(isAllowedProvider: { lock.withLock { allowed } })
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+
+            lock.withLock { allowed = false }
+            handler.onOptOut()
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+
+            lock.withLock { allowed = true }
+            handler.retryIfNeeded()
+
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.filter { $0.httpMethod == "POST" }.count == 2)
+            #expect(server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count == 1)
+        }
+
+        @Test("an opted-out flush does not delete a record already parked by opt-out")
+        func optedOutFlushDoesNotRedeleteParkedRecord() async throws {
+            let lock = NSLock()
+            var allowed = true
+            let (handler, storage, _) = makeHandler(isAllowedProvider: { lock.withLock { allowed } })
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+
+            lock.withLock { allowed = false }
+            handler.onOptOut()
+            #expect(await waitFor { !handler.hasPendingUnregisterForTesting })
+
+            handler.retryIfNeeded()
+            handler.retryIfNeeded()
+
+            try await Task.sleep(nanoseconds: 300_000_000)
+            #expect(server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count == 1)
+        }
+
+        @Test("an offline flush while opted out does not clear the opt-out's own DELETE")
+        func offlineOptedOutFlushKeepsItsOwnDelete() async throws {
+            let lock = NSLock()
+            var allowed = true
+            var connected = true
+            let (handler, storage, _) = makeHandler(
+                isConnectedProvider: { lock.withLock { connected } },
+                isAllowedProvider: { lock.withLock { allowed } }
+            )
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+
+            lock.withLock {
+                connected = false
+                allowed = false
+            }
+            handler.onOptOut()
+            handler.retryIfNeeded()
+
+            try await Task.sleep(nanoseconds: 200_000_000)
+            #expect(server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.isEmpty)
+            // The parked record names the same identity as the intent, so without the opt-out gate the
+            // supersede rule would read it as a queued registration and drop the DELETE unsent.
+            #expect(handler.hasPendingUnregisterForTesting)
+
+            lock.withLock { connected = true }
+            handler.retryIfNeeded()
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+        }
+
+        @Test("an undelivered record does not overwrite a pending unregister for another identity")
+        func undeliveredRecordKeepsQueuedUnregister() async throws {
+            let (handler, storage, _) = makeHandler(distinctIdProvider: { "anon-2" }, isConnectedProvider: { false })
+
+            storage.setDictionary(forKey: .pushPendingUnregister, contents: [
+                "distinctId": "user-1",
+                "deviceToken": "abcdef",
+                "appId": "com.example.app",
+            ])
+            storage.setDictionary(forKey: .pushSubscription, contents: [
+                "deviceToken": "abcdef",
+                "appId": "com.example.app",
+            ])
+
+            handler.unregisterCurrentToken()
+
+            try await Task.sleep(nanoseconds: 200_000_000)
+            let slot = try #require(storage.getDictionary(forKey: .pushPendingUnregister) as? [String: String])
+            #expect(slot["distinctId"] == "user-1")
+            #expect(server.pushSubscriptionRequests.isEmpty)
+        }
+
+        @Test("an offline reset then opt-out still DELETEs the logged-out identity")
+        func offlineResetThenOptOutDeletesLoggedOutIdentity() async throws {
+            let lock = NSLock()
+            var distinctId = "user-1"
+            var connected = true
+            var allowed = true
+            let (handler, _, _) = makeHandler(
+                distinctIdProvider: { lock.withLock { distinctId } },
+                isConnectedProvider: { lock.withLock { connected } },
+                isAllowedProvider: { lock.withLock { allowed } }
+            )
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { self.server.pushSubscriptionRequests.count == 1 })
+
+            // reset() while offline: DELETE for user-1 is queued, the token re-registers as anon-2.
+            lock.withLock { connected = false }
+            let snapshot = try #require(handler.recordForReset())
+            handler.unregister(distinctId: "user-1", deviceToken: snapshot.deviceToken, appId: snapshot.appId)
+            lock.withLock { distinctId = "anon-2" }
+            handler.reregisterAfterReset(deviceToken: snapshot.deviceToken, appId: snapshot.appId)
+
+            lock.withLock { allowed = false }
+            handler.onOptOut()
+
+            lock.withLock { connected = true }
+            handler.retryIfNeeded()
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            let del = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
+            #expect(try #require(server.parseRequest(del))["distinct_id"] as? String == "user-1")
         }
 
         @available(iOS 14.0, macOS 11.0, *)

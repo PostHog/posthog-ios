@@ -288,8 +288,9 @@ let maxRetryDelay = 30.0
                 }
             #endif
 
-            // Next-launch retry for a persisted, not-yet-delivered push subscription
-            // (no-ops while opted out, offline, or when the record was already delivered).
+            // Next-launch retry for a persisted, not-yet-delivered push subscription (no-ops while
+            // offline or when the record was already delivered). While opted out it unregisters a
+            // still-delivered record instead, covering `config.optOut = true` set before `setup()`.
             pushSubscriptionHandler?.retryIfNeeded()
 
             // Flush the queue when the app enters background to ensure
@@ -2479,6 +2480,8 @@ let maxRetryDelay = 30.0
             notifyExceptionStepsDidChange()
         }
 
+        pushSubscriptionHandler?.onOptIn()
+
         #if os(iOS)
             // A prior logout unregister cleared the push token; opt-in re-installs the subscription
             // integration above but that alone doesn't refetch the token. Re-request it so the
@@ -2497,9 +2500,8 @@ let maxRetryDelay = 30.0
     /// This persists the opt-out state, unless opt-out persistence is disabled, stops integrations,
     /// and causes future capture calls to be ignored.
     /// It also unregisters this device's push subscription, so Workflows stop sending it notifications.
-    /// `optIn()` re-registers the device when the SDK owns the token (`capturePushNotificationSubscriptions`
-    /// with swizzling enabled); an app that registers tokens itself calls
-    /// `registerPushNotificationToken(_:)` again after opting back in.
+    /// The device token itself is kept, so `optIn()` resubscribes this device on its own — on the next
+    /// `flush()` or launch at the latest — with no further call from the app.
     @objc public func optOut() {
         if !isEnabled() {
             return

@@ -29,6 +29,10 @@ final class PostHogPushSubscriptionHandler {
     /// Single-slot, last-write-wins: only one identity's unregister can be pending at a time. Two
     /// overlapping logouts (rapid double-reset) drop the older intent — acceptable given one device token
     /// and how rare that is; a per-identity queue would be the fix if it ever matters.
+    ///
+    /// A record with no delivered stamp never overwrites an occupied slot: nothing is stored server-side
+    /// under the current id for its DELETE to remove. The gap: a record whose 2xx was lost carries no
+    /// stamp either, so the older intent wins over its DELETE. Only the per-identity queue closes that.
     private struct PendingUnregister: Equatable {
         let distinctId: String
         let deviceToken: String
@@ -57,7 +61,9 @@ final class PostHogPushSubscriptionHandler {
     private let isConnectedProvider: () -> Bool
     /// Gates every network attempt (send, flush retry, identity-change resend): `false` while the
     /// SDK is disabled or opted out. While the SDK is only disabled the record is kept, so a later
-    /// launch can resume it; an opt-out unregisters the device instead (see `onOptOut()`).
+    /// launch can resume it; an opt-out unregisters the device and parks the token instead. The
+    /// supersede rule (a queued DELETE yields to a queued registration) is gated on this too: while
+    /// opted out an undelivered record is parked, not queued.
     private let isAllowedProvider: () -> Bool
 
     /// Gates cleanup (the unregister DELETE): `false` only while the SDK is disabled. Unlike
@@ -219,7 +225,7 @@ final class PostHogPushSubscriptionHandler {
             (loadRecordLocked(), loadPendingUnregisterLocked())
         }
         if let pending {
-            if let record, pending.distinctId == distinctIdProvider(), pending.appId == record.appId {
+            if supersedes(pending, record: record, isAllowed: isAllowedProvider(), currentDistinctId: distinctIdProvider()) {
                 clearPendingUnregister(matching: pending)
             } else {
                 attemptUnregister(pending)
@@ -230,10 +236,13 @@ final class PostHogPushSubscriptionHandler {
 
         // Enabled but opted out: the stored subscription must not outlive the opt-out, so delete it
         // instead of retrying the POST. This is the only path that reaches a record left behind by
-        // `config.optOut = true` set before `setup()`, or by an opt-out on an older SDK version.
+        // `config.optOut = true` set before `setup()`, or by an opt-out on an older SDK version. A
+        // record with no delivered stamp is already parked, so it isn't deleted again on every flush.
         if isEnabledProvider(), !isAllowedProvider() {
-            hedgeLog("Push subscription removed: the app is opted out.")
-            unregisterCurrentToken()
+            if record.deliveredForDistinctId != nil, let pending = parkForOptOut() {
+                hedgeLog("Push subscription unregistered: the app is opted out.")
+                attemptUnregister(pending)
+            }
             return
         }
 
@@ -285,13 +294,20 @@ final class PostHogPushSubscriptionHandler {
         resolveIdentityToken(distinctId: pending.distinctId, appId: pending.appId) { [weak self] identityToken in
             guard let self, isEnabledProvider() else { return }
             // A registration may have superseded this intent while the mint was in flight (re-login
-            // during a slow mint) — re-apply the same supersede rule the retry drain uses, and bail if
-            // the intent was already cleared/replaced by something else in the meantime.
-            guard loadPendingUnregister() == pending else { return }
-            if let record = loadRecord(), pending.distinctId == distinctIdProvider(), pending.appId == record.appId {
-                clearPendingUnregister(matching: pending)
-                return
+            // during a slow mint): re-apply the supersede rule and bail if the intent was already
+            // cleared or replaced. One lock covers the re-check, record read, and clear, so a torn
+            // read can't drop a DELETE that has nothing left on disk to retry from.
+            let isAllowed = isAllowedProvider()
+            let currentDistinctId = distinctIdProvider()
+            let stillPending = recordLock.withLock { () -> Bool in
+                guard self.loadPendingUnregisterLocked() == pending else { return false }
+                if self.supersedes(pending, record: self.loadRecordLocked(), isAllowed: isAllowed, currentDistinctId: currentDistinctId) {
+                    self.clearPendingUnregisterLocked(matching: pending)
+                    return false
+                }
+                return true
             }
+            guard stillPending else { return }
             performSerialized { done in
                 self.api.deletePushSubscription(
                     distinctId: pending.distinctId, deviceToken: pending.deviceToken, appId: pending.appId,
@@ -376,14 +392,17 @@ final class PostHogPushSubscriptionHandler {
     /// The load-then-clear is atomic so a concurrent `send()` can't slip a new token in between and
     /// have it silently dropped.
     func unregisterCurrentToken() {
-        let record: PendingRecord? = recordLock.withLock {
+        let record: PendingRecord? = recordLock.withLock { () -> PendingRecord? in
             guard let record = loadRecordLocked() else { return nil }
+            // A record with no delivered stamp has nothing stored server-side, so its fallback DELETE
+            // keyed on the current id could only evict the older intent already in the slot.
+            let supersedesNothing = record.deliveredForDistinctId == nil && loadPendingUnregisterLocked() != nil
             storage.remove(key: .pushSubscription)
             cachedDeliveredDistinctId = .some(nil)
-            return record
+            return supersedesNothing ? nil : record
         }
         guard let record else {
-            hedgeLog("Push unregister skipped: no registered token.")
+            hedgeLog("Push unregister skipped: no registered token, or an unregister for another identity is already queued.")
             return
         }
         unregister(
@@ -400,12 +419,52 @@ final class PostHogPushSubscriptionHandler {
     /// already stored on the person keeps Workflows targeting this device, so the user can still
     /// receive a push after opting out. The DELETE intent is durable, so an offline opt-out lands on
     /// the next `flush()`/launch.
+    ///
+    /// The token itself is kept, parked without its delivered stamp, so `optIn()` can resubscribe this
+    /// device without the host re-registering the token.
     func onOptOut() {
         stateLock.withLock {
             cachedIdentityToken = nil
             didAuthRetry = false
         }
-        unregisterCurrentToken()
+        guard let pending = parkForOptOut() else { return }
+        attemptUnregister(pending)
+    }
+
+    /// Opt-in resubscribes the parked token without waiting for the next `flush()`/launch. Off the
+    /// caller's thread: `optIn()` is public API, often called from the main thread, and the retry reads
+    /// disk.
+    func onOptIn() {
+        workQueue.async { [weak self] in self?.retryIfNeeded() }
+    }
+
+    /// Parks the stored token by dropping its delivered stamp and persists the DELETE intent for the
+    /// identity the server holds it under, all in one lock so a concurrent opt-out and flush can't queue
+    /// two different intents into the single slot. With no stamp and a free slot, the current id is
+    /// tried in case the 2xx was lost; it costs nothing. Returns the intent to attempt, or nil.
+    private func parkForOptOut() -> PendingUnregister? {
+        let currentDistinctId = distinctIdProvider()
+        return recordLock.withLock { () -> PendingUnregister? in
+            guard let record = loadRecordLocked() else { return nil }
+            let pending: PendingUnregister
+            if let delivered = record.deliveredForDistinctId {
+                writeRecord(deviceToken: record.deviceToken, appId: record.appId)
+                pending = PendingUnregister(distinctId: delivered, deviceToken: record.deviceToken, appId: record.appId)
+            } else {
+                guard loadPendingUnregisterLocked() == nil else { return nil }
+                pending = PendingUnregister(distinctId: currentDistinctId, deviceToken: record.deviceToken, appId: record.appId)
+            }
+            writePendingUnregisterLocked(pending)
+            return pending
+        }
+    }
+
+    /// A queued DELETE yields to a queued registration for the same identity and app (logged out, then
+    /// back in): an in-flight DELETE completing after the POST would kill the subscription just delivered.
+    /// Never while opted out: an undelivered record is then parked, not queued.
+    private func supersedes(_ pending: PendingUnregister, record: PendingRecord?, isAllowed: Bool, currentDistinctId: String) -> Bool {
+        guard let record, isAllowed else { return false }
+        return pending.distinctId == currentDistinctId && pending.appId == record.appId
     }
 
     // MARK: - Private
@@ -833,13 +892,15 @@ final class PostHogPushSubscriptionHandler {
     }
 
     private func writePendingUnregister(_ pending: PendingUnregister) {
-        recordLock.withLock {
-            storage.setDictionary(forKey: .pushPendingUnregister, contents: [
-                Key.distinctId: pending.distinctId,
-                Key.deviceToken: pending.deviceToken,
-                Key.appId: pending.appId,
-            ])
-        }
+        recordLock.withLock { writePendingUnregisterLocked(pending) }
+    }
+
+    private func writePendingUnregisterLocked(_ pending: PendingUnregister) {
+        storage.setDictionary(forKey: .pushPendingUnregister, contents: [
+            Key.distinctId: pending.distinctId,
+            Key.deviceToken: pending.deviceToken,
+            Key.appId: pending.appId,
+        ])
     }
 
     private func loadPendingUnregister() -> PendingUnregister? {

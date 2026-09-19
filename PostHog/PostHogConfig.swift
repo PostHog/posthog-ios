@@ -564,9 +564,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
             integrations.append(PostHogScreenViewIntegration())
         }
 
-        if captureApplicationLifecycleEvents {
-            integrations.append(PostHogAppLifeCycleIntegration())
-        }
+        integrations.append(PostHogAppLifeCycleIntegration())
 
         #if os(iOS)
             if tracingHeaders?.isEmpty == false {

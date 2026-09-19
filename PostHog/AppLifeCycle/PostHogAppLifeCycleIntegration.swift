@@ -20,9 +20,12 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     var requiresSwizzling: Bool { false }
 
     private static let integrationInstallState = PostHogIntegrationInstallState()
-    private static var didCaptureAppInstallOrUpdate = false
+    private static let versionLock = NSLock()
+    private static var didRecordAppVersion = false
+    private static var pendingInstallOrUpdate: (event: String, properties: [String: Any])?
 
     private weak var postHog: PostHogSDK?
+    private var ownsLifecycleCapture = false
 
     // True if the app is launched for the first time
     private var isFreshAppLaunch = true
@@ -34,7 +37,15 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     private var didFinishLaunchingToken: RegistrationToken?
 
     func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
-        installIfNeeded(using: Self.integrationInstallState) {
+        Self.versionLock.withLock {
+            Self.recordAppVersion()
+        }
+        guard postHog.config.captureApplicationLifecycleEvents else {
+            return .installed
+        }
+
+        return installIfNeeded(using: Self.integrationInstallState) {
+            ownsLifecycleCapture = true
             self.postHog = postHog
 
             start()
@@ -43,10 +54,14 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     }
 
     func uninstall(_ postHog: PostHogSDK) {
+        // The weak SDK reference is already nil when uninstall runs from SDK deinit.
+        guard ownsLifecycleCapture else { return }
+
         uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
             // uninstall only for integration instance
             stop()
             self.postHog = nil
+            ownsLifecycleCapture = false
         }
     }
 
@@ -76,16 +91,21 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     }
 
     private func captureAppInstallOrUpdated() {
-        // Check if Application Installed or Application Updated was already checked in the lifecycle of this app
-        // This can be called multiple times in case of optOut, multiple instances or start/stop integration
-        guard let postHog, !PostHogAppLifeCycleIntegration.didCaptureAppInstallOrUpdate else { return }
+        guard let postHog, postHog.config.captureApplicationLifecycleEvents else { return }
 
-        PostHogAppLifeCycleIntegration.didCaptureAppInstallOrUpdate = true
-
-        if !postHog.config.captureApplicationLifecycleEvents {
-            hedgeLog("Skipping Application Installed/Application Updated event - captureApplicationLifecycleEvents is disabled in configuration")
-            return
+        let pending = Self.versionLock.withLock {
+            let pending = Self.pendingInstallOrUpdate
+            Self.pendingInstallOrUpdate = nil
+            return pending
         }
+        if let pending {
+            postHog.capture(pending.event, properties: pending.properties)
+        }
+    }
+
+    private static func recordAppVersion() {
+        guard !didRecordAppVersion else { return }
+        didRecordAppVersion = true
 
         let bundle = Bundle.main
 
@@ -97,6 +117,20 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
 
         let previousVersion = userDefaults.string(forKey: "PHGVersionKey")
         let previousVersionCode = userDefaults.string(forKey: "PHGBuildKeyV2")
+
+        // Save this launch even when event capture is disabled, comparing against the previous values below.
+        var syncDefaults = false
+        if let versionName {
+            userDefaults.setValue(versionName, forKey: "PHGVersionKey")
+            syncDefaults = true
+        }
+        if let versionCode {
+            userDefaults.setValue(versionCode, forKey: "PHGBuildKeyV2")
+            syncDefaults = true
+        }
+        if syncDefaults {
+            userDefaults.synchronize()
+        }
 
         var props: [String: Any] = [:]
         var event: String
@@ -119,24 +153,15 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
             }
         }
 
-        var syncDefaults = false
-        if versionName != nil {
+        if let versionName {
             props["version"] = versionName
-            userDefaults.setValue(versionName, forKey: "PHGVersionKey")
-            syncDefaults = true
         }
-
         if let versionCode {
             props["build"] = parseBundleVersion(versionCode)
-            userDefaults.setValue(versionCode, forKey: "PHGBuildKeyV2")
-            syncDefaults = true
         }
 
-        if syncDefaults {
-            userDefaults.synchronize()
-        }
-
-        postHog.capture(event, properties: props)
+        // Keep the launch comparison for the first capture-enabled client in this process.
+        pendingInstallOrUpdate = (event, props)
     }
 
     private func captureAppOpened() {
@@ -198,7 +223,10 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
 #if TESTING
     extension PostHogAppLifeCycleIntegration {
         static func clearInstalls() {
-            PostHogAppLifeCycleIntegration.didCaptureAppInstallOrUpdate = false
+            versionLock.withLock {
+                didRecordAppVersion = false
+                pendingInstallOrUpdate = nil
+            }
             integrationInstallState.clear()
         }
     }

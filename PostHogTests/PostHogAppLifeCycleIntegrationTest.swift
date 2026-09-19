@@ -104,7 +104,6 @@ final class PostHogAppLifeCycleIntegrationTest {
     func disabledClientDoesNotBlockLifecycleCapture(previousInstall: Bool) async throws {
         setVersionDefaults(version: previousInstall ? "0.0.1" : nil, build: previousInstall ? "1" : nil)
         let disabled = getSut(captureApplicationLifecycleEvents: false)
-        defer { disabled.close() }
         let enabled = getSut(flushAt: 4)
         defer { enabled.close() }
 

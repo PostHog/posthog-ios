@@ -240,6 +240,8 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// Enables SwiftUI tap autocapture on iOS and Mac Catalyst.
         ///
         /// Works independently of `captureElementInteractions` and requires `enableSwizzling = true`.
+        /// SwiftUI controls backed by UIKit, such as `TextField`, still require
+        /// `captureElementInteractions = true` to capture their control interactions.
         /// Uses element labels and accessibility identifiers to resolve SwiftUI taps, replacing
         /// legacy hosting-view tap events. Event counts and element chains can differ from legacy capture.
         /// Unresolved elements are skipped. Configure before SDK setup.

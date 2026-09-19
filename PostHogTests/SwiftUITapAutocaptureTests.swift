@@ -217,6 +217,25 @@
             #expect(resolve(host, window, CGPoint(x: 10, y: 10)) == nil)
         }
 
+        @Test(arguments: [CGFloat(0), CGFloat(20)])
+        func paddedTextFieldRetainsLabel(padding: CGFloat) throws {
+            let (window, host) = fixture(content: TextField("", text: .constant(""))
+                .padding(padding)
+                .postHogLabel("padded-input"))
+            defer { window.isHidden = true }
+            var views = [host]
+            var textField: UITextField?
+            while let view = views.popLast() {
+                if let field = view as? UITextField {
+                    textField = field
+                    break
+                }
+                views.append(contentsOf: view.subviews)
+            }
+            let field = try #require(textField)
+            #expect(field.postHogLabel == "padded-input")
+        }
+
         @Test func labelMarkerDoesNotTagUnrelatedUIKitControl() {
             let (window, host) = fixture()
             let markerContainer = UIView(frame: CGRect(x: 0, y: 0, width: 100, height: 40))

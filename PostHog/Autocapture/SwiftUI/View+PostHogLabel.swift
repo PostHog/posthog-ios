@@ -102,8 +102,7 @@
                 guard let window, !bounds.isEmpty else { return false }
                 let markerBounds = window.convert(bounds, from: self)
                 let viewBounds = window.convert(view.bounds, from: view)
-                return markerBounds.insetBy(dx: -1, dy: -1).contains(viewBounds)
-                    && viewBounds.insetBy(dx: -1, dy: -1).contains(markerBounds)
+                return !viewBounds.isEmpty && markerBounds.insetBy(dx: -1, dy: -1).contains(viewBounds)
             }
             if taggedView !== view {
                 taggedView?.postHogLabel = nil

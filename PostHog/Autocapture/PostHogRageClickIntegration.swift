@@ -82,8 +82,9 @@
                 return
             }
 
-            let eventData = hitView?.eventData(touchCoordinates: touchCoordinates)
-            let elementsChain = eventData?.getElementChain() ?? ""
+            let captureElementText = postHog?.config.captureAutocaptureElementText ?? true
+            let eventData = hitView?.eventData(touchCoordinates: touchCoordinates, captureElementText: captureElementText)
+            let elementsChain = eventData?.getElementChain(captureElementText: captureElementText) ?? ""
 
             captureRageClickIfNeeded(
                 touchCoordinates: touchCoordinates,

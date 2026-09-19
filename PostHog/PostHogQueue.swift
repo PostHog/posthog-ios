@@ -99,7 +99,6 @@ class PostHogQueue<Record> {
     /// instead of one per dropped record.
     private var rateCapDropWarned = false
 
-    /// Internal, used for testing
     var depth: Int {
         fileQueue.depth
     }

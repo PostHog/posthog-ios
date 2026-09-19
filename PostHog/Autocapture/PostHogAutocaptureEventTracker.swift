@@ -54,6 +54,7 @@
         }
 
         enum EventSource {
+            case swiftUITap
             case notification(name: String)
             case actionMethod(description: String)
             case gestureRecognizer(description: String)
@@ -191,7 +192,9 @@
             let gestureDescription: String?
             switch self {
             case is UITapGestureRecognizer:
-                if SwiftUITapElementResolver.isSwiftUI(view) {
+                if PostHogAutocaptureEventTracker.eventProcessor?.captureSwiftUIElementInteractions == true,
+                   SwiftUITapElementResolver.isSwiftUI(view)
+                {
                     return
                 }
                 gestureDescription = EventType.kTouch

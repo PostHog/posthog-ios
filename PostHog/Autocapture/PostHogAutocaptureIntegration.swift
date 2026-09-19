@@ -17,6 +17,10 @@
         private var debounceTimers: [Int: Timer] = [:]
         private lazy var swiftUITaps = SwiftUITapAutocapture(processor: self)
 
+        var captureSwiftUIElementInteractions: Bool {
+            postHog?.config.captureSwiftUIElementInteractions == true
+        }
+
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
             installIfNeeded(using: Self.integrationInstallState) {
                 self.postHog = postHog
@@ -38,7 +42,8 @@
          */
         func start() {
             PostHogAutocaptureEventTracker.eventProcessor = self
-            swiftUITaps.setEnabled(true)
+            swiftUITaps.setEnabled(captureSwiftUIElementInteractions)
+            PostHogLabelTaggerView.refreshAll()
         }
 
         /**
@@ -48,6 +53,7 @@
             swiftUITaps.setEnabled(false)
             if PostHogAutocaptureEventTracker.eventProcessor != nil {
                 PostHogAutocaptureEventTracker.eventProcessor = nil
+                PostHogLabelTaggerView.refreshAll()
                 debounceTimers.values.forEach { $0.invalidate() }
                 debounceTimers.removeAll()
             }
@@ -67,6 +73,13 @@
         func process(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
             guard postHog?.isAutocaptureActive() == true else {
                 return
+            }
+
+            switch source {
+            case .swiftUITap:
+                guard captureSwiftUIElementInteractions else { return }
+            default:
+                guard postHog?.config.captureElementInteractions == true else { return }
             }
 
             swiftUITaps.cancel()
@@ -100,6 +113,7 @@
             }
 
             let eventType: String = switch source {
+            case .swiftUITap: EventType.kTouch
             case let .actionMethod(description): description
             case let .gestureRecognizer(description): description
             case let .notification(name): name

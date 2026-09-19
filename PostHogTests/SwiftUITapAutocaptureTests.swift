@@ -1,12 +1,144 @@
 #if os(iOS)
-    @testable import PostHog
+    @_spi(PostHogInternal) @testable import PostHog
     import SwiftUI
     import Testing
     import UIKit
 
     @Suite(.serialized)
     @MainActor
-    struct SwiftUITapAutocaptureTests {
+    final class SwiftUITapAutocaptureTests {
+        private let previousProcessor: (any AutocaptureEventProcessing)?
+
+        init() {
+            previousProcessor = PostHogAutocaptureEventTracker.eventProcessor
+            PostHogAutocaptureEventTracker.eventProcessor = TapTestProcessor()
+        }
+
+        deinit {
+            PostHogAutocaptureEventTracker.eventProcessor = previousProcessor
+        }
+
+        @Test func swiftUICaptureDefaultsToDisabled() {
+            let config = PostHogConfig(projectToken: testProjectToken)
+            #expect(!config.captureSwiftUIElementInteractions)
+        }
+
+        @Test(arguments: [false, true], [false, true])
+        func independentCaptureOptions(legacy: Bool, swiftUI: Bool) throws {
+            guard #available(iOS 13.4, *) else { return }
+            PostHogAutocaptureEventTracker.eventProcessor = nil
+            let server = MockPostHogServer()
+            server.start()
+            defer { server.stop() }
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            config.captureElementInteractions = legacy
+            config.captureSwiftUIElementInteractions = swiftUI
+            config.captureScreenViews = false
+            config.captureApplicationLifecycleEvents = false
+            config.preloadFeatureFlags = false
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.persistOptOut = false
+            PostHogStorage(config).reset()
+            let records = TapCapturedEvents()
+            config.setBeforeSend { event in
+                records.append(event)
+                return nil
+            }
+            let (window, host) = fixture()
+            defer { window.isHidden = true }
+            host.accessibilityIdentifier = "optin-target"
+            let markerContainer = UIView(frame: host.bounds)
+            host.addSubview(markerContainer)
+            let marker = PostHogLabelTaggerView(label: "optin-label")
+            marker.frame = markerContainer.bounds
+            markerContainer.addSubview(marker)
+            marker.layoutSubviews()
+            #expect(host.postHogLabel == "optin-label")
+            markerContainer.isUserInteractionEnabled = false
+            let sdk = PostHogSDK.with(config)
+            defer {
+                sdk.close()
+                deleteSafely(applicationSupportDirectoryURL())
+            }
+            #expect(sdk.isAutocaptureActive() == (legacy || swiftUI))
+            #expect((sdk.getAutocaptureIntegration() != nil) == (legacy || swiftUI))
+            #expect(host.postHogLabel == (swiftUI ? nil : "optin-label"))
+
+            func sendHostingTap() {
+                let touch = PointerTestTouch(target: host, window: window)
+                let event = PointerTestEvent(touch: touch)
+                DI.main.applicationEventPublisher.onApplicationEvent.invoke((event, Date()))
+                let gesture = UITapGestureRecognizer()
+                host.addGestureRecognizer(gesture)
+                gesture.state = .ended
+                touch.recordedPhase = .ended
+                touch.recordedTimestamp = 1.1
+                DI.main.applicationEventPublisher.onApplicationEvent.invoke((event, Date()))
+                host.removeGestureRecognizer(gesture)
+            }
+            sendHostingTap()
+            let hostingEvents = records.events
+            #expect(hostingEvents.count == (legacy || swiftUI ? 1 : 0))
+            if let event = hostingEvents.first {
+                let chain = try #require(event.properties["$elements_chain"] as? String)
+                #expect(chain.hasPrefix("SwiftUIElement:") == swiftUI)
+                #expect(chain.contains("optin-label"))
+                if !swiftUI {
+                    #expect(chain == host.eventData?.getElementChain())
+                }
+            }
+            let native = UIView()
+            let gesture = UITapGestureRecognizer()
+            native.addGestureRecognizer(gesture)
+            gesture.state = .ended
+            let expected = (legacy || swiftUI ? 1 : 0) + (legacy ? 1 : 0)
+            #expect(records.events.count == expected)
+            sdk.optOut()
+            sendHostingTap()
+            #expect(records.events.count == expected)
+            sdk.optIn()
+            sendHostingTap()
+            #expect(records.events.count == expected + (legacy || swiftUI ? 1 : 0))
+            sdk.close()
+            sendHostingTap()
+            #expect(records.events.count == expected + (legacy || swiftUI ? 1 : 0))
+        }
+
+        @Test(arguments: [1, 2], [1, 2])
+        func legacyHostingGestureStillCaptures(taps: Int, touches: Int) {
+            let (window, host) = fixture()
+            defer { window.isHidden = true }
+            let processor = TapTestProcessor()
+            processor.captureSwiftUIElementInteractions = false
+            let previous = PostHogAutocaptureEventTracker.eventProcessor
+            PostHogAutocaptureEventTracker.eventProcessor = processor
+            defer { PostHogAutocaptureEventTracker.eventProcessor = previous }
+            let tap = UITapGestureRecognizer()
+            tap.numberOfTapsRequired = taps
+            tap.numberOfTouchesRequired = touches
+            host.addGestureRecognizer(tap)
+            tap.state = .ended
+            #expect(processor.events.count == 1)
+        }
+
+        @Test func legacyMarkerKeepsHostingAncestorLabel() {
+            let (window, host) = fixture()
+            defer { window.isHidden = true }
+            let processor = TapTestProcessor()
+            processor.captureSwiftUIElementInteractions = false
+            let previous = PostHogAutocaptureEventTracker.eventProcessor
+            PostHogAutocaptureEventTracker.eventProcessor = processor
+            defer { PostHogAutocaptureEventTracker.eventProcessor = previous }
+            let container = UIView(frame: host.bounds)
+            host.addSubview(container)
+            let marker = PostHogLabelTaggerView(label: "legacy-label")
+            marker.frame = container.bounds
+            container.addSubview(marker)
+            marker.layoutSubviews()
+            #expect(host.postHogLabel == "legacy-label")
+        }
+
         @Test func hostingNamedUIKitViewKeepsGestureCapture() {
             let view = ImageHostingView()
             let processor = TapTestProcessor()
@@ -380,7 +512,18 @@
         }
     }
 
+    private final class TapCapturedEvents {
+        private let lock = NSLock()
+        private var storage: [PostHogEvent] = []
+        var events: [PostHogEvent] { lock.withLock { storage } }
+        func append(_ event: PostHogEvent) {
+            guard event.event == "$autocapture" else { return }
+            lock.withLock { storage.append(event) }
+        }
+    }
+
     private final class TapTestProcessor: AutocaptureEventProcessing {
+        var captureSwiftUIElementInteractions = true
         var events: [PostHogAutocaptureEventTracker.EventData] = []
         func process(source _: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
             events.append(event)

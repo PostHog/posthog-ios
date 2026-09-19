@@ -9,6 +9,11 @@
     import Foundation
 
     protocol AutocaptureEventProcessing: AnyObject {
+        var captureSwiftUIElementInteractions: Bool { get }
         func process(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData)
+    }
+
+    extension AutocaptureEventProcessing {
+        var captureSwiftUIElementInteractions: Bool { false }
     }
 #endif

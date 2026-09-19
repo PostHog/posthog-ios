@@ -60,24 +60,46 @@
 
         func updateUIView(_ view: PostHogLabelTaggerView, context _: Context) {
             view.label = label
-            view.setNeedsLayout()
+            if PostHogLabelTaggerView.usesSwiftUICapture {
+                view.setNeedsLayout()
+            }
         }
     }
 
     final class PostHogLabelTaggerView: UIView {
+        private static let markers = NSHashTable<PostHogLabelTaggerView>.weakObjects()
+
+        static var usesSwiftUICapture: Bool {
+            PostHogAutocaptureEventTracker.eventProcessor?.captureSwiftUIElementInteractions == true
+        }
+
+        static func refreshAll() {
+            let refresh = {
+                for marker in markers.allObjects {
+                    marker.setNeedsLayout()
+                    marker.layoutIfNeeded()
+                }
+            }
+            if Thread.isMainThread { refresh() } else { DispatchQueue.main.async(execute: refresh) }
+        }
+
         var label: String
+        private let legacyLabel: String
         weak var taggedView: UIView?
 
         init(label: String) {
             self.label = label
+            legacyLabel = label
             super.init(frame: .zero)
-            isUserInteractionEnabled = false
-            accessibilityElementsHidden = true
+            Self.markers.add(self)
+            isUserInteractionEnabled = !Self.usesSwiftUICapture
+            accessibilityElementsHidden = Self.usesSwiftUICapture
         }
 
         @available(*, unavailable)
         required init?(coder _: NSCoder) {
             label = ""
+            legacyLabel = ""
             super.init(frame: .zero)
             isUserInteractionEnabled = false
             accessibilityElementsHidden = true
@@ -85,6 +107,16 @@
 
         override func layoutSubviews() {
             super.layoutSubviews()
+
+            isUserInteractionEnabled = !Self.usesSwiftUICapture
+            accessibilityElementsHidden = Self.usesSwiftUICapture
+            if !Self.usesSwiftUICapture {
+                let view = findCousinView(of: PostHogSwiftUITaggable.self, matching: { _ in true }) as UIView?
+                    ?? superview?.superview
+                taggedView = view
+                view?.postHogLabel = legacyLabel
+                return
+            }
 
             // try to find a "taggable" cousin view in hierarchy
             //

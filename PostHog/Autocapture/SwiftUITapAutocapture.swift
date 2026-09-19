@@ -113,7 +113,7 @@
                     return
                 }
                 cancel()
-                processor?.process(source: .gestureRecognizer(description: EventType.kTouch), event: candidate)
+                processor?.process(source: .swiftUITap, event: candidate)
             case .cancelled:
                 cancel()
             default:

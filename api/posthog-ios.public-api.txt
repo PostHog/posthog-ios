@@ -58,6 +58,7 @@ PostHog | PostHogConfig.captureElementInteractions | property | @objc var captur
 PostHog | PostHogConfig.capturePushNotificationOpened | property | @objc var capturePushNotificationOpened: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)capturePushNotificationOpened
 PostHog | PostHogConfig.capturePushNotificationSubscriptions | property | @objc var capturePushNotificationSubscriptions: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)capturePushNotificationSubscriptions
 PostHog | PostHogConfig.captureScreenViews | property | @objc var captureScreenViews: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureScreenViews
+PostHog | PostHogConfig.captureSwiftUIElementInteractions | property | @objc var captureSwiftUIElementInteractions: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureSwiftUIElementInteractions
 PostHog | PostHogConfig.dataMode | property | @objc var dataMode: PostHogConfig.PostHogDataMode | c:@M@PostHog@objc(cs)PostHogConfig(py)dataMode
 PostHog | PostHogConfig.debug | property | @objc var debug: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)debug
 PostHog | PostHogConfig.defaultHost | type.property | static let defaultHost: String | s:7PostHog0aB6ConfigC11defaultHostSSvpZ

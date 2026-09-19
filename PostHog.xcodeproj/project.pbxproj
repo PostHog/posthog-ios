@@ -48,7 +48,6 @@
 		3A62647129CAF67B007E8C07 /* PostHogStorageManagerTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62647029CAF67B007E8C07 /* PostHogStorageManagerTest.swift */; };
 		3A62647529CB0168007E8C07 /* TestPostHog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62647429CB0168007E8C07 /* TestPostHog.swift */; };
 		3AA34CFA296D951A003398F4 /* PostHogExampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34CF9296D951A003398F4 /* PostHogExampleApp.swift */; };
-		A4A01BCD917E4C46A4F11102 /* AutocapturePrivacyPrototype.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A01BCD917E4C46A4F11101 /* AutocapturePrivacyPrototype.swift */; };
 		3AA34CFC296D951A003398F4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34CFB296D951A003398F4 /* ContentView.swift */; };
 		3AA34CFE296D951B003398F4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AA34CFD296D951B003398F4 /* Assets.xcassets */; };
 		3AA34D01296D951B003398F4 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AA34D00296D951B003398F4 /* Preview Assets.xcassets */; };
@@ -835,7 +834,6 @@
 		3A62647429CB0168007E8C07 /* TestPostHog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPostHog.swift; sourceTree = "<group>"; };
 		3AA34CF7296D951A003398F4 /* PostHogExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PostHogExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3AA34CF9296D951A003398F4 /* PostHogExampleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExampleApp.swift; sourceTree = "<group>"; };
-		A4A01BCD917E4C46A4F11101 /* AutocapturePrivacyPrototype.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocapturePrivacyPrototype.swift; sourceTree = "<group>"; };
 		3AA34CFB296D951A003398F4 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		3AA34CFD296D951B003398F4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3AA34D00296D951B003398F4 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -1567,7 +1565,6 @@
 				699991562AFE0E9F000DCB78 /* PostHogExample.entitlements */,
 				3A0F108129C4792E002C0084 /* Views */,
 				3AA34CF9296D951A003398F4 /* PostHogExampleApp.swift */,
-				A4A01BCD917E4C46A4F11101 /* AutocapturePrivacyPrototype.swift */,
 				DA684CB52FABD1B9001CE4EA /* FPSCounterView.swift */,
 				3AE3FB2B2991320300AFFC18 /* Api.swift */,
 				3AA34D16296D9993003398F4 /* AppDelegate.swift */,
@@ -3194,7 +3191,6 @@
 				DAA1B2E32F8C100000112233 /* RageClickControlsSwiftUIView.swift in Sources */,
 				DA5064572EF6171900C51DA0 /* SwiftCrashTriggers.swift in Sources */,
 				3AA34CFA296D951A003398F4 /* PostHogExampleApp.swift in Sources */,
-				A4A01BCD917E4C46A4F11102 /* AutocapturePrivacyPrototype.swift in Sources */,
 				DA27AE712F56050B002A59CE /* SessionRecordingView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

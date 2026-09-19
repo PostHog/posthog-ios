@@ -14,13 +14,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Hosted tests manage their own SDK instances.
         if NSClassFromString("XCTestCase") != nil { return true }
 
-        #if DEBUG && os(iOS)
-            if AutocapturePrivacyPrototype.isEnabled {
-                AutocapturePrivacyPrototype.shared.setup()
-                return true
-            }
-        #endif
-
         let config = PostHogConfig(
             projectToken: "phc_WKfvDfedaJEDCoUmt9pVa3OWtbbUP1W2ctxwXkt3A3n"
         )

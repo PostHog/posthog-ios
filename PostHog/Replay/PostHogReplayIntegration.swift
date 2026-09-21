@@ -48,6 +48,11 @@
         private let screenshotRenderLock = NSLock()
         private var isScreenshotRenderInFlight = false
 
+        /// Timer-driven capture, used in screenshot mode only. A wireframe is built from the view
+        /// tree, which cannot change without a layout, so there is nothing for a tick to find.
+        private let captureTickerLock = NSLock()
+        private var captureTicker: PostHogReplayCaptureTicker?
+
         private let eventTriggersLock = NSLock()
         private var eventTriggers: [String]?
         private var triggerActivatedSessionId: String?
@@ -282,6 +287,10 @@
                     // called on main thread
                     self?.snapshot()
                 }
+
+                if postHog.config.sessionReplayConfig.screenshotMode {
+                    startCaptureTicker(interval: interval)
+                }
             }
 
             // start listening to `UIApplication.sendEvent`
@@ -314,11 +323,13 @@
             // Start listening to application background events and pause all plugins
             let applicationLifecyclePublisher = DI.main.appLifecyclePublisher
             applicationBackgroundedToken = applicationLifecyclePublisher.onDidEnterBackground.subscribe { [weak self] in
+                self?.currentCaptureTicker()?.pause()
                 self?.pauseAllPlugins()
             }
 
             // Start listening to application foreground events and resume all plugins
             applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
+                self?.currentCaptureTicker()?.resume()
                 self?.resumeAllPlugins()
             }
 
@@ -358,6 +369,8 @@
             applicationForegroundedToken = nil
             // stop listening to `UIView.layoutSubviews` events
             viewLayoutToken = nil
+            // stop the screenshot-mode capture timer
+            stopCaptureTicker()
             // stop plugins
             let pluginsToStop = installedPluginsLock.withLock {
                 defer { installedPlugins = [] }
@@ -399,6 +412,39 @@
             screenshotRenderLock.withLock {
                 isScreenshotRenderInFlight = false
             }
+        }
+
+        private func currentCaptureTicker() -> PostHogReplayCaptureTicker? {
+            captureTickerLock.withLock { captureTicker }
+        }
+
+        private func startCaptureTicker(interval: TimeInterval) {
+            let ticker = PostHogReplayCaptureTicker(interval: interval) { [weak self] in
+                // called on main thread
+                self?.snapshot()
+            }
+            let previousTicker = captureTickerLock.withLock { () -> PostHogReplayCaptureTicker? in
+                let existing = captureTicker
+                captureTicker = ticker
+                return existing
+            }
+            previousTicker?.stop()
+            ticker.start()
+        }
+
+        private func stopCaptureTicker() {
+            let previousTicker = captureTickerLock.withLock { () -> PostHogReplayCaptureTicker? in
+                let existing = captureTicker
+                captureTicker = nil
+                return existing
+            }
+            previousTicker?.stop()
+        }
+
+        /// Feeds the dedup outcome back to the ticker, so a screen that keeps rendering the same
+        /// pixels backs off and one that changes stays at the base rate.
+        private func noteCapturedFrame(unchanged: Bool) {
+            currentCaptureTicker()?.noteFrame(unchanged: unchanged)
         }
 
         /// Determines whether the given session should be recorded based on sample rate configuration.
@@ -769,7 +815,7 @@
                 return status
             }
 
-            PostHogReplayIntegration.dispatchQueue.async {
+            PostHogReplayIntegration.dispatchQueue.async { [weak self] in
                 // always make sure we have a fresh session id at correct timestamp
                 guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate) else {
                     return
@@ -815,6 +861,7 @@
                     lastImageHash: snapshotStatus.lastImageHash,
                     hasPendingSnapshotData: !snapshotsData.isEmpty
                 ) {
+                    self?.noteCapturedFrame(unchanged: true)
                     return
                 }
                 snapshotStatus.lastImageHash = imageHash
@@ -835,6 +882,7 @@
                     ],
                     timestamp: timestampDate
                 )
+                self?.noteCapturedFrame(unchanged: false)
             }
         }
 

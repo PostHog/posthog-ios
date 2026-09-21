@@ -1,5 +1,11 @@
 ## Next
 
+## 3.80.0
+
+### Minor Changes
+
+- 64d1824: Attach `$recording_status` and `$sdk_debug_*` replay diagnostic properties to captured events, so error and exception events show whether session replay was recording.
+
 ## 3.79.1
 
 ### Patch Changes

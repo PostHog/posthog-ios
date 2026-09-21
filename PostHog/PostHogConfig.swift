@@ -241,7 +241,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// Explicit `postHogLabel` identifiers remain available when disabled.
         /// Manual events and session replay are unaffected. Accessibility labels may still
         /// be read to check exclusion markers. Configure before SDK setup. Defaults to `true`.
-        var captureAutocaptureElementText: Bool = true
+        @objc public var captureAutocaptureElementText: Bool = true
 
         /// Rage click detection configuration.
         @objc public let rageClickConfig: PostHogRageClickConfig = .init()

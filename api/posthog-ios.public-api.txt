@@ -54,6 +54,7 @@ PostHog | PostHogConfig.apiKey | property | @objc var apiKey: String { get } | c
 PostHog | PostHogConfig.appGroupIdentifier | property | @objc var appGroupIdentifier: String? | c:@M@PostHog@objc(cs)PostHogConfig(py)appGroupIdentifier
 PostHog | PostHogConfig.bootstrap | property | @objc var bootstrap: PostHogBootstrapConfig? | c:@M@PostHog@objc(cs)PostHogConfig(py)bootstrap
 PostHog | PostHogConfig.captureApplicationLifecycleEvents | property | @objc var captureApplicationLifecycleEvents: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureApplicationLifecycleEvents
+PostHog | PostHogConfig.captureAutocaptureElementText | property | @objc var captureAutocaptureElementText: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureAutocaptureElementText
 PostHog | PostHogConfig.captureElementInteractions | property | @objc var captureElementInteractions: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureElementInteractions
 PostHog | PostHogConfig.capturePushNotificationOpened | property | @objc var capturePushNotificationOpened: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)capturePushNotificationOpened
 PostHog | PostHogConfig.capturePushNotificationSubscriptions | property | @objc var capturePushNotificationSubscriptions: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)capturePushNotificationSubscriptions

@@ -5,29 +5,29 @@
 
     @Suite("Screenshot-mode capture ticker")
     class PostHogReplayCaptureTickerTests {
+        /// Which of `tickCount` ticks capture, when every captured frame renders the same pixels.
+        private func idleCaptureTicks(_ tickCount: Int) -> [Bool] {
+            var backoff = PostHogReplayIdleBackoff()
+            var captures: [Bool] = []
+            for _ in 0 ..< tickCount {
+                let captured = backoff.shouldCapture()
+                if captured {
+                    backoff.noteFrame(unchanged: true)
+                }
+                captures.append(captured)
+            }
+            return captures
+        }
+
         @Test("Backs off while frames stay unchanged")
         func backsOffWhileIdle() {
-            var backoff = PostHogReplayIdleBackoff()
+            // A capture, then one skipped tick, then three, then the ceiling of seven.
+            let expected = [true, false]
+                + [true, false, false, false]
+                + [true] + Array(repeating: false, count: 7)
+                + [true]
 
-            // Tick 1 captures, and the frame is a duplicate, so one tick is skipped.
-            #expect(backoff.shouldCapture())
-            backoff.noteFrame(unchanged: true)
-            #expect(!backoff.shouldCapture())
-            #expect(backoff.shouldCapture())
-            backoff.noteFrame(unchanged: true)
-
-            // Three skipped ticks, then a capture.
-            for _ in 0 ..< 3 {
-                #expect(!backoff.shouldCapture())
-            }
-            #expect(backoff.shouldCapture())
-            backoff.noteFrame(unchanged: true)
-
-            // Seven skipped ticks: the ceiling.
-            for _ in 0 ..< 7 {
-                #expect(!backoff.shouldCapture())
-            }
-            #expect(backoff.shouldCapture())
+            #expect(idleCaptureTicks(expected.count) == expected)
         }
 
         @Test("Holds the ceiling instead of growing without bound")
@@ -45,24 +45,26 @@
             for _ in 0 ..< 4 {
                 backoff.noteFrame(unchanged: true)
             }
-
             backoff.noteFrame(unchanged: false)
 
             // Video and animation change every frame, so every tick must capture.
+            var captures: [Bool] = []
             for _ in 0 ..< 10 {
-                #expect(backoff.shouldCapture())
+                captures.append(backoff.shouldCapture())
                 backoff.noteFrame(unchanged: false)
             }
+
+            #expect(captures.allSatisfy { $0 })
         }
 
         @Test("Ticks a screen that never lays out")
         func ticksWithoutLayout() async {
-            let ticks = Atomic(0)
+            let ticks = TickCounter()
             let ticker = PostHogReplayCaptureTicker(
                 interval: PostHogReplayCaptureTicker.minimumInterval,
                 queue: DispatchQueue(label: "com.posthog.test.CaptureTicker")
             ) {
-                ticks.mutate { $0 += 1 }
+                ticks.increment()
             }
             ticker.start()
 
@@ -74,12 +76,12 @@
 
         @Test("A paused ticker asks for nothing")
         func pausedTickerIsQuiet() async {
-            let ticks = Atomic(0)
+            let ticks = TickCounter()
             let ticker = PostHogReplayCaptureTicker(
                 interval: PostHogReplayCaptureTicker.minimumInterval,
                 queue: DispatchQueue(label: "com.posthog.test.PausedCaptureTicker")
             ) {
-                ticks.mutate { $0 += 1 }
+                ticks.increment()
             }
             ticker.start()
             ticker.pause()
@@ -94,20 +96,21 @@
         @Test("A short interval is clamped")
         func clampsShortInterval() {
             let ticker = PostHogReplayCaptureTicker(interval: 0) {}
+
             #expect(ticker.tickInterval == PostHogReplayCaptureTicker.minimumInterval)
         }
     }
 
-    private final class Atomic<T> {
+    private final class TickCounter {
         private let lock = NSLock()
-        private var stored: T
+        private var count = 0
 
-        init(_ value: T) { stored = value }
+        var value: Int {
+            lock.withLock { count }
+        }
 
-        var value: T { lock.withLock { stored } }
-
-        func mutate(_ change: (inout T) -> Void) {
-            lock.withLock { change(&stored) }
+        func increment() {
+            lock.withLock { count += 1 }
         }
     }
 #endif

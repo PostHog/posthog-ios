@@ -22,9 +22,9 @@
         @Test("Backs off while frames stay unchanged")
         func backsOffWhileIdle() {
             // A capture, then one skipped tick, then three, then the ceiling of seven.
-            let expected = [true, false]
+            let expected: [Bool] = [true, false]
                 + [true, false, false, false]
-                + [true] + Array(repeating: false, count: 7)
+                + [true, false, false, false, false, false, false, false]
                 + [true]
 
             #expect(idleCaptureTicks(expected.count) == expected)

@@ -279,6 +279,83 @@ enum PostHogSessionManagerTest {
             sut.close()
         }
 
+        @Test("$sdk_debug_session_* describe the rotated session on the event that rotates it")
+        func debugSessionKeysDescribeRotatedSession() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            mockAppLifecycle.simulateAppDidFinishLaunching()
+            mockAppLifecycle.simulateAppDidBecomeActive()
+
+            sut.getSessionManager()?.touchSession()
+            sut.capture("event captured")
+
+            mockNow.date.addTimeInterval(60 * 31) // +31 mins: this capture rotates the session
+            sut.capture("event captured after 31 mins")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            let start1 = try #require(events[0].properties["$sdk_debug_session_start"] as? Int64)
+            let start2 = try #require(events[1].properties["$sdk_debug_session_start"] as? Int64)
+            let duration2 = try #require(events[1].properties["$sdk_debug_current_session_duration"] as? Int64)
+
+            // Regression: the debug snapshot used to run before getSessionId(at:) rotated, so the
+            // rotating event carried the new $session_id with the previous session's start/duration.
+            #expect(start2 != start1)
+            #expect(start2 == Int64(mockNow.date.timeIntervalSince1970 * 1000))
+            #expect(duration2 == 0)
+        }
+
+        @Test("$sdk_debug_current_session_duration is measured at the event's timestamp and never negative")
+        func debugSessionDurationUsesEventTimestamp() async throws {
+            let sut = getSut(flushAt: 3)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            mockAppLifecycle.simulateAppDidFinishLaunching()
+            mockAppLifecycle.simulateAppDidBecomeActive()
+
+            sut.getSessionManager()?.touchSession()
+            sut.capture("first")
+
+            // Wall clock moves on 60 mins; a capture backdated 20 mins is still 40 mins after the
+            // last activity, so it rotates the session at its own (backdated) timestamp.
+            mockNow.date.addTimeInterval(60 * 60)
+            let rotatingTime = mockNow.date.addingTimeInterval(-20 * 60)
+            sut.capture("backdated, rotates", timestamp: rotatingTime)
+
+            // Backdated a further 5 mins: earlier than the new session's start, and no rotation.
+            sut.capture("backdated, predates session", timestamp: rotatingTime.addingTimeInterval(-5 * 60))
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 3)
+
+            let start1 = try #require(events[1].properties["$sdk_debug_session_start"] as? Int64)
+            let duration1 = try #require(events[1].properties["$sdk_debug_current_session_duration"] as? Int64)
+            let duration2 = try #require(events[2].properties["$sdk_debug_current_session_duration"] as? Int64)
+
+            // Regression: measured against now() this reported the 20-min backdate instead of 0.
+            #expect(start1 == Int64(rotatingTime.timeIntervalSince1970 * 1000))
+            #expect(duration1 == 0)
+            #expect(duration2 == 0)
+        }
+
         @Test("Rotates $session_id after max session length of 24 hours")
         func sessionRotatedAfterMaxSessionLength() async throws {
             let sut = getSut(flushAt: 52)

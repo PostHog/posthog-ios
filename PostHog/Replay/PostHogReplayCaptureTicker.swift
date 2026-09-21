@@ -13,16 +13,18 @@
     /// unchanged frame doubles the number of ticks skipped before the next attempt, up to
     /// `maximumSkips`. The first changed frame restores the base rate.
     struct PostHogReplayIdleBackoff {
+        /// Ticks skipped after each further unchanged frame.
+        private static let skipLadder = [1, 3, 7]
+
         /// Ceiling on skipped ticks, so a static screen renders once every 8 ticks.
-        static let maximumSkips = 7
+        static let maximumSkips = skipLadder[skipLadder.count - 1]
 
         private var unchangedFrames = 0
         private var skipsRemaining = 0
 
-        /// Ticks skipped after `count` consecutive unchanged frames: 1, 3, then 7.
         static func skips(afterUnchangedFrames count: Int) -> Int {
             guard count > 0 else { return 0 }
-            return min(maximumSkips, (1 << min(count, 3)) - 1)
+            return skipLadder[min(count, skipLadder.count) - 1]
         }
 
         mutating func shouldCapture() -> Bool {
@@ -64,7 +66,6 @@
 
         private let lock = NSLock()
         private var backoff = PostHogReplayIdleBackoff()
-        private var isPaused = false
         private var timer: DispatchSourceTimer?
 
         /// - Parameter queue: where ticks are delivered. Capture reads the live view hierarchy, so
@@ -81,18 +82,15 @@
         }
 
         func start() {
+            stop()
+
             let newTimer = DispatchSource.makeTimerSource(queue: queue)
             newTimer.schedule(deadline: .now() + tickInterval, repeating: tickInterval)
             newTimer.setEventHandler { [weak self] in
                 self?.tick()
             }
 
-            let previousTimer = lock.withLock { () -> DispatchSourceTimer? in
-                let existing = timer
-                timer = newTimer
-                return existing
-            }
-            previousTimer?.cancel()
+            lock.withLock { timer = newTimer }
             newTimer.resume()
         }
 
@@ -105,16 +103,15 @@
             previousTimer?.cancel()
         }
 
+        /// Cancels the timer, rather than firing and discarding ticks, while the app is away.
         func pause() {
-            lock.withLock { isPaused = true }
+            stop()
         }
 
         func resume() {
-            lock.withLock {
-                isPaused = false
-                // A screen can change while the app is away, so start again at the base rate.
-                backoff.reset()
-            }
+            // A screen can change while the app is away, so start again at the base rate.
+            lock.withLock { backoff.reset() }
+            start()
         }
 
         /// Reports the outcome of a capture, from whichever queue produced the frame.
@@ -123,11 +120,7 @@
         }
 
         private func tick() {
-            let shouldCapture = lock.withLock { () -> Bool in
-                guard !isPaused else { return false }
-                return backoff.shouldCapture()
-            }
-            guard shouldCapture else { return }
+            guard lock.withLock({ backoff.shouldCapture() }) else { return }
             onTick()
         }
     }

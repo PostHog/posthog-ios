@@ -320,17 +320,15 @@
                 plugin.start(postHog: postHog)
             }
 
-            // Start listening to application background events and pause all plugins
+            // Start listening to application background events and pause capture
             let applicationLifecyclePublisher = DI.main.appLifecyclePublisher
             applicationBackgroundedToken = applicationLifecyclePublisher.onDidEnterBackground.subscribe { [weak self] in
-                self?.currentCaptureTicker()?.pause()
-                self?.pauseAllPlugins()
+                self?.pauseCapture()
             }
 
-            // Start listening to application foreground events and resume all plugins
+            // Start listening to application foreground events and resume capture
             applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
-                self?.currentCaptureTicker()?.resume()
-                self?.resumeAllPlugins()
+                self?.resumeCapture()
             }
 
             hedgeLog("Session replay recording started.")
@@ -419,16 +417,13 @@
         }
 
         private func startCaptureTicker(interval: TimeInterval) {
+            stopCaptureTicker()
+
             let ticker = PostHogReplayCaptureTicker(interval: interval) { [weak self] in
                 // called on main thread
                 self?.snapshot()
             }
-            let previousTicker = captureTickerLock.withLock { () -> PostHogReplayCaptureTicker? in
-                let existing = captureTicker
-                captureTicker = ticker
-                return existing
-            }
-            previousTicker?.stop()
+            captureTickerLock.withLock { captureTicker = ticker }
             ticker.start()
         }
 
@@ -541,11 +536,14 @@
             return !remoteConfig.hasFetchedRemoteConfig
         }
 
-        private func pauseAllPlugins() {
+        /// Everything that must go quiet while the app is in the background.
+        private func pauseCapture() {
+            currentCaptureTicker()?.pause()
             updateAllPlugins { $0.pause() }
         }
 
-        private func resumeAllPlugins() {
+        private func resumeCapture() {
+            currentCaptureTicker()?.resume()
             updateAllPlugins { $0.resume() }
         }
 

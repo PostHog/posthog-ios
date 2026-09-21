@@ -81,13 +81,14 @@
             ) {
                 ticks.mutate { $0 += 1 }
             }
-            ticker.pause()
             ticker.start()
+            ticker.pause()
+            let ticksWhenPaused = ticks.value
 
             try? await Task.sleep(nanoseconds: 500_000_000)
             ticker.stop()
 
-            #expect(ticks.value == 0)
+            #expect(ticks.value == ticksWhenPaused)
         }
 
         @Test("A short interval is clamped")

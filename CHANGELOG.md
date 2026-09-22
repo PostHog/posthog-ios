@@ -1,5 +1,13 @@
 ## Next
 
+## 3.81.0
+
+### Minor Changes
+
+- 6848def: Add opt-in SwiftUI tap autocapture with `captureSwiftUIElementInteractions`, disabled by default and independent of `captureElementInteractions`. Enable it for element-level SwiftUI labels and accessibility identifiers; opting in changes SwiftUI tap recognition and element chains. Existing interaction autocapture behavior is preserved when the new option is disabled.
+- 58372a7: Add `POSTHOG_FORCE` to `upload-symbols.sh`. Set it to `1` so the dSYM upload passes `--force` to posthog-cli (>= 0.7.12) and overwrites a symbol set that already exists with different content, instead of failing the build. It cannot be combined with `POSTHOG_SKIP_ON_CONFLICT`, which posthog-cli rejects.
+- ec980e3: Add captureAutocaptureElementText to optionally omit autocapture control text while preserving the existing default.
+
 ## 3.80.0
 
 ### Minor Changes

@@ -391,6 +391,72 @@ test_warns_on_deprecated_no_release_bind_and_uploads_bound() {
     assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--no-release-bind"
 }
 
+test_passes_conflict_flags() {
+    create_fixture "skip-on-conflict"
+    write_plist "$SRC_ROOT/Config/Info.plist" "2.10.0" "154"
+    TEST_INFOPLIST_FILE="Config/Info.plist"
+
+    export POSTHOG_SKIP_ON_CONFLICT=1
+    run_upload
+    unset POSTHOG_SKIP_ON_CONFLICT
+
+    [ "$STATUS" -eq 0 ] || fail "Expected upload to succeed, got status $STATUS: $OUTPUT"
+    assert_file_contains_line "$CLI_ARGS_FILE" "--skip-on-conflict"
+    assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--force"
+
+    create_fixture "force"
+    write_plist "$SRC_ROOT/Config/Info.plist" "2.10.0" "154"
+    TEST_INFOPLIST_FILE="Config/Info.plist"
+
+    export POSTHOG_FORCE=1
+    run_upload
+    unset POSTHOG_FORCE
+
+    [ "$STATUS" -eq 0 ] || fail "Expected upload to succeed, got status $STATUS: $OUTPUT"
+    assert_file_contains_line "$CLI_ARGS_FILE" "--force"
+    assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--skip-on-conflict"
+
+    create_fixture "no-conflict-flags"
+    write_plist "$SRC_ROOT/Config/Info.plist" "2.10.0" "154"
+    TEST_INFOPLIST_FILE="Config/Info.plist"
+
+    run_upload
+
+    [ "$STATUS" -eq 0 ] || fail "Expected upload to succeed, got status $STATUS: $OUTPUT"
+    assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--skip-on-conflict"
+    assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--force"
+}
+
+test_fails_when_both_conflict_flags_are_set() {
+    create_fixture "conflicting-flags"
+    write_plist "$SRC_ROOT/Config/Info.plist" "2.10.0" "154"
+    TEST_INFOPLIST_FILE="Config/Info.plist"
+
+    export POSTHOG_SKIP_ON_CONFLICT=1
+    export POSTHOG_FORCE=1
+    run_upload
+    unset POSTHOG_SKIP_ON_CONFLICT
+    unset POSTHOG_FORCE
+
+    [ "$STATUS" -eq 1 ] || fail "Expected both conflict flags to fail the build"
+    [[ "$OUTPUT" == *"cannot both be set"* ]] || fail "Expected the mutually exclusive flags error, got: $OUTPUT"
+    [ ! -f "$CLI_ARGS_FILE" ] || fail "posthog-cli must not run with conflicting flags"
+}
+
+test_requires_newer_cli_for_conflict_flags() {
+    create_fixture "force-old-cli"
+    write_plist "$SRC_ROOT/Config/Info.plist" "2.10.0" "154"
+    TEST_INFOPLIST_FILE="Config/Info.plist"
+    TEST_CLI_VERSION="0.7.11"
+
+    export POSTHOG_FORCE=1
+    run_upload
+    unset POSTHOG_FORCE
+
+    [ "$STATUS" -eq 1 ] || fail "Expected an old posthog-cli to fail the build"
+    [[ "$OUTPUT" == *"posthog-cli >= 0.7.12 required"* ]] || fail "Expected the minimum version error, got: $OUTPUT"
+}
+
 bash -n "$UPLOAD_SCRIPT"
 test_waits_for_current_dsym_and_uses_source_plist_versions
 test_uses_info_plist_with_supported_cli_versions
@@ -404,5 +470,8 @@ test_skips_cli_lookup_when_build_does_not_emit_dsyms
 test_falls_back_for_unresolved_source_plist_versions
 test_falls_back_for_malformed_source_plist
 test_warns_on_deprecated_no_release_bind_and_uploads_bound
+test_passes_conflict_flags
+test_fails_when_both_conflict_flags_are_set
+test_requires_newer_cli_for_conflict_flags
 
 echo "upload-symbols tests passed"

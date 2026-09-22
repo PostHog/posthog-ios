@@ -12,6 +12,7 @@
 #   Basic:          "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #   With source:    POSTHOG_INCLUDE_SOURCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #   Skip conflicts: POSTHOG_SKIP_ON_CONFLICT=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#   Overwrite:      POSTHOG_FORCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #
 # Build Settings (required):
 #   DEBUG_INFORMATION_FORMAT = DWARF with dSYM File
@@ -22,6 +23,10 @@
 #   POSTHOG_INCLUDE_SOURCE - Set to "1" to include source files in dSYM upload
 #   POSTHOG_SKIP_ON_CONFLICT - Set to "1" to skip symbol sets that already exist
 #                              with different content instead of failing the build
+#   POSTHOG_FORCE - Set to "1" to overwrite a symbol set that already exists with
+#                   different content instead of failing the build. Cannot be combined
+#                   with POSTHOG_SKIP_ON_CONFLICT. POSTHOG_INCLUDE_SOURCE already
+#                   overwrites unless POSTHOG_SKIP_ON_CONFLICT is set.
 #   POSTHOG_DSYM_TIMEOUT - Seconds to wait for the current app dSYM before failing (default: 60)
 #   POSTHOG_NO_RELEASE_BIND - Deprecated and ignored. dSYMs always upload bound to the release
 #                              this build creates. The script warns when the variable is set.
@@ -39,6 +44,13 @@ fi
 # The unbind behavior is removed, but a phase written for it may still export the variable.
 if [ -n "${POSTHOG_NO_RELEASE_BIND:-}" ]; then
     echo "warning: POSTHOG_NO_RELEASE_BIND is deprecated and ignored. dSYMs upload bound to the release this build creates. Remove the variable."
+fi
+
+# posthog-cli rejects --skip-on-conflict together with --force. Fail here, before the dSYM
+# readiness wait, so the build error names the variables instead of a CLI parse error.
+if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ] && [ "${POSTHOG_FORCE}" = "1" ]; then
+    echo "error: POSTHOG_SKIP_ON_CONFLICT and POSTHOG_FORCE cannot both be set. posthog-cli accepts only one of --skip-on-conflict and --force."
+    exit 1
 fi
 
 # Validate the path before looking for posthog-cli.
@@ -139,7 +151,7 @@ fi
 
 # Enforce minimum posthog-cli version (required for --release-name / --release-version flags)
 MIN_POSTHOG_CLI_VERSION="0.7.7"
-if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
+if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ] || [ "${POSTHOG_FORCE}" = "1" ]; then
     MIN_POSTHOG_CLI_VERSION="0.7.12"
 fi
 PH_CLI_VERSION=$("$PH_CLI_PATH" --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
@@ -240,6 +252,9 @@ if [ "${POSTHOG_INCLUDE_SOURCE}" = "1" ]; then
 fi
 if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
     CLI_ARGS+=(--skip-on-conflict)
+fi
+if [ "${POSTHOG_FORCE}" = "1" ]; then
+    CLI_ARGS+=(--force)
 fi
 
 "${PH_CLI_PATH}" dsym upload "${CLI_ARGS[@]}" || exit 1

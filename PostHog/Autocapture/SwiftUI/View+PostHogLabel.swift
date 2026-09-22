@@ -58,28 +58,65 @@
             PostHogLabelTaggerView(label: label)
         }
 
-        func updateUIView(_: PostHogLabelTaggerView, context _: Context) {
-            // nothing
+        func updateUIView(_ view: PostHogLabelTaggerView, context _: Context) {
+            view.label = label
+            if PostHogLabelTaggerView.usesSwiftUICapture {
+                view.setNeedsLayout()
+            }
         }
     }
 
-    private class PostHogLabelTaggerView: UIView {
-        private let label: String
+    final class PostHogLabelTaggerView: UIView {
+        private static let markers = NSHashTable<PostHogLabelTaggerView>.weakObjects()
+
+        static var usesSwiftUICapture: Bool {
+            PostHogAutocaptureEventTracker.eventProcessor?.captureSwiftUIElementInteractions == true
+        }
+
+        static func refreshAll() {
+            let refresh = {
+                for marker in markers.allObjects {
+                    marker.setNeedsLayout()
+                    marker.layoutIfNeeded()
+                }
+            }
+            if Thread.isMainThread { refresh() } else { DispatchQueue.main.async(execute: refresh) }
+        }
+
+        var label: String
+        private let legacyLabel: String
         weak var taggedView: UIView?
 
         init(label: String) {
             self.label = label
+            legacyLabel = label
             super.init(frame: .zero)
+            Self.markers.add(self)
+            isUserInteractionEnabled = !Self.usesSwiftUICapture
+            accessibilityElementsHidden = Self.usesSwiftUICapture
         }
 
         @available(*, unavailable)
         required init?(coder _: NSCoder) {
             label = ""
+            legacyLabel = ""
             super.init(frame: .zero)
+            isUserInteractionEnabled = false
+            accessibilityElementsHidden = true
         }
 
         override func layoutSubviews() {
-            super.didMoveToWindow()
+            super.layoutSubviews()
+
+            isUserInteractionEnabled = !Self.usesSwiftUICapture
+            accessibilityElementsHidden = Self.usesSwiftUICapture
+            if !Self.usesSwiftUICapture {
+                let view = findCousinView(of: PostHogSwiftUITaggable.self, matching: { _ in true }) as UIView?
+                    ?? superview?.superview
+                taggedView = view
+                view?.postHogLabel = legacyLabel
+                return
+            }
 
             // try to find a "taggable" cousin view in hierarchy
             //
@@ -93,22 +130,19 @@
             //       L PostHogLabelViewTagger (ViewRepresentable)
             //           L PostHogLabelTaggerView (UIView) <- we are here
             //
-            if let view = findCousinView(of: PostHogSwiftUITaggable.self) {
-                taggedView = view
-                view.postHogLabel = label
-            } else {
-                // just tag grandparent view
-                //
-                // ### Why grandparent view?
-                //
-                // Because of SwiftUI-to-UIKit view bridging:
-                //     OriginalView (SwiftUI) <- we tag here
-                //       L PostHogLabelViewTagger (ViewRepresentable)
-                //           L PostHogLabelTaggerView (UIView) <- we are here
-                //
-                taggedView = superview?.superview
-                superview?.superview?.postHogLabel = label
+            let view: PostHogSwiftUITaggable? = findCousinView(of: PostHogSwiftUITaggable.self) { view in
+                guard let window, !bounds.isEmpty else { return false }
+                let markerBounds = window.convert(bounds, from: self)
+                let viewBounds = window.convert(view.bounds, from: view)
+                return !viewBounds.isEmpty && markerBounds.insetBy(dx: -1, dy: -1).contains(viewBounds)
             }
+            if taggedView !== view {
+                taggedView?.postHogLabel = nil
+            }
+            taggedView = view
+            view?.postHogLabel = label
+            // Pure SwiftUI elements use this marker's live bounds during tap resolution.
+            // Do not tag a shared hosting ancestor: it can contain many labeled controls.
         }
 
         override func removeFromSuperview() {
@@ -118,9 +152,9 @@
             taggedView = nil
         }
 
-        private func findCousinView<T>(of _: T.Type) -> T? {
+        private func findCousinView<T>(of _: T.Type, matching predicate: (T) -> Bool) -> T? {
             for sibling in superview?.siblings() ?? [] {
-                if let match = sibling.child(of: T.self) {
+                if let match = sibling.child(of: T.self, matching: predicate) {
                     return match
                 }
             }
@@ -137,10 +171,13 @@
             } ?? []
         }
 
-        func child<T>(of type: T.Type) -> T? {
+        func child<T>(of type: T.Type, matching predicate: (T) -> Bool) -> T? {
             for child in subviews {
-                if let curT = child as? T ?? child.child(of: type) {
-                    return curT
+                if let match = child as? T, predicate(match) {
+                    return match
+                }
+                if let match = child.child(of: type, matching: predicate) {
+                    return match
                 }
             }
             return nil

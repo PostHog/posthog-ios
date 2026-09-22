@@ -585,10 +585,12 @@
 		C1CCE065308F43BB8D3FF76C /* SurveyChoiceOrderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 704DB0E1A4F94F4B9F6772A4 /* SurveyChoiceOrderTests.swift */; };
 		DAC0A2BF2F2C419400BAA602 /* PostHogDebugImageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4DE2ED992780097A97A /* PostHogDebugImageProvider.swift */; };
 		DAC699D62CC790D9000D1D6B /* PostHogAutocaptureIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC699D52CC790D9000D1D6B /* PostHogAutocaptureIntegration.swift */; };
+		E20AA66A7E0C4B06945582D2 /* SwiftUITapAutocapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74D9E6FE53A140D2A5D8C7B7 /* SwiftUITapAutocapture.swift */; };
 		DAC699EC2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC699EB2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift */; };
 		DACB3ED22E0193B20061FC7D /* PostHogSurvey+Display.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACB3ED12E0193B20061FC7D /* PostHogSurvey+Display.swift */; };
 		DACC08BB2D6E3C6D00115E46 /* PostHogIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACC08B52D6E3C6800115E46 /* PostHogIntegration.swift */; };
 		DACF6D5D2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACF6D5C2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift */; };
+		DC5D9A03AF71469FA2F91E74 /* SwiftUITapAutocaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2A0C3FD5963418C916D3CF6 /* SwiftUITapAutocaptureTests.swift */; };
 		A4A01BCD917E4C46A4F11104 /* PostHogAutocaptureTextPrivacyTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A01BCD917E4C46A4F11103 /* PostHogAutocaptureTextPrivacyTest.swift */; };
 		DAD39DF42D560818002A1A69 /* Float+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD39DEE2D560813002A1A69 /* Float+Util.swift */; };
 		DAD39DF62D56178D002A1A69 /* UtilsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD39DF52D561787002A1A69 /* UtilsTest.swift */; };
@@ -1469,10 +1471,12 @@
 		F85AB3DFD5C84D3EB5FF4A5B /* PostHogSurveySharedStorageTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveySharedStorageTest.swift; sourceTree = "<group>"; };
 		704DB0E1A4F94F4B9F6772A4 /* SurveyChoiceOrderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveyChoiceOrderTests.swift; sourceTree = "<group>"; };
 		DAC699D52CC790D9000D1D6B /* PostHogAutocaptureIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureIntegration.swift; sourceTree = "<group>"; };
+		74D9E6FE53A140D2A5D8C7B7 /* SwiftUITapAutocapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftUITapAutocapture.swift; sourceTree = "<group>"; };
 		DAC699EB2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForwardingPickerViewDelegate.swift; sourceTree = "<group>"; };
 		DACB3ED12E0193B20061FC7D /* PostHogSurvey+Display.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PostHogSurvey+Display.swift"; sourceTree = "<group>"; };
 		DACC08B52D6E3C6800115E46 /* PostHogIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogIntegration.swift; sourceTree = "<group>"; };
 		DACF6D5C2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureIntegrationSpec.swift; sourceTree = "<group>"; };
+		C2A0C3FD5963418C916D3CF6 /* SwiftUITapAutocaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftUITapAutocaptureTests.swift; sourceTree = "<group>"; };
 		A4A01BCD917E4C46A4F11103 /* PostHogAutocaptureTextPrivacyTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureTextPrivacyTest.swift; sourceTree = "<group>"; };
 		DAD39DEE2D560813002A1A69 /* Float+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Float+Util.swift"; sourceTree = "<group>"; };
 		DAD39DF52D561787002A1A69 /* UtilsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilsTest.swift; sourceTree = "<group>"; };
@@ -1832,6 +1836,7 @@
 				DA578E9D2D6858B200B3A56C /* PostHogScreenViewIntegrationTest.swift */,
 				C02440022E00000100000244 /* PostHogViewControllerTraversalTest.swift */,
 				DACF6D5C2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift */,
+				C2A0C3FD5963418C916D3CF6 /* SwiftUITapAutocaptureTests.swift */,
 				A4A01BCD917E4C46A4F11103 /* PostHogAutocaptureTextPrivacyTest.swift */,
 				DA703C1D2D66346E0069097B /* PostHogAppLifeCycleIntegrationTest.swift */,
 				DAA5ED962D4043A500D437E0 /* PostHogSurveysTest.swift */,
@@ -2073,6 +2078,7 @@
 				DA5B85872CD21CBB00686389 /* AutocaptureEventProcessing.swift */,
 				DAC699EB2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift */,
 				DAC699D52CC790D9000D1D6B /* PostHogAutocaptureIntegration.swift */,
+				74D9E6FE53A140D2A5D8C7B7 /* SwiftUITapAutocapture.swift */,
 				DAA1B2C22F8C100000112233 /* PostHogRageClickIntegration.swift */,
 				DA26419A2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift */,
 				26E974D4AD3C438FAE6FE0C5 /* RageClickDetector.swift */,
@@ -3388,6 +3394,7 @@
 				3A0F108929C9BD76002C0084 /* Errors.swift in Sources */,
 				3AE3FB37299162EA00AFFC18 /* PostHogApi.swift in Sources */,
 				DAC699D62CC790D9000D1D6B /* PostHogAutocaptureIntegration.swift in Sources */,
+				E20AA66A7E0C4B06945582D2 /* SwiftUITapAutocapture.swift in Sources */,
 				DAA1B2C32F8C100000112233 /* PostHogRageClickIntegration.swift in Sources */,
 				EE47DB8C906D409AB6C2A23F /* RageClickDetector.swift in Sources */,
 				E82B0039B6834A439AD214E9 /* PostHogRageClickConfig.swift in Sources */,
@@ -3677,6 +3684,7 @@
 				31EB43B360294C13A802C709 /* PostHogSurveyResumeTest.swift in Sources */,
 				C1CCE065308F43BB8D3FF76C /* SurveyChoiceOrderTests.swift in Sources */,
 				DACF6D5D2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift in Sources */,
+				DC5D9A03AF71469FA2F91E74 /* SwiftUITapAutocaptureTests.swift in Sources */,
 				A4A01BCD917E4C46A4F11104 /* PostHogAutocaptureTextPrivacyTest.swift in Sources */,
 				3A62647529CB0168007E8C07 /* TestPostHog.swift in Sources */,
 				DA27AEC12F56B3E3002A59CE /* PostHogSessionReplayEventTriggersTest.swift in Sources */,

@@ -2832,12 +2832,12 @@ let maxRetryDelay = 30.0
     #endif
 
     #if os(iOS) || targetEnvironment(macCatalyst)
-        /// Returns whether UIKit element autocapture is enabled in local state.
+        /// Returns whether UIKit or SwiftUI element autocapture is enabled in local state.
         ///
-        /// - Returns: `true` when the SDK is set up and `captureElementInteractions` is enabled.
+        /// - Returns: `true` when the SDK is set up and either interaction autocapture option is enabled.
         ///   This does not verify that the swizzling-backed integration was installed.
         @objc public func isAutocaptureActive() -> Bool {
-            isEnabled() && config.captureElementInteractions
+            isEnabled() && (config.captureElementInteractions || config.captureSwiftUIElementInteractions)
         }
 
         /// Returns whether rage click autocapture is enabled in local state.

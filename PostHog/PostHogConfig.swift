@@ -231,9 +231,22 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     #if os(iOS) || targetEnvironment(macCatalyst)
         /// Enables UIKit element interaction autocapture on iOS and Mac Catalyst.
         ///
+        /// Enable `captureSwiftUIElementInteractions` for better SwiftUI autocapture events.
+        /// When that option is disabled, existing SwiftUI gesture capture is preserved.
         /// Requires `enableSwizzling = true`.
         /// Default: `false`.
         @objc public var captureElementInteractions: Bool = false
+
+        /// Enables SwiftUI tap autocapture on iOS and Mac Catalyst.
+        ///
+        /// Works independently of `captureElementInteractions` and requires `enableSwizzling = true`.
+        /// SwiftUI controls backed by UIKit, such as `TextField`, still require
+        /// `captureElementInteractions = true` to capture their control interactions.
+        /// Uses element labels and accessibility identifiers to resolve SwiftUI taps, replacing
+        /// legacy hosting-view tap events. Event counts and element chains can differ from legacy capture.
+        /// Unresolved elements are skipped. Configure before SDK setup.
+        /// Default: `false`.
+        @objc public var captureSwiftUIElementInteractions: Bool = false
 
         /// Whether autocapture reads control text and selected values. Requires
         /// `captureElementInteractions` to be enabled for regular autocapture events.
@@ -590,7 +603,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         #endif
 
         #if os(iOS) || targetEnvironment(macCatalyst)
-            if captureElementInteractions {
+            if captureElementInteractions || captureSwiftUIElementInteractions {
                 integrations.append(PostHogAutocaptureIntegration())
             }
 

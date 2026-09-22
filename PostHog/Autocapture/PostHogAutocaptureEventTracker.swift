@@ -19,9 +19,9 @@
             // values >0 means that this event will be debounced for `debounceInterval`
             let debounceInterval: TimeInterval
 
-            func getElementChain() -> String {
+            func getElementChain(captureElementText: Bool = true) -> String {
                 viewHierarchy
-                    .map(\.elementsChainEntry)
+                    .map { $0.elementsChainEntry(captureElementText: captureElementText) }
                     .joined(separator: PostHogAutocaptureEventTracker.elementsChainDelimiter)
             }
         }
@@ -32,10 +32,10 @@
             let baseClass: String?
             let label: String?
 
-            var elementsChainEntry: String {
+            func elementsChainEntry(captureElementText: Bool) -> String {
                 var attributes = [String]()
 
-                if !text.isEmpty {
+                if captureElementText, !text.isEmpty {
                     attributes.append("text=\(text.quoted)")
                 }
                 if let baseClass, !baseClass.isEmpty {
@@ -276,26 +276,26 @@
             eventData(touchCoordinates: nil)
         }
 
-        func eventData(touchCoordinates: CGPoint?) -> PostHogAutocaptureEventTracker.EventData? {
+        func eventData(touchCoordinates: CGPoint?, captureElementText: Bool? = nil) -> PostHogAutocaptureEventTracker.EventData? {
             guard shouldTrack(self) else { return nil }
+            let captureText = captureElementText ?? PostHogAutocaptureEventTracker.eventProcessor?.captureElementText ?? true
             return PostHogAutocaptureEventTracker.EventData(
                 touchCoordinates: touchCoordinates,
-                value: ph_autocaptureText
-                    .map(sanitizeText),
+                value: captureText ? ph_autocaptureText.map(sanitizeText) : nil,
                 screenName: nearestViewController
                     .flatMap(UIViewController.ph_topViewController)
                     .flatMap(UIViewController.getViewControllerName),
                 viewHierarchy: sequence(first: self, next: \.superview)
-                    .map(\.toElement),
+                    .map { $0.toElement(captureElementText: captureText) },
                 debounceInterval: ph_autocaptureDebounceInterval
             )
         }
     }
 
     private extension UIView {
-        var toElement: PostHogAutocaptureEventTracker.Element {
+        func toElement(captureElementText: Bool) -> PostHogAutocaptureEventTracker.Element {
             PostHogAutocaptureEventTracker.Element(
-                text: ph_autocaptureText.map(sanitizeText) ?? "",
+                text: captureElementText ? (ph_autocaptureText.map(sanitizeText) ?? "") : "",
                 targetClass: descriptiveTypeName,
                 baseClass: baseTypeName,
                 label: postHogLabel

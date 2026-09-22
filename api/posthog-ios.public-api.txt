@@ -54,6 +54,7 @@ PostHog | PostHogConfig.apiKey | property | @objc var apiKey: String { get } | c
 PostHog | PostHogConfig.appGroupIdentifier | property | @objc var appGroupIdentifier: String? | c:@M@PostHog@objc(cs)PostHogConfig(py)appGroupIdentifier
 PostHog | PostHogConfig.bootstrap | property | @objc var bootstrap: PostHogBootstrapConfig? | c:@M@PostHog@objc(cs)PostHogConfig(py)bootstrap
 PostHog | PostHogConfig.captureApplicationLifecycleEvents | property | @objc var captureApplicationLifecycleEvents: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureApplicationLifecycleEvents
+PostHog | PostHogConfig.captureAutocaptureElementText | property | @objc var captureAutocaptureElementText: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureAutocaptureElementText
 PostHog | PostHogConfig.captureElementInteractions | property | @objc var captureElementInteractions: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureElementInteractions
 PostHog | PostHogConfig.capturePushNotificationOpened | property | @objc var capturePushNotificationOpened: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)capturePushNotificationOpened
 PostHog | PostHogConfig.capturePushNotificationSubscriptions | property | @objc var capturePushNotificationSubscriptions: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)capturePushNotificationSubscriptions
@@ -112,6 +113,7 @@ PostHog | PostHogDisplayChoiceQuestion.choices | property | let choices: [String
 PostHog | PostHogDisplayChoiceQuestion.hasOpenChoice | property | let hasOpenChoice: Bool | s:7PostHog0aB21DisplayChoiceQuestionC07hasOpenD0Sbvp
 PostHog | PostHogDisplayChoiceQuestion.isMultipleChoice | property | let isMultipleChoice: Bool | s:7PostHog0aB21DisplayChoiceQuestionC010isMultipleD0Sbvp
 PostHog | PostHogDisplayChoiceQuestion.shuffleOptions | property | let shuffleOptions: Bool | s:7PostHog0aB21DisplayChoiceQuestionC14shuffleOptionsSbvp
+PostHog | PostHogDisplayChoiceQuestion.skipSubmitButton | property | let skipSubmitButton: Bool | s:7PostHog0aB21DisplayChoiceQuestionC16skipSubmitButtonSbvp
 PostHog | PostHogDisplayLinkQuestion | class | @objc class PostHogDisplayLinkQuestion | c:@M@PostHog@objc(cs)PostHogDisplayLinkQuestion
 PostHog | PostHogDisplayLinkQuestion.link | property | let link: String? | s:7PostHog0aB19DisplayLinkQuestionC4linkSSSgvp
 PostHog | PostHogDisplayOpenQuestion | class | @objc class PostHogDisplayOpenQuestion | c:@M@PostHog@objc(cs)PostHogDisplayOpenQuestion
@@ -120,11 +122,13 @@ PostHog | PostHogDisplayRatingQuestion.lowerBoundLabel | property | let lowerBou
 PostHog | PostHogDisplayRatingQuestion.ratingType | property | let ratingType: PostHogDisplaySurveyRatingType | s:7PostHog0aB21DisplayRatingQuestionC10ratingTypeAA0abc6SurveydG0Ovp
 PostHog | PostHogDisplayRatingQuestion.scaleLowerBound | property | let scaleLowerBound: Int | s:7PostHog0aB21DisplayRatingQuestionC15scaleLowerBoundSivp
 PostHog | PostHogDisplayRatingQuestion.scaleUpperBound | property | let scaleUpperBound: Int | s:7PostHog0aB21DisplayRatingQuestionC15scaleUpperBoundSivp
+PostHog | PostHogDisplayRatingQuestion.skipSubmitButton | property | let skipSubmitButton: Bool | s:7PostHog0aB21DisplayRatingQuestionC16skipSubmitButtonSbvp
 PostHog | PostHogDisplayRatingQuestion.upperBoundLabel | property | let upperBoundLabel: String | s:7PostHog0aB21DisplayRatingQuestionC15upperBoundLabelSSvp
 PostHog | PostHogDisplaySurvey | class | @objc class PostHogDisplaySurvey | c:@M@PostHog@objc(cs)PostHogDisplaySurvey
 PostHog | PostHogDisplaySurvey.appearance | property | let appearance: PostHogDisplaySurveyAppearance? | s:7PostHog0aB13DisplaySurveyC10appearanceAA0abcD10AppearanceCSgvp
 PostHog | PostHogDisplaySurvey.endDate | property | let endDate: Date? | s:7PostHog0aB13DisplaySurveyC7endDate10Foundation0F0VSgvp
 PostHog | PostHogDisplaySurvey.id | property | let id: String | s:7PostHog0aB13DisplaySurveyC2idSSvp
+PostHog | PostHogDisplaySurvey.initialQuestionIndex | property | let initialQuestionIndex: Int | s:7PostHog0aB13DisplaySurveyC20initialQuestionIndexSivp
 PostHog | PostHogDisplaySurvey.name | property | let name: String | s:7PostHog0aB13DisplaySurveyC4nameSSvp
 PostHog | PostHogDisplaySurvey.questions | property | let questions: [PostHogDisplaySurveyQuestion] | s:7PostHog0aB13DisplaySurveyC9questionsSayAA0abcD8QuestionCGvp
 PostHog | PostHogDisplaySurvey.startDate | property | let startDate: Date? | s:7PostHog0aB13DisplaySurveyC9startDate10Foundation0F0VSgvp
@@ -406,6 +410,7 @@ PostHog | PostHogSurveysConfig.surveysDelegate | property | var surveysDelegate:
 PostHog | PostHogSurveysDelegate | protocol | @objc protocol PostHogSurveysDelegate | c:@M@PostHog@objc(pl)PostHogSurveysDelegate
 PostHog | PostHogSurveysDelegate.cleanupSurveys() | method | @objc func cleanupSurveys() | c:@M@PostHog@objc(pl)PostHogSurveysDelegate(im)cleanupSurveys
 PostHog | PostHogSurveysDelegate.renderSurvey(_:onSurveyShown:onSurveyResponse:onSurveyClosed:) | method | @objc func renderSurvey(_ survey: PostHogDisplaySurvey, onSurveyShown: @escaping OnPostHogSurveyShown, onSurveyResponse: @escaping OnPostHogSurveyResponse, onSurveyClosed: @escaping OnPostHogSurveyClosed) | c:@M@PostHog@objc(pl)PostHogSurveysDelegate(im)renderSurvey:onSurveyShown:onSurveyResponse:onSurveyClosed:
+PostHog | PostHogSurveysDelegate.supportsSurveyResume | property | @objc optional var supportsSurveyResume: Bool { get } | c:@M@PostHog@objc(pl)PostHogSurveysDelegate(py)supportsSurveyResume
 PostHog | PostHogSurveysDelegate.updateSurvey(_:) | method | @objc optional func updateSurvey(_ survey: PostHogDisplaySurvey) | c:@M@PostHog@objc(pl)PostHogSurveysDelegate(im)updateSurvey:
 PostHog | ReachabilityError | enum | enum ReachabilityError | s:7PostHog17ReachabilityErrorO
 PostHog | ReachabilityError.failedToCreateWithAddress(_:_:) | enum.case | case failedToCreateWithAddress(sockaddr, Int32) | s:7PostHog17ReachabilityErrorO25failedToCreateWithAddressyACSo8sockaddrV_s5Int32VtcACmF

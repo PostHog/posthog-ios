@@ -27,6 +27,11 @@
 
         private var isEnabled: Bool = false
 
+        /// Last reported status handed to the crash context, so a reload that moved nothing doesn't
+        /// rebuild the whole snapshot. Guards only itself.
+        private let statusNotifyLock = NSLock()
+        private var lastNotifiedStatusKey: String?
+
         private let windowViewsLock = NSLock()
         private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
         private let installedPluginsLock = NSLock()
@@ -213,6 +218,7 @@
                 featureFlagsLoadedToken = nil
                 eventCapturedToken = nil
                 self.postHog = nil
+                statusNotifyLock.withLock { lastNotifiedStatusKey = nil }
 
                 // Clear buffer delegate
                 replayQueue?.bufferDelegate = nil
@@ -259,10 +265,10 @@
                 return
             }
 
-            isEnabled = true
-
-            // Reset minimum duration buffering state for the new session
-            resetBufferingState(for: postHog)
+            // isEnabled flips atomically with the buffering-state reset (same lock acquisition) so a
+            // concurrent debugProperties() reader can't observe enabled:true with stale prior-session
+            // buffering state.
+            resetBufferingState(for: postHog, isEnabled: true)
 
             // Listen for session changes to stop recording when a new session starts (if triggers are configured)
             sessionIdChangedToken = postHog.sessionManager.onSessionIdChanged.subscribe { [weak self] in
@@ -317,13 +323,31 @@
             }
 
             hedgeLog("Session replay recording started.")
+            notifyRecordingStatusChanged()
+        }
+
+        /// The crash-context snapshot (`PostHogSDK.notifyContextDidChange`) is replayed verbatim on the
+        /// next launch, so refresh it whenever `$recording_status` can change. Never call this while
+        /// holding `bufferingLock`: it re-enters `debugProperties()`.
+        private func notifyRecordingStatusChanged() {
+            guard let postHog else { return }
+
+            let key = Self.statusKey(debugProperties())
+            let changed = statusNotifyLock.withLock { () -> Bool in
+                guard lastNotifiedStatusKey != key else { return false }
+                lastNotifiedStatusKey = key
+                return true
+            }
+            guard changed else { return }
+
+            postHog.notifyContextDidChange()
         }
 
         /// Stops session replay recording.
         /// Note: This does not clear remoteConfigLoadedToken or eventCapturedToken as those are managed by install/uninstall.
         func stop() {
             guard isEnabled else { return }
-            isEnabled = false
+            bufferingLock.withLock { isEnabled = false }
             resetViews()
             sessionIdChangedToken = nil
 
@@ -345,10 +369,11 @@
             }
 
             hedgeLog("Session replay recording stopped.")
+            notifyRecordingStatusChanged()
         }
 
         func isActive() -> Bool {
-            isEnabled
+            bufferingLock.withLock { isEnabled }
         }
 
         private func resetViews() {
@@ -417,6 +442,10 @@
                 return
             }
 
+            // The SDK's own session-change subscriber snapshots the crash context before this handler
+            // runs, so re-snapshot once the buffering/trigger state below has settled.
+            defer { notifyRecordingStatusChanged() }
+
             // Always reset views on session change
             if isEnabled {
                 resetViews()
@@ -446,10 +475,13 @@
         /// minimum duration, and re-arms the first-remote-config gate only while the first `/config`
         /// is still pending (e.g. a session rotation during an offline cold start). Once any `/config`
         /// attempt has completed the gate stays disarmed — including across reset(), which keeps the
-        /// fetched config — so recording is not re-buffered.
-        private func resetBufferingState(for _: PostHogSDK) {
+        /// fetched config — so recording is not re-buffered. Pass `isEnabled` to flip the enabled flag
+        /// in the same lock acquisition, so a concurrent `debugProperties()` reader never sees
+        /// enabled:true alongside the previous session's buffering state.
+        private func resetBufferingState(for _: PostHogSDK, isEnabled newIsEnabled: Bool? = nil) {
             let awaiting = shouldAwaitFirstRemoteConfig()
             bufferingLock.withLock {
+                if let newIsEnabled { isEnabled = newIsEnabled }
                 hasPassedMinimumDuration = false
                 awaitingFirstRemoteConfig = awaiting
             }
@@ -479,6 +511,11 @@
         }
 
         func applyRemoteConfig(remoteConfig: [String: Any]?) {
+            // Every branch below can move a reported value without calling start()/stop() — a changed
+            // minimum duration or a replaced trigger list, say — so re-snapshot once at the end
+            // regardless. `notifyRecordingStatusChanged` drops the call when nothing actually moved.
+            defer { notifyRecordingStatusChanged() }
+
             updatePlugins(from: remoteConfig)
             updateEventTriggers(from: remoteConfig)
             updateCachedMinimumDuration()
@@ -543,6 +580,7 @@
             } else {
                 replayQueue?.clearBuffer()
             }
+            notifyRecordingStatusChanged()
         }
 
         private func isCurrentSessionSampledIn() -> Bool {
@@ -557,21 +595,24 @@
         /// Migrates the buffer to the persisted queue when it should be flushed now — no minimum
         /// duration is configured, or the buffered window already spans it — and otherwise leaves it
         /// buffering for the minimum-duration window. The caller must have confirmed replay is active.
-        private func migrateBufferIfMinimumDurationMet(_ replayQueue: PostHogReplayQueue) {
+        /// Returns whether it migrated; the caller owns the crash-context re-snapshot.
+        @discardableResult
+        private func migrateBufferIfMinimumDurationMet(_ replayQueue: PostHogReplayQueue) -> Bool {
             let minimumDuration = bufferingLock.withLock { cachedMinimumDuration }
 
             guard let minimumDuration, minimumDuration > 0 else {
                 bufferingLock.withLock { hasPassedMinimumDuration = true }
                 replayQueue.migrateBufferToQueue()
-                return
+                return true
             }
 
-            guard (replayQueue.bufferDuration ?? 0) >= minimumDuration else { return }
+            guard (replayQueue.bufferDuration ?? 0) >= minimumDuration else { return false }
 
             hedgeLog("[Session Replay] Minimum duration met. Migrating \(replayQueue.bufferDepth) buffered events to replay queue.")
             // Flip state before migration so new snapshots don't keep entering the buffer during long-running migrations.
             bufferingLock.withLock { hasPassedMinimumDuration = true }
             replayQueue.migrateBufferToQueue()
+            return true
         }
 
         /// Resolves the buffer from a feature-flags reload — covers two paths:
@@ -593,7 +634,9 @@
                 let canResolve = didResolveRemoteConfig && awaitingFirstRemoteConfig
                 return (canResolve, canResolve && !wasResolved)
             }
-            guard canResolve else { return }
+            // A reload that doesn't resolve the buffer can still flip the linked flag, which
+            // `$sdk_debug_replay_linked_flag_trigger_status` reads live; keep the crash context current.
+            guard canResolve else { return notifyRecordingStatusChanged() }
 
             if isFallback {
                 hedgeLog("[Session Replay] First /config attempt did not complete. Falling back to the disk-cached recording config.")
@@ -1663,8 +1706,13 @@
                     triggerActivatedSessionId = currentSessionId
                 }
                 hedgeLog("[Session Replay] Event trigger matched: \(event). Starting replay for session \(currentSessionId).")
-                // Start the integration now that a trigger has matched
+                // Start the integration now that a trigger has matched. start() re-snapshots the crash
+                // context itself when it succeeds; when it bails (e.g. sampled out) the trigger status
+                // still changed, so re-snapshot here.
                 start()
+                if !isActive() {
+                    notifyRecordingStatusChanged()
+                }
             }
         }
 
@@ -1746,6 +1794,109 @@
         }
     }
 
+    // MARK: - Debug properties
+
+    extension PostHogReplayIntegration {
+        // ponytail: host-name heuristic; replace with an explicit host mode if a third hybrid host appears
+        /// `$sdk_debug_replay_capture_mode`, shared by `debugProperties()` and the no-integration
+        /// fallback in `PostHogSDK.buildProperties`, so both stay in sync.
+        static func captureMode(config: PostHogConfig?) -> String {
+            (config?.sessionReplayConfig.screenshotMode == true || postHogSdkName == "posthog-flutter") ? "screenshot" : "wireframe"
+        }
+
+        /// `$sdk_debug_replay_throttle_delay_ms`, shared with the no-integration fallback in
+        /// `PostHogSDK.buildProperties`. `1` mirrors `PostHogSessionReplayConfig.throttleDelay`'s default.
+        static func throttleDelayMs(config: PostHogConfig?) -> Int {
+            let millis = (config?.sessionReplayConfig.throttleDelay ?? 1) * 1000
+            // Int(Double) traps on NaN/infinite/out-of-range and throttleDelay is an unvalidated
+            // host-set value. Clamp to Int32.max: Double(Int.max) rounds up to 2^63 and traps too.
+            guard millis.isFinite else { return 1000 }
+            return Int(min(max(millis, 0), Double(Int32.max)).rounded())
+        }
+
+        /// Shared by `$sdk_debug_replay_linked_flag_trigger_status` and `$sdk_debug_replay_event_trigger_status`.
+        static func triggerStatus(isConfigured: Bool, isActivated: Bool) -> String {
+            !isConfigured ? "trigger_disabled" : (isActivated ? "trigger_activated" : "trigger_pending")
+        }
+
+        /// Only the values the crash snapshot keeps: the point-in-time counters are stripped from it,
+        /// so they must not force a rebuild on every flags reload.
+        static func statusKey(_ props: [String: Any]) -> String {
+            var parts = [
+                "$recording_status",
+                "$sdk_debug_replay_flush_hold_reason",
+                "$sdk_debug_replay_linked_flag_trigger_status",
+                "$sdk_debug_replay_event_trigger_status",
+                "$sdk_debug_replay_capture_mode",
+            ].map { props[$0] as? String ?? "" }
+            parts.append(String(props["$sdk_debug_replay_throttle_delay_ms"] as? Int ?? -1))
+            parts.append((props["$sdk_debug_replay_pending_trigger_conditions"] as? [String] ?? []).joined(separator: ","))
+            return parts.joined(separator: "|")
+        }
+
+        /// `$recording_status` / `$sdk_debug_*` replay properties for the event being captured. The
+        /// buffering fields are read in one `bufferingLock` acquisition so a concurrent start()/stop()
+        /// can't tear them across keys on the same event.
+        func debugProperties() -> [String: Any] {
+            let (enabled, awaitingConfig, passedMinimumDuration, minimumDuration) = bufferingLock.withLock {
+                (isEnabled, awaitingFirstRemoteConfig, hasPassedMinimumDuration, cachedMinimumDuration)
+            }
+
+            // Read once under one lock acquisition so a /config or /flags reload landing mid-call can't
+            // pair `flagActive` from one config generation with the linked-flag trigger status from another.
+            let linkedFlagSnapshot = postHog?.remoteConfig?.sessionReplayLinkedFlagSnapshot()
+
+            // Mirrors isSessionReplayActive(): a first `/config` with the flag off leaves `isEnabled`
+            // true (the capturer self-gates on the flag), so gate on the flag too once the config has
+            // resolved. js reports DISABLED whenever recording isn't enabled.
+            let flagActive = linkedFlagSnapshot?.activated ?? false
+            let recording = enabled && (awaitingConfig || flagActive)
+
+            // Mirrors isBuffering's minimum-duration branch: only counts when a duration is configured,
+            // since hasPassedMinimumDuration never flips otherwise and this would report "buffering"
+            // forever. Also gates on `recording` so a not-yet-started integration reports "disabled".
+            let buffering = recording && (awaitingConfig || ((minimumDuration ?? 0) > 0 && !passedMinimumDuration))
+            var props: [String: Any] = [
+                "$recording_status": !recording ? "disabled" : (buffering ? "buffering" : "active"),
+            ]
+            if buffering {
+                props["$sdk_debug_replay_flush_hold_reason"] = awaitingConfig ? "awaiting_remote_config" : "below_minimum_duration"
+            }
+
+            // Config-derived and freshly-computed keys stay present regardless of `enabled` — they
+            // never go stale, unlike a cached hold reason would.
+            props["$sdk_debug_replay_capture_mode"] = Self.captureMode(config: config)
+            props["$sdk_debug_replay_throttle_delay_ms"] = Self.throttleDelayMs(config: config)
+            // The unsent snapshot count: the held buffer while buffering, else the persisted queue.
+            props["$sdk_debug_replay_internal_buffer_length"] = (buffering ? replayQueue?.bufferDepth : replayQueue?.depth) ?? 0
+
+            let linkedFlagTriggerStatus = Self.triggerStatus(
+                isConfigured: linkedFlagSnapshot?.configured == true,
+                isActivated: linkedFlagSnapshot?.activated == true
+            )
+
+            let triggers = eventTriggersLock.withLock { eventTriggers }
+            let eventTriggerStatus = Self.triggerStatus(
+                isConfigured: triggers?.isEmpty == false,
+                // Reuses shouldWaitForEventTriggers()'s own semantics (a nil session id is "not
+                // waiting"), so this can't disagree with the gate that actually decides start().
+                isActivated: !shouldWaitForEventTriggers()
+            )
+
+            props["$sdk_debug_replay_linked_flag_trigger_status"] = linkedFlagTriggerStatus
+            props["$sdk_debug_replay_event_trigger_status"] = eventTriggerStatus
+
+            var pendingConditions: [String] = []
+            if eventTriggerStatus == "trigger_pending" { pendingConditions.append("event_trigger") }
+            if linkedFlagTriggerStatus == "trigger_pending" { pendingConditions.append("linked_flag") }
+            if !pendingConditions.isEmpty {
+                props["$sdk_debug_replay_pending_trigger_conditions"] = pendingConditions
+            }
+
+            return props
+        }
+    }
+
     // MARK: - PostHogReplayBufferDelegate
 
     extension PostHogReplayIntegration: PostHogReplayBufferDelegate {
@@ -1779,7 +1930,9 @@
             // before the flag flipped from migrating the stale window into the persisted queue.
             guard postHog.isSessionReplayActive() else { return }
 
-            migrateBufferIfMinimumDurationMet(replayQueue)
+            if migrateBufferIfMinimumDurationMet(replayQueue) {
+                notifyRecordingStatusChanged()
+            }
         }
     }
 

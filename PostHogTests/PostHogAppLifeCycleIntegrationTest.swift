@@ -93,7 +93,95 @@ final class PostHogAppLifeCycleIntegrationTest {
         deleteSafely(applicationSupportDirectoryURL())
     }
 
+    @Test("installs lifecycle integration even when event capture is disabled")
+    func installsWithCaptureDisabled() {
+        let config = PostHogConfig(projectToken: "test_project_token")
+        config.captureApplicationLifecycleEvents = false
+        #expect(config.getIntegrations().contains { $0 is PostHogAppLifeCycleIntegration })
+    }
+
+    @Test("a disabled client does not block lifecycle capture by an enabled client", arguments: [false, true])
+    func disabledClientDoesNotBlockLifecycleCapture(previousInstall: Bool) async throws {
+        setVersionDefaults(version: previousInstall ? "0.0.1" : nil, build: previousInstall ? "1" : nil)
+        let disabled = getSut(captureApplicationLifecycleEvents: false)
+        let enabled = getSut(flushAt: 4)
+        defer { enabled.close() }
+
+        disabled.close()
+
+        mockAppLifecycle.simulateAppDidFinishLaunching()
+        mockAppLifecycle.simulateAppDidBecomeActive()
+        mockAppLifecycle.simulateAppDidEnterBackground()
+        enabled.capture("Satisfy Queue")
+        enabled.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == [
+            previousInstall ? "Application Updated" : "Application Installed",
+            "Application Opened",
+            "Application Backgrounded",
+            "Satisfy Queue",
+        ])
+        if previousInstall {
+            #expect(events.first?.properties["previous_version"] as? String == "0.0.1")
+            #expect(events.first?.properties["previous_build"] as? Int == 1)
+        }
+
+        let third = getSut(flushAt: 4)
+        defer { third.close() }
+        #expect(third.getAppLifeCycleIntegration() == nil)
+    }
+
     #if targetEnvironment(simulator)
+        @Test("disabled lifecycle capture remembers the current version", arguments: [false, true])
+        func disabledCaptureRemembersVersion(previousInstall: Bool) async throws {
+            setVersionDefaults(version: previousInstall ? "0.0.1" : nil, build: previousInstall ? "1" : nil)
+
+            let sut = getSut(captureApplicationLifecycleEvents: false)
+            defer { sut.close() }
+
+            mockAppLifecycle.simulateAppDidFinishLaunching()
+            mockAppLifecycle.simulateAppDidBecomeActive()
+            mockAppLifecycle.simulateAppDidEnterBackground()
+            sut.capture("Satisfy Queue")
+
+            let events = try await getServerEvents(server)
+            #expect(events.map(\.event) == ["Satisfy Queue"])
+            let version = try #require(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)
+            let build = try #require(Bundle.main.infoDictionary?["CFBundleVersion"] as? String)
+            #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") == version)
+            #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") == build)
+        }
+
+        @Test("enabling lifecycle capture on a later launch does not fabricate an install")
+        func enablingCaptureDoesNotFabricateInstall() async throws {
+            setVersionDefaults()
+            let first = getSut(captureApplicationLifecycleEvents: false)
+            first.close()
+            PostHogAppLifeCycleIntegration.clearInstalls()
+
+            let second = getSut(flushAt: 2)
+            defer { second.close() }
+            mockAppLifecycle.simulateAppDidBecomeActive()
+            second.capture("Satisfy Queue")
+
+            let events = try await getServerEvents(server)
+            #expect(events.map(\.event) == ["Application Opened", "Satisfy Queue"])
+        }
+
+        @Test("same build refreshes the saved version without an update event")
+        func sameBuildRefreshesVersion() async throws {
+            let build = try #require(Bundle.main.infoDictionary?["CFBundleVersion"] as? String)
+            setVersionDefaults(version: "0.0.1", build: build)
+            let sut = getSut()
+            defer { sut.close() }
+            sut.capture("Satisfy Queue")
+
+            let events = try await getServerEvents(server)
+            #expect(events.map(\.event) == ["Satisfy Queue"])
+            #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") == appVersionString())
+        }
+
         @Test("captures Application Installed event")
         func capturesApplicationInstalledEvent() async throws {
             // clear versions

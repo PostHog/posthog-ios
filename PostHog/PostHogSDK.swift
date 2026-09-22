@@ -31,10 +31,17 @@ let maxRetryDelay = 30.0
 /// Use `PostHogSDK.shared` for the default singleton instance, or `PostHogSDK.with(_:)`
 /// to create an additional configured instance.
 @objc public class PostHogSDK: NSObject { // swiftlint:disable:this type_body_length
-    private(set) var config: PostHogConfig
+    private var _config: PostHogConfig
+    /// `config`/`remoteConfig`/`queue`/`replayQueue` are written under `setupLock` (setup/close) and
+    /// read from arbitrary caller threads (capture(), debugProperties()) — guard the references
+    /// themselves with the same (recursive) lock so a reader never races `close()`'s teardown.
+    private(set) var config: PostHogConfig {
+        get { setupLock.withLock { _config } }
+        set { setupLock.withLock { _config = newValue } }
+    }
 
     private init(_ config: PostHogConfig) {
-        self.config = config
+        _config = config
     }
 
     private var enabled = false
@@ -53,7 +60,12 @@ let maxRetryDelay = 30.0
     }
 
     private var pushSubscriptionHandler: PostHogPushSubscriptionHandler?
-    private var queue: PostHogQueue<PostHogEvent>?
+    private var _queue: PostHogQueue<PostHogEvent>?
+    private var queue: PostHogQueue<PostHogEvent>? {
+        get { setupLock.withLock { _queue } }
+        set { setupLock.withLock { _queue = newValue } }
+    }
+
     private let exceptionStepsBufferLock = NSLock()
     private var _exceptionStepsBuffer: PostHogExceptionStepsBuffer?
     /// The reference is written under `setupLock` (setup/close/optIn) and read from arbitrary caller
@@ -65,14 +77,25 @@ let maxRetryDelay = 30.0
     /// Fired with the buffer's current steps whenever they change. The error-tracking autocapture
     /// integration subscribes to mirror them into the crash reporter's `customData`.
     let onExceptionStepsChanged = PostHogMulticastCallback<[[String: Any]]>()
-    private(set) var replayQueue: PostHogReplayQueue?
+    private var _replayQueue: PostHogReplayQueue?
+    private(set) var replayQueue: PostHogReplayQueue? {
+        get { setupLock.withLock { _replayQueue } }
+        set { setupLock.withLock { _replayQueue = newValue } }
+    }
+
     private(set) var logsQueue: PostHogQueue<PostHogLogRecord>?
     private(set) var storage: PostHogStorage?
+    private var surveyIdentityGeneration: String?
     #if !os(watchOS)
         private var reachability: Reachability?
     #endif
     private var flagCallReported: [String: [Any?]] = .init()
-    private(set) var remoteConfig: PostHogRemoteConfig?
+    private var _remoteConfig: PostHogRemoteConfig?
+    private(set) var remoteConfig: PostHogRemoteConfig? {
+        get { setupLock.withLock { _remoteConfig } }
+        set { setupLock.withLock { _remoteConfig = newValue } }
+    }
+
     private var context: PostHogContext?
     private static var projectTokens = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
@@ -90,7 +113,14 @@ let maxRetryDelay = 30.0
     @objc public private(set) var logger: PostHogLogger?
 
     #if os(iOS)
-        private weak var replayIntegration: PostHogReplayIntegration?
+        private weak var _replayIntegration: PostHogReplayIntegration?
+        /// Same shape as `queue`/`replayQueue` above: written under `setupLock` by install/uninstall,
+        /// read from any caller thread by `buildProperties`.
+        private var replayIntegration: PostHogReplayIntegration? {
+            get { setupLock.withLock { _replayIntegration } }
+            set { setupLock.withLock { _replayIntegration = newValue } }
+        }
+
         private weak var surveysIntegration: PostHogSurveyIntegration?
     #endif
 
@@ -561,15 +591,45 @@ let maxRetryDelay = 30.0
         return true
     }
 
+    /// `$sdk_debug_session_start` / `$sdk_debug_current_session_duration` / `$sdk_debug_pending_queue_size`.
+    /// `at` is the event's resolved time, the same instant the session was resolved against: a
+    /// backdated capture that rotates the session reports 0, not the size of the backdate (js
+    /// measures against the latest snapshot's timestamp too). Clamped, since a backdated event
+    /// that doesn't rotate can predate the live session's start.
+    private func sessionDebugProperties(at eventTime: Date) -> [String: Any] {
+        var props: [String: Any] = [:]
+        if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
+            let elapsed = eventTime.timeIntervalSince1970 - sessionStart
+            props["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
+            props["$sdk_debug_current_session_duration"] = Int64(max(0, elapsed) * 1000)
+        }
+        if let depth = queue?.depth {
+            props["$sdk_debug_pending_queue_size"] = depth
+        }
+        return props
+    }
+
     private func buildProperties(distinctId: String,
                                  properties: [String: Any]?,
                                  userProperties: [String: Any]? = nil,
                                  userPropertiesSetOnce: [String: Any]? = nil,
                                  groups: [String: String]? = nil,
                                  appendSharedProps: Bool = true,
-                                 timestamp: Date? = nil) -> [String: Any]
+                                 timestamp: Date? = nil,
+                                 // Snapshot callers pass true: resolving the session read-only keeps a
+                                 // background crash-context refresh from rotating an idle session.
+                                 readOnlySession: Bool = false) -> [String: Any]
     {
         var props: [String: Any] = [:]
+
+        // Resolve the session before any $sdk_debug_* snapshot below: getSessionId(at:) can rotate
+        // here, so the debug keys must describe the session this event lands in (mirrors posthog-js).
+        // A caller-supplied $session_id wins so replay snapshots never land in the wrong session.
+        let eventTime = timestamp ?? now()
+        let propSessionId = properties?["$session_id"] as? String
+        let sessionId: String? = propSessionId.isNilOrEmpty
+            ? sessionManager.getSessionId(at: eventTime, readOnly: readOnlySession)
+            : propSessionId
 
         if appendSharedProps {
             let staticCtx = context?.staticContext()
@@ -602,6 +662,21 @@ let maxRetryDelay = 30.0
 
             props["$process_person_profile"] = hasPersonProcessing()
 
+            // SDK-computed debug keys overwrite a same-named registered super property (js: `extend`
+            // after super properties), so a stale `register()` can't shadow the live status.
+            #if os(iOS)
+                if let replayIntegration {
+                    props.merge(replayIntegration.debugProperties()) { _, new in new }
+                } else {
+                    props["$recording_status"] = "disabled"
+                    props["$sdk_debug_replay_capture_mode"] = PostHogReplayIntegration.captureMode(config: config)
+                    props["$sdk_debug_replay_throttle_delay_ms"] = PostHogReplayIntegration.throttleDelayMs(config: config)
+                }
+            #else
+                props["$recording_status"] = "disabled"
+            #endif
+            props.merge(sessionDebugProperties(at: eventTime)) { _, new in new }
+
             // Only stamp if the caller didn't supply a non-empty value —
             // `merging(properties)` below keeps the existing value on conflict,
             // so seeding would shadow a caller-supplied override. Whitespace-only
@@ -617,14 +692,6 @@ let maxRetryDelay = 30.0
         if sdkInfo != nil {
             props = props.merging(sdkInfo ?? [:]) { current, _ in current }
         }
-
-        // use existing session id if already present in properties (from params)
-        // for session replay, we attach the session id on the event as early as possible to avoid sending snapshots to a wrong session
-        // if not present, get a current or new session id at event timestamp
-        let propSessionId = properties?["$session_id"] as? String
-        let sessionId: String? = propSessionId.isNilOrEmpty
-            ? sessionManager.getSessionId(at: timestamp ?? now())
-            : propSessionId
 
         if let sessionId {
             if propSessionId.isNilOrEmpty {
@@ -668,6 +735,27 @@ let maxRetryDelay = 30.0
         pushSubscriptionHandler?.retryIfNeeded()
     }
 
+    func surveyEventDistinctId(generation: String?) -> String? {
+        guard let storage else { return nil }
+        let snapshot = storage.withSurveyState { currentGeneration -> (epoch: String, distinctId: String?)? in
+            guard generation == nil || generation == currentGeneration,
+                  storage.isSurveyGenerationCurrent(currentGeneration) else { return nil }
+            if surveyIdentityGeneration != currentGeneration {
+                config.storageManager?.reset()
+                surveyIdentityGeneration = currentGeneration
+            }
+            return (currentGeneration, storage.getString(forKey: .distinctId) ?? storage.getString(forKey: .anonymousId))
+        }
+        guard let snapshot else { return nil }
+        if let distinctId = snapshot.distinctId { return distinctId }
+        // Identity generation may call user code, so it cannot hold the shared file lock.
+        _ = getDistinctId()
+        return storage.withSurveyState { currentGeneration in
+            guard currentGeneration == snapshot.epoch else { return nil }
+            return storage.getString(forKey: .distinctId) ?? storage.getString(forKey: .anonymousId)
+        }
+    }
+
     /// Resets local identity, super properties, feature flag cache, and session state.
     ///
     /// Call this when a user logs out. The next captured event will use a new anonymous identity
@@ -688,8 +776,12 @@ let maxRetryDelay = 30.0
         }
 
         // storage also removes all feature flags
-        storage?.reset(keepAnonymousId: config.reuseAnonymousId)
-        config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
+        if let storage {
+            storage.withSurveyState { _ in
+                storage.reset(keepAnonymousId: config.reuseAnonymousId)
+                config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
+            }
+        }
         flagCallReportedLock.withLock {
             flagCallReported.removeAll()
         }
@@ -841,13 +933,16 @@ let maxRetryDelay = 30.0
         // Read isIdentified, decide the transition, and persist it atomically so two
         // concurrent identify() calls on an anonymous user can't both see isIdentified
         // == false and each emit a person-processed event for the same transition.
+        // Read before taking identifyLock: `config`'s getter takes setupLock, and setup() holds
+        // setupLock while reaching identify(), so reading it inside would invert the two.
+        let reuseAnonymousId = config.reuseAnonymousId
         identifyLock.withLock {
             isIdentified = storageManager.isIdentified()
             hasDifferentDistinctId = distinctId != oldDistinctId
             shouldTransitionToIdentified = !hasDifferentDistinctId && !isIdentified
 
             if hasDifferentDistinctId, !isIdentified {
-                if !config.reuseAnonymousId {
+                if !reuseAnonymousId {
                     // We keep the AnonymousId to be used by flags calls and identify to link the previousId
                     storageManager.setAnonymousId(oldDistinctId)
                 }
@@ -2463,6 +2558,9 @@ let maxRetryDelay = 30.0
             return
         }
 
+        // Read `config` before taking optOutLock: its getter takes setupLock, and setup() holds
+        // setupLock while taking optOutLock, so reading it inside would invert the two.
+        let config = self.config
         optOutLock.withLock {
             config.optOut = false
             if config.persistOptOut {
@@ -2505,6 +2603,8 @@ let maxRetryDelay = 30.0
             return
         }
 
+        // Same lock-order reason as optIn(): hoist the setupLock-guarded read out of optOutLock.
+        let config = self.config
         optOutLock.withLock {
             config.optOut = true
             if config.persistOptOut {
@@ -2557,7 +2657,6 @@ let maxRetryDelay = 30.0
             bufferToClear?.clear()
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
-            config = PostHogConfig(projectToken: "")
             remoteConfig = nil
             storage = nil
             #if !os(watchOS)
@@ -2574,6 +2673,7 @@ let maxRetryDelay = 30.0
             toggleHedgeLog(false)
 
             uninstallIntegrations()
+            config = PostHogConfig(projectToken: "")
         }
         // Outside setupLock to avoid lock-ordering coupling between
         // setupLock and lastScreenLock.
@@ -2997,6 +3097,9 @@ let maxRetryDelay = 30.0
 
             installedIntegrations.append(integration)
             replayIntegration = integration
+            // install() already ran start(), whose crash-context snapshot saw `replayIntegration == nil`
+            // and stamped "disabled"; re-snapshot now that the property is set.
+            notifyContextDidChange()
 
             hedgeLog("Integration \(type(of: integration)) installed")
         }
@@ -3040,25 +3143,38 @@ let maxRetryDelay = 30.0
         #endif
     }
 
+    /// Point-in-time counters: the crash path replays the context snapshot verbatim on the next
+    /// launch, so these would be stale by definition. Status/config keys stay because the replay
+    /// integration re-notifies on every recording transition.
+    private static let pointInTimeDebugKeys = [
+        "$sdk_debug_current_session_duration",
+        "$sdk_debug_pending_queue_size",
+        "$sdk_debug_replay_internal_buffer_length",
+    ]
+
     /// Notifies all installed integrations that the event context has changed.
     ///
-    /// This is called after operations that modify the context (identify, reset, group, register).
-    /// Integrations like crash reporting use this to persist context for crash-time capture.
-    private func notifyContextDidChange() {
+    /// This is called after operations that modify the context (identify, reset, group, register)
+    /// and by the replay integration whenever `$recording_status` changes. Integrations like crash
+    /// reporting use this to persist context for crash-time capture.
+    func notifyContextDidChange() {
         guard isEnabled() else { return }
 
         let distinctId = getDistinctId()
 
-        // Build complete event properties snapshot
-        let eventProperties = buildProperties(
+        var eventProperties = buildProperties(
             distinctId: distinctId,
             properties: nil,
             userProperties: nil,
             userPropertiesSetOnce: nil,
             groups: nil,
             appendSharedProps: true,
-            timestamp: nil
+            timestamp: nil,
+            readOnlySession: true
         )
+        for key in Self.pointInTimeDebugKeys {
+            eventProperties.removeValue(forKey: key)
+        }
 
         // Build crash context with identity info + event properties
         // This structure allows crash reporting to reconstruct events with crash-time data

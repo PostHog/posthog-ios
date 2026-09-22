@@ -248,6 +248,14 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// Default: `false`.
         @objc public var captureSwiftUIElementInteractions: Bool = false
 
+        /// Whether autocapture reads control text and selected values. Requires
+        /// `captureElementInteractions` to be enabled for regular autocapture events.
+        /// Also applies to rage-click events when rage-click detection is enabled independently.
+        /// Explicit `postHogLabel` identifiers remain available when disabled.
+        /// Manual events and session replay are unaffected. Accessibility labels may still
+        /// be read to check exclusion markers. Configure before SDK setup. Defaults to `true`.
+        @objc public var captureAutocaptureElementText: Bool = true
+
         /// Rage click detection configuration.
         @objc public let rageClickConfig: PostHogRageClickConfig = .init()
     #endif
@@ -577,9 +585,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
             integrations.append(PostHogScreenViewIntegration())
         }
 
-        if captureApplicationLifecycleEvents {
-            integrations.append(PostHogAppLifeCycleIntegration())
-        }
+        integrations.append(PostHogAppLifeCycleIntegration())
 
         #if os(iOS)
             if tracingHeaders?.isEmpty == false {

@@ -2,4 +2,4 @@
 'posthog-ios': patch
 ---
 
-Fix `$screen_width` and `$screen_height` staying stale after a window resize that neither rotates the device nor makes another window key, such as folding or unfolding a foldable, a Stage Manager drag, or an iPad split-view change.
+Fix `$screen_width` and `$screen_height` going stale when the app window resizes (foldables, Stage Manager, iPad split view), and report the window's actual size on rotation in orientation-locked apps.

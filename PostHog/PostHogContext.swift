@@ -19,9 +19,10 @@ class PostHogContext {
     private var screenSize: CGSize?
     private let screenSizeLock = NSLock()
 
-    /// Stands in for the real window measurement, which needs a `UIScene` the test bundle has no
-    /// way to create. Only set from tests; `nil` in production.
-    private var screenSizeOverride: (() -> CGSize?)?
+    #if TESTING
+        /// Stands in for the window measurement, which needs a `UIScene` the test bundle can't create.
+        var screenSizeOverride: (() -> CGSize?)?
+    #endif
 
     /// Both guarded by `screenSizeLock`.
     private var isScreenSizeRefreshScheduled = false
@@ -120,9 +121,8 @@ class PostHogContext {
     }()
 
     #if !os(watchOS)
-        init(_ reachability: Reachability?, screenSizeOverride: (() -> CGSize?)? = nil) {
+        init(_ reachability: Reachability?) {
             self.reachability = reachability
-            self.screenSizeOverride = screenSizeOverride
             registerNotifications()
         }
     #else
@@ -272,8 +272,8 @@ class PostHogContext {
     func dynamicContext() -> [String: Any] {
         var properties: [String: Any] = [:]
 
-        let currentScreenSize = screenSizeLock.withLock { screenSize }
         scheduleScreenSizeRefresh()
+        let currentScreenSize = screenSizeLock.withLock { screenSize }
 
         if let currentScreenSize {
             properties["$screen_width"] = Float(currentScreenSize.width)
@@ -374,9 +374,9 @@ class PostHogContext {
 
     /// Retrieves the current screen size of the application window based on platform
     private func getScreenSize() -> CGSize? {
-        if let screenSizeOverride {
-            return screenSizeOverride()
-        }
+        #if TESTING
+            if let screenSizeOverride { return screenSizeOverride() }
+        #endif
         #if os(iOS) || os(tvOS) || os(visionOS)
             return UIApplication.getCurrentWindow(filterForegrounded: false)?.bounds.size
         #elseif os(macOS)
@@ -390,6 +390,9 @@ class PostHogContext {
     }
 
     @objc private func onShouldUpdateScreenSize() {
+        // The window may still be mid-change (rotation can notify before the bounds flip), so let the
+        // next event re-measure regardless of the refresh interval.
+        screenSizeLock.withLock { lastScreenSizeRefresh = .distantPast }
         updateScreenSize(getScreenSize)
     }
 
@@ -399,13 +402,13 @@ class PostHogContext {
     /// this the cached size stays wrong for the rest of the process.
     ///
     /// At most one refresh is in flight and at most one per `screenSizeRefreshInterval`, so a burst of
-    /// events costs a single measurement. The size an event reports can therefore be one event stale,
-    /// which is the trade for not watching every layout pass.
+    /// events costs a single measurement. On the main thread the refresh runs before the event reads the
+    /// size; off the main thread it hops to main, so that event can carry the previous size.
     private func scheduleScreenSizeRefresh() {
         let shouldRefresh = screenSizeLock.withLock {
-            guard !isScreenSizeRefreshScheduled,
-                  now().timeIntervalSince(lastScreenSizeRefresh) >= Self.screenSizeRefreshInterval
-            else {
+            let elapsed = now().timeIntervalSince(lastScreenSizeRefresh)
+            // A negative interval means the wall clock moved backwards; don't wait for it to catch up.
+            guard !isScreenSizeRefreshScheduled, elapsed < 0 || elapsed >= Self.screenSizeRefreshInterval else {
                 return false
             }
             isScreenSizeRefreshScheduled = true
@@ -413,16 +416,10 @@ class PostHogContext {
         }
         guard shouldRefresh else { return }
 
-        updateScreenSize({ [weak self] in
-            guard let self else { return nil }
-            // Unlike the notification paths, this one runs on every event — including while the app
-            // is suspending or its scenes are disconnecting, when there is no window to measure.
-            // Keeping the last known size stops those moments from dropping the properties entirely.
-            return self.getScreenSize() ?? self.screenSizeLock.withLock { self.screenSize }
-        }) { [weak self] in
-            self?.lastScreenSizeRefresh = now()
-            self?.isScreenSizeRefreshScheduled = false
-        }
+        updateScreenSize(getScreenSize, didUpdate: {
+            self.lastScreenSizeRefresh = now()
+            self.isScreenSizeRefreshScheduled = false
+        })
     }
 
     /// - Parameter didUpdate: Runs while `screenSizeLock` is held, so it must not take that lock
@@ -431,7 +428,9 @@ class PostHogContext {
         let block = {
             let newSize = getSize()
             self.screenSizeLock.withLock {
-                self.screenSize = newSize
+                // No window to measure (suspending, scenes disconnecting): keep the last known size rather
+                // than drop the properties from events.
+                if let newSize { self.screenSize = newSize }
                 didUpdate?()
             }
         }

@@ -19,6 +19,16 @@ class PostHogContext {
     private var screenSize: CGSize?
     private let screenSizeLock = NSLock()
 
+    /// Stands in for the real window measurement, which needs a `UIScene` the test bundle has no
+    /// way to create. Only set from tests; `nil` in production.
+    private var screenSizeOverride: (() -> CGSize?)?
+
+    /// Both guarded by `screenSizeLock`.
+    private var isScreenSizeRefreshScheduled = false
+    private var lastScreenSizeRefresh: Date = .distantPast
+
+    private static let screenSizeRefreshInterval: TimeInterval = 1
+
     #if !os(watchOS)
         private let reachability: Reachability?
     #endif
@@ -110,8 +120,9 @@ class PostHogContext {
     }()
 
     #if !os(watchOS)
-        init(_ reachability: Reachability?) {
+        init(_ reachability: Reachability?, screenSizeOverride: (() -> CGSize?)? = nil) {
             self.reachability = reachability
+            self.screenSizeOverride = screenSizeOverride
             registerNotifications()
         }
     #else
@@ -262,6 +273,7 @@ class PostHogContext {
         var properties: [String: Any] = [:]
 
         let currentScreenSize = screenSizeLock.withLock { screenSize }
+        scheduleScreenSizeRefresh()
 
         if let currentScreenSize {
             properties["$screen_width"] = Float(currentScreenSize.width)
@@ -299,7 +311,7 @@ class PostHogContext {
         #if os(iOS) || os(tvOS) || os(visionOS)
             #if os(iOS)
                 NotificationCenter.default.addObserver(self,
-                                                       selector: #selector(onOrientationDidChange),
+                                                       selector: #selector(onShouldUpdateScreenSize),
                                                        name: UIDevice.orientationDidChangeNotification,
                                                        object: nil)
             #endif
@@ -362,6 +374,9 @@ class PostHogContext {
 
     /// Retrieves the current screen size of the application window based on platform
     private func getScreenSize() -> CGSize? {
+        if let screenSizeOverride {
+            return screenSizeOverride()
+        }
         #if os(iOS) || os(tvOS) || os(visionOS)
             return UIApplication.getCurrentWindow(filterForegrounded: false)?.bounds.size
         #elseif os(macOS)
@@ -374,30 +389,51 @@ class PostHogContext {
         #endif
     }
 
-    #if os(iOS)
-        // Special treatment for `orientationDidChangeNotification` since the notification seems to be _sometimes_ called early, before screen bounds are flipped
-        @objc private func onOrientationDidChange() {
-            updateScreenSize {
-                self.getScreenSize().map { size in
-                    // manually set width and height based on device orientation. (Needed for fast orientation changes)
-                    if UIDevice.current.orientation.isLandscape {
-                        CGSize(width: max(size.width, size.height), height: min(size.height, size.width))
-                    } else {
-                        CGSize(width: min(size.width, size.height), height: max(size.height, size.width))
-                    }
-                }
-            }
-        }
-    #endif
-
     @objc private func onShouldUpdateScreenSize() {
         updateScreenSize(getScreenSize)
     }
 
-    private func updateScreenSize(_ getSize: @escaping () -> CGSize?) {
+    /// Re-measures off the back of event capture, because the notifications above miss a whole class
+    /// of resize: folding or unfolding a foldable, a Stage Manager drag, or an iPad split-view change
+    /// resizes the window without rotating the device and without making another window key. Without
+    /// this the cached size stays wrong for the rest of the process.
+    ///
+    /// At most one refresh is in flight and at most one per `screenSizeRefreshInterval`, so a burst of
+    /// events costs a single measurement. The size an event reports can therefore be one event stale,
+    /// which is the trade for not watching every layout pass.
+    private func scheduleScreenSizeRefresh() {
+        let shouldRefresh = screenSizeLock.withLock {
+            guard !isScreenSizeRefreshScheduled,
+                  now().timeIntervalSince(lastScreenSizeRefresh) >= Self.screenSizeRefreshInterval
+            else {
+                return false
+            }
+            isScreenSizeRefreshScheduled = true
+            return true
+        }
+        guard shouldRefresh else { return }
+
+        updateScreenSize({ [weak self] in
+            guard let self else { return nil }
+            // Unlike the notification paths, this one runs on every event — including while the app
+            // is suspending or its scenes are disconnecting, when there is no window to measure.
+            // Keeping the last known size stops those moments from dropping the properties entirely.
+            return self.getScreenSize() ?? self.screenSizeLock.withLock { self.screenSize }
+        }) { [weak self] in
+            self?.lastScreenSizeRefresh = now()
+            self?.isScreenSizeRefreshScheduled = false
+        }
+    }
+
+    /// - Parameter didUpdate: Runs while `screenSizeLock` is held, so it must not take that lock
+    ///   again — `NSLock` is not recursive.
+    private func updateScreenSize(_ getSize: @escaping () -> CGSize?, didUpdate: (() -> Void)? = nil) {
         let block = {
             let newSize = getSize()
-            self.screenSizeLock.withLock { self.screenSize = newSize }
+            self.screenSizeLock.withLock {
+                self.screenSize = newSize
+                didUpdate?()
+            }
         }
         // ensure block is executed on `main` since closure accesses non thread-safe UI objects like UIApplication
         if Thread.isMainThread {

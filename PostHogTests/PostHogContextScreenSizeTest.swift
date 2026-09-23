@@ -127,6 +127,32 @@
             }
         }
 
+        /// Folding a device twice in quick succession resizes the window twice inside one refresh
+        /// interval. The next refresh has to report where the window ended up, not the size it passed
+        /// through on the way.
+        @Test("reports the latest size after several resizes inside one refresh interval")
+        func reportsLatestSizeAfterRapidResizes() async {
+            await withMockedClock { clock in
+                let stub = ScreenSizeStub(DuoScreen.folded)
+                let sut = getSut(stub)
+                #expect(reportedSize(sut) == DuoScreen.folded)
+
+                // Unfold, then land on a third size, both inside the interval: neither is measured yet.
+                clock.date += 0.2
+                stub.current = DuoScreen.unfolded
+                #expect(reportedSize(sut) == DuoScreen.folded)
+
+                let settled = CGSize(width: 852, height: 393)
+                clock.date += 0.2
+                stub.current = settled
+
+                // Fails as `folded` if nothing re-measures, and as `unfolded` if the size the window
+                // passed through gets latched.
+                clock.date += 2
+                #expect(reportedSize(sut) == settled)
+            }
+        }
+
         @Test("keeps refreshing after the wall clock moves backwards")
         func refreshesAfterClockMovesBackwards() async {
             await withMockedClock { clock in

@@ -111,6 +111,52 @@
             }
         }
 
+        /// An event can be captured between the rotation notification and the bounds flip. A single
+        /// forced re-measure gets spent on the pre-flip size and restarts the throttle, so without a
+        /// time-bound window every event for the rest of the interval reports the old shape.
+        @Test("reports the rotated size when an event is captured before the bounds flip")
+        func reportsRotatedSizeWhenCapturedBeforeBoundsFlip() async {
+            await withMockedClock { clock in
+                let portrait = CGSize(width: 393, height: 852)
+                let landscape = CGSize(width: 852, height: 393)
+                let stub = ScreenSizeStub(portrait)
+                let sut = getSut(stub)
+                #expect(reportedSize(sut) == portrait)
+
+                NotificationCenter.default.post(name: UIDevice.orientationDidChangeNotification, object: nil)
+
+                // An event captured while the window is still portrait...
+                clock.date += 0.1
+                #expect(reportedSize(sut) == portrait)
+
+                // ...must not stop the next one from seeing the flip, still inside the refresh interval.
+                clock.date += 0.1
+                stub.current = landscape
+                #expect(reportedSize(sut) == landscape)
+            }
+        }
+
+        /// The window is bounded, so a transition costs at most one interval of per-event measuring.
+        @Test("stops re-measuring on every event once the transition window is over")
+        func throttlesAgainAfterTransitionWindow() async {
+            await withMockedClock { clock in
+                let stub = ScreenSizeStub(DuoScreen.folded)
+                let sut = getSut(stub)
+
+                NotificationCenter.default.post(name: UIDevice.orientationDidChangeNotification, object: nil)
+                #expect(reportedSize(sut) == DuoScreen.folded)
+
+                // Past the window: this capture re-measures on the ordinary interval, restarting the throttle.
+                clock.date += 2
+                #expect(reportedSize(sut) == DuoScreen.folded)
+
+                // The next resize waits for the interval again, as it would with no transition at all.
+                stub.current = DuoScreen.unfolded
+                clock.date += 0.2
+                #expect(reportedSize(sut) == DuoScreen.folded)
+            }
+        }
+
         @Test("keeps the last known size when there is no window to measure")
         func keepsLastKnownSizeWhenMeasurementIsEmpty() async {
             await withMockedClock { clock in

@@ -30,6 +30,8 @@ class PostHogContext {
     private var forceRefreshStart: Date = .distantPast
 
     private static let screenSizeRefreshInterval: TimeInterval = 1
+    /// How long after a notification every event re-measures, to catch bounds that flip late.
+    private static let screenSizeSettleWindow: TimeInterval = 1
 
     #if !os(watchOS)
         private let reachability: Reachability?
@@ -391,10 +393,8 @@ class PostHogContext {
     }
 
     @objc private func onShouldUpdateScreenSize() {
-        // The window may still be mid-change: rotation notifies before the bounds flip, and the flip can
-        // land a few main-thread turns later. Re-measure on every event until the interval is up, rather
-        // than once — a single forced re-measure gets spent on the pre-flip size and restarts the
-        // throttle, so events keep reporting the old shape for the rest of the interval.
+        // Rotation notifies before the window bounds flip, and the flip can land a few main-thread
+        // turns later, so a single forced re-measure would be spent on the pre-flip size.
         screenSizeLock.withLock { forceRefreshStart = now() }
         updateScreenSize(getScreenSize)
     }
@@ -402,11 +402,8 @@ class PostHogContext {
     /// Re-measures off the back of event capture, because the notifications above miss a whole class
     /// of resize: folding or unfolding a foldable, a Stage Manager drag, or an iPad split-view change
     /// resizes the window without rotating the device and without making another window key. Without
-    /// this the cached size stays wrong for the rest of the process.
-    ///
-    /// At most one refresh is in flight, and outside the window `onShouldUpdateScreenSize()` opens, at
-    /// most one per `screenSizeRefreshInterval` — so a burst of events costs a single measurement. Inside
-    /// that window every event re-measures, to catch bounds that flip after the notification.
+    /// this the cached size stays wrong until some unrelated notification happens to fire, which may be
+    /// never.
     ///
     /// On the main thread the refresh runs before the event reads the size; off the main thread it hops
     /// to main, so that event can carry the previous size, as can any event captured while it is in
@@ -414,14 +411,15 @@ class PostHogContext {
     private func scheduleScreenSizeRefresh() {
         let shouldRefresh = screenSizeLock.withLock {
             // Both treat a negative interval — the wall clock moved backwards — as elapsed, so a clock
-            // change can neither hold the force window open nor wedge the throttle shut.
-            let sinceForce = now().timeIntervalSince(forceRefreshStart)
-            let isForced = sinceForce >= 0 && sinceForce < Self.screenSizeRefreshInterval
+            // change can neither hold the settle window open nor wedge the throttle shut.
+            let currentTime = now()
+            let sinceForce = currentTime.timeIntervalSince(forceRefreshStart)
+            let isSettling = sinceForce >= 0 && sinceForce < Self.screenSizeSettleWindow
 
-            let elapsed = now().timeIntervalSince(lastScreenSizeRefresh)
+            let elapsed = currentTime.timeIntervalSince(lastScreenSizeRefresh)
             let isThrottled = elapsed >= 0 && elapsed < Self.screenSizeRefreshInterval
 
-            guard !isScreenSizeRefreshScheduled, isForced || !isThrottled else {
+            guard !isScreenSizeRefreshScheduled, isSettling || !isThrottled else {
                 return false
             }
             isScreenSizeRefreshScheduled = true

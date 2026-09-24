@@ -22,15 +22,21 @@
     private final class ScreenSizeStub: @unchecked Sendable {
         private let lock = NSLock()
         private var size: CGSize?
+        private var reads = 0
 
         init(_ size: CGSize?) {
             self.size = size
         }
 
         var current: CGSize? {
-            get { lock.withLock { size } }
+            get { lock.withLock { reads += 1
+                return size
+            } }
             set { lock.withLock { size = newValue } }
         }
+
+        /// How many times the context actually measured, as opposed to reading its cache.
+        var measurements: Int { lock.withLock { reads } }
     }
 
     @Suite("Screen size follows a resized window", .serialized, .resetsGlobalState)
@@ -111,9 +117,6 @@
             }
         }
 
-        /// An event can be captured between the rotation notification and the bounds flip. A single
-        /// forced re-measure gets spent on the pre-flip size and restarts the throttle, so without a
-        /// time-bound window every event for the rest of the interval reports the old shape.
         @Test("reports the rotated size when an event is captured before the bounds flip")
         func reportsRotatedSizeWhenCapturedBeforeBoundsFlip() async {
             await withMockedClock { clock in
@@ -150,7 +153,6 @@
                 clock.date += 2
                 #expect(reportedSize(sut) == DuoScreen.folded)
 
-                // The next resize waits for the interval again, as it would with no transition at all.
                 stub.current = DuoScreen.unfolded
                 clock.date += 0.2
                 #expect(reportedSize(sut) == DuoScreen.folded)
@@ -170,6 +172,11 @@
 
                 NotificationCenter.default.post(name: UIWindow.didBecomeKeyNotification, object: nil)
                 #expect(reportedSize(sut) == DuoScreen.folded)
+
+                // The empty measurement must not leave a refresh permanently in flight.
+                stub.current = DuoScreen.unfolded
+                clock.date += 2
+                #expect(reportedSize(sut) == DuoScreen.unfolded)
             }
         }
 
@@ -183,7 +190,6 @@
                 let sut = getSut(stub)
                 #expect(reportedSize(sut) == DuoScreen.folded)
 
-                // Unfold, then land on a third size, both inside the interval: neither is measured yet.
                 clock.date += 0.2
                 stub.current = DuoScreen.unfolded
                 #expect(reportedSize(sut) == DuoScreen.folded)
@@ -196,6 +202,56 @@
                 // passed through gets latched.
                 clock.date += 2
                 #expect(reportedSize(sut) == settled)
+            }
+        }
+
+        /// `capture()` builds properties on the caller's thread, so measuring hops to main. A burst of
+        /// background captures must queue one measurement, not one each.
+        ///
+        /// Deliberately not on the mocked clock: it has to suspend to drain the main queue, and
+        /// suspending while the global `now` is frozen leaks it to suites running concurrently.
+        @Test("coalesces the refresh when events are captured off the main thread")
+        func coalescesRefreshesCapturedOffMain() async {
+            let stub = ScreenSizeStub(DuoScreen.folded)
+            let sut = getSut(stub)
+            #expect(reportedSize(sut) == DuoScreen.folded)
+
+            NotificationCenter.default.post(name: UIDevice.orientationDidChangeNotification, object: nil)
+            let before = stub.measurements
+
+            let done = DispatchSemaphore(value: 0)
+            DispatchQueue.global().async {
+                for _ in 0 ..< 5 {
+                    _ = sut.dynamicContext()
+                }
+                done.signal()
+            }
+            done.wait()
+
+            // Main is still busy in this test body, so nothing has measured off it yet.
+            #expect(stub.measurements == before)
+
+            await withCheckedContinuation { c in DispatchQueue.main.async { c.resume() } }
+            #expect(stub.measurements == before + 1)
+        }
+
+        /// The settle window is bounded by a start instant, so a backwards clock must close it rather
+        /// than hold it open and make every event measure.
+        @Test("closes the transition window when the wall clock moves backwards")
+        func closesTransitionWindowAfterClockMovesBackwards() async {
+            await withMockedClock { clock in
+                let stub = ScreenSizeStub(DuoScreen.folded)
+                let sut = getSut(stub)
+                #expect(reportedSize(sut) == DuoScreen.folded)
+
+                NotificationCenter.default.post(name: UIDevice.orientationDidChangeNotification, object: nil)
+                clock.date -= 3600
+                // A negative throttle interval counts as elapsed, so this read re-measures and restarts it.
+                #expect(reportedSize(sut) == DuoScreen.folded)
+
+                stub.current = DuoScreen.unfolded
+                clock.date += 0.2
+                #expect(reportedSize(sut) == DuoScreen.folded)
             }
         }
 

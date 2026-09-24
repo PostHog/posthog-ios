@@ -285,6 +285,10 @@
                 let interval = postHog.config.sessionReplayConfig.throttleDelay
                 viewLayoutToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: interval, trailing: true) { [weak self] in
                     // called on main thread
+                    if let ticker = self?.currentCaptureTicker() {
+                        ticker.wake()
+                        guard ticker.claimCapture() else { return }
+                    }
                     self?.snapshot()
                 }
 
@@ -296,6 +300,7 @@
             // start listening to `UIApplication.sendEvent`
             let applicationEventPublisher = DI.main.applicationEventPublisher
             applicationEventToken = applicationEventPublisher.onApplicationEvent.subscribe { [weak self] event, date in
+                self?.currentCaptureTicker()?.wake()
                 self?.handleApplicationEvent(event: event, date: date)
             }
 
@@ -367,7 +372,6 @@
             applicationForegroundedToken = nil
             // stop listening to `UIView.layoutSubviews` events
             viewLayoutToken = nil
-            // stop the screenshot-mode capture timer
             stopCaptureTicker()
             // stop plugins
             let pluginsToStop = installedPluginsLock.withLock {
@@ -1801,8 +1805,8 @@
             previousTicker?.stop()
         }
 
-        /// Feeds the dedup outcome back to the ticker, so a screen that keeps rendering the same
-        /// pixels backs off and one that changes stays at the base rate.
+        /// Feeds each rendered frame back to the ticker, so it can stop on a screen that keeps
+        /// rendering the same pixels.
         func noteCapturedFrame(unchanged: Bool) {
             currentCaptureTicker()?.noteFrame(unchanged: unchanged)
         }

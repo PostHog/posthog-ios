@@ -6,74 +6,55 @@
 #if os(iOS)
     import Foundation
 
-    /// Decides which ticks of a fixed-rate timer attempt a capture.
-    ///
-    /// A screen that renders the same pixels every tick only costs a render, because the unchanged
-    /// frame is dropped before upload. The backoff makes that idle case cheaper: every consecutive
-    /// unchanged frame doubles the number of ticks skipped before the next attempt, up to
-    /// `maximumSkips`. The first changed frame restores the base rate.
-    struct PostHogReplayIdleBackoff {
-        /// Ticks skipped after each further unchanged frame.
-        private static let skipLadder = [1, 3, 7]
-
-        /// Ceiling on skipped ticks, so a static screen renders once every 8 ticks.
-        static let maximumSkips = skipLadder[skipLadder.count - 1]
-
-        private var unchangedFrames = 0
-        private var skipsRemaining = 0
-
-        static func skips(afterUnchangedFrames count: Int) -> Int {
-            guard count > 0 else { return 0 }
-            return skipLadder[min(count, skipLadder.count) - 1]
-        }
-
-        mutating func shouldCapture() -> Bool {
-            guard skipsRemaining > 0 else { return true }
-            skipsRemaining -= 1
-            return false
-        }
-
-        mutating func noteFrame(unchanged: Bool) {
-            guard unchanged else {
-                unchangedFrames = 0
-                skipsRemaining = 0
-                return
-            }
-            unchangedFrames += 1
-            skipsRemaining = Self.skips(afterUnchangedFrames: unchangedFrames)
-        }
-
-        mutating func reset() {
-            unchangedFrames = 0
-            skipsRemaining = 0
-        }
-    }
-
     /// Asks for a snapshot on a timer, next to the layout-driven capture.
     ///
     /// Session replay captures when `UIView.layoutSublayers(of:)` runs, so a screen that changes its
-    /// pixels without laying out any view — video, a Core Animation loop, a redraw-only update —
-    /// produces no frame and replays as a still image until the next layout. The timer covers that
-    /// gap, and `PostHogReplayIdleBackoff` keeps a static screen from rendering on every tick.
+    /// pixels without laying out any view (a Core Animation loop, a redraw-only update) produces no
+    /// frame until the next layout. The same gap leaves a recording on the previous screen when the
+    /// capture after a navigation lands mid-transition and is dropped. The timer covers both.
+    ///
+    /// The timer shares `throttleDelay` with the layout trigger: both claim a capture through
+    /// `claimCapture()`, which refuses when either trigger started one within the last interval.
+    /// After `idleFrameLimit` unchanged frames, or ticks that produced no frame, in a row the timer
+    /// stops, and the next layout or touch (`wake()`) starts it again. So a static screen stops
+    /// rendering, and so does a redraw-only change that comes after the timer stopped, until the
+    /// next layout or touch.
     final class PostHogReplayCaptureTicker {
-        /// Floor for the tick rate, because `throttleDelay` is public and unvalidated.
+        /// Bounds for the tick rate, because `throttleDelay` is public and unvalidated. A huge
+        /// interval traps when the timer converts it to nanoseconds.
         static let minimumInterval: TimeInterval = 0.1
+        static let maximumInterval: TimeInterval = 3600
+
+        /// Unchanged frames, or ticks without a frame, in a row before the timer stops.
+        static let idleFrameLimit = 3
 
         let tickInterval: TimeInterval
 
         private let onTick: () -> Void
         private let queue: DispatchQueue
+        private let now: () -> TimeInterval
 
         private let lock = NSLock()
-        private var backoff = PostHogReplayIdleBackoff()
         private var timer: DispatchSourceTimer?
+        private var isStarted = false
+        private var isPaused = false
+        private var unchangedFrames = 0
+        private var ticksWithoutFrame = 0
+        private var lastCaptureAt: TimeInterval?
 
         /// - Parameter queue: where ticks are delivered. Capture reads the live view hierarchy, so
         ///   this is the main queue outside tests.
-        init(interval: TimeInterval, queue: DispatchQueue = .main, onTick: @escaping () -> Void) {
+        init(
+            interval: TimeInterval,
+            queue: DispatchQueue = .main,
+            // Monotonic, so a wall-clock change can't make a frame look recent forever.
+            now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+            onTick: @escaping () -> Void
+        ) {
             // max() also rejects a NaN interval: `NaN >= minimumInterval` is false.
-            tickInterval = max(Self.minimumInterval, interval)
+            tickInterval = min(Self.maximumInterval, max(Self.minimumInterval, interval))
             self.queue = queue
+            self.now = now
             self.onTick = onTick
         }
 
@@ -81,47 +62,125 @@
             timer?.cancel()
         }
 
+        var isRunning: Bool {
+            lock.withLock { timer != nil }
+        }
+
         func start() {
-            stop()
-
-            let newTimer = DispatchSource.makeTimerSource(queue: queue)
-            newTimer.schedule(deadline: .now() + tickInterval, repeating: tickInterval)
-            newTimer.setEventHandler { [weak self] in
-                self?.tick()
+            lock.withLock {
+                isStarted = true
+                isPaused = false
+                resetIdleCounts()
+                scheduleTimer()
             }
-
-            lock.withLock { timer = newTimer }
-            newTimer.resume()
         }
 
         func stop() {
-            let previousTimer = lock.withLock { () -> DispatchSourceTimer? in
-                let existing = timer
-                timer = nil
-                return existing
+            lock.withLock {
+                isStarted = false
+                cancelTimer()
             }
-            previousTimer?.cancel()
         }
 
         /// Cancels the timer, rather than firing and discarding ticks, while the app is away.
         func pause() {
-            stop()
+            lock.withLock {
+                isPaused = true
+                cancelTimer()
+            }
         }
 
         func resume() {
-            // A screen can change while the app is away, so start again at the base rate.
-            lock.withLock { backoff.reset() }
-            start()
+            lock.withLock {
+                isPaused = false
+                resetIdleCounts()
+                if isStarted {
+                    scheduleTimer()
+                }
+            }
         }
 
-        /// Reports the outcome of a capture, from whichever queue produced the frame.
+        /// Restarts a timer that stopped on an idle screen. Called on layout and touch.
+        func wake() {
+            lock.withLock {
+                resetIdleCounts()
+                if isStarted, !isPaused, timer == nil {
+                    scheduleTimer()
+                }
+            }
+        }
+
+        /// Reports a rendered frame, from either trigger and from whichever queue produced it.
         func noteFrame(unchanged: Bool) {
-            lock.withLock { backoff.noteFrame(unchanged: unchanged) }
+            lock.withLock {
+                ticksWithoutFrame = 0
+                guard unchanged else {
+                    unchangedFrames = 0
+                    return
+                }
+                unchangedFrames += 1
+                if unchangedFrames >= Self.idleFrameLimit {
+                    cancelTimer()
+                }
+            }
         }
 
-        private func tick() {
-            guard lock.withLock({ backoff.shouldCapture() }) else { return }
-            onTick()
+        /// Claims the next capture for the layout trigger. Returns false when either trigger started
+        /// one within the last interval, since the running timer picks the change up.
+        func claimCapture() -> Bool {
+            lock.withLock { claimCaptureLocked() }
+        }
+
+        func tick() {
+            let shouldCapture = lock.withLock { () -> Bool in
+                guard timer != nil else { return false }
+                // Capture can be gated off (flag, sampling, no active window), and then a tick
+                // never produces a frame. Stop rather than wake the app every interval.
+                if ticksWithoutFrame >= Self.idleFrameLimit {
+                    cancelTimer()
+                    return false
+                }
+                guard claimCaptureLocked() else { return false }
+                ticksWithoutFrame += 1
+                return true
+            }
+            if shouldCapture {
+                onTick()
+            }
+        }
+
+        // Callers hold `lock`.
+        private func claimCaptureLocked() -> Bool {
+            let current = now()
+            // The slack matches the timer's 10% leeway. Without it, a tick landing just short of
+            // a full interval after a layout capture would skip and double the gap.
+            if let lastCaptureAt, current - lastCaptureAt < tickInterval * 0.9 {
+                return false
+            }
+            lastCaptureAt = current
+            return true
+        }
+
+        private func resetIdleCounts() {
+            unchangedFrames = 0
+            ticksWithoutFrame = 0
+        }
+
+        private func scheduleTimer() {
+            cancelTimer()
+            let newTimer = DispatchSource.makeTimerSource(queue: queue)
+            let leeway = DispatchTimeInterval.milliseconds(Int(tickInterval * 100))
+            newTimer.schedule(deadline: .now() + tickInterval, repeating: tickInterval, leeway: leeway)
+            newTimer.setEventHandler { [weak self] in
+                self?.tick()
+            }
+            timer = newTimer
+            newTimer.resume()
+        }
+
+        private func cancelTimer() {
+            timer?.cancel()
+            timer = nil
         }
     }
 #endif

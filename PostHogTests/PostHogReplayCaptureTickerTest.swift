@@ -5,56 +5,134 @@
 
     @Suite("Screenshot-mode capture ticker")
     class PostHogReplayCaptureTickerTests {
-        /// Which of `tickCount` ticks capture, when every captured frame renders the same pixels.
-        private func idleCaptureTicks(_ tickCount: Int) -> [Bool] {
-            var backoff = PostHogReplayIdleBackoff()
-            var captures: [Bool] = []
-            for _ in 0 ..< tickCount {
-                let captured = backoff.shouldCapture()
-                if captured {
-                    backoff.noteFrame(unchanged: true)
-                }
-                captures.append(captured)
+        /// A ticker whose timer never fires during a test, so `tick()` is driven by hand.
+        private func manualTicker(clock: TestClock, ticks: TickCounter) -> PostHogReplayCaptureTicker {
+            PostHogReplayCaptureTicker(
+                interval: 60,
+                queue: DispatchQueue(label: "com.posthog.test.ManualCaptureTicker"),
+                now: { clock.now }
+            ) {
+                ticks.increment()
             }
-            return captures
         }
 
-        @Test("Backs off while frames stay unchanged")
-        func backsOffWhileIdle() {
-            // A capture, then one skipped tick, then three, then the ceiling of seven.
-            let expected: [Bool] = [true, false]
-                + [true, false, false, false]
-                + [true, false, false, false, false, false, false, false]
-                + [true]
+        @Test("Skips a tick right after a layout capture started")
+        func sharesTheThrottleWithLayoutCapture() {
+            let clock = TestClock()
+            let ticks = TickCounter()
+            let ticker = manualTicker(clock: clock, ticks: ticks)
+            ticker.start()
 
-            #expect(idleCaptureTicks(expected.count) == expected)
+            #expect(ticker.claimCapture())
+            clock.advance(3)
+            ticker.tick()
+            #expect(ticks.value == 0)
+
+            clock.advance(57)
+            ticker.tick()
+            #expect(ticks.value == 1)
         }
 
-        @Test("Holds the ceiling instead of growing without bound")
-        func holdsTheCeiling() {
-            #expect(PostHogReplayIdleBackoff.skips(afterUnchangedFrames: 0) == 0)
-            #expect(PostHogReplayIdleBackoff.skips(afterUnchangedFrames: 1) == 1)
-            #expect(PostHogReplayIdleBackoff.skips(afterUnchangedFrames: 2) == 3)
-            #expect(PostHogReplayIdleBackoff.skips(afterUnchangedFrames: 3) == 7)
-            #expect(PostHogReplayIdleBackoff.skips(afterUnchangedFrames: 40) == PostHogReplayIdleBackoff.maximumSkips)
-        }
+        @Test("Stops after unchanged frames and restarts on wake")
+        func stopsWhenIdle() {
+            let clock = TestClock()
+            let ticks = TickCounter()
+            let ticker = manualTicker(clock: clock, ticks: ticks)
+            ticker.start()
 
-        @Test("A changed frame restores the base rate")
-        func changedFrameRestoresBaseRate() {
-            var backoff = PostHogReplayIdleBackoff()
-            for _ in 0 ..< 4 {
-                backoff.noteFrame(unchanged: true)
+            for _ in 0 ..< PostHogReplayCaptureTicker.idleFrameLimit {
+                #expect(ticker.isRunning)
+                ticker.noteFrame(unchanged: true)
             }
-            backoff.noteFrame(unchanged: false)
+            #expect(!ticker.isRunning)
 
-            // Video and animation change every frame, so every tick must capture.
-            var captures: [Bool] = []
+            clock.advance(120)
+            ticker.tick()
+            #expect(ticks.value == 0)
+
+            ticker.wake()
+            #expect(ticker.isRunning)
+            ticker.tick()
+            #expect(ticks.value == 1)
+        }
+
+        @Test("A changed frame resets the idle count")
+        func changedFrameKeepsItRunning() {
+            let clock = TestClock()
+            let ticker = manualTicker(clock: clock, ticks: TickCounter())
+            ticker.start()
+
             for _ in 0 ..< 10 {
-                captures.append(backoff.shouldCapture())
-                backoff.noteFrame(unchanged: false)
+                ticker.noteFrame(unchanged: true)
+                ticker.noteFrame(unchanged: false)
             }
 
-            #expect(captures.allSatisfy { $0 })
+            #expect(ticker.isRunning)
+        }
+
+        @Test("Wake does nothing once stopped or paused")
+        func wakeRespectsStopAndPause() {
+            let ticker = manualTicker(clock: TestClock(), ticks: TickCounter())
+            ticker.start()
+
+            ticker.pause()
+            ticker.wake()
+            #expect(!ticker.isRunning)
+
+            ticker.resume()
+            #expect(ticker.isRunning)
+
+            ticker.stop()
+            ticker.wake()
+            ticker.resume()
+            #expect(!ticker.isRunning)
+        }
+
+        @Test("Refuses the layout trigger for most of an interval after a tick")
+        func layoutWaitsForTheInterval() {
+            let clock = TestClock()
+            let ticks = TickCounter()
+            let ticker = manualTicker(clock: clock, ticks: ticks)
+            ticker.start()
+
+            ticker.tick()
+            #expect(ticks.value == 1)
+            clock.advance(53)
+            #expect(!ticker.claimCapture())
+
+            clock.advance(1)
+            #expect(ticker.claimCapture())
+        }
+
+        @Test("Stops when ticks keep producing no frame")
+        func stopsWhenCaptureIsGatedOff() {
+            let clock = TestClock()
+            let ticks = TickCounter()
+            let ticker = manualTicker(clock: clock, ticks: ticks)
+            ticker.start()
+
+            for _ in 0 ... PostHogReplayCaptureTicker.idleFrameLimit {
+                clock.advance(60)
+                ticker.tick()
+            }
+
+            #expect(ticks.value == PostHogReplayCaptureTicker.idleFrameLimit)
+            #expect(!ticker.isRunning)
+        }
+
+        @Test("A frame between ticks keeps it running")
+        func frameResetsTicksWithoutFrame() {
+            let clock = TestClock()
+            let ticker = manualTicker(clock: clock, ticks: TickCounter())
+            ticker.start()
+
+            for _ in 0 ..< 10 {
+                clock.advance(60)
+                ticker.tick()
+                ticker.noteFrame(unchanged: false)
+            }
+
+            #expect(ticker.isRunning)
         }
 
         @Test("Ticks a screen that never lays out")
@@ -93,11 +171,24 @@
             #expect(ticks.value == ticksWhenPaused)
         }
 
-        @Test("A short interval is clamped")
-        func clampsShortInterval() {
-            let ticker = PostHogReplayCaptureTicker(interval: 0) {}
+        @Test("An out-of-range interval is clamped")
+        func clampsInterval() {
+            #expect(PostHogReplayCaptureTicker(interval: 0) {}.tickInterval == PostHogReplayCaptureTicker.minimumInterval)
+            #expect(PostHogReplayCaptureTicker(interval: .nan) {}.tickInterval == PostHogReplayCaptureTicker.minimumInterval)
+            #expect(PostHogReplayCaptureTicker(interval: 1e11) {}.tickInterval == PostHogReplayCaptureTicker.maximumInterval)
+        }
+    }
 
-            #expect(ticker.tickInterval == PostHogReplayCaptureTicker.minimumInterval)
+    private final class TestClock {
+        private let lock = NSLock()
+        private var uptime: TimeInterval = 1000
+
+        var now: TimeInterval {
+            lock.withLock { uptime }
+        }
+
+        func advance(_ seconds: TimeInterval) {
+            lock.withLock { uptime += seconds }
         }
     }
 

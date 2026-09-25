@@ -1,5 +1,11 @@
 ## Next
 
+## 3.84.0
+
+### Minor Changes
+
+- 932cf93: Add the `compression` config so an app can send request bodies uncompressed, e.g. when a managed work profile alters the compressed body in transit.
+
 ## 3.83.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.84.1
+
+### Patch Changes
+
+- ec8580d: Fix `$screen_width` and `$screen_height` going stale when the app window resizes (foldables, Stage Manager, iPad split view), and report the window's actual size on rotation in orientation-locked apps.
+
 ## 3.84.0
 
 ### Minor Changes

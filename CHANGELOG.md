@@ -1,5 +1,11 @@
 ## Next
 
+## 3.83.0
+
+### Minor Changes
+
+- 2d35a0a: feat: expose the session replay debug map to first-party wrapper SDKs via `@_spi(PostHogInternal) PostHogSDK.sessionReplayDebugProperties()`
+
 ## 3.82.0
 
 ### Minor Changes

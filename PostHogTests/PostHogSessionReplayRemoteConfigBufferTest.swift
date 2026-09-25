@@ -1,6 +1,6 @@
 #if os(iOS)
     import Foundation
-    @testable import PostHog
+    @_spi(PostHogInternal) @testable import PostHog
     import Testing
 
     @Suite("Session Replay Remote Config Buffering", .serialized)
@@ -635,6 +635,53 @@
             #expect(lock.withLock { latest?["$recording_status"] as? String } != "disabled")
 
             withExtendedLifetime(token) {}
+        }
+
+        // MARK: - sessionReplayDebugProperties() SPI
+
+        @Test("sessionReplayDebugProperties() returns the same replay debug keys and values a captured event carries")
+        func spiGetterMatchesCapturedEventReplayKeys() throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+
+            // Hold in below_minimum_duration with one buffered snapshot so status, hold reason and
+            // buffer length are all non-default and stable across the two reads.
+            replayQueue.add(snapshotEvent("1"))
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isBuffering == true)
+
+            let lock = NSLock()
+            var capturedProperties: [String: Any]?
+            sut.config.setBeforeSend { event in
+                lock.withLock { capturedProperties = event.properties }
+                return event
+            }
+            sut.capture("test event")
+
+            let eventProperties = try #require(lock.withLock { capturedProperties })
+            let eventReplayKeys = eventProperties.filter { key, _ in
+                key == "$recording_status" || key.hasPrefix("$sdk_debug_replay_")
+            }
+            let spiProperties = sut.sessionReplayDebugProperties()
+
+            #expect(spiProperties["$recording_status"] as? String == "buffering")
+            #expect(spiProperties["$sdk_debug_replay_flush_hold_reason"] as? String == "below_minimum_duration")
+            #expect(spiProperties["$sdk_debug_replay_internal_buffer_length"] as? Int == 1)
+            #expect(NSDictionary(dictionary: spiProperties) == NSDictionary(dictionary: eventReplayKeys))
+        }
+
+        @Test("sessionReplayDebugProperties() returns an empty map when the replay integration is not installed")
+        func spiGetterIsEmptyWithoutReplayIntegration() {
+            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
+            config.sessionReplay = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableRemoteConfigForTesting = true
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+
+            #expect(sut.getReplayIntegration() == nil)
+            #expect(sut.sessionReplayDebugProperties().isEmpty)
         }
 
         @Test("capturing debug properties concurrently with stop() and close() never produces a torn read")

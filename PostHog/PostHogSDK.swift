@@ -2806,6 +2806,14 @@ let maxRetryDelay = 30.0
 
             return replayIntegration?.captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame) ?? false
         }
+
+        /// The per-event replay debug map (`$recording_status`, `$sdk_debug_replay_*`) that first-party
+        /// wrappers merge into events they build themselves; empty when replay is not installed.
+        ///
+        /// SPI, not public API: no stability guarantees.
+        @_spi(PostHogInternal) public func sessionReplayDebugProperties() -> [String: Any] {
+            replayIntegration?.debugProperties() ?? [:]
+        }
     #endif
 
     /// Creates and sets up an additional SDK instance.

@@ -399,6 +399,22 @@ enum PostHogApiTests {
             #expect(server.parseRequest(request, gzip: false)?["resourceLogs"] != nil)
         }
 
+        @Test("/batch drops a session-level Content-Encoding when compression is none")
+        func batchDropsSessionContentEncodingWhenCompressionIsNone() async throws {
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            config.compression = .none
+            let sessionConfig = URLSessionConfiguration.default
+            sessionConfig.httpAdditionalHeaders = ["content-encoding": "gzip"]
+            config.urlSessionConfiguration = sessionConfig
+            let sut = PostHogApi(config)
+            _ = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+            let request = try #require(server.batchRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
+            #expect(server.parseRequest(request, gzip: false)?["batch"] != nil)
+        }
+
         @Test("/push_subscriptions sends an uncompressed body when compression is none")
         func pushSubscriptionSendsUncompressedWhenCompressionIsNone() async throws {
             let sut = getUncompressedSut()

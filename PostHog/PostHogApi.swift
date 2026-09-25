@@ -78,6 +78,10 @@ class PostHogApi {
         sessionConfig.requestCachePolicy = .reloadRevalidatingCacheData
         // Merge over caller-supplied headers; SDK keys overwrite collisions.
         var headers = sessionConfig.httpAdditionalHeaders ?? [:]
+        // Content-Encoding is set per request, so a session-level value can't label a plain body as gzip.
+        for key in headers.keys where (key as? String)?.lowercased() == "content-encoding" {
+            headers.removeValue(forKey: key)
+        }
         headers["Content-Type"] = "application/json; charset=utf-8"
         headers["User-Agent"] = "\(postHogSdkName)/\(postHogVersion)"
         headers["Accept-Encoding"] = "gzip"
@@ -121,6 +125,9 @@ class PostHogApi {
     ]
 
     private func requestAndPayload(url: URL, data: Data, endpointName: String, httpMethod: String = "POST") -> (URLRequest, Data) {
+        guard config.compression == .gzip else {
+            return (getURLRequest(url, httpMethod: httpMethod), data)
+        }
         do {
             return (getURLRequest(url, gzipped: true, httpMethod: httpMethod), try Self.gzipData(data))
         } catch {

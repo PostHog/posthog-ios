@@ -353,6 +353,78 @@ enum PostHogApiTests {
             let request = try #require(server.flagsRequests.first)
             #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
         }
+
+        private func getUncompressedSut() -> PostHogApi {
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            config.compression = .none
+            return PostHogApi(config)
+        }
+
+        @Test("compression defaults to gzip")
+        func compressionDefaultsToGzip() {
+            #expect(PostHogConfig(projectToken: "test_project_token", host: "http://localhost").compression == .gzip)
+        }
+
+        @Test("/batch sends an uncompressed body when compression is none")
+        func batchSendsUncompressedWhenCompressionIsNone() async throws {
+            let sut = getUncompressedSut()
+            _ = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+            let request = try #require(server.batchRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
+            #expect(server.parseRequest(request, gzip: false)?["batch"] != nil)
+        }
+
+        @Test("/s sends an uncompressed body when compression is none")
+        func snapshotSendsUncompressedWhenCompressionIsNone() async throws {
+            let sut = getUncompressedSut()
+            _ = await getApiResponse { completion in
+                sut.snapshot(events: [], completion: completion)
+            }
+            let request = try #require(server.snapshotRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
+            let body = try #require(request.body())
+            #expect(try JSONSerialization.jsonObject(with: body) as? [Any] != nil)
+        }
+
+        @Test("/i/v1/logs sends an uncompressed body when compression is none")
+        func logsSendsUncompressedWhenCompressionIsNone() async throws {
+            let sut = getUncompressedSut()
+            _ = await getApiResponse { completion in
+                sut.logs(payload: ["resourceLogs": []], completion: completion)
+            }
+            let request = try #require(server.logsRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
+            #expect(server.parseRequest(request, gzip: false)?["resourceLogs"] != nil)
+        }
+
+        @Test("/batch drops a session-level Content-Encoding when compression is none")
+        func batchDropsSessionContentEncodingWhenCompressionIsNone() async throws {
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            config.compression = .none
+            let sessionConfig = URLSessionConfiguration.default
+            sessionConfig.httpAdditionalHeaders = ["content-encoding": "gzip"]
+            config.urlSessionConfiguration = sessionConfig
+            let sut = PostHogApi(config)
+            _ = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+            let request = try #require(server.batchRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
+            #expect(server.parseRequest(request, gzip: false)?["batch"] != nil)
+        }
+
+        @Test("/push_subscriptions sends an uncompressed body when compression is none")
+        func pushSubscriptionSendsUncompressedWhenCompressionIsNone() async throws {
+            let sut = getUncompressedSut()
+            let _: PostHogUploadInfo = await getApiResponse { completion in
+                sut.pushSubscription(distinctId: "x", deviceToken: "tok", appId: "app", identityToken: nil, completion: completion)
+            }
+            let request = try #require(server.pushSubscriptionRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
+            #expect(server.parseRequest(request, gzip: false)?["device_token"] as? String == "tok")
+        }
     }
 
     @Suite("Custom request headers")

@@ -44,6 +44,10 @@ PostHog | PostHogBootstrapConfig.init(distinctId:isIdentifiedId:) | init | @objc
 PostHog | PostHogBootstrapConfig.init(distinctId:isIdentifiedId:featureFlags:featureFlagPayloads:) | init | @objc init(distinctId: String?, isIdentifiedId: Bool = false, featureFlags: [String : Any]?, featureFlagPayloads: [String : Any]?) | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(im)initWithDistinctId:isIdentifiedId:featureFlags:featureFlagPayloads:
 PostHog | PostHogBootstrapConfig.init(featureFlags:featureFlagPayloads:) | init | @objc convenience init(featureFlags: [String : Any], featureFlagPayloads: [String : Any]?) | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(im)initWithFeatureFlags:featureFlagPayloads:
 PostHog | PostHogBootstrapConfig.isIdentifiedId | property | @objc var isIdentifiedId: Bool | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(py)isIdentifiedId
+PostHog | PostHogCompression | enum | @objc(PostHogCompression) enum PostHogCompression | c:@M@PostHog@E@PostHogCompression
+PostHog | PostHogCompression.gzip | enum.case | case gzip | c:@M@PostHog@E@PostHogCompression@PostHogCompressionGzip
+PostHog | PostHogCompression.init(rawValue:) | init | init?(rawValue: Int) | s:7PostHog0aB11CompressionO8rawValueACSgSi_tcfc
+PostHog | PostHogCompression.none | enum.case | case none | c:@M@PostHog@E@PostHogCompression@PostHogCompressionNone
 PostHog | PostHogConfig | class | @objc(PostHogConfig) class PostHogConfig | c:@M@PostHog@objc(cs)PostHogConfig
 PostHog | PostHogConfig.PostHogDataMode | enum | @frozen @objc(PostHogDataMode) enum PostHogDataMode | s:7PostHog0aB6ConfigC0aB8DataModeO
 PostHog | PostHogConfig.PostHogDataMode.any | enum.case | case any | s:7PostHog0aB6ConfigC0aB8DataModeO3anyyA2EmF
@@ -60,6 +64,7 @@ PostHog | PostHogConfig.capturePushNotificationOpened | property | @objc var cap
 PostHog | PostHogConfig.capturePushNotificationSubscriptions | property | @objc var capturePushNotificationSubscriptions: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)capturePushNotificationSubscriptions
 PostHog | PostHogConfig.captureScreenViews | property | @objc var captureScreenViews: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureScreenViews
 PostHog | PostHogConfig.captureSwiftUIElementInteractions | property | @objc var captureSwiftUIElementInteractions: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureSwiftUIElementInteractions
+PostHog | PostHogConfig.compression | property | @objc var compression: PostHogCompression | c:@M@PostHog@objc(cs)PostHogConfig(py)compression
 PostHog | PostHogConfig.dataMode | property | @objc var dataMode: PostHogConfig.PostHogDataMode | c:@M@PostHog@objc(cs)PostHogConfig(py)dataMode
 PostHog | PostHogConfig.debug | property | @objc var debug: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)debug
 PostHog | PostHogConfig.defaultHost | type.property | static let defaultHost: String | s:7PostHog0aB6ConfigC11defaultHostSSvpZ

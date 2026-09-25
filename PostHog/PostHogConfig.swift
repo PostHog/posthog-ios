@@ -499,6 +499,14 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Read once when the SDK is set up; changes after setup are ignored.
     @objc public var requestHeaders: [String: String]?
 
+    /// How the SDK compresses request bodies before sending them to the PostHog API.
+    ///
+    /// Set this to `.none` when the network between the app and PostHog changes or re-encodes
+    /// the compressed body, e.g. on a managed work profile, which makes the server reject the request.
+    ///
+    /// Default: `.gzip`.
+    @objc public var compression: PostHogCompression = .gzip
+
     // only internal
     var disableReachabilityForTesting: Bool = false
     var disableQueueTimerForTesting: Bool = false

@@ -121,6 +121,9 @@ class PostHogApi {
     ]
 
     private func requestAndPayload(url: URL, data: Data, endpointName: String, httpMethod: String = "POST") -> (URLRequest, Data) {
+        guard config.compression == .gzip else {
+            return (getURLRequest(url, httpMethod: httpMethod), data)
+        }
         do {
             return (getURLRequest(url, gzipped: true, httpMethod: httpMethod), try Self.gzipData(data))
         } catch {

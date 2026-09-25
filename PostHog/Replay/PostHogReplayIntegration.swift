@@ -27,9 +27,8 @@
 
         private var isEnabled: Bool = false
 
-        // Set only by an explicit start made while `config.sessionReplay` is false. It survives
-        // `stopRecording()` so an internal stop (sampled out, flag off, triggers updated, session
-        // change) can still resume later; only an explicit `stop()` or uninstall clears it.
+        // Set by an explicit start while `config.sessionReplay` is false; survives internal stops
+        // (sampling, flag, triggers, session change), cleared only by an explicit stop or uninstall.
         // Guarded by `bufferingLock`.
         private var startedWithAutomaticDisabled: Bool = false
 
@@ -546,7 +545,7 @@
         }
 
         func applyRemoteConfig(remoteConfig: [String: Any]?) {
-            // Every branch below can move a reported value without calling start()/stop() — a changed
+            // Every branch below can move a reported value without calling startRecording()/stopRecording() — a changed
             // minimum duration or a replaced trigger list, say — so re-snapshot once at the end
             // regardless. `notifyRecordingStatusChanged` drops the call when nothing actually moved.
             defer { notifyRecordingStatusChanged() }
@@ -586,7 +585,7 @@
                 // loaded by now), so stop immediately instead of waiting for session rotation. The
                 // first `/config` is intentionally skipped: for a linkedFlag config it can evaluate
                 // false before `/flags` lands, and the capturer self-gates on the flag meanwhile, so
-                // recording resumes if `/flags` turns it on — a stop() here would never restart.
+                // recording resumes if `/flags` turns it on — a stopRecording() here would never restart.
                 stopRecording()
             } else {
                 reevaluateSampling()
@@ -609,7 +608,7 @@
             // config — flag on, still sampled in, and not gated behind a not-yet-fired event trigger.
             // A stale cache that recorded the window for a session the fresh config now excludes (sampled
             // out, or newly trigger-gated) must drop it, not migrate it, or it leaks against the fresh
-            // policy — `start()` enforces the same gates. These mirror the flag-off discard path.
+            // policy — `startRecording()` enforces the same gates. These mirror the flag-off discard path.
             if flagActive, isCurrentSessionSampledIn(), !shouldWaitForEventTriggers(), let replayQueue {
                 migrateBufferIfMinimumDurationMet(replayQueue)
             } else {
@@ -656,7 +655,7 @@
         /// (b) the **linkedFlag-deferred** path where the first `/config` succeeded but routed the
         /// buffer resolve to the imminent `/flags` reload (the linkedFlag value isn't fresh until then).
         /// Only acts once a `/config` attempt has completed, so it never resolves from a
-        /// pre-`/config` cache. The capturer self-gates on flag-off, so no stop() is needed here.
+        /// pre-`/config` cache. The capturer self-gates on flag-off, so no stopRecording() is needed here.
         private func resolveBufferFromFeatureFlags() {
             // A completed `/config` attempt (success or failure) makes the cached recording config as
             // fresh as it will get; latch that locally so later reloads can still resolve.
@@ -1741,7 +1740,7 @@
                     triggerActivatedSessionId = currentSessionId
                 }
                 hedgeLog("[Session Replay] Event trigger matched: \(event). Starting replay for session \(currentSessionId).")
-                // Start the integration now that a trigger has matched. start() re-snapshots the crash
+                // Start the integration now that a trigger has matched. startRecording() re-snapshots the crash
                 // context itself when it succeeds; when it bails (e.g. sampled out) the trigger status
                 // still changed, so re-snapshot here.
                 startRecording()
@@ -1874,7 +1873,7 @@
         }
 
         /// `$recording_status` / `$sdk_debug_*` replay properties for the event being captured. The
-        /// buffering fields are read in one `bufferingLock` acquisition so a concurrent start()/stop()
+        /// buffering fields are read in one `bufferingLock` acquisition so a concurrent startRecording()/stopRecording()
         /// can't tear them across keys on the same event.
         func debugProperties() -> [String: Any] {
             let (enabled, awaitingConfig, passedMinimumDuration, minimumDuration) = bufferingLock.withLock {
@@ -1918,7 +1917,7 @@
             let eventTriggerStatus = Self.triggerStatus(
                 isConfigured: triggers?.isEmpty == false,
                 // Reuses shouldWaitForEventTriggers()'s own semantics (a nil session id is "not
-                // waiting"), so this can't disagree with the gate that actually decides start().
+                // waiting"), so this can't disagree with the gate that actually decides startRecording().
                 isActivated: !shouldWaitForEventTriggers()
             )
 

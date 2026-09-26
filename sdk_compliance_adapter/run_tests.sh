@@ -21,7 +21,7 @@ fi
 
 # Build the adapter with TESTING flag (debug mode is faster)
 echo "📦 Building iOS adapter..."
-swift build -Xswiftc -DTESTING
+make build
 echo "✅ Adapter built successfully"
 echo ""
 
@@ -35,7 +35,7 @@ ADAPTER_PID=$!
 # Wait for adapter to start
 echo "⏳ Waiting for adapter to start..."
 for i in {1..30}; do
-    if curl -s http://localhost:8080/health > /dev/null 2>&1; then
+    if curl --fail -s http://localhost:8080/health > /dev/null 2>&1; then
         echo "✅ Adapter is ready"
         break
     fi

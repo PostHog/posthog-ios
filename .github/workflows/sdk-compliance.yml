@@ -69,11 +69,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-swift-
 
-      - name: Build iOS compliance adapter
+      - name: Build and test macOS shared-core adapter
         run: |
-          cd sdk_compliance_adapter
-          # Build in debug mode (much faster than release, still works for tests)
-          swift build -Xswiftc -DTESTING
+          make -C sdk_compliance_adapter build
+          make -C sdk_compliance_adapter test
+          make -C sdk_compliance_adapter smoke ADAPTER_PORT=8082 MOCK_PORT=8083
 
       - name: Create report directory
         run: mkdir -p ${{ github.workspace }}/report
@@ -87,35 +87,34 @@ jobs:
           # Start adapter in background (using debug build)
           .build/debug/PostHogIOSComplianceAdapter serve --hostname 0.0.0.0 --port 8080 > adapter.log 2>&1 &
           ADAPTER_PID=$!
+          trap 'kill "$ADAPTER_PID" 2>/dev/null || true; docker-compose down' EXIT
 
           # Wait for adapter to be ready
           echo "Waiting for adapter to start..."
           for i in {1..30}; do
-            if curl -s http://localhost:8080/health > /dev/null 2>&1; then
+            if curl --fail -s http://localhost:8080/health > /dev/null 2>&1; then
               echo "✅ Adapter ready"
               break
             fi
             sleep 1
           done
 
+          curl --fail -s http://localhost:8080/health
+
           # Run tests via docker-compose
           # Test harness connects to adapter via host.docker.internal:8080
           # Mock server runs in Docker, accessible via localhost:8081
-          REPORT_DIR=${{ github.workspace }}/report docker-compose up --abort-on-container-exit
+          REPORT_DIR=${{ github.workspace }}/report docker-compose up --abort-on-container-exit --exit-code-from test-harness
 
-          # Capture exit code
-          TEST_EXIT_CODE=$?
-
-          # Stop adapter
-          kill $ADAPTER_PID || true
-
-          exit $TEST_EXIT_CODE
+      - name: Verify nonempty expected test inventory
+        if: always()
+        run: python3 sdk_compliance_adapter/verify_report.py report/sdk-compliance-report.md
 
       - name: Upload adapter logs
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: adapter-logs
+          name: adapter-logs-macos-shared-core
           path: sdk_compliance_adapter/adapter*.log
           retention-days: 7
 
@@ -123,8 +122,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: sdk-compliance-report
+          name: sdk-compliance-report-macos-shared-core
           path: report/sdk-compliance-report.md
+          if-no-files-found: error
           retention-days: 30
 
       - name: Extract SDK name from report
@@ -159,7 +159,8 @@ jobs:
             const sdkName = process.env.SDK_NAME || 'posthog-ios';
             // Use SDK-specific marker so multiple adapters don't overwrite each other
             const commentMarker = `<!-- posthog-sdk-compliance-report-${sdkName} -->`;
-            const body = `${commentMarker}\n${report}`;
+            const profile = 'Profile: macOS shared core (not iOS-device validation), gzip /batch, preload/autocapture disabled, public identity/group + reload + cached getter. SDK-triggered reloads are retained; unresolved queue acknowledgments time out. See sdk_compliance_adapter/README.md for contract limitations.';
+            const body = `${commentMarker}\n${profile}\n\n${report}`;
 
             // Find existing comment for this specific SDK
             const { data: comments } = await github.rest.issues.listComments({

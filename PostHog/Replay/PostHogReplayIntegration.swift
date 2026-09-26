@@ -48,6 +48,11 @@
         private let screenshotRenderLock = NSLock()
         private var isScreenshotRenderInFlight = false
 
+        /// Timer-driven capture, used in screenshot mode only. A wireframe is built from the view
+        /// tree, which cannot change without a layout, so there is nothing for a tick to find.
+        private let captureTickerLock = NSLock()
+        private var captureTicker: PostHogReplayCaptureTicker?
+
         private let eventTriggersLock = NSLock()
         private var eventTriggers: [String]?
         private var triggerActivatedSessionId: String?
@@ -280,13 +285,22 @@
                 let interval = postHog.config.sessionReplayConfig.throttleDelay
                 viewLayoutToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: interval, trailing: true) { [weak self] in
                     // called on main thread
+                    if let ticker = self?.currentCaptureTicker() {
+                        ticker.wake()
+                        guard ticker.claimCapture() else { return }
+                    }
                     self?.snapshot()
+                }
+
+                if postHog.config.sessionReplayConfig.screenshotMode {
+                    startCaptureTicker(interval: interval)
                 }
             }
 
             // start listening to `UIApplication.sendEvent`
             let applicationEventPublisher = DI.main.applicationEventPublisher
             applicationEventToken = applicationEventPublisher.onApplicationEvent.subscribe { [weak self] event, date in
+                self?.currentCaptureTicker()?.wake()
                 self?.handleApplicationEvent(event: event, date: date)
             }
 
@@ -311,15 +325,15 @@
                 plugin.start(postHog: postHog)
             }
 
-            // Start listening to application background events and pause all plugins
+            // Start listening to application background events and pause capture
             let applicationLifecyclePublisher = DI.main.appLifecyclePublisher
             applicationBackgroundedToken = applicationLifecyclePublisher.onDidEnterBackground.subscribe { [weak self] in
-                self?.pauseAllPlugins()
+                self?.pauseCapture()
             }
 
-            // Start listening to application foreground events and resume all plugins
+            // Start listening to application foreground events and resume capture
             applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
-                self?.resumeAllPlugins()
+                self?.resumeCapture()
             }
 
             hedgeLog("Session replay recording started.")
@@ -358,6 +372,7 @@
             applicationForegroundedToken = nil
             // stop listening to `UIView.layoutSubviews` events
             viewLayoutToken = nil
+            stopCaptureTicker()
             // stop plugins
             let pluginsToStop = installedPluginsLock.withLock {
                 defer { installedPlugins = [] }
@@ -493,14 +508,6 @@
         private func shouldAwaitFirstRemoteConfig() -> Bool {
             guard let remoteConfig = postHog?.remoteConfig else { return false }
             return !remoteConfig.hasFetchedRemoteConfig
-        }
-
-        private func pauseAllPlugins() {
-            updateAllPlugins { $0.pause() }
-        }
-
-        private func resumeAllPlugins() {
-            updateAllPlugins { $0.resume() }
         }
 
         private func updateAllPlugins(_ update: (PostHogSessionReplayPlugin) -> Void) {
@@ -769,7 +776,7 @@
                 return status
             }
 
-            PostHogReplayIntegration.dispatchQueue.async {
+            PostHogReplayIntegration.dispatchQueue.async { [weak self] in
                 // always make sure we have a fresh session id at correct timestamp
                 guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate) else {
                     return
@@ -815,6 +822,7 @@
                     lastImageHash: snapshotStatus.lastImageHash,
                     hasPendingSnapshotData: !snapshotsData.isEmpty
                 ) {
+                    self?.noteCapturedFrame(unchanged: true)
                     return
                 }
                 snapshotStatus.lastImageHash = imageHash
@@ -835,6 +843,7 @@
                     ],
                     timestamp: timestampDate
                 )
+                self?.noteCapturedFrame(unchanged: false)
             }
         }
 
@@ -1284,31 +1293,6 @@
                 image: screenshotCapture.image,
                 episodeFirstFrame: episodeFirstFrame
             )
-        }
-
-        /// Check if any view controller in the hierarchy is animating a transition
-        private func isAnimatingTransition(_ window: UIWindow) -> Bool {
-            guard let rootViewController = window.rootViewController else { return false }
-            return isAnimatingTransition(rootViewController)
-        }
-
-        private func isAnimatingTransition(_ viewController: UIViewController) -> Bool {
-            // Check if this view controller is animating
-            if viewController.transitionCoordinator?.isAnimated ?? false {
-                return true
-            }
-
-            // Check if presented view controller is animating
-            if let presented = viewController.presentedViewController, isAnimatingTransition(presented) {
-                return true
-            }
-
-            // Check if any of the child view controllers is animating
-            if viewController.children.first(where: isAnimatingTransition) != nil {
-                return true
-            }
-
-            return false
         }
 
         private func isAssetsImage(_ image: UIImage) -> Bool {
@@ -1791,6 +1775,76 @@
                 plugin.start(postHog: postHog)
                 hedgeLog("[Session Replay] Plugin \(type(of: plugin)) installed - enabled by remote config")
             }
+        }
+    }
+
+    // MARK: - Capture scheduling
+
+    private extension PostHogReplayIntegration {
+        func currentCaptureTicker() -> PostHogReplayCaptureTicker? {
+            captureTickerLock.withLock { captureTicker }
+        }
+
+        func startCaptureTicker(interval: TimeInterval) {
+            stopCaptureTicker()
+
+            let ticker = PostHogReplayCaptureTicker(interval: interval) { [weak self] in
+                // called on main thread
+                self?.snapshot()
+            }
+            captureTickerLock.withLock { captureTicker = ticker }
+            ticker.start()
+        }
+
+        func stopCaptureTicker() {
+            let previousTicker = captureTickerLock.withLock { () -> PostHogReplayCaptureTicker? in
+                let existing = captureTicker
+                captureTicker = nil
+                return existing
+            }
+            previousTicker?.stop()
+        }
+
+        /// Feeds each rendered frame back to the ticker, so it can stop on a screen that keeps
+        /// rendering the same pixels.
+        func noteCapturedFrame(unchanged: Bool) {
+            currentCaptureTicker()?.noteFrame(unchanged: unchanged)
+        }
+
+        /// Everything that must go quiet while the app is in the background.
+        func pauseCapture() {
+            currentCaptureTicker()?.pause()
+            updateAllPlugins { $0.pause() }
+        }
+
+        func resumeCapture() {
+            currentCaptureTicker()?.resume()
+            updateAllPlugins { $0.resume() }
+        }
+
+        /// Check if any view controller in the hierarchy is animating a transition
+        func isAnimatingTransition(_ window: UIWindow) -> Bool {
+            guard let rootViewController = window.rootViewController else { return false }
+            return isAnimatingTransition(rootViewController)
+        }
+
+        func isAnimatingTransition(_ viewController: UIViewController) -> Bool {
+            // Check if this view controller is animating
+            if viewController.transitionCoordinator?.isAnimated ?? false {
+                return true
+            }
+
+            // Check if presented view controller is animating
+            if let presented = viewController.presentedViewController, isAnimatingTransition(presented) {
+                return true
+            }
+
+            // Check if any of the child view controllers is animating
+            if viewController.children.first(where: isAnimatingTransition) != nil {
+                return true
+            }
+
+            return false
         }
     }
 

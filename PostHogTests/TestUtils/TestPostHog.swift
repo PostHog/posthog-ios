@@ -208,6 +208,10 @@ final class AsyncLatch: @unchecked Sendable {
         remaining = count
     }
 
+    var isSignaled: Bool {
+        lock.withLock { remaining <= 0 }
+    }
+
     /// Records one awaited callback; opens the latch once all of them have arrived. Thread-safe and
     /// idempotent — extra calls after the latch opens are ignored.
     func signal() {

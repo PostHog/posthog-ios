@@ -631,8 +631,8 @@
             // Regression: install() ran start() (and its snapshot) before the SDK's `replayIntegration`
             // was assigned, so the persisted crash context stayed "disabled" after a lazy install.
             sut.startSessionRecording()
-            await waitUntil { lock.withLock { latest?["$recording_status"] as? String } != "disabled" }
-            #expect(lock.withLock { latest?["$recording_status"] as? String } != "disabled")
+            await waitUntil { lock.withLock { latest?["$recording_status"] as? String } == "buffering" }
+            #expect(lock.withLock { latest?["$recording_status"] as? String } == "buffering")
 
             withExtendedLifetime(token) {}
         }

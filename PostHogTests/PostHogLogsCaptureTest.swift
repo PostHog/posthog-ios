@@ -131,8 +131,8 @@ final class PostHogLogsCaptureTests {
 
         // Decode every batch the server saw and accumulate the bodies.
         // Wait until we've seen all 200 (or time out).
-        func collectBodies() -> Set<String> {
-            var bodies: Set<String> = []
+        func collectBodies() -> [String] {
+            var bodies: [String] = []
             for request in server.logsRequests {
                 guard let data = request.body(),
                       let unzipped = try? data.gunzipped(),
@@ -145,7 +145,7 @@ final class PostHogLogsCaptureTests {
                     if let body = record["body"] as? [String: Any],
                        let text = body["stringValue"] as? String
                     {
-                        bodies.insert(text)
+                        bodies.append(text)
                     }
                 }
             }
@@ -160,7 +160,7 @@ final class PostHogLogsCaptureTests {
         #expect(bodies.count == total)
         // No duplicates, no missing records — full set log-0 through log-199.
         let expected = Set((0 ..< total).map { "log-\($0)" })
-        #expect(bodies == expected)
+        #expect(Set(bodies) == expected)
     }
 
     @Test("captureLog with empty body is dropped, no request fires")
@@ -254,14 +254,15 @@ final class PostHogLogsCaptureTests {
 
     @Test("captureLog snapshots distinctId at capture time, not flush time")
     func captureSnapshotsDistinctIdAtCaptureTime() async throws {
-        let sdk = setupSdk(maxBatchSize: 1)
+        let sdk = setupSdk(maxBatchSize: 100, flushAt: 100)
         defer { sdk.close() }
 
         sdk.identify("user-A")
         sdk.captureLog("at-A")
-        // Identify as a different user before flushing — the captured record
-        // must still carry user-A.
+        sdk.reset()
         sdk.identify("user-B")
+        try #require(sdk.getDistinctId() == "user-B")
+        try #require(server.logsRequests.isEmpty)
         sdk.flush()
 
         waitForLogsRequests(count: 1)

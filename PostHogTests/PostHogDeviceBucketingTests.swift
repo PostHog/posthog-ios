@@ -27,12 +27,13 @@ class PostHogDeviceBucketingTests {
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
         config.disableFlushOnBackgroundForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.remoteConfig = false
         config.preloadFeatureFlags = false
         let sut = PostHogSDK.with(config)
         cleanupJobs.append {
-            sut.reset()
             sut.close()
-            deleteSafely(applicationSupportDirectoryURL())
+            deleteSafely(applicationSupportDirectoryURL().appendingPathComponent(projectToken))
         }
         return sut
     }
@@ -44,10 +45,10 @@ class PostHogDeviceBucketingTests {
     }
 
     deinit {
-        server.reset()
         for cleanup in cleanupJobs {
             cleanup()
         }
+        server.stop()
     }
 
     @Test("initializes device_id on first setup")
@@ -96,8 +97,9 @@ class PostHogDeviceBucketingTests {
     }
 
     @Test("sends $device_id in feature flag requests")
-    func sendsDeviceIdInFlagRequests() async {
-        let sut = getSut()
+    func sendsDeviceIdInFlagRequests() async throws {
+        let projectToken = UUID().uuidString
+        let sut = getSut(projectToken: projectToken)
         let deviceId = sut.getDeviceId()
 
         await withCheckedContinuation { continuation in
@@ -106,21 +108,14 @@ class PostHogDeviceBucketingTests {
             }
         }
 
-        #expect(server.flagsRequests.count > 0)
-
-        guard let lastRequest = server.flagsRequests.last,
-              let requestBody = server.parseRequest(lastRequest, gzip: false)
-        else {
-            #expect(Bool(false), "Failed to parse flags request")
-            return
-        }
-
-        #expect(requestBody["$device_id"] as? String == deviceId)
+        let ownRequest = try #require(server.flagsRequests.compactMap { server.parseRequest($0, gzip: false) }.last { $0["api_key"] as? String == projectToken })
+        #expect(ownRequest["$device_id"] as? String == deviceId)
     }
 
     @Test("sends the same $device_id after identify()")
-    func sendsSameDeviceIdAfterIdentify() async {
-        let sut = getSut()
+    func sendsSameDeviceIdAfterIdentify() async throws {
+        let projectToken = UUID().uuidString
+        let sut = getSut(projectToken: projectToken)
         let deviceId = sut.getDeviceId()
 
         sut.identify("user-123")
@@ -131,16 +126,9 @@ class PostHogDeviceBucketingTests {
             }
         }
 
-        #expect(server.flagsRequests.count > 0)
-
-        guard let lastRequest = server.flagsRequests.last,
-              let requestBody = server.parseRequest(lastRequest, gzip: false)
-        else {
-            #expect(Bool(false), "Failed to parse flags request")
-            return
-        }
-
-        #expect(requestBody["$device_id"] as? String == deviceId)
+        let ownRequest = try #require(server.flagsRequests.compactMap { server.parseRequest($0, gzip: false) }.last { $0["api_key"] as? String == projectToken })
+        #expect(ownRequest["$device_id"] as? String == deviceId)
+        #expect(ownRequest["distinct_id"] as? String == "user-123")
     }
 
     @Test("persists device_id across SDK restarts")

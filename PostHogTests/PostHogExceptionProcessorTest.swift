@@ -113,19 +113,20 @@ struct PostHogExceptionProcessorTest {
         }
 
         @Test("handles circular error references")
-        func handlesCircularReferences() {
-            let error1 = NSError(domain: "Domain1", code: 1, userInfo: nil)
-            let error2 = NSError(domain: "Domain2", code: 2, userInfo: [NSUnderlyingErrorKey: error1])
+        func handlesCircularReferences() throws {
+            let error = CircularTestError(domain: "CircularDomain", code: 1)
+            try #require(error.userInfo[NSUnderlyingErrorKey] as? NSError === error)
 
             let properties = PostHogExceptionProcessor.errorToProperties(
-                error2,
+                error,
                 handled: true,
                 config: config
             )
 
             let exceptionList = properties["$exception_list"] as? [[String: Any]]
             #expect(exceptionList != nil)
-            #expect(exceptionList!.count <= 2)
+            #expect(exceptionList?.count == 1)
+            #expect(exceptionList?.first?["type"] as? String == "CircularTestError")
         }
 
         @Test("uses custom mechanism type")
@@ -431,6 +432,10 @@ struct PostHogExceptionProcessorTest {
 }
 
 // MARK: - Test Helpers
+
+private final class CircularTestError: NSError, @unchecked Sendable {
+    override var userInfo: [String: Any] { [NSUnderlyingErrorKey: self] }
+}
 
 enum TestSwiftError: Error {
     case networkError(code: Int)

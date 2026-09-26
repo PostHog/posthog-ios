@@ -1,10 +1,10 @@
 #if os(iOS)
+    import Foundation
     @testable import PostHog
     import Testing
 
     @Suite("Session Replay tests", .serialized)
     class PostHogSessionReplayTests {
-        let testProjectToken = "test_project_token"
         let server: MockPostHogServer
 
         init() {
@@ -16,58 +16,57 @@
             server.stop()
         }
 
-        private func getSut(
-            sessionReplay: Bool
-        ) -> PostHogSDK {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
-            config.sessionReplay = sessionReplay
+        private func getSut() -> PostHogSDK {
+            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
+            config.sessionReplay = false
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
             config.disableFlushOnBackgroundForTesting = true
+            config.disableRemoteConfigForTesting = true
+            config.preloadFeatureFlags = false
+            PostHogStorage(config).setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
             return PostHogSDK.with(config)
         }
 
         @Test("Session replay can be manually started when disabled in config")
         func manualSessionReplayStart() async throws {
-            // Setup SDK with session replay disabled
-            let sut = getSut(sessionReplay: false)
-
-            // Initially session replay should be inactive
+            let sut = getSut()
+            defer {
+                sut.close()
+                deleteSafely(applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken))
+            }
             #expect(sut.getReplayIntegration() == nil)
+            #expect(!sut.isSessionReplayActive())
 
-            // Manually start session replay
             sut.startSessionRecording()
 
-            // Session replay should now be active
             #expect(sut.getReplayIntegration() != nil)
-
-            sut.reset()
+            #expect(sut.isSessionReplayActive())
         }
 
         @Test("Session replay can be toggled multiple times")
         func sessionReplayToggle() async throws {
-            // Setup SDK with session replay disabled
-            let sut = getSut(sessionReplay: false)
-
-            // Initially session replay should be inactive
+            let sut = getSut()
+            defer {
+                sut.close()
+                deleteSafely(applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken))
+            }
             #expect(sut.getReplayIntegration() == nil)
 
-            // Start session replay
             sut.startSessionRecording()
-            #expect(sut.getReplayIntegration() != nil)
-
-            // Stop session replay
+            #expect(sut.isSessionReplayActive())
             sut.stopSessionRecording()
+            #expect(!sut.isSessionReplayActive())
+            #expect(sut.getReplayIntegration() != nil)
+            sut.startSessionRecording()
+            #expect(sut.isSessionReplayActive())
+
             sut.optOut()
-
             #expect(sut.getReplayIntegration() == nil)
-
-            // Start again
+            #expect(!sut.isSessionReplayActive())
             sut.optIn()
             sut.startSessionRecording()
-            #expect(sut.getReplayIntegration() != nil)
-
-            sut.reset()
+            #expect(sut.isSessionReplayActive())
         }
     }
 #endif

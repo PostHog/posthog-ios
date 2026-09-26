@@ -349,6 +349,7 @@ enum PostHogRemoteConfigTest {
             sut.reloadFeatureFlagsForSurvey { _ in bothDone.signal() }
             await bothDone.wait()
 
+            #expect(bothDone.isSignaled)
             #expect(server.flagsRequests.count == 1)
         }
 
@@ -970,6 +971,7 @@ enum PostHogRemoteConfigTest {
 
             await remoteConfigLoaded.wait()
 
+            #expect(remoteConfigLoaded.isSignaled)
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
             _ = token
@@ -1026,6 +1028,7 @@ enum PostHogRemoteConfigTest {
 
             await remoteConfigLoaded.wait()
 
+            #expect(remoteConfigLoaded.isSignaled)
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
             _ = token

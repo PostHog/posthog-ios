@@ -283,6 +283,8 @@ enum PostHogFeatureFlagsTest {
             // Person properties should be empty or only contain default properties (not "plan")
             let requestPersonProps = requestBody["person_properties"] as? [String: Any]
             #expect(requestPersonProps?["plan"] == nil, "Expected 'plan' to be cleared from person properties")
+            let requestGroupProps = requestBody["group_properties"] as? [String: [String: Any]]
+            #expect(requestGroupProps?["company"]?["name"] == nil)
         }
     }
 
@@ -374,7 +376,7 @@ enum PostHogFeatureFlagsTest {
         }
 
         @Test("Reset person properties clears all properties")
-        func resetPersonPropertiesClearsAll() async {
+        func resetPersonPropertiesClearsAll() async throws {
             let sut = track(PostHogSDK.with(config))
 
             // Set some properties
@@ -402,11 +404,9 @@ enum PostHogFeatureFlagsTest {
             }
 
             // After reset, person_properties should only contain default device properties, not the custom ones
-            if let personProperties = requestBody["person_properties"] as? [String: Any] {
-                #expect(personProperties["property1"] == nil, "Expected property1 to be removed after reset")
-                #expect(personProperties["property2"] == nil, "Expected property2 to be removed after reset")
-                // Device properties like $device_manufacturer, $os_name etc. are expected to remain
-            }
+            let personProperties = try #require(requestBody["person_properties"] as? [String: Any])
+            #expect(personProperties["property1"] == nil, "Expected property1 to be removed after reset")
+            #expect(personProperties["property2"] == nil, "Expected property2 to be removed after reset")
         }
 
         @Test("Group properties are stored and retrieved correctly")
@@ -827,7 +827,7 @@ enum PostHogFeatureFlagsTest {
         }
 
         @Test("getFeatureFlag returns consistent values with getFeatureFlagResult")
-        func getFeatureFlagReturnsSameValue() async {
+        func getFeatureFlagReturnsSameValue() async throws {
             let sut = track(PostHogSDK.with(config))
 
             await withCheckedContinuation { continuation in
@@ -837,14 +837,16 @@ enum PostHogFeatureFlagsTest {
             }
 
             // Boolean flag: getFeatureFlag returns Bool, getFeatureFlagResult has enabled
-            let boolResult = sut.getFeatureFlagResult("bool-value", sendFeatureFlagEvent: false)
-            let boolValue = sut.getFeatureFlag("bool-value", sendFeatureFlagEvent: false)
-            #expect(boolResult?.enabled == boolValue as? Bool)
+            let boolResult = try #require(sut.getFeatureFlagResult("bool-value", sendFeatureFlagEvent: false))
+            let boolValue = try #require(sut.getFeatureFlag("bool-value", sendFeatureFlagEvent: false) as? Bool)
+            #expect(boolResult.enabled == boolValue)
+            #expect(boolValue)
 
             // Variant flag: getFeatureFlag returns variant String, getFeatureFlagResult has variant
-            let stringResult = sut.getFeatureFlagResult("string-value", sendFeatureFlagEvent: false)
-            let stringValue = sut.getFeatureFlag("string-value", sendFeatureFlagEvent: false)
-            #expect(stringResult?.variant == stringValue as? String)
+            let stringResult = try #require(sut.getFeatureFlagResult("string-value", sendFeatureFlagEvent: false))
+            let stringValue = try #require(sut.getFeatureFlag("string-value", sendFeatureFlagEvent: false) as? String)
+            #expect(stringResult.variant == stringValue)
+            #expect(!stringValue.isEmpty)
 
             sut.close()
         }
@@ -906,13 +908,16 @@ enum PostHogFeatureFlagsTest {
         }
 
         @Test("each result matches getFeatureFlagResult for that key")
-        func matchesSingleKeyResult() async {
+        func matchesSingleKeyResult() async throws {
             let sut = track(PostHogSDK.with(config))
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags { continuation.resume() }
             }
 
-            for flag in sut.getAllFeatureFlags() ?? [] {
+            let flags = try #require(sut.getAllFeatureFlags())
+            try #require(flags.contains { $0.key == "bool-value" })
+            try #require(flags.contains { $0.key == "string-value" })
+            for flag in flags {
                 let single = sut.getFeatureFlagResult(flag.key, sendFeatureFlagEvent: false)
                 #expect(flag.enabled == single?.enabled, "enabled mismatch for \(flag.key)")
                 #expect(flag.variant == single?.variant, "variant mismatch for \(flag.key)")
@@ -1469,7 +1474,11 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
-    @Suite("Test concurrent flag reload coalescing", .timeLimit(.minutes(1)))
+    #if SWIFT_PACKAGE
+        @Suite("Test concurrent flag reload coalescing", .timeLimit(.minutes(1)))
+    #else
+        @Suite("Test concurrent flag reload coalescing")
+    #endif
     class TestConcurrentFlagReloads: BaseTestClass {
         /// Held by the first `/flags` response until the test has issued the reloads that must
         /// coalesce behind it. Wall-clock delays leave that window to chance; this makes it certain.

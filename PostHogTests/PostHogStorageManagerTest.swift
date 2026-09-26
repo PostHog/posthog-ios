@@ -23,7 +23,7 @@ class PostHogStorageManagerTest: QuickSpec {
             let sut = self.getSut()
 
             let anonymousId = sut.getAnonymousId()
-            expect(anonymousId) != nil
+            expect(UUID(uuidString: anonymousId)).toNot(beNil())
             let secondAnonymousId = sut.getAnonymousId()
             expect(secondAnonymousId) == anonymousId
 
@@ -177,6 +177,7 @@ class PostHogStorageManagerTest: QuickSpec {
             config.getAnonymousId = { _ in anonymousIdToSet }
 
             let sut = self.getSut(config)
+            defer { sut.reset(true) }
             sut.setDistinctId(distinctIdToSet)
 
             // Don't call setIdentified(true), isIdentified should be derived from different anon and distinct ids

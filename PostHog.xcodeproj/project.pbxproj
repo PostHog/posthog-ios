@@ -7,6 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		ABCD00000000000000000101 /* PostHogDeviceBucketingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000201; };
+		ABCD00000000000000000102 /* PostHogEnrichedAnalyticsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000202; };
+		ABCD00000000000000000103 /* PostHogErrorTrackingIgnoredTypesTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000203; };
+		ABCD00000000000000000104 /* PostHogExceptionStepsBufferTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000204; };
+		ABCD00000000000000000105 /* PostHogExceptionStepsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000205; };
+		ABCD00000000000000000106 /* PostHogFeatureFlagsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000206; };
+		ABCD00000000000000000107 /* PostHogFeatureFlagsV3Test.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000207; };
+		ABCD00000000000000000108 /* PostHogFileBackedQueueAlignmentTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000208; };
+		ABCD00000000000000000109 /* PostHogFileBackedQueueConcurrencyTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000209; };
 		EFAA01000000000000000001 /* SurveyProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFAA01000000000000000002 /* SurveyProgressStore.swift */; };
 		B74800000000000000000001 /* PostHogPushNotificationSwizzlingTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B74800000000000000000003 /* PostHogPushNotificationSwizzlingTest.swift */; };
 		B74800000000000000000002 /* PHNotificationDelegateTestFixture.m in Sources */ = {isa = PBXBuildFile; fileRef = B74800000000000000000006 /* PHNotificationDelegateTestFixture.m */; };
@@ -825,6 +834,15 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		ABCD00000000000000000201 /* PostHogDeviceBucketingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogDeviceBucketingTests.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000202 /* PostHogEnrichedAnalyticsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogEnrichedAnalyticsTest.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000203 /* PostHogErrorTrackingIgnoredTypesTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogErrorTrackingIgnoredTypesTest.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000204 /* PostHogExceptionStepsBufferTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExceptionStepsBufferTest.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000205 /* PostHogExceptionStepsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExceptionStepsTest.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000206 /* PostHogFeatureFlagsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlagsTest.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000207 /* PostHogFeatureFlagsV3Test.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlagsV3Test.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000208 /* PostHogFileBackedQueueAlignmentTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFileBackedQueueAlignmentTest.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000209 /* PostHogFileBackedQueueConcurrencyTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFileBackedQueueConcurrencyTest.swift; sourceTree = "<group>"; };
 		EFAA01000000000000000002 /* SurveyProgressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveyProgressStore.swift; sourceTree = "<group>"; };
 		B74800000000000000000003 /* PostHogPushNotificationSwizzlingTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogPushNotificationSwizzlingTest.swift; sourceTree = "<group>"; };
 		B74800000000000000000004 /* PostHogTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "PostHogTests-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -1795,6 +1813,15 @@
 		3AC745C3296D6FE60025C109 /* PostHogTests */ = {
 			isa = PBXGroup;
 			children = (
+				ABCD00000000000000000201 /* PostHogDeviceBucketingTests.swift */,
+				ABCD00000000000000000202 /* PostHogEnrichedAnalyticsTest.swift */,
+				ABCD00000000000000000203 /* PostHogErrorTrackingIgnoredTypesTest.swift */,
+				ABCD00000000000000000204 /* PostHogExceptionStepsBufferTest.swift */,
+				ABCD00000000000000000205 /* PostHogExceptionStepsTest.swift */,
+				ABCD00000000000000000206 /* PostHogFeatureFlagsTest.swift */,
+				ABCD00000000000000000207 /* PostHogFeatureFlagsV3Test.swift */,
+				ABCD00000000000000000208 /* PostHogFileBackedQueueAlignmentTest.swift */,
+				ABCD00000000000000000209 /* PostHogFileBackedQueueConcurrencyTest.swift */,
 				B74800000000000000000004 /* PostHogTests-Bridging-Header.h */,
 				B74800000000000000000003 /* PostHogPushNotificationSwizzlingTest.swift */,
 				D0E500012FA0000100000001 /* PostHogEventSnapshotTests.swift */,
@@ -3674,6 +3701,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ABCD00000000000000000101 /* PostHogDeviceBucketingTests.swift in Sources */,
+				ABCD00000000000000000102 /* PostHogEnrichedAnalyticsTest.swift in Sources */,
+				ABCD00000000000000000103 /* PostHogErrorTrackingIgnoredTypesTest.swift in Sources */,
+				ABCD00000000000000000104 /* PostHogExceptionStepsBufferTest.swift in Sources */,
+				ABCD00000000000000000105 /* PostHogExceptionStepsTest.swift in Sources */,
+				ABCD00000000000000000106 /* PostHogFeatureFlagsTest.swift in Sources */,
+				ABCD00000000000000000107 /* PostHogFeatureFlagsV3Test.swift in Sources */,
+				ABCD00000000000000000108 /* PostHogFileBackedQueueAlignmentTest.swift in Sources */,
+				ABCD00000000000000000109 /* PostHogFileBackedQueueConcurrencyTest.swift in Sources */,
 				B74800000000000000000001 /* PostHogPushNotificationSwizzlingTest.swift in Sources */,
 				BF5E00000000000000000001 /* PHBeforeSendExceptionTestFixture.m in Sources */,
 				B74800000000000000000002 /* PHNotificationDelegateTestFixture.m in Sources */,

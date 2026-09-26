@@ -28,9 +28,8 @@ class PostHogIdentityTests {
         config.disableReachabilityForTesting = true
         let sut = PostHogSDK.with(config)
         cleanupJobs.append {
-            sut.reset()
             sut.close()
-            deleteSafely(applicationSupportDirectoryURL())
+            deleteSafely(applicationSupportDirectoryURL().appendingPathComponent(config.projectToken))
         }
         return sut
     }
@@ -42,10 +41,10 @@ class PostHogIdentityTests {
     }
 
     deinit {
-        server.reset()
         for cleanup in cleanupJobs {
             cleanup()
         }
+        server.stop()
     }
 
     @Test("does not clear anonymousId on reset()")

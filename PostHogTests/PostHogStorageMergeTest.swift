@@ -81,10 +81,12 @@ class PostHogStorageMergeTest {
 
     @Test("test app group container merge detection")
     func appGroupContainerMergeDetection() throws {
-        // This test verifies that the merge detection logic works correctly
-        // by setting up files in the legacy location and checking if they would be detected
+        let unrelated = baseUrl.appendingPathComponent("unrelated-\(UUID().uuidString)")
+        try fileManager.createDirectory(at: unrelated, withIntermediateDirectories: true)
+        defer { deleteSafely(unrelated) }
+        let unrelatedFile = unrelated.appendingPathComponent("keep.txt")
+        try Data("keep".utf8).write(to: unrelatedFile)
 
-        // Create a file in the legacy bundle identifier location
         let fileContent = "test_content".data(using: .utf8)!
         _ = try createLegacyFile(
             bundleId: testBundleIdentifier,
@@ -100,8 +102,12 @@ class PostHogStorageMergeTest {
             .appendingPathComponent("test_file.txt")
         #expect(fileManager.fileExists(atPath: legacyFileUrl.path))
 
-        // Note: We can't fully test the app group container URL creation without proper entitlements,
-        // but we've verified that files in the legacy location are set up correctly for migration
+        let destination = baseUrl.appendingPathComponent(testAppGroupIdentifier)
+        mergeLegacyContainerIfNeeded(within: baseUrl, to: destination)
+        let migrated = destination.appendingPathComponent(testProjectToken).appendingPathComponent("test_file.txt")
+        #expect(try Data(contentsOf: migrated) == fileContent)
+        #expect(!fileManager.fileExists(atPath: legacyFileUrl.path))
+        #expect(try Data(contentsOf: unrelatedFile) == Data("keep".utf8))
     }
 
     @Test("test merge legacy container function")

@@ -11,6 +11,52 @@ import OHHTTPStubsSwift
 @testable import PostHog
 import Testing
 
+struct RequestBodyHelperTests {
+    @Test func readsDirectAndStreamedBodies() {
+        let data = Data((0 ..< 100).map(UInt8.init))
+        var request = URLRequest(url: URL(string: "https://example.com")!)
+        #expect(request.body() == nil)
+        request.httpBody = data
+        #expect(request.body() == data)
+        request.httpBody = nil
+        request.httpBodyStream = InputStream(data: data)
+        #expect(request.body() == data)
+    }
+
+    @Test(arguments: [-1, 0])
+    func terminatesAndClosesStream(readResult: Int) {
+        let stream = TerminalBodyStream(result: readResult)
+        var request = URLRequest(url: URL(string: "https://example.com")!)
+        request.httpBodyStream = stream
+        let body = request.body()
+        #expect(body == (readResult < 0 ? nil : Data()))
+        #expect(stream.didClose)
+        #expect(stream.readCount == 1)
+    }
+}
+
+private final class TerminalBodyStream: InputStream {
+    let result: Int
+    var didClose = false
+    var readCount = 0
+
+    init(result: Int) {
+        self.result = result
+        super.init(data: Data())
+    }
+
+    override func open() {}
+    override var hasBytesAvailable: Bool { true }
+    override func read(_: UnsafeMutablePointer<UInt8>, maxLength _: Int) -> Int {
+        readCount += 1
+        return result
+    }
+
+    override func close() {
+        didClose = true
+    }
+}
+
 @Suite(.serialized)
 enum PostHogApiTests {
     class BaseTestSuite {
@@ -36,12 +82,23 @@ enum PostHogApiTests {
             }
         }
 
+        private func requireEndpoint(_ request: URLRequest?, host: String, path: String) throws {
+            let url = try #require(request?.url)
+            let base = try #require(URL(string: host))
+            #expect(url.scheme == base.scheme)
+            #expect(url.host == base.host)
+            #expect(url.port == base.port)
+            let expectedPath = "/" + ([base.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")), path].filter { !$0.isEmpty }.joined(separator: "/"))
+            #expect(url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == expectedPath.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+        }
+
         func testSnapshotEndpoint(forHost host: String) async throws {
             let sut = getSut(host: host)
             let resp = await getApiResponse { completion in
                 sut.snapshot(events: [], completion: completion)
             }
 
+            try requireEndpoint(server.snapshotRequests.last, host: host, path: "s")
             #expect(resp.error == nil)
             #expect(resp.statusCode == 200)
         }
@@ -54,7 +111,10 @@ enum PostHogApiTests {
                 }
             }
 
-            #expect(try #require(resp)["errorsWhileComputingFlags"] as! Bool == false)
+            try requireEndpoint(server.flagsRequests.last, host: host, path: "flags")
+            let url = try #require(server.flagsRequests.last?.url)
+            #expect(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems == [URLQueryItem(name: "v", value: "2")])
+            #expect(try #require(resp)["errorsWhileComputingFlags"] as? Bool == false)
         }
 
         func testFlagsDoesNotRetryHTTPStatus(_ statusCode: Int) async throws {
@@ -86,6 +146,7 @@ enum PostHogApiTests {
                 sut.batch(events: [], completion: completion)
             }
 
+            try requireEndpoint(server.batchRequests.last, host: host, path: "batch")
             #expect(resp.error == nil)
             #expect(resp.statusCode == 200)
         }
@@ -102,6 +163,7 @@ enum PostHogApiTests {
                 )
             }
 
+            try requireEndpoint(server.pushSubscriptionRequests.last, host: host, path: "api/push_subscriptions")
             #expect(resp.error == nil)
             #expect(resp.statusCode == 200)
         }
@@ -501,14 +563,18 @@ enum PostHogApiTests {
                 sut.remoteConfig { _, _ in continuation.resume() }
             }
 
-            #expect(captured.request?.value(forHTTPHeaderField: "Authorization") == nil)
+            let request = try #require(captured.request)
+            #expect(request.url?.host == "us-assets.i.posthog.com")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
         }
 
         @Test("strips custom headers on a redirect to a different host")
         func stripsHeadersOnCrossHostRedirect() async throws {
             let captured = CapturedRequestBox()
-            stub(condition: isHost("proxy.example.com")) { _ in
-                HTTPStubsResponse(data: Data(), statusCode: 307, headers: ["Location": "https://other.example.com/flags"])
+            let initial = CapturedRequestBox()
+            stub(condition: isHost("proxy.example.com")) { request in
+                initial.set(request)
+                return HTTPStubsResponse(data: Data(), statusCode: 307, headers: ["Location": "https://other.example.com/flags"])
             }
             stub(condition: isHost("other.example.com")) { request in
                 captured.set(request)
@@ -522,7 +588,11 @@ enum PostHogApiTests {
                 sut.flags(distinctId: "x", anonymousId: nil, groups: [:], personProperties: [:]) { _, _ in continuation.resume() }
             }
 
-            #expect(captured.request?.value(forHTTPHeaderField: "Authorization") == nil)
+            let original = try #require(initial.request)
+            #expect(original.value(forHTTPHeaderField: "Authorization") == "Bearer test-jwt")
+            let destination = try #require(captured.request)
+            #expect(destination.url?.host == "other.example.com")
+            #expect(destination.value(forHTTPHeaderField: "Authorization") == nil)
         }
     }
 

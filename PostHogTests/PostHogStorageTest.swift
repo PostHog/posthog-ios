@@ -47,16 +47,14 @@ class PostHogStorageTest {
     func createsFolderIfNoneExists() throws {
         let fileManager = FileManager.default
 
-        // Initialize storage which should create directory structure
-        let sut = getSut()
+        let config = PostHogConfig(projectToken: UUID().uuidString)
+        let expectedURL = applicationSupportDirectoryURL().appendingPathComponent(config.projectToken)
+        try #require(!fileManager.fileExists(atPath: expectedURL.path))
+        defer { deleteSafely(expectedURL) }
 
-        // Validate that folder structure was created
-        #expect(fileManager.fileExists(atPath: sut.appFolderUrl.path))
-
-        try? fileManager.removeItem(at: sut.appFolderUrl)
-
-        // Clean up
-        sut.reset()
+        let sut = getSut(config: config)
+        #expect(sut.appFolderUrl == expectedURL)
+        #expect(fileManager.fileExists(atPath: expectedURL.path))
     }
 
     @Test("Persists and loads string")
@@ -83,7 +81,7 @@ class PostHogStorageTest {
         #expect(sut.getBool(forKey: .optOut) == true)
 
         sut.remove(key: .optOut)
-        #expect(sut.getString(forKey: .optOut) == nil)
+        #expect(sut.getBool(forKey: .optOut) == nil)
 
         sut.reset()
     }

@@ -642,7 +642,7 @@ enum PostHogSurveysTest {
     }
 
     @Suite("Test onEvent with property filters")
-    struct TestOnEventPropertyFilters {
+    final class TestOnEventPropertyFilters {
         let server: MockPostHogServer
         let integration: PostHogSurveyIntegration
         let postHog: PostHogSDK
@@ -667,6 +667,13 @@ enum PostHogSurveysTest {
             integration = PostHogSurveyIntegration()
             let installOutcome = integration.install(postHog)
             try #require(installOutcome == .installed)
+        }
+
+        deinit {
+            integration.uninstall(postHog)
+            postHog.close()
+            postHog.reset()
+            server.stop()
         }
 
         @Test("activates survey when event name and properties match")
@@ -1343,6 +1350,7 @@ enum PostHogSurveysTest {
                 postHog.config._surveysConfig.surveysDelegate = delegate
                 postHog.config.preloadFeatureFlags = false
                 let sut = getSut(surveys: [])
+                sut.hasActiveSurveyWindow = { true }
                 server.remoteConfigSurveys =
                     """
                     [{
@@ -1371,9 +1379,11 @@ enum PostHogSurveysTest {
                 })
                 postHog.remoteConfig?.reloadRemoteConfig()
                 await remoteConfigLoaded.wait()
+                try #require(remoteConfigLoaded.isSignaled)
                 #expect(delegate.renderedSurveyIds.isEmpty)
 
                 await featureFlagsLoaded.wait()
+                try #require(featureFlagsLoaded.isSignaled)
                 #expect(delegate.renderedSurveyIds.isEmpty)
                 _ = (sut, remoteToken, flagsToken)
             }
@@ -1439,6 +1449,7 @@ enum PostHogSurveysTest {
                 }
 
                 #expect(requestLock.withLock { requestCount } == 2)
+                #expect(loadedLock.withLock { loadedCount } == 2)
                 #expect(delegate.renderedSurveyIds.isEmpty)
                 _ = (sut, flagsToken)
             }
@@ -1529,6 +1540,7 @@ enum PostHogSurveysTest {
                 })
                 postHog.remoteConfig?.reloadRemoteConfig()
                 await failed.wait()
+                try #require(failed.isSignaled)
                 #expect(delegate.renderedSurveyIds.isEmpty)
 
                 server.flagsResponseHandler = nil
@@ -1685,6 +1697,7 @@ enum PostHogSurveysTest {
                 "surveys": try parseSurveys(surveysWithMissingKeysAndValues),
             ])
 
+            try #require(surveys.count == 2)
             #expect(surveys.allSatisfy { !$0.requiresFeatureFlagEvaluation })
         }
 
@@ -2015,7 +2028,7 @@ enum PostHogSurveysTest {
 
             sut.setShownSurvey(survey)
 
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(7)) {
                 #expect(nextIndex == 2)
                 #expect(isCompleted == false)
             } else {
@@ -2129,25 +2142,21 @@ enum PostHogSurveysTest {
             // Test Dissatisfied/Very Dissatisfied path (detractor)
             sut.setShownSurvey(survey)
 
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Very Dissatisfied")) {
-                #expect(nextIndex == 1)
-                #expect(isCompleted == false)
-            }
+            let detractor = try #require(sut.getNextQuestion(index: 0, response: .singleChoice("Very Dissatisfied")))
+            #expect(detractor.0 == 1)
+            #expect(detractor.1 == false)
 
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 1, response: .openEnded("Needs work")) {
-                #expect(nextIndex == 4)
-                #expect(isCompleted == false)
-            }
+            let final = try #require(sut.getNextQuestion(index: 1, response: .openEnded("Needs work")))
+            #expect(final.0 == 4)
+            #expect(final.1 == false)
 
-            // Complete final question for any path
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 4, response: .singleChoice("Yes")) {
-                #expect(nextIndex == 4)
-                #expect(isCompleted == true)
-            }
+            let completed = try #require(sut.getNextQuestion(index: 4, response: .openEnded("Yes")))
+            #expect(completed.0 == 4)
+            #expect(completed.1 == true)
         }
 
         @Test("handles rating response based branching for scale 3")
-        func handlesRatingResponseBasedBranchingForScale3() {
+        func handlesRatingResponseBasedBranchingForScale3() throws {
             let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
@@ -2167,29 +2176,16 @@ enum PostHogSurveysTest {
 
             sut.setShownSurvey(survey)
 
-            // Test negative (1)
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(1)) {
-                #expect(nextIndex == 1)
-                #expect(isCompleted == false)
-            }
-
-            // Test neutral (2)
-            sut.setShownSurvey(survey)
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(2)) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == false)
-            }
-
-            // Test positive (3)
-            sut.setShownSurvey(survey)
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(3)) {
-                #expect(nextIndex == 3)
+            for rating in 1 ... 3 {
+                sut.setShownSurvey(survey)
+                let (nextIndex, isCompleted) = try #require(sut.getNextQuestion(index: 0, response: .rating(rating)))
+                #expect(nextIndex == rating)
                 #expect(isCompleted == false)
             }
         }
 
         @Test("handles rating response based branching for scale 5")
-        func handlesRatingResponseBasedBranchingForScale5() {
+        func handlesRatingResponseBasedBranchingForScale5() throws {
             let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
@@ -2207,34 +2203,16 @@ enum PostHogSurveysTest {
                 ]
             )
 
-            // negative (1-2)
-            for rating in 1 ... 2 {
+            for (rating, expectedIndex) in [(1, 1), (2, 1), (3, 2), (4, 3), (5, 3)] {
                 sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
-                    #expect(nextIndex == 1)
-                    #expect(isCompleted == false)
-                }
-            }
-
-            // neutral (3)
-            sut.setShownSurvey(survey)
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(3)) {
-                #expect(nextIndex == 2)
+                let (nextIndex, isCompleted) = try #require(sut.getNextQuestion(index: 0, response: .rating(rating)))
+                #expect(nextIndex == expectedIndex)
                 #expect(isCompleted == false)
-            }
-
-            // positive (4-5)
-            for rating in 4 ... 5 {
-                sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
-                    #expect(nextIndex == 3)
-                    #expect(isCompleted == false)
-                }
             }
         }
 
         @Test("handles rating response based branching for scale 7")
-        func handlesRatingResponseBasedBranchingForScale7() {
+        func handlesRatingResponseBasedBranchingForScale7() throws {
             let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
@@ -2254,34 +2232,16 @@ enum PostHogSurveysTest {
 
             sut.setShownSurvey(survey)
 
-            // negative (1-3)
-            for rating in 1 ... 3 {
+            for (rating, expectedIndex) in [(1, 1), (2, 1), (3, 1), (4, 2), (5, 3), (6, 3), (7, 3)] {
                 sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
-                    #expect(nextIndex == 1)
-                    #expect(isCompleted == false)
-                }
-            }
-
-            // neutral (4)
-            sut.setShownSurvey(survey)
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(4)) {
-                #expect(nextIndex == 2)
+                let (nextIndex, isCompleted) = try #require(sut.getNextQuestion(index: 0, response: .rating(rating)))
+                #expect(nextIndex == expectedIndex)
                 #expect(isCompleted == false)
-            }
-
-            // positive (5-7)
-            for rating in 5 ... 7 {
-                sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
-                    #expect(nextIndex == 3)
-                    #expect(isCompleted == false)
-                }
             }
         }
 
         @Test("handles NPS rating response based branching for scale 10")
-        func handlesNPSRatingResponseBasedBranchingForScale10() {
+        func handlesNPSRatingResponseBasedBranchingForScale10() throws {
             let sut = getSut()
 
             let survey = PostHogSurvey.testInstance(
@@ -2301,31 +2261,11 @@ enum PostHogSurveysTest {
 
             sut.setShownSurvey(survey)
 
-            // detractors (0-6)
-            for rating in 0 ... 6 {
+            for (rating, expectedIndex) in [(0, 1), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 2), (8, 2), (9, 3), (10, 3)] {
                 sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
-                    #expect(nextIndex == 1)
-                    #expect(isCompleted == false)
-                }
-            }
-
-            // passives (7-8)
-            for rating in 7 ... 8 {
-                sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
-                    #expect(nextIndex == 2)
-                    #expect(isCompleted == false)
-                }
-            }
-
-            // promoters (9-10)
-            for rating in 9 ... 10 {
-                sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
-                    #expect(nextIndex == 3)
-                    #expect(isCompleted == false)
-                }
+                let (nextIndex, isCompleted) = try #require(sut.getNextQuestion(index: 0, response: .rating(rating)))
+                #expect(nextIndex == expectedIndex)
+                #expect(isCompleted == false)
             }
         }
     }
@@ -2350,14 +2290,7 @@ enum PostHogSurveysTest {
             let rawArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
             let arrayItems = try #require(rawArray)
 
-            // Mirrors PostHogSurveyIntegration.decodeSurveys: decode each entry
-            // individually so a malformed survey can't take down the whole list.
-            let decoded: [PostHogSurvey] = arrayItems.compactMap { item in
-                guard let itemData = try? JSONSerialization.data(withJSONObject: item) else {
-                    return nil
-                }
-                return try? PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: itemData)
-            }
+            let decoded = PostHogSurveyIntegration().decodeSurveys(from: ["surveys": arrayItems])
 
             #expect(decoded.count == 1)
             #expect(decoded.first?.id == "valid-survey-id")

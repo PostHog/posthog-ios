@@ -186,7 +186,11 @@ recordMaskSnapshots: checkMaskSnapshotRuntime
 testUploadSymbols:
 	build-tools/upload-symbols.test.sh
 
-test: testUploadSymbols
+.PHONY: testIOSResultParser
+testIOSResultParser:
+	bash scripts/check-ios-test-result.test.sh
+
+test: testUploadSymbols testIOSResultParser
 	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING $(if $(filter),--filter $(filter))
 
 recordEventShapeSnapshots:

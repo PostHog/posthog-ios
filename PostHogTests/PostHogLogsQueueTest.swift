@@ -116,6 +116,8 @@ final class PostHogLogsQueueTests {
         await waitUntil { queue.depth == 1 }
 
         #expect(queue.depth == 1)
+        let reopened = PostHogFileBackedQueue(queue: queue.fileQueue.queue)
+        #expect(reopened.peek(10).compactMap { PostHogLogRecord.fromStorageJSON($0)?.body } == ["first"])
     }
 
     @Test("FIFO eviction when buffer is full")
@@ -135,6 +137,8 @@ final class PostHogLogsQueueTests {
         await waitUntil { queue.depth == 3 }
 
         #expect(queue.depth == 3)
+        let reopened = PostHogFileBackedQueue(queue: queue.fileQueue.queue)
+        #expect(reopened.peek(10).compactMap { PostHogLogRecord.fromStorageJSON($0)?.body } == ["3", "4", "5"])
     }
 
     // MARK: - flush()
@@ -341,8 +345,8 @@ final class PostHogLogsQueueTests {
             queue.add(makeRecord(body: "log-\(i)"))
         }
 
-        // Drive flushes until the queue drains.
-        while queue.depth > 0 {
+        let deadline = Date().addingTimeInterval(testRequestTimeout)
+        while queue.depth > 0, Date() < deadline {
             queue.flush()
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
@@ -881,6 +885,8 @@ final class PostHogLogsQueueTests {
             traceId: "0af7651916cd43dd8448eb211c80319c",
             spanId: "b7ad6b7169203331",
             traceFlags: NSNumber(value: 1),
+            timeUnixNano: "1700000000000000000",
+            observedTimeUnixNano: "1700000001000000000",
             distinctId: "user-A",
             sessionId: "sess-1",
             screenName: "Screen",
@@ -905,7 +911,8 @@ final class PostHogLogsQueueTests {
         #expect(decoded.screenName == "Screen")
         #expect(decoded.appState == "foreground")
         #expect(decoded.featureFlagKeys == ["flag-a", "flag-b"])
-        #expect(decoded.timeUnixNano == original.timeUnixNano)
+        #expect(decoded.timeUnixNano == "1700000000000000000")
+        #expect(decoded.observedTimeUnixNano == "1700000001000000000")
     }
 
     @Test("traceFlags appears as `flags` on the OTLP wire payload")

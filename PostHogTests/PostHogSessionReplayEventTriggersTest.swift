@@ -203,7 +203,7 @@
 
         @Test("Empty triggers array means no waiting")
         func emptyTriggersNoWaiting() async throws {
-            let sut = getSut(eventTriggers: nil)
+            let sut = getSut(eventTriggers: [])
             let integration = sut.getReplayIntegration()
             #expect(integration != nil)
             #expect(integration?.isActive() == true)

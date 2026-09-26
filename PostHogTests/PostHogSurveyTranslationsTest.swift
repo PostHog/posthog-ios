@@ -152,6 +152,7 @@
             func emptyResolutionWhenTargetNil() throws {
                 let survey = try decodeTranslationsFixture()
                 let resolved = resolveSurveyTranslations(survey: survey, targetLanguage: nil)
+                #expect(resolved.questions.count == survey.questions.count)
                 #expect(resolved.matchedKey == nil)
                 #expect(resolved.survey == nil)
                 #expect(resolved.questions.allSatisfy { $0 == nil })
@@ -179,6 +180,7 @@
             func nilWhenNoMatch() throws {
                 let survey = try decodeTranslationsFixture()
                 let resolved = resolveSurveyTranslations(survey: survey, targetLanguage: "ja")
+                #expect(resolved.questions.count == survey.questions.count)
                 #expect(resolved.matchedKey == nil)
                 #expect(resolved.survey == nil)
                 #expect(resolved.questions.allSatisfy { $0 == nil })
@@ -189,6 +191,7 @@
                 let data = try loadFixture("fixture_survey_translation_noop")
                 let survey = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
                 let resolved = resolveSurveyTranslations(survey: survey, targetLanguage: "fr")
+                #expect(resolved.questions.count == survey.questions.count)
                 #expect(resolved.matchedKey == nil)
                 #expect(resolved.survey == nil)
                 #expect(resolved.questions.allSatisfy { $0 == nil })
@@ -851,8 +854,17 @@
                 func dismissIntroScreenIsPureUITransition() {
                     let controller = SurveyDisplayController()
                     var closedCount = 0
+                    var shownCount = 0
+                    var responseCount = 0
                     controller.onSurveyClosed = { _ in closedCount += 1 }
+                    controller.onSurveyShown = { _ in shownCount += 1 }
+                    controller.onSurveyResponse = { _, _, _ in
+                        responseCount += 1
+                        return nil
+                    }
                     controller.showSurvey(displaySurvey(displayIntroScreen: true))
+                    #expect(controller.showingIntroScreen)
+                    #expect(shownCount == 1)
 
                     controller.dismissIntroScreen()
 
@@ -860,6 +872,8 @@
                     #expect(controller.displayedSurvey != nil)
                     #expect(controller.currentQuestionIndex == 0)
                     #expect(closedCount == 0)
+                    #expect(shownCount == 1)
+                    #expect(responseCount == 0)
                 }
             }
 
@@ -959,13 +973,13 @@
                 let survey = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
                 let display = survey.toDisplaySurvey()
                 #expect(display.name == "Hello")
-                if let rating = display.questions[0] as? PostHogDisplayRatingQuestion {
-                    #expect(rating.question == "How was it?")
-                    #expect(rating.lowerBoundLabel == "Bad")
-                }
-                if let choice = display.questions[1] as? PostHogDisplayChoiceQuestion {
-                    #expect(choice.choices == ["One", "Two"])
-                }
+                try #require(display.questions.count == 2)
+                let rating = try #require(display.questions[0] as? PostHogDisplayRatingQuestion)
+                #expect(rating.question == "How was it?")
+                #expect(rating.lowerBoundLabel == "Bad")
+                #expect(rating.upperBoundLabel == "Great")
+                let choice = try #require(display.questions[1] as? PostHogDisplayChoiceQuestion)
+                #expect(choice.choices == ["One", "Two"])
                 #expect(display.appearance?.thankYouMessageHeader == "Thanks!")
                 #expect(display.appearance?.displayIntroScreen == true)
                 #expect(display.appearance?.introScreenHeader == "Welcome!")

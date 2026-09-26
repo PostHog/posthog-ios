@@ -133,6 +133,9 @@ struct PostHogFileBackedQueueConcurrencyTest {
 
         #expect(queue.depth >= addCount - deleteCount,
                 "Queue depth \(queue.depth) is less than minimum expected \(addCount - deleteCount)")
+        #expect(queue.depth <= addCount)
+        let records = queue.peek(addCount)
+        #expect(Set(records).count == records.count)
     }
 
     @Test("Concurrent add operations")
@@ -206,10 +209,11 @@ struct PostHogFileBackedQueueConcurrencyTest {
         }.value
 
         let finalDepth = queue.depth
-        #expect(finalDepth >= 50,
-                "Queue should have at least initial 50 items, got \(finalDepth)")
-        #expect(finalDepth <= 50 + writeCount,
-                "Queue should have at most 250 items, got \(finalDepth)")
+        #expect(finalDepth == 50 + writeCount)
+        let expected = Set((0 ..< 50).map { "initial-\($0)" } + (0 ..< writeCount).map { "write-\($0)" })
+        let actual = queue.peek(50 + writeCount).compactMap { String(data: $0, encoding: .utf8) }
+        #expect(actual.count == expected.count)
+        #expect(Set(actual) == expected)
     }
 
     @Test("Concurrent deletes at various indices")
@@ -232,7 +236,9 @@ struct PostHogFileBackedQueueConcurrencyTest {
 
         let finalDepth = queue.depth
         #expect(finalDepth >= 0, "Depth should never be negative")
-        #expect(finalDepth <= initialCount, "Depth should not exceed initial count")
+        #expect(finalDepth < initialCount, "At least one valid delete must remove a record")
+        let reopened = PostHogFileBackedQueue(queue: queue.queue)
+        #expect(reopened.peek(initialCount) == queue.peek(initialCount))
     }
 
     @Test("Chaotic mix of all operations")

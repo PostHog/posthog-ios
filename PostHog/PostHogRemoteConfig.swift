@@ -1282,6 +1282,14 @@ private struct PendingFeatureFlagsRequest {
             }
         }
 
+        /// Force-set the in-memory recording sample rate, so tests can sequence `applyRemoteConfig`
+        /// deliveries that sample the current session out and back in without a live /config.
+        func setRecordingSampleRateForTesting(_ sampleRate: Double?) {
+            sessionReplayLock.withLock {
+                recordingSampleRate = sampleRate
+            }
+        }
+
         /// Force the "a /config request completed" flag without storing any config data, so tests can
         /// simulate a failed fetch (fetched == true, no cached/live config) without a live request.
         func setRemoteConfigDidFetchForTesting(_ didFetch: Bool) {

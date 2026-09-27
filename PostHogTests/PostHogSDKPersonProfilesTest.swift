@@ -138,6 +138,63 @@ class PostHogSDKPersonProfilesTest: QuickSpec {
             sut.close()
         }
 
+        it("capture keeps caller process person false if identified only and identified") {
+            let sut = self.getSut(flushAt: 2)
+
+            sut.identify("distinctId")
+
+            sut.capture("test event", properties: ["$process_person_profile": false])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 2
+
+            let event = events.last!
+
+            expect(event.properties["$is_identified"] as? Bool) == true
+            expect(event.properties["$process_person_profile"] as? Bool) == false
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("screen keeps caller process person false if identified only and identified") {
+            let sut = self.getSut(flushAt: 2)
+
+            sut.identify("distinctId")
+
+            sut.screen("test screen", properties: ["$process_person_profile": false])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 2
+
+            let event = events.last!
+
+            expect(event.event) == "$screen"
+            expect(event.properties["$process_person_profile"] as? Bool) == false
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("capture ignores caller process person true if identified only and not identified") {
+            let sut = self.getSut()
+
+            sut.capture("test event", properties: ["$process_person_profile": true])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+
+            expect(event.properties["$process_person_profile"] as? Bool) == false
+
+            sut.reset()
+            sut.close()
+        }
+
         it("capture sets process person to true if identified only and with alias") {
             let sut = self.getSut(flushAt: 2)
 

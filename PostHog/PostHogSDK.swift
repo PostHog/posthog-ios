@@ -719,6 +719,10 @@ let maxRetryDelay = 30.0
         // Caller-supplied feature-flag properties take precedence over the cached values
         let callerFlagProps = callerProps.filter { $0.key.hasPrefix("$feature/") || $0.key == "$active_feature_flags" }
         props = props.merging(callerFlagProps) { _, new in new }
+        // A caller can opt a single event out of person processing, but not into it
+        if callerProps["$process_person_profile"] as? Bool == false {
+            props["$process_person_profile"] = false
+        }
 
         return props
     }

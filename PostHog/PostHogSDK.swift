@@ -96,7 +96,7 @@ let maxRetryDelay = 30.0
         set { setupLock.withLock { _remoteConfig = newValue } }
     }
 
-    private var context: PostHogContext?
+    private(set) var context: PostHogContext?
     private static var projectTokens = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
     let sessionManager = PostHogSessionManager()

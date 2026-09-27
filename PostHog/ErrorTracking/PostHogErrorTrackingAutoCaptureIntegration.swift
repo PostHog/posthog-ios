@@ -32,6 +32,10 @@ import Foundation
         private var contextChangedToken: RegistrationToken?
         private var exceptionStepsChangedToken: RegistrationToken?
         private var remoteConfigLoadedToken: RegistrationToken?
+        private var processContextStore: PostHogProcessContextStore?
+        #if os(iOS) && !targetEnvironment(macCatalyst) && compiler(>=6.4)
+            private var memoryExceptionReporter: PostHogMemoryExceptionReporter?
+        #endif
         /// Held while a cached-disabled start waits for a live `/config` that may re-enable autocapture.
         /// Static (like `integrationInstallState`) and retains `self` so the skipped instance survives
         /// until the live config lands; cleared once it does.
@@ -55,6 +59,7 @@ import Foundation
                 // autocapture is disabled, so purge it rather than let a later re-enable transmit
                 // a crash that happened while the project was opted out.
                 purgePendingCrashReportIfNeeded()
+                purgeProcessContexts(postHog)
 
                 // The disable verdict may have come purely from a disk-cached config. If the live
                 // /config has not landed yet, watch for it: a fresh response that re-enables
@@ -78,7 +83,11 @@ import Foundation
 
                     // Own the crash `customData`: compose context + steps and write them to the reporter.
                     // `crashReporter` is effectively immortal once enabled, so a strong capture is safe.
-                    let crashCustomData = PostHogCrashCustomDataWriter(write: { crashReporter.customData = $0 })
+                    let processContextStore = startMemoryExceptionReporting(postHog)
+                    let crashCustomData = PostHogCrashCustomDataWriter(write: {
+                        crashReporter.customData = $0
+                        processContextStore?.write($0)
+                    })
                     self.crashCustomData = crashCustomData
                     contextChangedToken = postHog.onEventContextChanged.subscribe { [weak crashCustomData] context in
                         crashCustomData?.setContext(context)
@@ -105,10 +114,16 @@ import Foundation
         func uninstall(_ postHog: PostHogSDK) {
             uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
                 stop()
+                #if os(iOS) && !targetEnvironment(macCatalyst) && compiler(>=6.4)
+                    memoryExceptionReporter?.stop()
+                    memoryExceptionReporter = nil
+                #endif
                 remoteConfigLoadedToken = nil
                 contextChangedToken = nil
                 exceptionStepsChangedToken = nil
                 crashCustomData = nil
+                processContextStore?.removeAll()
+                processContextStore = nil
                 crashReporter = nil
                 self.postHog = nil
             }
@@ -145,6 +160,28 @@ import Foundation
             }
 
             return reporter
+        }
+
+        /// Starts out-of-memory reporting (iOS 27+). Returns the store the crash context must also
+        /// be written to, or nil where there is no such reporting.
+        private func startMemoryExceptionReporting(_ postHog: PostHogSDK) -> PostHogProcessContextStore? {
+            #if os(iOS) && !targetEnvironment(macCatalyst) && compiler(>=6.4)
+                if #available(iOS 27.0, *), let appFolderUrl = postHog.storage?.appFolderUrl {
+                    let store = PostHogProcessContextStore(directory: appFolderUrl.appendingPathComponent(PostHogProcessContextStore.directoryName))
+                    let reporter = PostHogMemoryExceptionReporter(postHog: postHog, contextStore: store)
+                    reporter.start()
+                    memoryExceptionReporter = reporter
+                    processContextStore = store
+                    return store
+                }
+            #endif
+            return nil
+        }
+
+        /// Saved contexts hold identity and event properties, so they go when autocapture is disabled.
+        private func purgeProcessContexts(_ postHog: PostHogSDK) {
+            guard let appFolderUrl = postHog.storage?.appFolderUrl else { return }
+            try? FileManager.default.removeItem(at: appFolderUrl.appendingPathComponent(PostHogProcessContextStore.directoryName))
         }
 
         private func processPendingCrashReportIfNeeded(reporter: PHPLCrashReporter) {

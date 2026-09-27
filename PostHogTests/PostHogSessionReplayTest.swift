@@ -31,9 +31,10 @@
         @Test("Session replay can be manually started when disabled in config")
         func manualSessionReplayStart() async throws {
             let sut = getSut()
+            let storageURL = applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken)
             defer {
                 sut.close()
-                deleteSafely(applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken))
+                deleteSafely(storageURL)
             }
             #expect(sut.getReplayIntegration() == nil)
             #expect(!sut.isSessionReplayActive())
@@ -47,9 +48,10 @@
         @Test("Session replay can be toggled multiple times")
         func sessionReplayToggle() async throws {
             let sut = getSut()
+            let storageURL = applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken)
             defer {
                 sut.close()
-                deleteSafely(applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken))
+                deleteSafely(storageURL)
             }
             #expect(sut.getReplayIntegration() == nil)
 

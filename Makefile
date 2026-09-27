@@ -101,7 +101,7 @@ testOniOSSimulator:
 	[ -n "$$device" ] || { echo "No available iPhone simulator found; install one via Xcode or 'xcrun simctl create'."; exit 1; }; \
 	echo "Testing on simulator: $$device"; \
 	set -o pipefail; \
-	xcrun xcodebuild test -scheme PostHog -destination "platform=iOS Simulator,name=$$device" -retry-tests-on-failure -test-iterations 3 | tee xcodebuild-ios.log | xcpretty; \
+	xcrun xcodebuild test -scheme PostHog -destination "platform=iOS Simulator,name=$$device" -retry-tests-on-failure -test-iterations 3 2>&1 | tee xcodebuild-ios.log | xcpretty; \
 	status=$$?; \
 	scripts/check-ios-test-result.sh "$$status" xcodebuild-ios.log
 

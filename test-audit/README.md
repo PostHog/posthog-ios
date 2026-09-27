@@ -14,6 +14,12 @@ The three read-only reviewer artifacts contain the declaration-level R/F/C/D/U l
 
 Canonical specs were inspected under `PostHog/sdk-specs/openspec/specs`. Existing retry, logs recovery, mask-precedence, and screen-property policy disagreements were not reconciled by changing production behavior or weakening tests. Push behavior lacks a canonical spec in the inspected inventory.
 
+## PR feedback and CI follow-up
+
+After merging the updated base, a safe path-only reproduction confirmed that replay teardown read an empty project token after `close()` and selected the Application Support root. Both lifecycle tests now capture their project directory before closing. The temporary reproduction did not delete that root and was removed after inspection and focused validation.
+
+The CI queue timeout did not recur locally, but a retained regression test demonstrated shared storage between queue fixtures: clearing one removed another fixture's record. Giving each queue fixture a unique token and explicit teardown changes that test from failing (zero records instead of one) to passing. Focused iOS validation passes all 19 queue tests and both replay lifecycle tests. The full macOS run passes 174 XCTest tests and 908 Swift Testing tests after the base merge. Lint passes. CI now uploads the raw iOS logs, including stderr, for failures hidden by formatted output. These follow-up runs did not remeasure the coverage checkpoint below.
+
 ## Coverage before and after
 
 SDK-only executable-line coverage; include only files under this worktree's `PostHog/`, excluding tests, dependencies, and vendor sources. Compare platforms separately.

@@ -33,8 +33,10 @@ private final class ControlledBatchSender {
 }
 
 class PostHogQueueTest: QuickSpec {
+    private var cleanupJobs = [() -> Void]()
+
     func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3, afterUpload: (() -> Void)? = nil) -> PostHogQueue<PostHogEvent> {
-        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
         config.maxBatchSize = maxBatchSize
@@ -64,7 +66,13 @@ class PostHogQueueTest: QuickSpec {
             },
             isRetriableStatusCode: base.isRetriableStatusCode
         )
-        return PostHogQueue(config, storage, endpoint, nil)
+        let sut = PostHogQueue(config, storage, endpoint, nil)
+        cleanupJobs.append {
+            sut.stop()
+            sut.clear()
+            deleteSafely(storage.appFolderUrl)
+        }
+        return sut
     }
 
     override func spec() {
@@ -75,7 +83,21 @@ class PostHogQueueTest: QuickSpec {
             server.start()
         }
         afterEach {
+            self.cleanupJobs.forEach { $0() }
+            self.cleanupJobs.removeAll()
             server.stop()
+        }
+
+        it("isolates storage between queue fixtures") {
+            let first = self.getSut(flushAt: 100)
+            let second = self.getSut(flushAt: 100)
+            defer {
+                first.clear()
+                second.clear()
+            }
+            second.add(PostHogEvent(event: "retained", distinctId: "id"))
+            first.clear()
+            expect(second.fileQueue.peek(10).count) == 1
         }
 
         it("add item to queue") {

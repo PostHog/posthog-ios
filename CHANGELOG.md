@@ -1,5 +1,11 @@
 ## Next
 
+## 3.85.2
+
+### Patch Changes
+
+- 25b5a4b: Fix session replay keeping the original screen size after the app's window is resized, such as when it rotates or a foldable iPhone is folded or unfolded.
+
 ## 3.85.1
 
 ### Patch Changes

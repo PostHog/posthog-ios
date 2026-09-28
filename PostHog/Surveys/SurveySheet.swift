@@ -136,6 +136,9 @@
                         }
                     }
             }
+            // Keep a single column in regular-width containers, where the default style is a
+            // split view that can hide the survey in a collapsed sidebar.
+            .navigationViewStyle(.stack)
             .interactiveDismissDisabled()
             .background(
                 SurveyPresentationDetentsRepresentable(sheetHeight: adjustedSheetHeight)

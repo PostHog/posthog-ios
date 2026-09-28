@@ -138,7 +138,7 @@
             }
             .interactiveDismissDisabled()
             .background(
-                SurveyPresentationDetentsRepresentable(detents: sheetDetents)
+                SurveyPresentationDetentsRepresentable(sheetHeight: adjustedSheetHeight)
             )
         }
 
@@ -159,13 +159,6 @@
                 }
                 .coordinateSpace(name: "survey-scroll-view")
             }
-        }
-
-        private var sheetDetents: [SurveyPresentationDetentsRepresentable.Detent] {
-            if adjustedSheetHeight >= UIScreen.main.bounds.height {
-                return [.medium, .large]
-            }
-            return [.height(adjustedSheetHeight)]
         }
 
         var adjustedSheetHeight: CGFloat {

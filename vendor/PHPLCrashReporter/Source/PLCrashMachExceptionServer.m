@@ -135,6 +135,9 @@ typedef struct {
     mach_msg_type_number_t codeCnt;
     int64_t code[2];
 } PLRequest_exception_raise_identity_protected_t;
+
+/* PostHog: weak, as iOS 13 / macOS 10.15 don't export it; only called where exception_server_behavior() is protected. */
+extern kern_return_t task_identity_token_get_task_port (task_id_token_t token, task_flavor_t flavor, mach_port_t *task_port) __attribute__((weak_import));
 #endif
 
 /* PostHog: EXCEPTION_IDENTITY_PROTECTED where the OS supports it, otherwise PLCRASH_DEFAULT_BEHAVIOR. */
@@ -684,7 +687,9 @@ kern_return_t PLCrashMachExceptionForward (task_t task,
 static kern_return_t exception_server_handle_identity_protected (struct plcrash_exception_server_context *exc_context,
                                                                   PLRequest_exception_raise_identity_protected_t *request)
 {
-    if (request->Head.msgh_size < sizeof(*request) || request->codeCnt > 2) {
+    const mach_msg_size_t code_offset = offsetof(PLRequest_exception_raise_identity_protected_t, code);
+    if (request->Head.msgh_size < code_offset || request->codeCnt > 2 ||
+        request->Head.msgh_size < code_offset + request->codeCnt * sizeof(request->code[0])) {
         PLCF_DEBUG("Unexpected identity protected message of size %" PRIu64, (uint64_t) request->Head.msgh_size);
         return KERN_FAILURE;
     }

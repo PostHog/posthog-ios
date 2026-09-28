@@ -48,5 +48,25 @@ struct PostHogHingeStatusTest {
             #expect(PostHogHingeStatusObserver.value(for: .fullyOpen) == "fully_open")
             #expect(PostHogHingeStatusObserver.value(for: .unknown) == nil)
         }
+
+        @available(iOS 27.1, *)
+        @MainActor
+        @Test("attaches the hinge interaction to the window that becomes key")
+        func followsKeyWindow() {
+            let sut = PostHogHingeStatusObserver()
+            sut.start()
+            let first = UIWindow()
+            let second = UIWindow()
+            func hasInteraction(_ window: UIWindow) -> Bool {
+                window.interactions.contains { $0 is UIHingeInteraction }
+            }
+
+            NotificationCenter.default.post(name: UIWindow.didBecomeKeyNotification, object: first)
+            #expect(hasInteraction(first))
+
+            NotificationCenter.default.post(name: UIWindow.didBecomeKeyNotification, object: second)
+            #expect(hasInteraction(second))
+            #expect(!hasInteraction(first))
+        }
     #endif
 }

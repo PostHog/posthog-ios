@@ -56,7 +56,9 @@ final class PostHogHingeStatusObserver: NSObject {
                                                    selector: #selector(keyWindowDidChange(_:)),
                                                    name: UIWindow.didBecomeKeyNotification,
                                                    object: nil)
-            if let window = UIApplication.getCurrentWindow(filterForegrounded: false) {
+            // A foreground key window first: set up late in a multi-scene app, the unfiltered lookup
+            // can return a background scene's window, and no key-window change may follow.
+            if let window = UIApplication.getCurrentWindow() ?? UIApplication.getCurrentWindow(filterForegrounded: false) {
                 attach(to: window)
             }
         }

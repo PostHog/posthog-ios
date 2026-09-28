@@ -217,13 +217,16 @@
             deinit {
                 // Tear down in deinit so a `#require` throwing in a test body can't leak the SDK
                 // (and its person-property subscription) into the next serialized test.
+                let storage = PostHogStorage(postHog.config)
                 postHog.close()
-                postHog.reset()
+                deleteSafely(storage.appFolderUrl)
                 server.stop()
             }
 
             private static func getSut() -> PostHogSDK {
-                let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
+                let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9090")
+                config.disableRemoteConfigForTesting = true
+                config.preloadFeatureFlags = false
                 config._surveys = true
                 config.flushAt = 1
                 config.disableReachabilityForTesting = true
@@ -421,13 +424,16 @@
                 deinit {
                     // Tear down in deinit so a `#require` throwing in a test body can't leak the SDK
                     // (and its person-property subscription) into the next serialized test.
+                    let storage = PostHogStorage(postHog.config)
                     postHog.close()
-                    postHog.reset()
+                    deleteSafely(storage.appFolderUrl)
                     server.stop()
                 }
 
                 private static func getSut() -> PostHogSDK {
-                    let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
+                    let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9090")
+                    config.disableRemoteConfigForTesting = true
+                    config.preloadFeatureFlags = false
                     config._surveys = true
                     config.flushAt = 1
                     config.disableReachabilityForTesting = true
@@ -700,7 +706,8 @@
                     await drainMainQueue()
                     try #require(integration.testActiveSurveyLanguage == "fr")
 
-                    _ = integration.getNextQuestion(index: 1, response: .openEnded("a2"))
+                    let next = try #require(integration.getNextQuestion(index: 1, response: .openEnded("a2")))
+                    try #require(next.1)
 
                     let events = try await getServerEvents(server)
                     let sent = try #require(events.first { $0.event == "survey sent" })

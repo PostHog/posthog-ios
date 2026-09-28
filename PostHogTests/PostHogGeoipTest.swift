@@ -72,4 +72,40 @@ class PostHogGeoipTests {
         sut.reset()
         sut.close()
     }
+
+    @Test("flags requests send geoip_disable false by default")
+    func flagsRequestsSendGeoipDisableFalseByDefault() async throws {
+        let sut = getSut()
+
+        await withCheckedContinuation { continuation in
+            sut.reloadFeatureFlags {
+                continuation.resume()
+            }
+        }
+
+        let request = try #require(server.flagsRequests.last)
+        let body = try #require(server.parseRequest(request, gzip: false))
+        #expect(body["geoip_disable"] as? Bool == false)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("flags requests have geoip_disable when disableGeoip is enabled")
+    func flagsRequestsHaveGeoipDisableWhenEnabled() async throws {
+        let sut = getSut(disableGeoip: true)
+
+        await withCheckedContinuation { continuation in
+            sut.reloadFeatureFlags {
+                continuation.resume()
+            }
+        }
+
+        let request = try #require(server.flagsRequests.last)
+        let body = try #require(server.parseRequest(request, gzip: false))
+        #expect(body["geoip_disable"] as? Bool == true)
+
+        sut.reset()
+        sut.close()
+    }
 }

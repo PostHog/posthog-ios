@@ -861,7 +861,7 @@ enum PostHogSurveysTest {
         #endif
 
         init() {
-            let config = PostHogConfig(projectToken: "test_get_active_surveys", host: "http://localhost:9090")
+            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9090")
             config._surveys = true
             #if os(iOS)
                 config._surveysConfig.surveysDelegate = SpySurveysDelegate()
@@ -887,7 +887,7 @@ enum PostHogSurveysTest {
         deinit {
             let storage = PostHogStorage(postHog.config)
             postHog.close()
-            storage.reset()
+            deleteSafely(storage.appFolderUrl)
             server.stop()
         }
 

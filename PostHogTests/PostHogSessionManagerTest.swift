@@ -22,11 +22,16 @@ enum PostHogSessionManagerTest {
         }
 
         deinit {
-            sdks.forEach { $0.close() }
+            for sdk in sdks {
+                let storage = PostHogStorage(sdk.config)
+                sdk.close()
+                deleteSafely(storage.appFolderUrl)
+            }
         }
 
         func getSut() -> PostHogSDK {
-            let config = PostHogConfig(projectToken: "test_project_token")
+            let config = PostHogConfig(projectToken: UUID().uuidString)
+            config.captureApplicationLifecycleEvents = false
             config.disableRemoteConfigForTesting = true
             config.preloadFeatureFlags = false
             config.disableQueueTimerForTesting = true
@@ -168,6 +173,7 @@ enum PostHogSessionManagerTest {
     class PostHogSDKEvents {
         let mockAppLifecycle: MockApplicationLifecyclePublisher
         var server: MockPostHogServer!
+        private var cleanupJobs = [() -> Void]()
 
         init() {
             PostHogAppLifeCycleIntegration.clearInstalls()
@@ -177,12 +183,10 @@ enum PostHogSessionManagerTest {
 
             server = MockPostHogServer()
             server.start()
-
-            // important!
-            deleteSafely(applicationSupportDirectoryURL())
         }
 
         deinit {
+            cleanupJobs.forEach { $0() }
             now = { Date() }
             server.stop()
             server = nil
@@ -197,7 +201,7 @@ enum PostHogSessionManagerTest {
             propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
             personProfiles: PostHogPersonProfiles = .identifiedOnly
         ) -> PostHogSDK {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
             config.flushAt = flushAt
             config.preloadFeatureFlags = preloadFeatureFlags
             config.sendFeatureFlagEvent = sendFeatureFlagEvent
@@ -209,7 +213,13 @@ enum PostHogSessionManagerTest {
             config.propertiesSanitizer = propertiesSanitizer
             config.personProfiles = personProfiles
             config.maxBatchSize = max(flushAt, config.maxBatchSize)
-            return PostHogSDK.with(config)
+            let sdk = PostHogSDK.with(config)
+            let storage = PostHogStorage(config)
+            cleanupJobs.append {
+                sdk.close()
+                deleteSafely(storage.appFolderUrl)
+            }
+            return sdk
         }
 
         @Test("Clears $session_id after 30 mins of background inactivity")

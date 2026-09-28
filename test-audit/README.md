@@ -22,7 +22,9 @@ The CI queue timeout did not recur locally, but a retained regression test demon
 
 ### Further CI repairs
 
-The subsequent CI logs exposed races in relaunch, throttling, and survey fixtures. Relaunch tests now wait for persisted events to drain before reopening storage. Throttle tests wait for callback delivery before advancing the clock. Session-rotation fixtures close their SDKs, and survey fixtures clear cached config before SDK setup. SwiftUI fixtures explicitly enable the public `accessibilityEnabled` environment value, restoring their real accessibility tree without replacing or weakening the assertions. Whole-suite Xcode retries were removed because they reinstall process-wide swizzles in the same process.
+The subsequent CI logs exposed races in relaunch, throttling, and survey fixtures. Relaunch tests now wait for persisted events to drain before reopening storage. Throttle tests wait for callback delivery before advancing the clock. Session fixtures close their SDKs and use separate project directories. Survey fixtures also use separate project directories because `PostHogStorage.reset()` intentionally preserves remote config. SwiftUI fixtures explicitly enable the public `accessibilityEnabled` environment value, restoring their real accessibility tree without replacing or weakening the assertions. Whole-suite Xcode retries were removed because they reinstall process-wide swizzles in the same process.
+
+The multi-step 413 and terminal 501 tests now wait for the upload completion callback before issuing another flush or checking removal. Observing a changed batch cap alone was too early: the queue could still be marked as flushing.
 
 After these repairs, the complete local iOS run passes 198 XCTest and 1,261 Swift Testing tests. The macOS run passes 174 XCTest and 908 Swift Testing tests. Formatting and lint pass. These runs follow the base merge and are separate from the original coverage measurements below.
 

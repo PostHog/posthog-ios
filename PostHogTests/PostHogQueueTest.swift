@@ -448,7 +448,13 @@ class PostHogQueueTest: QuickSpec {
         it("halves cap repeatedly across multiple 413s and drops once cap reaches 1") {
             // flushAt is high so add() doesn't trigger an auto-flush — we drive
             // each flush manually to observe the multi-step halving sequence.
-            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 0)
+            let uploads = (1 ... 3).map { XCTestExpectation(description: "413 upload \($0) processed") }
+            var uploadIndex = 0
+            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 0) {
+                let upload = uploads[uploadIndex]
+                uploadIndex += 1
+                upload.fulfill()
+            }
             server.start(batchCount: 3)
             server.batchResponseHandler = { _, _ in
                 HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
@@ -460,18 +466,21 @@ class PostHogQueueTest: QuickSpec {
 
             // First flush: batch=4 → 413 → cap halves to 2, batch retained.
             sut.flush()
-            expect(sut.currentBatchCapForTesting).toEventually(equal(2))
+            expect(XCTWaiter.wait(for: [uploads[0]], timeout: testRequestTimeout)) == .completed
+            expect(sut.currentBatchCapForTesting) == 2
             expect(sut.depth) == 4
 
             // Second flush: batch=2 → 413 → cap halves to 1, batch retained.
             sut.flush()
-            expect(sut.currentBatchCapForTesting).toEventually(equal(1))
+            expect(XCTWaiter.wait(for: [uploads[1]], timeout: testRequestTimeout)) == .completed
+            expect(sut.currentBatchCapForTesting) == 1
             expect(sut.depth) == 4
 
             // Third flush: batch=1, cap already at 1 → drop one record. Cap
             // stays at 1 (no reset, matching Android).
             sut.flush()
-            expect(sut.depth).toEventually(equal(3))
+            expect(XCTWaiter.wait(for: [uploads[2]], timeout: testRequestTimeout)) == .completed
+            expect(sut.depth) == 3
             expect(sut.currentBatchCapForTesting) == 1
 
             sut.clear()
@@ -481,7 +490,8 @@ class PostHogQueueTest: QuickSpec {
             // 501/505/etc. are NOT in the narrow 5xx retriable set
             // {500, 502, 503, 504}. Treat as non-retriable so a poison
             // record can't block the queue.
-            let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
+            let upload = XCTestExpectation(description: "terminal response processed")
+            let sut = self.getSut(flushAt: 2, maxBatchSize: 4) { upload.fulfill() }
             server.batchResponseHandler = { _, _ in
                 HTTPStubsResponse(jsonObject: [], statusCode: 501, headers: nil)
             }
@@ -490,8 +500,9 @@ class PostHogQueueTest: QuickSpec {
             sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
 
             _ = getBatchedEvents(server)
+            expect(XCTWaiter.wait(for: [upload], timeout: testRequestTimeout)) == .completed
 
-            expect(sut.depth).toEventually(equal(0))
+            expect(sut.depth) == 0
             expect(sut.currentBatchCapForTesting) == 4
 
             sut.clear()

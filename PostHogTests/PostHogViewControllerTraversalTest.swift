@@ -9,13 +9,17 @@
     import Testing
     import UIKit
 
-    // Named like SwiftUI's own placeholders, e.g. `_UnaryViewAdaptor<EmptyView>`.
-    private struct _PlaceholderView: View {
+    private struct PlainView: View {
         var body: some View { EmptyView() }
     }
 
-    private struct PlainView: View {
+    private struct OtherView: View {
         var body: some View { EmptyView() }
+    }
+
+    // An if/else root, e.g. home or login, is hosted as `_ConditionalContent<…>`.
+    @ViewBuilder private func conditionalRoot(_ plain: Bool) -> some View {
+        if plain { PlainView() } else { OtherView() }
     }
 
     @Suite("Screen view controller traversal", .serialized)
@@ -380,7 +384,7 @@
             }
         }
 
-        @Test("Screen autocapture follows navigation in a split view showing only its secondary column", arguments: ["classic", "column", "wrapped column"])
+        @Test("Screen autocapture follows navigation in a split view showing only its secondary column", arguments: ["classic", "column", "wrapped column", "nested column"])
         func secondaryOnlySplitNavigation(setup: String) {
             let root = InitialViewController()
             let split: SplitViewController
@@ -405,9 +409,12 @@
             split.displayModeOverride = .secondaryOnly
             add(split, to: root)
             root.setOverrideTraitCollection(UITraitCollection(horizontalSizeClass: .regular), forChild: split)
+            // An app navigation controller around the split, e.g. a hosted
+            // NavigationSplitView pushed from UIKit, is not the split's own wrapper.
+            let windowRoot = setup == "nested column" ? UINavigationController(rootViewController: root) : root
 
-            withWindow(root: root, width: 1024) { _ in
-                root.view.layoutIfNeeded()
+            withWindow(root: windowRoot, width: 1024) { _ in
+                windowRoot.view.layoutIfNeeded()
                 #expect(!split.isCollapsed)
                 let target = wrappedDetail.map(\.navigationController) ?? navigation
                 #expect(target != nil)
@@ -427,7 +434,9 @@
 
         @Test("SwiftUI-internal screen names are recognised conservatively", arguments: [
             ("UIHostingController<ModifiedContent<_UnaryViewAdaptor<EmptyView>, StyleContextWriter<NoStyleContext>>>", true),
-            ("UIHostingController<_PlaceholderView>", true),
+            ("UIHostingController<_UnaryViewAdaptor<EmptyView>>", true),
+            // A @ViewBuilder root with an if/else is a real screen.
+            ("UIHostingController<_ConditionalContent<Home, Login>>", false),
             // The split view's own name, and app views wrapped in private modifiers.
             ("NotifyingMulticolumnSplit", false),
             ("UIHostingController<ModifiedContent<ContentView, _PrivateModifier>>", false),
@@ -459,7 +468,7 @@
                 }
 
                 // Unfolding briefly shows an empty split column before the split.
-                show(UIHostingController(rootView: _PlaceholderView()))
+                show(UIHostingController(rootView: _UnaryViewAdaptor(EmptyView())))
                 #expect(names == ["One"])
                 // Still deduplicated against the last real screen.
                 show(first)
@@ -467,6 +476,11 @@
 
                 show(UIHostingController(rootView: PlainView()))
                 #expect(names == ["One", "UIHostingController<PlainView>"])
+
+                // Other underscored SwiftUI roots are real screens.
+                show(UIHostingController(rootView: conditionalRoot(true)))
+                #expect(names.count == 3)
+                #expect(names.last?.hasPrefix("UIHostingController<_ConditionalContent<") == true)
             }
         }
 

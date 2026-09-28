@@ -30,13 +30,12 @@ enum PostHogScreenNameSanitizer {
     }
 
     /// Whether an auto-captured controller name hosts a SwiftUI-internal view,
-    /// such as the `_UnaryViewAdaptor<EmptyView>` placeholder of an empty split
-    /// view column. Only hosted SwiftUI roots are checked: Swift reserves a
-    /// leading underscore for implementation details, and UIKit controller names
-    /// are never affected.
+    /// such as the `_UnaryViewAdaptor` placeholder SwiftUI shows for an empty
+    /// split column. Only hosted SwiftUI roots are checked, so UIKit controller
+    /// names are never affected.
     static func isSwiftUIInternal(rawScreenName name: String) -> Bool {
         guard name.hasPrefix("UIHostingController<") else { return false }
-        return sanitize(rawScreenName: name)?.hasPrefix("_") == true
+        return sanitize(rawScreenName: name)?.hasPrefix("_UnaryViewAdaptor<") == true
     }
 
     /// Returns the body of `wrapper<…>` if `string` matches that exact shape

@@ -130,9 +130,44 @@
             }
             let event = try await waitForEvent(events)
             #expect(event.properties["$ai_is_error"] as? Bool == true)
-            #expect((event.properties["$ai_error"] as? String)?.contains("ToolCallError") == true)
+            #expect(event.properties["$ai_error"] == nil)
             // The model call that asked for the tool still used tokens.
             #expect(event.properties["$ai_input_tokens"] as? Int == 40)
+        }
+
+        @available(iOS 27.0, macOS 27.0, visionOS 27.0, watchOS 27.0, *)
+        @Test("capture records $ai_error when privacy mode is off")
+        func captureRecordsErrorWithoutPrivacy() async throws {
+            let (sdk, events) = makeSDK()
+            defer { sdk.close() }
+            let session = LanguageModelSession(model: FakeModel(), tools: [BrokenTemperature()])
+
+            await #expect(throws: LanguageModelSession.ToolCallError.self) {
+                try await PostHogAI.capture(session, model: "fake", provider: "test",
+                                            privacyMode: false, postHog: sdk)
+                {
+                    try await session.respond(to: "Temperature in Lisbon?")
+                }
+            }
+            let event = try await waitForEvent(events)
+            #expect(event.properties["$ai_is_error"] as? Bool == true)
+            #expect((event.properties["$ai_error"] as? String)?.contains("ToolCallError") == true)
+        }
+
+        @available(iOS 27.0, macOS 27.0, visionOS 27.0, watchOS 27.0, *)
+        @Test("privacy mode omits prompt-like text from $ai_error")
+        func privacyModeOmitsPromptFromError() async throws {
+            struct PromptLeakingError: Error, CustomStringConvertible {
+                var description: String { "User said: Secret salary question" }
+            }
+            let session = LanguageModelSession(model: FakeModel())
+            let turn = AIGenerationTurn(session: session, model: "fake", provider: "test", privacyMode: true, extra: nil)
+            let props = turn.properties(session: session, error: PromptLeakingError())
+
+            #expect(props["$ai_is_error"] as? Bool == true)
+            #expect(props["$ai_error"] == nil)
+            let serialized = String(describing: props)
+            #expect(!serialized.contains("Secret salary question"))
         }
 
         @available(iOS 27.0, macOS 27.0, visionOS 27.0, watchOS 27.0, *)

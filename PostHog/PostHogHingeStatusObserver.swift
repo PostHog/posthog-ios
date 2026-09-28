@@ -53,14 +53,17 @@ final class PostHogHingeStatusObserver: NSObject {
                 self?.setStatus(update.hinge.flatMap { Self.value(for: $0.status) })
             }
             NotificationCenter.default.addObserver(self,
-                                                   selector: #selector(keyWindowDidChange),
+                                                   selector: #selector(keyWindowDidChange(_:)),
                                                    name: UIWindow.didBecomeKeyNotification,
                                                    object: nil)
-            attachToKeyWindow()
+            if let window = UIApplication.getCurrentWindow(filterForegrounded: false) {
+                attach(to: window)
+            }
         }
 
-        @objc private func keyWindowDidChange() {
-            onMain { self.attachToKeyWindow() }
+        @objc private func keyWindowDidChange(_ notification: Notification) {
+            guard let window = notification.object as? UIWindow else { return }
+            onMain { self.attach(to: window) }
         }
 
         private func onMain(_ body: @escaping @MainActor () -> Void) {
@@ -71,15 +74,10 @@ final class PostHogHingeStatusObserver: NSObject {
             }
         }
 
-        /// Moves the interaction onto the current key window; the window owns it, we don't own the window.
+        /// Moves the interaction onto `window`; the window owns it, we don't own the window.
         @MainActor
-        private func attachToKeyWindow() {
-            guard let interaction,
-                  let window = UIApplication.getCurrentWindow(filterForegrounded: false),
-                  interaction.view !== window
-            else {
-                return
-            }
+        private func attach(to window: UIWindow) {
+            guard let interaction, interaction.view !== window else { return }
             interaction.view?.removeInteraction(interaction)
             window.addInteraction(interaction)
         }

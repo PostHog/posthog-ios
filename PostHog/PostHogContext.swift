@@ -24,8 +24,12 @@ class PostHogContext {
         var screenSizeOverride: (() -> CGSize?)?
     #endif
 
-    /// Tests swap in their own so they don't share the process-wide observer.
-    var hingeStatusObserver = PostHogHingeStatusObserver.shared
+    #if TESTING
+        /// Tests swap in their own so they don't share the process-wide observer.
+        var hingeStatusObserver = PostHogHingeStatusObserver.shared
+    #else
+        let hingeStatusObserver = PostHogHingeStatusObserver.shared
+    #endif
 
     /// All guarded by `screenSizeLock`.
     private var isScreenSizeRefreshScheduled = false

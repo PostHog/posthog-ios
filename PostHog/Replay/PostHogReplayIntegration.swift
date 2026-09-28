@@ -792,7 +792,7 @@
                 }
 
                 var snapshotsData: [Any] = []
-                if !snapshotStatus.sentMetaEvent {
+                if !snapshotStatus.sentMetaEvent || snapshotStatus.metaEventSize != windowSize {
                     let width = windowSize.width.toInt() ?? 0
                     let height = windowSize.height.toInt() ?? 0
                     var data: [String: Any] = ["width": width, "height": height]
@@ -802,6 +802,7 @@
                     let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
                     snapshotsData.append(snapshotData)
                     snapshotStatus.sentMetaEvent = true
+                    snapshotStatus.metaEventSize = windowSize
                 }
 
                 // Re-arm the hash on an episode's first frame so a recurring

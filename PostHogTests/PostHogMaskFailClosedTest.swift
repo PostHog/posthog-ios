@@ -151,7 +151,8 @@
         private func captureSnapshotTypes(
             failures: [Bool],
             queueTogether: Bool = false,
-            episodeFirstFrames: Set<Int> = []
+            episodeFirstFrames: Set<Int> = [],
+            windowSizes: [CGSize] = []
         ) -> [[Int]] {
             let server = MockPostHogServer()
             server.start()
@@ -183,6 +184,9 @@
                 wireframe.type = "screenshot"
                 wireframe.image = fails ? makeUnrenderableImage() : makeRenderableImage()
                 wireframe.maskableWidgets = [CGRect(x: index * 5, y: 0, width: 10, height: 10)]
+                if index < windowSizes.count {
+                    window.frame = CGRect(origin: .zero, size: windowSizes[index])
+                }
                 integration.captureSnapshot(
                     wireframe,
                     window: window,
@@ -226,6 +230,16 @@
         @Test("a failed opening frame of a new bridge episode keeps its metadata pending")
         func failedEpisodeOpeningPreservesMetadata() {
             #expect(captureSnapshotTypes(failures: [false, true, false], episodeFirstFrames: [1]) == [[4, 2], [4, 2]])
+        }
+
+        @Test("metadata is resent when the same window changes size, as on rotation or a fold")
+        func windowResizeResendsMetadata() {
+            let portrait = CGSize(width: 320, height: 640)
+            let landscape = CGSize(width: 640, height: 320)
+            #expect(captureSnapshotTypes(
+                failures: [false, false, false, false],
+                windowSizes: [portrait, landscape, landscape, portrait]
+            ) == [[4, 2], [4, 2], [2], [4, 2]])
         }
 
         // MARK: - Zero-size parents

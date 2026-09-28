@@ -12,17 +12,27 @@ import Testing
 @Suite(.serialized, .resetsGlobalState)
 enum PostHogSessionManagerTest {
     @Suite("Test session id rotation logic")
-    struct SessionRotation {
+    final class SessionRotation {
         let mockAppLifecycle: MockApplicationLifecyclePublisher
+        private var sdks: [PostHogSDK] = []
 
         init() {
             mockAppLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockAppLifecycle
         }
 
+        deinit {
+            sdks.forEach { $0.close() }
+        }
+
         func getSut() -> PostHogSDK {
             let config = PostHogConfig(projectToken: "test_project_token")
-            return PostHogSDK.with(config)
+            config.disableRemoteConfigForTesting = true
+            config.preloadFeatureFlags = false
+            config.disableQueueTimerForTesting = true
+            let sdk = PostHogSDK.with(config)
+            sdks.append(sdk)
+            return sdk
         }
 
         @Test("Session id is cleared after 30 min of background time")

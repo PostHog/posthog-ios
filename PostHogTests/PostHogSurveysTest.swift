@@ -869,9 +869,9 @@ enum PostHogSurveysTest {
             config.enableSwizzling = false
             config.disableFlushOnBackgroundForTesting = true
             config.disableRemoteConfigForTesting = true
-            postHog = PostHogSDK.with(config)
             let storage = PostHogStorage(config)
             storage.reset()
+            postHog = PostHogSDK.with(config)
             server = MockPostHogServer()
             server.featureFlags = [
                 "linked-flag-enabled": true,
@@ -885,9 +885,10 @@ enum PostHogSurveysTest {
         }
 
         deinit {
-            server.stop()
+            let storage = PostHogStorage(postHog.config)
             postHog.close()
-            postHog.reset()
+            storage.reset()
+            server.stop()
         }
 
         let draftSurvey =

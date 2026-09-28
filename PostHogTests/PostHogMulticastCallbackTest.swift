@@ -317,7 +317,7 @@ class PostHogThrottledMulticastCallbackTests {
 
         // First invoke should go through
         callback.invoke(1)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { receivedValues == [1] } }
         #expect(lock.withLock { receivedValues } == [1])
 
         // Second invoke within throttle window should be ignored
@@ -329,7 +329,7 @@ class PostHogThrottledMulticastCallbackTests {
         // Third invoke after throttle window should go through
         mockNow.date.addTimeInterval(0.6) // Total: 1.1s
         callback.invoke(3)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { receivedValues.count >= 2 } }
         #expect(lock.withLock { receivedValues } == [1, 3])
 
         _ = token
@@ -355,21 +355,21 @@ class PostHogThrottledMulticastCallbackTests {
 
         // First invoke - both receive
         callback.invoke(1)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { fastValues.count == 1 && slowValues.count == 1 } }
         #expect(lock.withLock { fastValues } == [1])
         #expect(lock.withLock { slowValues } == [1])
 
         // After 0.6s - only fast subscriber receives
         mockNow.date.addTimeInterval(0.6)
         callback.invoke(2)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { fastValues.count >= 2 } }
         #expect(lock.withLock { fastValues } == [1, 2])
         #expect(lock.withLock { slowValues } == [1])
 
         // After another 1.5s (total 2.1s) - both receive
         mockNow.date.addTimeInterval(1.5)
         callback.invoke(3)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { fastValues.count >= 3 && slowValues.count >= 2 } }
         #expect(lock.withLock { fastValues } == [1, 2, 3])
         #expect(lock.withLock { slowValues } == [1, 3])
 

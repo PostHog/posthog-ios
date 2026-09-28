@@ -62,8 +62,7 @@ jobs:
           xcode-version: latest-stable
       - name: Test SDK on iOS Simulator
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
-        # Retries (3 iterations) protect merges from transient simulator flakiness; the macOS `test`
-        # job runs without retries, so a genuine flake still surfaces as a hard failure there.
+        # Run once so process-wide swizzles are not reinstalled by whole-suite retries.
         run: make testOniOSSimulator
       - name: Test survey interactions on iOS Simulator
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'

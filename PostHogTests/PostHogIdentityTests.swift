@@ -763,7 +763,7 @@ class PostHogIdentityTests {
         let firstEvents = try await getServerEvents(server)
         #expect(firstEvents.map(\.event) == [useIdentify ? "$identify" : "$set", "first_launch"])
         #expect((firstEvents.first?.properties[setOnce ? "$set_once" : "$set"] as? [String: Any])?.isEmpty == true)
-        firstLaunch.close()
+        try await closeAfterDraining(firstLaunch)
         server.reset()
 
         let secondLaunch = getSut(flushAt: 100)
@@ -804,6 +804,13 @@ class PostHogIdentityTests {
         #expect(capturedEvents.count == (personUpdate ? 3 : 4))
     }
 
+    private func closeAfterDraining(_ sdk: PostHogSDK) async throws {
+        let path = PostHogStorage(sdk.config).url(forKey: .queue).path
+        await waitUntil { (try? FileManager.default.contentsOfDirectory(atPath: path).isEmpty) == true }
+        try #require(FileManager.default.contentsOfDirectory(atPath: path).isEmpty)
+        sdk.close()
+    }
+
     // MARK: - Persisted Deduplication Tests
 
     @Test("setPersonProperties deduplication survives a relaunch")
@@ -814,7 +821,7 @@ class PostHogIdentityTests {
         let firstEvents = try await getServerEvents(server)
         #expect(firstEvents.map(\.event) == ["$set"])
 
-        firstLaunch.close()
+        try await closeAfterDraining(firstLaunch)
         server.reset()
 
         // Same properties on the next cold start: the guard is persisted, so no second $set
@@ -833,7 +840,7 @@ class PostHogIdentityTests {
 
         _ = try await getServerEvents(server)
 
-        firstLaunch.close()
+        try await closeAfterDraining(firstLaunch)
         server.reset()
 
         let secondLaunch = getSut()
@@ -855,7 +862,7 @@ class PostHogIdentityTests {
 
         _ = try await getServerEvents(server)
 
-        firstLaunch.close()
+        try await closeAfterDraining(firstLaunch)
         server.reset()
 
         let secondLaunch = getSut()
@@ -890,7 +897,7 @@ class PostHogIdentityTests {
         let firstEvents = try await getServerEvents(server)
         #expect(firstEvents.map(\.event) == ["$set"])
 
-        firstLaunch.close()
+        try await closeAfterDraining(firstLaunch)
         server.reset()
 
         let secondLaunch = getSut()
@@ -909,7 +916,7 @@ class PostHogIdentityTests {
         let firstEvents = try await getServerEvents(server)
         #expect(firstEvents.map(\.event) == ["$identify"])
 
-        firstLaunch.close()
+        try await closeAfterDraining(firstLaunch)
         server.reset()
 
         // Same identify call on the next cold start: the $identify already sent these properties

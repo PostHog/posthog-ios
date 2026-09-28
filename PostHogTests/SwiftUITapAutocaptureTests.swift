@@ -487,7 +487,7 @@
 
         private func fixture<Content: View>(content: Content) -> (UIWindow, UIView) {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
-            let controller = UIHostingController(rootView: content.edgesIgnoringSafeArea(.all))
+            let controller = UIHostingController(rootView: content.edgesIgnoringSafeArea(.all).environment(\.accessibilityEnabled, true))
             window.rootViewController = controller
             window.isHidden = false
             controller.view.layoutIfNeeded()

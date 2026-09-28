@@ -20,6 +20,12 @@ After merging the updated base, a safe path-only reproduction confirmed that rep
 
 The CI queue timeout did not recur locally, but a retained regression test demonstrated shared storage between queue fixtures: clearing one removed another fixture's record. Giving each queue fixture a unique token and explicit teardown changes that test from failing (zero records instead of one) to passing. Focused iOS validation passes all 19 queue tests and both replay lifecycle tests. The full macOS run passes 174 XCTest tests and 908 Swift Testing tests after the base merge. Lint passes. CI now uploads the raw iOS logs, including stderr, for failures hidden by formatted output. These follow-up runs did not remeasure the coverage checkpoint below.
 
+### Further CI repairs
+
+The subsequent CI logs exposed races in relaunch, throttling, and survey fixtures. Relaunch tests now wait for persisted events to drain before reopening storage. Throttle tests wait for callback delivery before advancing the clock. Session-rotation fixtures close their SDKs, and survey fixtures clear cached config before SDK setup. SwiftUI fixtures explicitly enable the public `accessibilityEnabled` environment value, restoring their real accessibility tree without replacing or weakening the assertions. Whole-suite Xcode retries were removed because they reinstall process-wide swizzles in the same process.
+
+After these repairs, the complete local iOS run passes 198 XCTest and 1,261 Swift Testing tests. The macOS run passes 174 XCTest and 908 Swift Testing tests. Formatting and lint pass. These runs follow the base merge and are separate from the original coverage measurements below.
+
 ## Coverage before and after
 
 SDK-only executable-line coverage; include only files under this worktree's `PostHog/`, excluding tests, dependencies, and vendor sources. Compare platforms separately.
@@ -49,9 +55,9 @@ macOS file-level changes: survey matching -11 covered lines, storage -1, push su
 
 The default Xcode/iOS 27 SDK failed the baseline build. Both iOS coverage measurements used `/Applications/Xcode-26.6.0.app/Contents/Developer` and simulator `77D41C2C-541C-4DB7-BABF-92FDDCFCA0DD` instead.
 
-### Remaining iOS failures
+### Initial iOS failures (resolved in the CI follow-up)
 
-`SwiftUITapAutocaptureTests.accessibilityTraitsDetermineLogicalButtonRole(isButton:)` fails for both arguments; `structuralFallbackIsNotAnAriaLabel()` fails once. Their resolver returns nil. Diagnostic runs observed an empty hosting-view accessibility tree (`accessibilityElementCount() == 0`, `accessibilityElements == []`). They passed in the initial baseline run but fail in later isolated runs, after restarting the simulator, and after executing hosted UI tests. Root cause is **not established**; this is not proven to be an SDK regression or solely an environment problem.
+`SwiftUITapAutocaptureTests.accessibilityTraitsDetermineLogicalButtonRole(isButton:)` fails for both arguments; `structuralFallbackIsNotAnAriaLabel()` fails once. Their resolver returns nil. Diagnostic runs observed an empty hosting-view accessibility tree (`accessibilityElementCount() == 0`, `accessibilityElements == []`). They passed in the initial baseline run but fail in later isolated runs, after restarting the simulator, and after executing hosted UI tests. At the original checkpoint the cause was unknown. The CI follow-up established the missing SwiftUI accessibility environment precondition and repaired the fixture, preserving the original assertions.
 
 Bounded main-actor readiness waits, visible content, and key-window experiments did not repair the issue. All experimental changes to `SwiftUITapAutocaptureTests.swift` were reverted. Assertions were not skipped or weakened. Some diagnostic invocations completed test execution but hung during Xcode finalization and were terminated at the command timeout. Only the completed `after-ios.xcresult` supplies the after coverage measurement; partial-run success banners were not accepted.
 

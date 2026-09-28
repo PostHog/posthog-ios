@@ -663,6 +663,10 @@ let maxRetryDelay = 30.0
 
             props["$process_person_profile"] = hasPersonProcessing()
 
+            if config.disableGeoip {
+                props["$geoip_disable"] = true
+            }
+
             // SDK-computed debug keys overwrite a same-named registered super property (js: `extend`
             // after super properties), so a stale `register()` can't shadow the live status.
             #if os(iOS)

@@ -98,7 +98,10 @@ final class ApplicationScreenViewPublisher: ScreenViewPublishing {
 
             guard let top = UIViewController.ph_topViewController(base: viewController) else { return }
 
-            guard let name = UIViewController.getViewControllerName(top) else { return }
+            // Skipped names are not recorded, so the next real screen still counts.
+            guard let name = UIViewController.getViewControllerName(top),
+                  !PostHogScreenNameSanitizer.isSwiftUIInternal(rawScreenName: name)
+            else { return }
 
             let handler = handlerLock.withLock { () -> ((String) -> Void)? in
                 // A new controller with the same name is still a navigation.

@@ -5,8 +5,18 @@
 
 #if os(iOS) || os(tvOS)
     @testable import PostHog
+    import SwiftUI
     import Testing
     import UIKit
+
+    // Named like SwiftUI's own placeholders, e.g. `_UnaryViewAdaptor<EmptyView>`.
+    private struct _PlaceholderView: View {
+        var body: some View { EmptyView() }
+    }
+
+    private struct PlainView: View {
+        var body: some View { EmptyView() }
+    }
 
     @Suite("Screen view controller traversal", .serialized)
     @MainActor
@@ -412,6 +422,51 @@
                     screen.viewDidAppear(false)
                 }
                 #expect(names == ["Two", "One"])
+            }
+        }
+
+        @Test("SwiftUI-internal screen names are recognised conservatively", arguments: [
+            ("UIHostingController<ModifiedContent<_UnaryViewAdaptor<EmptyView>, StyleContextWriter<NoStyleContext>>>", true),
+            ("UIHostingController<_PlaceholderView>", true),
+            // The split view's own name, and app views wrapped in private modifiers.
+            ("NotifyingMulticolumnSplit", false),
+            ("UIHostingController<ModifiedContent<ContentView, _PrivateModifier>>", false),
+            ("UIHostingController<ContentView>", false),
+            // UIKit controllers are never skipped, even with a leading underscore.
+            ("_Checkout", false),
+        ])
+        func swiftUIInternalNames(name: String, isInternal: Bool) {
+            #expect(PostHogScreenNameSanitizer.isSwiftUIInternal(rawScreenName: name) == isInternal)
+        }
+
+        @Test("Screen autocapture skips SwiftUI-internal screens without forgetting the last screen")
+        func skipsSwiftUIInternalScreens() {
+            let first = OneViewController()
+            let navigation = UINavigationController(rootViewController: first)
+
+            withWindow(root: navigation) { _ in
+                var names: [String] = []
+                ApplicationScreenViewPublisher.shared.startAutoCapture { names.append($0) }
+                defer { ApplicationScreenViewPublisher.shared.stopAutoCapture() }
+                navigation.view.layoutIfNeeded()
+                first.viewDidAppear(false)
+                #expect(names == ["One"])
+
+                func show(_ screen: UIViewController) {
+                    navigation.setViewControllers([screen], animated: false)
+                    navigation.view.layoutIfNeeded()
+                    screen.viewDidAppear(false)
+                }
+
+                // Unfolding briefly shows an empty split column before the split.
+                show(UIHostingController(rootView: _PlaceholderView()))
+                #expect(names == ["One"])
+                // Still deduplicated against the last real screen.
+                show(first)
+                #expect(names == ["One"])
+
+                show(UIHostingController(rootView: PlainView()))
+                #expect(names == ["One", "UIHostingController<PlainView>"])
             }
         }
 

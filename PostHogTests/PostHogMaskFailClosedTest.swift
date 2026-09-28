@@ -257,6 +257,14 @@
             #expect(metaSizes == [[320, 640], [640, 320], [320, 640]])
         }
 
+        @Test("a sub-point resize that reports the same size does not resend metadata")
+        func subPointResizeKeepsMetadata() {
+            #expect(captureSnapshots(
+                failures: [false, false, false],
+                windowSizes: [CGSize(width: 320, height: 640), CGSize(width: 320.2, height: 640.3), CGSize(width: 640, height: 320)]
+            ).map { $0.compactMap { $0["type"] as? Int } } == [[4, 2], [2], [4, 2]])
+        }
+
         // MARK: - Zero-size parents
 
         @Test("text inside a zero-size non-clipping parent is masked")

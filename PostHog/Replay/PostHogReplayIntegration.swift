@@ -792,9 +792,9 @@
                 }
 
                 var snapshotsData: [Any] = []
-                if !snapshotStatus.sentMetaEvent || snapshotStatus.metaEventSize != windowSize {
-                    let width = windowSize.width.toInt() ?? 0
-                    let height = windowSize.height.toInt() ?? 0
+                let width = windowSize.width.toInt() ?? 0
+                let height = windowSize.height.toInt() ?? 0
+                if !snapshotStatus.sentMetaEvent || snapshotStatus.metaEventSize != CGSize(width: width, height: height) {
                     var data: [String: Any] = ["width": width, "height": height]
                     if let screenName = screenName {
                         data["href"] = screenName
@@ -802,7 +802,7 @@
                     let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
                     snapshotsData.append(snapshotData)
                     snapshotStatus.sentMetaEvent = true
-                    snapshotStatus.metaEventSize = windowSize
+                    snapshotStatus.metaEventSize = CGSize(width: width, height: height)
                 }
 
                 // Re-arm the hash on an episode's first frame so a recurring

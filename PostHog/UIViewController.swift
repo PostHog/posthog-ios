@@ -20,10 +20,8 @@
                 return ph_topViewController(base: selected)
             } else if let presented = base?.presentedViewController {
                 return ph_topViewController(base: presented)
-            } else if let split = base as? UISplitViewController, !isShowingOneColumn(split) {
-                // An expanded split shows several columns, so it keeps the container
-                // name, like other multi-pane containers below.
-                return split
+            } else if let split = base as? UISplitViewController, let screen = splitScreen(split) {
+                return screen
             }
 
             guard let base, let containerView = base.viewIfLoaded, let window = containerView.window else {
@@ -49,19 +47,53 @@
             return base
         }
 
+        private enum SplitLayout {
+            case collapsed, expanded, transitioning
+        }
+
         /// Rotating or unfolding re-lays out a split's columns one at a time, so
-        /// mid-change it can show a single column it is about to hide or join.
-        /// Treat it as collapsed only once it has settled on one column.
-        private static func isShowingOneColumn(_ split: UISplitViewController) -> Bool {
-            guard split.isCollapsed, split.traitCollection.horizontalSizeClass == .compact else {
-                return false
-            }
+        /// mid-change it can show a single column it is about to hide or join:
+        /// on a foldable, SwiftUI shows one column while the window is still at its
+        /// folded width; UIKit reports collapsed after its size class is already
+        /// regular; and during rotation the split carries its own layout
+        /// transition coordinator (presentation style `.none`) while it still
+        /// reports collapsed and compact.
+        private static func splitLayout(_ split: UISplitViewController) -> SplitLayout {
             // A presentation coordinator carries a modal style; the split's own
             // layout change uses `.none`.
-            if let coordinator = split.transitionCoordinator, coordinator.presentationStyle == .none {
-                return false
+            if split.transitionCoordinator?.presentationStyle == UIModalPresentationStyle.none {
+                return .transitioning
             }
-            return true
+            guard split.isCollapsed else { return .expanded }
+            return split.traitCollection.horizontalSizeClass == .compact ? .collapsed : .transitioning
+        }
+
+        /// The screen a split shows, or nil to find its one visible column like
+        /// any other container.
+        private static func splitScreen(_ split: UISplitViewController) -> UIViewController? {
+            switch splitLayout(split) {
+            case .transitioning:
+                return split
+            case .collapsed:
+                return nil
+            case .expanded:
+                // Several columns keep the container name, like the custom
+                // containers in ph_topViewController.
+                guard split.displayMode == .secondaryOnly, let secondary = secondaryViewController(of: split) else {
+                    return split
+                }
+                return ph_topViewController(base: secondary)
+            }
+        }
+
+        private static func secondaryViewController(of split: UISplitViewController) -> UIViewController? {
+            if #available(iOS 14.0, tvOS 14.0, *), split.style != .unspecified {
+                // Column-style splits wrap a plain column controller in a navigation
+                // controller that holds the pushed screens.
+                let secondary = split.viewController(for: .secondary)
+                return secondary?.navigationController ?? secondary
+            }
+            return split.viewControllers.last
         }
 
         private static func isViewVisible(_ childView: UIView, in window: UIWindow) -> Bool {

@@ -2,4 +2,4 @@
 "posthog-ios": patch
 ---
 
-Fix automatic screen views capturing duplicate `$screen` events, including when the device is rotated, folded, or unfolded without navigating.
+Fix automatic screen views capturing duplicate or wrongly named `$screen` events when the device is rotated, folded or unfolded without navigating. A screen that appears again without the visible screen changing is no longer captured twice, so navigating inside a split view that shows several columns no longer repeats the split view's `$screen` event.

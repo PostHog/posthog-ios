@@ -17,7 +17,57 @@
         private final class ThreeViewController: UIViewController {}
         private final class SplitViewController: UISplitViewController {
             var reportsCollapsed = false
+            var displayModeOverride: UISplitViewController.DisplayMode?
+            var stubCoordinator: UIViewControllerTransitionCoordinator?
             override var isCollapsed: Bool { reportsCollapsed || super.isCollapsed }
+            override var displayMode: UISplitViewController.DisplayMode { displayModeOverride ?? super.displayMode }
+            override var transitionCoordinator: UIViewControllerTransitionCoordinator? { stubCoordinator ?? super.transitionCoordinator }
+        }
+
+        private final class StubTransitionCoordinator: NSObject, UIViewControllerTransitionCoordinator {
+            let presentationStyle: UIModalPresentationStyle
+            init(presentationStyle: UIModalPresentationStyle) {
+                self.presentationStyle = presentationStyle
+            }
+
+            var isAnimated: Bool { true }
+            var initiallyInteractive: Bool { false }
+            var isInterruptible: Bool { false }
+            var isInteractive: Bool { false }
+            var isCancelled: Bool { false }
+            var transitionDuration: TimeInterval { 0.3 }
+            var percentComplete: CGFloat { 0 }
+            var completionVelocity: CGFloat { 1 }
+            var completionCurve: UIView.AnimationCurve { .easeInOut }
+            var containerView: UIView { UIView() }
+            var targetTransform: CGAffineTransform { .identity }
+            func viewController(forKey _: UITransitionContextViewControllerKey) -> UIViewController? {
+                nil
+            }
+            func view(forKey _: UITransitionContextViewKey) -> UIView? {
+                nil
+            }
+            func animate(alongsideTransition _: ((UIViewControllerTransitionCoordinatorContext) -> Void)?, completion _: ((UIViewControllerTransitionCoordinatorContext) -> Void)? = nil) -> Bool {
+                false
+            }
+            func animateAlongsideTransition(in _: UIView?, animation _: ((UIViewControllerTransitionCoordinatorContext) -> Void)?, completion _: ((UIViewControllerTransitionCoordinatorContext) -> Void)? = nil) -> Bool {
+                false
+            }
+            func notifyWhenInteractionEnds(_: @escaping (UIViewControllerTransitionCoordinatorContext) -> Void) {}
+            func notifyWhenInteractionChanges(_: @escaping (UIViewControllerTransitionCoordinatorContext) -> Void) {}
+        }
+
+        /// A classic split with plain column controllers, hosted in a container
+        /// that forces its horizontal size class.
+        private func makeSplit(sizeClass: UIUserInterfaceSizeClass) -> (root: UIViewController, split: SplitViewController, primary: UIViewController, secondary: UIViewController) {
+            let root = InitialViewController()
+            let split = SplitViewController()
+            let primary = OneViewController()
+            let secondary = TwoViewController()
+            split.viewControllers = [primary, secondary]
+            add(split, to: root)
+            root.setOverrideTraitCollection(UITraitCollection(horizontalSizeClass: sizeClass), forChild: split)
+            return (root, split, primary, secondary)
         }
 
         private func add(_ child: UIViewController, to parent: UIViewController) {
@@ -269,35 +319,99 @@
             }
         }
 
-        @Test("Split views keep the container name while their columns change", arguments: [
-            (UIUserInterfaceSizeClass.compact, false),
-            (.regular, false),
-            // Mid-expansion: UIKit re-shows columns before it reports being expanded.
-            (.regular, true),
+        @Test("Collapsed split views resolve to their visible column unless mid-layout", arguments: [
+            UIModalPresentationStyle?.none,
+            .some(.fullScreen),
+            // Rotation: the split's own layout transition has no modal style.
+            .some(UIModalPresentationStyle.none),
         ])
-        func splitView(sizeClass: UIUserInterfaceSizeClass, reportsCollapsed: Bool) {
-            let root = InitialViewController()
-            let split = SplitViewController()
-            split.reportsCollapsed = reportsCollapsed
-            let primary = OneViewController()
-            let secondary = TwoViewController()
-            split.viewControllers = [primary, secondary]
-            add(split, to: root)
-            root.setOverrideTraitCollection(UITraitCollection(horizontalSizeClass: sizeClass), forChild: split)
+        func collapsedSplitView(coordinatorStyle: UIModalPresentationStyle?) {
+            let (root, split, primary, _) = makeSplit(sizeClass: .compact)
+            split.stubCoordinator = coordinatorStyle.map { StubTransitionCoordinator(presentationStyle: $0) }
 
             withWindow(root: root, width: 1024) { _ in
                 root.view.layoutIfNeeded()
-                guard sizeClass == .regular else {
-                    // A collapsed split shows one column, so it still resolves to it.
-                    #expect(split.isCollapsed)
-                    #expect(UIViewController.ph_topViewController(base: root) !== split)
-                    return
-                }
-                // Rotation or unfolding lays the columns out one at a time, so at
-                // first only one column is on screen.
+                #expect(split.isCollapsed)
+                let expected: UIViewController = coordinatorStyle == UIModalPresentationStyle.none ? split : primary
+                #expect(UIViewController.ph_topViewController(base: root) === expected)
+            }
+        }
+
+        @Test("Expanded split views follow a lone secondary column", arguments: [
+            UISplitViewController.DisplayMode.oneBesideSecondary,
+            .oneOverSecondary,
+            .secondaryOnly,
+        ])
+        func expandedSplitView(displayMode: UISplitViewController.DisplayMode) {
+            let (root, split, _, secondary) = makeSplit(sizeClass: .regular)
+            split.displayModeOverride = displayMode
+
+            withWindow(root: root, width: 1024) { _ in
+                root.view.layoutIfNeeded()
+                #expect(!split.isCollapsed)
+                let expected: UIViewController = displayMode == .secondaryOnly ? secondary : split
+                #expect(UIViewController.ph_topViewController(base: root) === expected)
+            }
+        }
+
+        @Test("Split views keep the container name while expanding")
+        func expandingSplitView() {
+            let (root, split, primary, secondary) = makeSplit(sizeClass: .regular)
+            // UIKit re-shows columns before it reports being expanded.
+            split.reportsCollapsed = true
+
+            withWindow(root: root, width: 1024) { _ in
+                root.view.layoutIfNeeded()
+                // Unfolding lays the columns out one at a time, so at first only
+                // one column is on screen.
                 primary.view.isHidden = true
                 #expect(secondary.view.window != nil)
                 #expect(UIViewController.ph_topViewController(base: root) === split)
+            }
+        }
+
+        @Test("Screen autocapture follows navigation in a split view showing only its secondary column", arguments: ["classic", "column", "wrapped column"])
+        func secondaryOnlySplitNavigation(setup: String) {
+            let root = InitialViewController()
+            let split: SplitViewController
+            let navigation = UINavigationController(rootViewController: OneViewController())
+            var wrappedDetail: UIViewController?
+            if setup != "classic", #available(iOS 14.0, tvOS 14.0, *) {
+                split = SplitViewController(style: .doubleColumn)
+                split.setViewController(ThreeViewController(), for: .primary)
+                if setup == "wrapped column" {
+                    // UIKit wraps a plain column controller in its own navigation controller.
+                    let detail = OneViewController()
+                    split.setViewController(detail, for: .secondary)
+                    wrappedDetail = detail
+                } else {
+                    split.setViewController(navigation, for: .secondary)
+                }
+            } else {
+                split = SplitViewController()
+                split.viewControllers = [ThreeViewController(), navigation]
+            }
+            split.preferredDisplayMode = .secondaryOnly
+            split.displayModeOverride = .secondaryOnly
+            add(split, to: root)
+            root.setOverrideTraitCollection(UITraitCollection(horizontalSizeClass: .regular), forChild: split)
+
+            withWindow(root: root, width: 1024) { _ in
+                root.view.layoutIfNeeded()
+                #expect(!split.isCollapsed)
+                let target = wrappedDetail.map(\.navigationController) ?? navigation
+                #expect(target != nil)
+                var names: [String] = []
+                ApplicationScreenViewPublisher.shared.startAutoCapture { names.append($0) }
+                defer { ApplicationScreenViewPublisher.shared.stopAutoCapture() }
+
+                for screen in [TwoViewController(), OneViewController()] as [UIViewController] {
+                    guard let navigation = target else { break }
+                    navigation.pushViewController(screen, animated: false)
+                    navigation.view.layoutIfNeeded()
+                    screen.viewDidAppear(false)
+                }
+                #expect(names == ["Two", "One"])
             }
         }
 

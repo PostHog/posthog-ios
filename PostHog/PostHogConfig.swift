@@ -147,7 +147,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: `true`.
     @objc public var captureApplicationLifecycleEvents: Bool = true
 
-    /// Automatically captures a `$screen` event whenever a `UIViewController` appears
+    /// Automatically captures a `$screen` event whenever the visible screen changes
     /// (via `viewDidAppear` swizzling).
     ///
     /// `$screen_name` stamping on subsequent events is a related effect: any

@@ -263,16 +263,35 @@
         }
 
         /// `config.sessionReplay` controls automatic starts; a recording explicitly started while it was
-        /// off is allowed to resume (e.g. into a new session) until an explicit stop.
-        private func isAutomaticStartPermitted() -> Bool {
+        /// off is allowed to resume (e.g. into a new session) until an explicit stop. Caller holds
+        /// `bufferingLock`.
+        private func isAutomaticStartPermittedLocked() -> Bool {
             guard let config else { return false }
-            return config.sessionReplay || bufferingLock.withLock { startedWithAutomaticDisabled }
+            return config.sessionReplay || startedWithAutomaticDisabled
+        }
+
+        /// Flips `isEnabled` and resets the buffering state in one lock acquisition, re-checking the
+        /// automatic-start permission under that same lock: an explicit `stop()` that lands between the
+        /// early gate in `startRecording()` and this claim clears the marker first, so it always wins.
+        private func claimRecording() -> Bool {
+            let awaiting = shouldAwaitFirstRemoteConfig()
+            let claimed = bufferingLock.withLock { () -> Bool in
+                guard !isEnabled, isAutomaticStartPermittedLocked() else { return false }
+                isEnabled = true
+                hasPassedMinimumDuration = false
+                awaitingFirstRemoteConfig = awaiting
+                return true
+            }
+            if claimed {
+                replayQueue?.clearBuffer()
+            }
+            return claimed
         }
 
         private func startRecording() {
             guard let postHog, !isEnabled else { return }
 
-            guard isAutomaticStartPermitted() else {
+            guard bufferingLock.withLock({ isAutomaticStartPermittedLocked() }) else {
                 hedgeLog("[Session Replay] Automatic replay is disabled in config and no manual start is pending. Skipping start.")
                 return
             }
@@ -292,10 +311,7 @@
                 return
             }
 
-            // isEnabled flips atomically with the buffering-state reset (same lock acquisition) so a
-            // concurrent debugProperties() reader can't observe enabled:true with stale prior-session
-            // buffering state.
-            resetBufferingState(for: postHog, isEnabled: true)
+            guard claimRecording() else { return }
 
             // Listen for session changes to stop recording when a new session starts (if triggers are configured)
             sessionIdChangedToken = postHog.sessionManager.onSessionIdChanged.subscribe { [weak self] in
@@ -509,13 +525,11 @@
         /// minimum duration, and re-arms the first-remote-config gate only while the first `/config`
         /// is still pending (e.g. a session rotation during an offline cold start). Once any `/config`
         /// attempt has completed the gate stays disarmed — including across reset(), which keeps the
-        /// fetched config — so recording is not re-buffered. Pass `isEnabled` to flip the enabled flag
-        /// in the same lock acquisition, so a concurrent `debugProperties()` reader never sees
-        /// enabled:true alongside the previous session's buffering state.
-        private func resetBufferingState(for _: PostHogSDK, isEnabled newIsEnabled: Bool? = nil) {
+        /// fetched config — so recording is not re-buffered. `claimRecording()` does the same reset
+        /// while flipping `isEnabled`.
+        private func resetBufferingState(for _: PostHogSDK) {
             let awaiting = shouldAwaitFirstRemoteConfig()
             bufferingLock.withLock {
-                if let newIsEnabled { isEnabled = newIsEnabled }
                 hasPassedMinimumDuration = false
                 awaitingFirstRemoteConfig = awaiting
             }
@@ -527,21 +541,6 @@
         private func shouldAwaitFirstRemoteConfig() -> Bool {
             guard let remoteConfig = postHog?.remoteConfig else { return false }
             return !remoteConfig.hasFetchedRemoteConfig
-        }
-
-        private func pauseAllPlugins() {
-            updateAllPlugins { $0.pause() }
-        }
-
-        private func resumeAllPlugins() {
-            updateAllPlugins { $0.resume() }
-        }
-
-        private func updateAllPlugins(_ update: (PostHogSessionReplayPlugin) -> Void) {
-            let plugins = installedPluginsLock.withLock { installedPlugins }
-            for plugin in plugins {
-                update(plugin)
-            }
         }
 
         func applyRemoteConfig(remoteConfig: [String: Any]?) {
@@ -1794,6 +1793,21 @@
     // MARK: - Plugins
 
     extension PostHogReplayIntegration {
+        private func pauseAllPlugins() {
+            updateAllPlugins { $0.pause() }
+        }
+
+        private func resumeAllPlugins() {
+            updateAllPlugins { $0.resume() }
+        }
+
+        private func updateAllPlugins(_ update: (PostHogSessionReplayPlugin) -> Void) {
+            let plugins = installedPluginsLock.withLock { installedPlugins }
+            for plugin in plugins {
+                update(plugin)
+            }
+        }
+
         /// Updates plugin enablement based on remote config.
         private func updatePlugins(from remoteConfig: [String: Any]?) {
             guard let postHog else { return }

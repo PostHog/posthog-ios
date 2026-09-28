@@ -208,6 +208,40 @@
             #expect(integration.isActive() == false)
         }
 
+        @Test("Explicit stop racing an automatic resume always wins")
+        func explicitStopRacingAutomaticResumeWins() async throws {
+            let sut = getSut(sessionReplay: false)
+            defer { sut.close() }
+
+            sut.startSessionRecording()
+            let integration = try #require(sut.getReplayIntegration())
+            let remoteConfig = try #require(sut.remoteConfig)
+            // Consume the first delivery: applyRemoteConfig skips the flag-off stop on it.
+            integration.applyRemoteConfig(remoteConfig: nil)
+
+            for _ in 0 ..< 200 {
+                sut.startSessionRecording()
+                #expect(integration.isActive() == true)
+
+                // Internal stop leaves the manual marker set, so the next remote config resumes.
+                remoteConfig.setSessionReplayFlagActiveForTesting(false)
+                integration.applyRemoteConfig(remoteConfig: nil)
+                remoteConfig.setSessionReplayFlagActiveForTesting(true)
+                #expect(integration.isActive() == false)
+
+                DispatchQueue.concurrentPerform(iterations: 2) { index in
+                    if index == 0 {
+                        integration.applyRemoteConfig(remoteConfig: nil)
+                    } else {
+                        sut.stopSessionRecording()
+                    }
+                }
+
+                // Whichever order they ran in, the explicit stop is the last word.
+                #expect(integration.isActive() == false)
+            }
+        }
+
         // MARK: - Automatic mode control
 
         @Test("Automatic mode restarts on the next remote config load after a stop")

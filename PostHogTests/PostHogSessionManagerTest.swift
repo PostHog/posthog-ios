@@ -279,7 +279,7 @@ enum PostHogSessionManagerTest {
             sut.close()
         }
 
-        @Test("$sdk_debug_session_* describe the rotated session on the event that rotates it")
+        @Test("$sdk_debug_session_start describes the rotated session on the event that rotates it")
         func debugSessionKeysDescribeRotatedSession() async throws {
             let sut = getSut(flushAt: 2)
             let mockNow = MockDate()
@@ -296,27 +296,49 @@ enum PostHogSessionManagerTest {
             mockAppLifecycle.simulateAppDidBecomeActive()
 
             sut.getSessionManager()?.touchSession()
-            sut.capture("event captured")
+            sut.screen("first")
 
             mockNow.date.addTimeInterval(60 * 31) // +31 mins: this capture rotates the session
-            sut.capture("event captured after 31 mins")
+            sut.screen("after 31 mins")
 
             let events = try await getServerEvents(server)
             try #require(events.count == 2)
 
             let start1 = try #require(events[0].properties["$sdk_debug_session_start"] as? Int64)
             let start2 = try #require(events[1].properties["$sdk_debug_session_start"] as? Int64)
-            let duration2 = try #require(events[1].properties["$sdk_debug_current_session_duration"] as? Int64)
 
             // Regression: the debug snapshot used to run before getSessionId(at:) rotated, so the
-            // rotating event carried the new $session_id with the previous session's start/duration.
+            // rotating event carried the new $session_id with the previous session's start.
             #expect(start2 != start1)
             #expect(start2 == Int64(mockNow.date.timeIntervalSince1970 * 1000))
-            #expect(duration2 == 0)
         }
 
-        @Test("$sdk_debug_current_session_duration is measured at the event's timestamp and never negative")
-        func debugSessionDurationUsesEventTimestamp() async throws {
+        @Test("a custom event carries the queue size but no replay debug bundle")
+        func customEventCarriesNoReplayDebugBundle() async throws {
+            let sut = getSut()
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.capture("custom event")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 1)
+
+            let properties = events[0].properties
+            #expect(properties["$recording_status"] == nil)
+            #expect(properties["$sdk_debug_session_start"] == nil)
+            #expect(properties.keys.filter { $0.hasPrefix("$sdk_debug_replay_") }.isEmpty)
+            #expect(properties["$sdk_debug_pending_queue_size"] != nil)
+        }
+
+        @Test("the replay debug bundle is attached at most once every 30 seconds")
+        func replayDebugBundleIsThrottled() async throws {
             let sut = getSut(flushAt: 3)
             let mockNow = MockDate()
             now = { mockNow.date }
@@ -328,32 +350,96 @@ enum PostHogSessionManagerTest {
                 sut.close()
             }
 
-            mockAppLifecycle.simulateAppDidFinishLaunching()
-            mockAppLifecycle.simulateAppDidBecomeActive()
-
             sut.getSessionManager()?.touchSession()
-            sut.capture("first")
+            sut.screen("first")
 
-            // Wall clock moves on 60 mins; a capture backdated 20 mins is still 40 mins after the
-            // last activity, so it rotates the session at its own (backdated) timestamp.
-            mockNow.date.addTimeInterval(60 * 60)
-            let rotatingTime = mockNow.date.addingTimeInterval(-20 * 60)
-            sut.capture("backdated, rotates", timestamp: rotatingTime)
+            mockNow.date.addTimeInterval(29)
+            sut.screen("inside the window")
 
-            // Backdated a further 5 mins: earlier than the new session's start, and no rotation.
-            sut.capture("backdated, predates session", timestamp: rotatingTime.addingTimeInterval(-5 * 60))
+            mockNow.date.addTimeInterval(1) // 30s after the first, so the window has elapsed
+            sut.screen("at the window edge")
 
             let events = try await getServerEvents(server)
             try #require(events.count == 3)
 
-            let start1 = try #require(events[1].properties["$sdk_debug_session_start"] as? Int64)
-            let duration1 = try #require(events[1].properties["$sdk_debug_current_session_duration"] as? Int64)
-            let duration2 = try #require(events[2].properties["$sdk_debug_current_session_duration"] as? Int64)
+            #expect(events[0].properties["$recording_status"] != nil)
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+            #expect(events[1].properties["$recording_status"] == nil)
+            #expect(events[1].properties["$sdk_debug_session_start"] == nil)
+            #expect(events[2].properties["$recording_status"] != nil)
+            #expect(events[2].properties["$sdk_debug_session_start"] != nil)
+        }
 
-            // Regression: measured against now() this reported the 20-min backdate instead of 0.
-            #expect(start1 == Int64(rotatingTime.timeIntervalSince1970 * 1000))
-            #expect(duration1 == 0)
-            #expect(duration2 == 0)
+        @Test("a backdated capture neither attaches the replay debug bundle nor moves the window")
+        func replayDebugBundleIgnoresBackdatedCaptures() async throws {
+            let sut = getSut(flushAt: 3)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            let windowStart = mockNow.date
+            sut.capture("$first", timestamp: windowStart)
+
+            // Backdated before the window opened: the window is measured against the event's own
+            // time, so this neither attaches nor rewinds it.
+            sut.capture("$backdated", timestamp: windowStart.addingTimeInterval(-10))
+
+            mockNow.date.addTimeInterval(30)
+            sut.capture("$after", timestamp: mockNow.date)
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 3)
+
+            #expect(events[0].properties["$recording_status"] != nil)
+            #expect(events[1].properties["$recording_status"] == nil)
+            #expect(events[2].properties["$recording_status"] != nil)
+        }
+
+        @Test("the crash-context snapshot always carries the bundle and never arms the window")
+        func readOnlyContextSnapshotBypassesGateAndThrottle() async throws {
+            let sut = getSut()
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+
+            let lock = NSLock()
+            var snapshots: [[String: Any]] = []
+            let token = sut.onEventContextChanged.subscribe { context in
+                lock.withLock { snapshots.append(context["event_properties"] as? [String: Any] ?? [:]) }
+            }
+
+            sut.register(["first": 1])
+            sut.register(["second": 2])
+
+            let captured = lock.withLock { snapshots }
+            try #require(captured.count >= 2)
+            for snapshot in captured {
+                #expect(snapshot["$recording_status"] != nil)
+                #expect(snapshot["$sdk_debug_session_start"] != nil)
+                #expect(snapshot["$sdk_debug_pending_queue_size"] == nil)
+            }
+
+            // The read-only builds never armed the window, so the first captured event still attaches.
+            sut.screen("first")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 1)
+            #expect(events[0].properties["$recording_status"] != nil)
+
+            withExtendedLifetime(token) {}
         }
 
         @Test("Rotates $session_id after max session length of 24 hours")

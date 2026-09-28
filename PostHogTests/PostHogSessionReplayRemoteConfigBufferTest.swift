@@ -471,18 +471,6 @@
             #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
         }
 
-        @Test("throttleDelayMs degrades instead of trapping on a non-finite or out-of-range throttleDelay")
-        func throttleDelayMsDoesNotTrapOnNonFiniteValue() {
-            let config = PostHogConfig(projectToken: UUID().uuidString)
-            // 1e16 and 1e20 stay finite after `* 1000` but exceed Int.max — the band Double(Int.max) traps on.
-            for value: TimeInterval in [.nan, .infinity, -.infinity, .greatestFiniteMagnitude, 1e16, 1e20] {
-                config.sessionReplayConfig.throttleDelay = value
-                #expect(PostHogReplayIntegration.throttleDelayMs(config: config) >= 0)
-            }
-            config.sessionReplayConfig.throttleDelay = 2
-            #expect(PostHogReplayIntegration.throttleDelayMs(config: config) == 2000)
-        }
-
         @Test("holding for remote config or minimum duration reports buffering with a hold reason, then active once resolved")
         func bufferingReportsHoldReasonThenActive() async throws {
             let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: 1)
@@ -530,7 +518,6 @@
             // Config-derived keys survive stop — they come from the platform config module, not
             // integration active state.
             #expect(props["$sdk_debug_replay_capture_mode"] != nil)
-            #expect(props["$sdk_debug_replay_throttle_delay_ms"] != nil)
         }
 
         @Test("uninstalling the replay integration reports disabled and clears the hold reason")
@@ -553,7 +540,6 @@
             // Config-derived keys survive uninstall (falling back to defaults once `postHog` is nilled),
             // not just stop().
             #expect(props["$sdk_debug_replay_capture_mode"] != nil)
-            #expect(props["$sdk_debug_replay_throttle_delay_ms"] != nil)
         }
 
         @Test(
@@ -598,7 +584,6 @@
             let active = try #require(lock.withLock { latest })
             #expect(active["$recording_status"] as? String == "active")
             #expect(active["$sdk_debug_session_start"] != nil)
-            #expect(active["$sdk_debug_current_session_duration"] == nil)
             #expect(active["$sdk_debug_pending_queue_size"] == nil)
             #expect(active["$sdk_debug_replay_internal_buffer_length"] == nil)
 
@@ -656,7 +641,8 @@
                 lock.withLock { capturedProperties = event.properties }
                 return event
             }
-            sut.capture("test event")
+            // A `$`-prefixed SDK event: custom events no longer carry the replay debug bundle.
+            sut.screen("test screen")
 
             let eventProperties = try #require(lock.withLock { capturedProperties })
             let eventReplayKeys = eventProperties.filter { key, _ in

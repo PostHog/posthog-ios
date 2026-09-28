@@ -54,6 +54,7 @@ let maxRetryDelay = 30.0
     private let identifyLock = NSLock()
 
     private let lastScreenLock = NSLock()
+    private let replayDebugPropertiesLock = NSLock()
     private var _lastScreenName: String?
     var lastScreenName: String? {
         lastScreenLock.withLock { _lastScreenName }
@@ -592,25 +593,31 @@ let maxRetryDelay = 30.0
         return true
     }
 
-    /// `$sdk_debug_session_start` / `$sdk_debug_current_session_duration` / `$sdk_debug_pending_queue_size`.
-    /// `at` is the event's resolved time, the same instant the session was resolved against: a
-    /// backdated capture that rotates the session reports 0, not the size of the backdate (js
-    /// measures against the latest snapshot's timestamp too). Clamped, since a backdated event
-    /// that doesn't rotate can predate the live session's start.
-    private func sessionDebugProperties(at eventTime: Date) -> [String: Any] {
-        var props: [String: Any] = [:]
-        if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
-            let elapsed = eventTime.timeIntervalSince1970 - sessionStart
-            props["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
-            props["$sdk_debug_current_session_duration"] = Int64(max(0, elapsed) * 1000)
+    /// The replay capture diagnostics read the latest event carrying the bundle, so one every 30
+    /// seconds is enough.
+    private static let replayDebugPropertiesInterval: TimeInterval = 30
+
+    private var lastReplayDebugPropertiesAt: Date?
+
+    /// Compared against the event's resolved time so a backdated capture can't move the window.
+    /// Read-only builds always attach and never arm it: they are the crash-context snapshot,
+    /// refreshed on every status transition.
+    private func shouldAttachReplayDebugProperties(event: String?, at eventTime: Date, readOnly: Bool) -> Bool {
+        if readOnly { return true }
+        guard let event, event.hasPrefix("$"), event != PostHogKnownUnsafeEditableEvent.featureFlagCalled.rawValue else { return false }
+        return replayDebugPropertiesLock.withLock {
+            if let last = lastReplayDebugPropertiesAt,
+               eventTime.timeIntervalSince(last) < Self.replayDebugPropertiesInterval
+            {
+                return false
+            }
+            lastReplayDebugPropertiesAt = eventTime
+            return true
         }
-        if let depth = queue?.depth {
-            props["$sdk_debug_pending_queue_size"] = depth
-        }
-        return props
     }
 
-    private func buildProperties(distinctId: String,
+    private func buildProperties(event: String?,
+                                 distinctId: String,
                                  properties: [String: Any]?,
                                  userProperties: [String: Any]? = nil,
                                  userPropertiesSetOnce: [String: Any]? = nil,
@@ -665,18 +672,23 @@ let maxRetryDelay = 30.0
 
             // SDK-computed debug keys overwrite a same-named registered super property (js: `extend`
             // after super properties), so a stale `register()` can't shadow the live status.
-            #if os(iOS)
-                if let replayIntegration {
-                    props.merge(replayIntegration.debugProperties()) { _, new in new }
-                } else {
-                    props["$recording_status"] = "disabled"
-                    props["$sdk_debug_replay_capture_mode"] = PostHogReplayIntegration.captureMode(config: config)
-                    props["$sdk_debug_replay_throttle_delay_ms"] = PostHogReplayIntegration.throttleDelayMs(config: config)
+            if shouldAttachReplayDebugProperties(event: event, at: eventTime, readOnly: readOnlySession) {
+                #if os(iOS)
+                    var replayDebugProperties = replayIntegration?.debugProperties() ?? [
+                        "$recording_status": "disabled",
+                        "$sdk_debug_replay_capture_mode": PostHogReplayIntegration.captureMode(config: config),
+                    ]
+                #else
+                    var replayDebugProperties: [String: Any] = ["$recording_status": "disabled"]
+                #endif
+                if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
+                    replayDebugProperties["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
                 }
-            #else
-                props["$recording_status"] = "disabled"
-            #endif
-            props.merge(sessionDebugProperties(at: eventTime)) { _, new in new }
+                props.merge(replayDebugProperties) { _, new in new }
+            }
+            if let depth = queue?.depth {
+                props["$sdk_debug_pending_queue_size"] = depth
+            }
 
             // Only stamp if the caller didn't supply a non-empty value —
             // `merging(properties)` below keeps the existing value on conflict,
@@ -961,14 +973,16 @@ let maxRetryDelay = 30.0
                 props["$anon_distinct_id"] = oldDistinctId
             }
 
+            let eventName = PostHogKnownUnsafeEditableEvent.identify.rawValue
             let properties = buildProperties(
+                event: eventName,
                 distinctId: distinctId,
                 properties: props,
                 userProperties: sanitizeDictionary(userProperties),
                 userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce)
             )
 
-            guard let event = buildEvent(event: PostHogKnownUnsafeEditableEvent.identify.rawValue, distinctId: distinctId, properties: properties) else {
+            guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
                 return
             }
 
@@ -1508,6 +1522,7 @@ let maxRetryDelay = 30.0
             finalProperties = properties ?? [:]
         } else {
             finalProperties = buildProperties(
+                event: event,
                 distinctId: eventDistinctId,
                 properties: sanitizeDictionary(properties),
                 userProperties: sanitizeDictionary(userProperties),
@@ -1625,9 +1640,10 @@ let maxRetryDelay = 30.0
 
         let distinctId = getDistinctId()
 
-        let properties = buildProperties(distinctId: distinctId, properties: props)
+        let eventName = "$screen"
+        let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: "$screen", distinctId: distinctId, properties: properties) else {
+        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
             return
         }
 
@@ -1700,7 +1716,7 @@ let maxRetryDelay = 30.0
 
         let distinctId = getDistinctId()
 
-        let properties = buildProperties(distinctId: distinctId, properties: props)
+        let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
         guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
             return
@@ -1743,9 +1759,10 @@ let maxRetryDelay = 30.0
 
         let distinctId = getDistinctId()
 
-        let properties = buildProperties(distinctId: distinctId, properties: props)
+        let eventName = "$create_alias"
+        let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: "$create_alias", distinctId: distinctId, properties: properties) else {
+        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
             return
         }
 
@@ -1808,9 +1825,10 @@ let maxRetryDelay = 30.0
         // Same as .group but without associating the current user with the group
         let distinctId = getDistinctId()
 
-        let properties = buildProperties(distinctId: distinctId, properties: props)
+        let eventName = "$groupidentify"
+        let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: "$groupidentify", distinctId: distinctId, properties: properties) else {
+        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
             return
         }
 
@@ -2656,6 +2674,7 @@ let maxRetryDelay = 30.0
             replayQueue = nil
             logsQueue = nil
             pushSubscriptionHandler = nil
+            replayDebugPropertiesLock.withLock { lastReplayDebugPropertiesAt = nil }
             // Closing ends the run: clear the buffer, which publishes empty steps so the integration
             // drops them from customData. Nil the reference so later adds no-op. (reset()/identify keep it.)
             let bufferToClear = exceptionStepsBuffer
@@ -3161,7 +3180,6 @@ let maxRetryDelay = 30.0
     /// launch, so these would be stale by definition. Status/config keys stay because the replay
     /// integration re-notifies on every recording transition.
     private static let pointInTimeDebugKeys = [
-        "$sdk_debug_current_session_duration",
         "$sdk_debug_pending_queue_size",
         "$sdk_debug_replay_internal_buffer_length",
     ]
@@ -3177,6 +3195,8 @@ let maxRetryDelay = 30.0
         let distinctId = getDistinctId()
 
         var eventProperties = buildProperties(
+            // Read-only: the gate and throttle are bypassed, so there is no event name to honour.
+            event: nil,
             distinctId: distinctId,
             properties: nil,
             userProperties: nil,

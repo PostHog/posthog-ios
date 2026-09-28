@@ -1804,16 +1804,6 @@
             (config?.sessionReplayConfig.screenshotMode == true || postHogSdkName == "posthog-flutter") ? "screenshot" : "wireframe"
         }
 
-        /// `$sdk_debug_replay_throttle_delay_ms`, shared with the no-integration fallback in
-        /// `PostHogSDK.buildProperties`. `1` mirrors `PostHogSessionReplayConfig.throttleDelay`'s default.
-        static func throttleDelayMs(config: PostHogConfig?) -> Int {
-            let millis = (config?.sessionReplayConfig.throttleDelay ?? 1) * 1000
-            // Int(Double) traps on NaN/infinite/out-of-range and throttleDelay is an unvalidated
-            // host-set value. Clamp to Int32.max: Double(Int.max) rounds up to 2^63 and traps too.
-            guard millis.isFinite else { return 1000 }
-            return Int(min(max(millis, 0), Double(Int32.max)).rounded())
-        }
-
         /// Shared by `$sdk_debug_replay_linked_flag_trigger_status` and `$sdk_debug_replay_event_trigger_status`.
         static func triggerStatus(isConfigured: Bool, isActivated: Bool) -> String {
             !isConfigured ? "trigger_disabled" : (isActivated ? "trigger_activated" : "trigger_pending")
@@ -1829,7 +1819,6 @@
                 "$sdk_debug_replay_event_trigger_status",
                 "$sdk_debug_replay_capture_mode",
             ].map { props[$0] as? String ?? "" }
-            parts.append(String(props["$sdk_debug_replay_throttle_delay_ms"] as? Int ?? -1))
             parts.append((props["$sdk_debug_replay_pending_trigger_conditions"] as? [String] ?? []).joined(separator: ","))
             return parts.joined(separator: "|")
         }
@@ -1866,7 +1855,6 @@
             // Config-derived and freshly-computed keys stay present regardless of `enabled` — they
             // never go stale, unlike a cached hold reason would.
             props["$sdk_debug_replay_capture_mode"] = Self.captureMode(config: config)
-            props["$sdk_debug_replay_throttle_delay_ms"] = Self.throttleDelayMs(config: config)
             // The unsent snapshot count: the held buffer while buffering, else the persisted queue.
             props["$sdk_debug_replay_internal_buffer_length"] = (buffering ? replayQueue?.bufferDepth : replayQueue?.depth) ?? 0
 

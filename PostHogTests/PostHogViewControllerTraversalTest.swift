@@ -15,6 +15,10 @@
         private final class OneViewController: UIViewController {}
         private final class TwoViewController: UIViewController {}
         private final class ThreeViewController: UIViewController {}
+        private final class SplitViewController: UISplitViewController {
+            var reportsCollapsed = false
+            override var isCollapsed: Bool { reportsCollapsed || super.isCollapsed }
+        }
 
         private func add(_ child: UIViewController, to parent: UIViewController) {
             parent.addChild(child)
@@ -23,8 +27,8 @@
             child.didMove(toParent: parent)
         }
 
-        private func withWindow(root: UIViewController, body: (UIWindow) throws -> Void) rethrows {
-            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        private func withWindow(root: UIViewController, width: CGFloat = 390, body: (UIWindow) throws -> Void) rethrows {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: 844))
             window.rootViewController = root
             window.isHidden = false
             defer {
@@ -60,11 +64,12 @@
                     // Custom classes should continue to take precedence over titles.
                     let screen = titledControllers ? UIViewController() : customScreen
                     screen.title = titledControllers ? name : "Custom title"
+                    names.removeAll()
                     navigation.setViewControllers([screen], animated: false)
                     navigation.view.layoutIfNeeded()
                     #expect(screen.view.window === window)
-                    names.removeAll()
                     // Exercise the real swizzle without relying on transition timing.
+                    // A repeated appearance of the same screen is captured once.
                     screen.viewDidAppear(false)
                     #expect(names == [name])
                     #expect(UIViewController.ph_topViewController(base: root) === screen)
@@ -229,6 +234,70 @@
                 defer { root.dismiss(animated: false) }
                 #expect(root.presentedViewController === presented)
                 #expect(UIViewController.ph_topViewController(base: root) === presented)
+            }
+        }
+
+        @Test("Repeated appearances of the same screen are captured once")
+        func deduplicatesRepeatedAppearances() {
+            let first = OneViewController()
+            let navigation = UINavigationController(rootViewController: first)
+
+            withWindow(root: navigation) { _ in
+                var names: [String] = []
+                ApplicationScreenViewPublisher.shared.startAutoCapture { names.append($0) }
+                defer { ApplicationScreenViewPublisher.shared.stopAutoCapture() }
+                navigation.view.layoutIfNeeded()
+
+                // A size-class change re-runs viewDidAppear on containers and children.
+                navigation.viewDidAppear(false)
+                first.viewDidAppear(false)
+                first.viewDidAppear(false)
+                #expect(names == ["One"])
+
+                // A new controller with the same name is still a navigation.
+                let second = OneViewController()
+                navigation.setViewControllers([first, second], animated: false)
+                navigation.view.layoutIfNeeded()
+                second.viewDidAppear(false)
+                #expect(names == ["One", "One"])
+
+                // Returning to an earlier screen is captured again.
+                navigation.setViewControllers([first], animated: false)
+                navigation.view.layoutIfNeeded()
+                first.viewDidAppear(false)
+                #expect(names == ["One", "One", "One"])
+            }
+        }
+
+        @Test("Split views keep the container name while their columns change", arguments: [
+            (UIUserInterfaceSizeClass.compact, false),
+            (.regular, false),
+            // Mid-expansion: UIKit re-shows columns before it reports being expanded.
+            (.regular, true),
+        ])
+        func splitView(sizeClass: UIUserInterfaceSizeClass, reportsCollapsed: Bool) {
+            let root = InitialViewController()
+            let split = SplitViewController()
+            split.reportsCollapsed = reportsCollapsed
+            let primary = OneViewController()
+            let secondary = TwoViewController()
+            split.viewControllers = [primary, secondary]
+            add(split, to: root)
+            root.setOverrideTraitCollection(UITraitCollection(horizontalSizeClass: sizeClass), forChild: split)
+
+            withWindow(root: root, width: 1024) { _ in
+                root.view.layoutIfNeeded()
+                guard sizeClass == .regular else {
+                    // A collapsed split shows one column, so it still resolves to it.
+                    #expect(split.isCollapsed)
+                    #expect(UIViewController.ph_topViewController(base: root) !== split)
+                    return
+                }
+                // Rotation or unfolding lays the columns out one at a time, so at
+                // first only one column is on screen.
+                primary.view.isHidden = true
+                #expect(secondary.view.window != nil)
+                #expect(UIViewController.ph_topViewController(base: root) === split)
             }
         }
 

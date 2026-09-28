@@ -20,6 +20,10 @@
                 return ph_topViewController(base: selected)
             } else if let presented = base?.presentedViewController {
                 return ph_topViewController(base: presented)
+            } else if let split = base as? UISplitViewController, !isShowingOneColumn(split) {
+                // An expanded split shows several columns, so it keeps the container
+                // name, like other multi-pane containers below.
+                return split
             }
 
             guard let base, let containerView = base.viewIfLoaded, let window = containerView.window else {
@@ -43,6 +47,21 @@
                 return ph_topViewController(base: visibleChildren[0])
             }
             return base
+        }
+
+        /// Rotating or unfolding re-lays out a split's columns one at a time, so
+        /// mid-change it can show a single column it is about to hide or join.
+        /// Treat it as collapsed only once it has settled on one column.
+        private static func isShowingOneColumn(_ split: UISplitViewController) -> Bool {
+            guard split.isCollapsed, split.traitCollection.horizontalSizeClass == .compact else {
+                return false
+            }
+            // A presentation coordinator carries a modal style; the split's own
+            // layout change uses `.none`.
+            if let coordinator = split.transitionCoordinator, coordinator.presentationStyle == .none {
+                return false
+            }
+            return true
         }
 
         private static func isViewVisible(_ childView: UIView, in window: UIWindow) -> Bool {

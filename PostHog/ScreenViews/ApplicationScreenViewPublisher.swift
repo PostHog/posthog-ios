@@ -39,13 +39,22 @@ final class ApplicationScreenViewPublisher: ScreenViewPublishing {
     private let handlerLock = NSLock()
     private var autoCaptureHandler: ((String) -> Void)?
     private var hasSwizzled: Bool = false
+    // The last auto-captured screen. A container and each of its children all
+    // get viewDidAppear, and size-class changes re-run it without navigation,
+    // so the same screen resolves many times in a row.
+    private weak var lastScreen: AnyObject?
+    private var lastScreenName: String?
 
     func onNewScreenName(_ screenName: String) {
         onScreenView.invoke(screenName)
     }
 
     func startAutoCapture(_ handler: @escaping (String) -> Void) {
-        handlerLock.withLock { autoCaptureHandler = handler }
+        handlerLock.withLock {
+            autoCaptureHandler = handler
+            lastScreen = nil
+            lastScreenName = nil
+        }
         swizzleViewDidAppear()
     }
 
@@ -91,7 +100,13 @@ final class ApplicationScreenViewPublisher: ScreenViewPublishing {
 
             guard let name = UIViewController.getViewControllerName(top) else { return }
 
-            let handler = handlerLock.withLock { autoCaptureHandler }
+            let handler = handlerLock.withLock { () -> ((String) -> Void)? in
+                // A new controller with the same name is still a navigation.
+                if lastScreen === top, lastScreenName == name { return nil }
+                lastScreen = top
+                lastScreenName = name
+                return autoCaptureHandler
+            }
             handler?(name)
         }
 

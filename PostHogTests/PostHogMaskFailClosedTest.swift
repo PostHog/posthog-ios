@@ -151,22 +151,31 @@
         private func captureSnapshotTypes(
             failures: [Bool],
             queueTogether: Bool = false,
+            episodeFirstFrames: Set<Int> = []
+        ) -> [[Int]] {
+            captureSnapshots(failures: failures, queueTogether: queueTogether, episodeFirstFrames: episodeFirstFrames)
+                .map { $0.compactMap { $0["type"] as? Int } }
+        }
+
+        private func captureSnapshots(
+            failures: [Bool],
+            queueTogether: Bool = false,
             episodeFirstFrames: Set<Int> = [],
             windowSizes: [CGSize] = []
-        ) -> [[Int]] {
+        ) -> [[[String: Any]]] {
             let server = MockPostHogServer()
             server.start()
             defer { server.stop() }
 
             let lock = NSLock()
-            var captured: [[Int]] = []
+            var captured: [[[String: Any]]] = []
             let config = PostHogConfig(projectToken: "phc_snapshotMetadataTest", host: "http://localhost:9001")
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
             config.captureApplicationLifecycleEvents = false
             config.setBeforeSend { event in
                 if event.event == "$snapshot", let snapshots = event.properties["$snapshot_data"] as? [[String: Any]] {
-                    lock.withLock { captured.append(snapshots.compactMap { $0["type"] as? Int }) }
+                    lock.withLock { captured.append(snapshots) }
                 }
                 return nil
             }
@@ -236,10 +245,16 @@
         func windowResizeResendsMetadata() {
             let portrait = CGSize(width: 320, height: 640)
             let landscape = CGSize(width: 640, height: 320)
-            #expect(captureSnapshotTypes(
+            let snapshots = captureSnapshots(
                 failures: [false, false, false, false],
                 windowSizes: [portrait, landscape, landscape, portrait]
-            ) == [[4, 2], [4, 2], [2], [4, 2]])
+            )
+            #expect(snapshots.map { $0.compactMap { $0["type"] as? Int } } == [[4, 2], [4, 2], [2], [4, 2]])
+            let metaSizes = snapshots.flatMap { $0 }
+                .filter { $0["type"] as? Int == 4 }
+                .compactMap { $0["data"] as? [String: Any] }
+                .map { [$0["width"] as? Int, $0["height"] as? Int] }
+            #expect(metaSizes == [[320, 640], [640, 320], [320, 640]])
         }
 
         // MARK: - Zero-size parents

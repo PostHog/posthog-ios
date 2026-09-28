@@ -68,6 +68,7 @@ PostHog | PostHogConfig.compression | property | @objc var compression: PostHogC
 PostHog | PostHogConfig.dataMode | property | @objc var dataMode: PostHogConfig.PostHogDataMode | c:@M@PostHog@objc(cs)PostHogConfig(py)dataMode
 PostHog | PostHogConfig.debug | property | @objc var debug: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)debug
 PostHog | PostHogConfig.defaultHost | type.property | static let defaultHost: String | s:7PostHog0aB6ConfigC11defaultHostSSvpZ
+PostHog | PostHogConfig.disableGeoip | property | @objc var disableGeoip: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)disableGeoip
 PostHog | PostHogConfig.enableSwizzling | property | @objc var enableSwizzling: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)enableSwizzling
 PostHog | PostHogConfig.errorTrackingConfig | property | @objc let errorTrackingConfig: PostHogErrorTrackingConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)errorTrackingConfig
 PostHog | PostHogConfig.evaluationContexts | property | @objc var evaluationContexts: [String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)evaluationContexts

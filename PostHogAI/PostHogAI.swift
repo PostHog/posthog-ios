@@ -123,7 +123,9 @@
 
             if let error {
                 props["$ai_is_error"] = true
-                props["$ai_error"] = String(describing: error)
+                if !privacyMode {
+                    props["$ai_error"] = String(describing: error)
+                }
             }
 
             return props.merging(extra ?? [:]) { _, theirs in theirs }

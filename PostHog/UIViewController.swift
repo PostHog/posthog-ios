@@ -90,7 +90,8 @@
             if #available(iOS 14.0, tvOS 14.0, *), split.style != .unspecified {
                 let secondary = split.viewController(for: .secondary)
                 // Column-style splits wrap a plain column controller in a navigation
-                // controller that holds the pushed screens.
+                // controller that holds the pushed screens. `navigationController` can also
+                // find an app navigation controller outside the split, so only take the split's own.
                 if let wrapper = secondary?.navigationController, wrapper.parent === split { return wrapper }
                 return secondary
             }

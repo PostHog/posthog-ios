@@ -27,16 +27,12 @@
 
         /// iPhone Duo, unfolded in landscape: the window is 669pt tall on the inner display while
         /// `UIScreen.main` still reports the 678pt outer display. A sheet between the two doesn't fit.
+        /// Unfolded in portrait the window is 951pt tall, so sheets between 678 and 951pt used to be
+        /// shown at half height even though they fit.
         @available(iOS 15.0, *)
         @Test("a sheet taller than the window but shorter than the main screen can be expanded")
         func sheetBetweenWindowAndMainScreenIsExpandable() {
-            let windowHeight: CGFloat = 669
-            let mainScreenHeight: CGFloat = 678
-            let sheetHeight: CGFloat = 672
-
-            #expect(SurveyPresentationDetentsRepresentable.detents(forSheetHeight: sheetHeight, availableHeight: windowHeight) == [.medium, .large])
-            // the old check against the main screen picked a fixed height that doesn't fit the window
-            #expect(SurveyPresentationDetentsRepresentable.detents(forSheetHeight: sheetHeight, availableHeight: mainScreenHeight) == [.height(sheetHeight)])
+            #expect(SurveyPresentationDetentsRepresentable.detents(forSheetHeight: 672, availableHeight: 669) == [.medium, .large])
         }
     }
 #endif

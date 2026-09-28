@@ -100,8 +100,8 @@
             func update() {
                 if let controller = sheetPresentationController {
                     // Measure against the window the sheet is shown in, not `UIScreen.main`, which
-                    // can be a different display (e.g. a foldable's outer screen) or larger than
-                    // the window (split view, Stage Manager).
+                    // can be a different display (e.g. a foldable's outer screen) or a different
+                    // height than the window (e.g. Stage Manager).
                     let availableHeight = view.window?.bounds.height ?? controller.presentingViewController.view.bounds.height
                     let detents = SurveyPresentationDetentsRepresentable.detents(forSheetHeight: sheetHeight, availableHeight: availableHeight)
                     let newDetents = detents.map(\.toPresentationDetents)

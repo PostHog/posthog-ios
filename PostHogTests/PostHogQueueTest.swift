@@ -17,13 +17,21 @@ import XCTest
 private final class ControlledBatchSender {
     private let lock = NSLock()
     private var completions = [(PostHogUploadInfo) -> Void]()
+    private var recordedBatches = [[PostHogEvent]]()
+
+    var batches: [[PostHogEvent]] {
+        lock.withLock { recordedBatches }
+    }
 
     var requestCount: Int {
         lock.withLock { completions.count }
     }
 
-    func send(_: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {
-        lock.withLock { completions.append(completion) }
+    func send(_ events: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {
+        lock.withLock {
+            recordedBatches.append(events)
+            completions.append(completion)
+        }
     }
 
     func completeRequest(at index: Int, with result: PostHogUploadInfo) {
@@ -33,8 +41,10 @@ private final class ControlledBatchSender {
 }
 
 class PostHogQueueTest: QuickSpec {
-    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3) -> PostHogQueue<PostHogEvent> {
-        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+    private var cleanupJobs = [() -> Void]()
+
+    private func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3, sender: ControlledBatchSender? = nil, afterUpload: (() -> Void)? = nil) -> PostHogQueue<PostHogEvent> {
+        let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
         config.maxBatchSize = maxBatchSize
@@ -42,7 +52,36 @@ class PostHogQueueTest: QuickSpec {
         config.sendFeatureFlagEvent = false
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
-        return PostHogQueue(config, storage, .batch(api: api), nil)
+        let base = QueueEndpoint<PostHogEvent>.batch(api: api)
+        let endpoint = QueueEndpoint<PostHogEvent>(
+            storageKey: base.storageKey,
+            oldStorageKeys: base.oldStorageKeys,
+            dispatchQueueLabel: base.dispatchQueueLabel,
+            initialCap: base.initialCap,
+            initialFlushAt: base.initialFlushAt,
+            maxQueueSize: base.maxQueueSize,
+            flushIntervalSeconds: base.flushIntervalSeconds,
+            rateCapMax: base.rateCapMax,
+            rateCapWindowSeconds: base.rateCapWindowSeconds,
+            encode: base.encode,
+            decode: base.decode,
+            describe: base.describe,
+            send: { events, completion in
+                let send = sender?.send ?? base.send
+                send(events) { result in
+                    completion(result)
+                    afterUpload?()
+                }
+            },
+            isRetriableStatusCode: base.isRetriableStatusCode
+        )
+        let sut = PostHogQueue(config, storage, endpoint, nil)
+        cleanupJobs.append {
+            sut.stop()
+            sut.clear()
+            deleteSafely(storage.appFolderUrl)
+        }
+        return sut
     }
 
     override func spec() {
@@ -53,7 +92,21 @@ class PostHogQueueTest: QuickSpec {
             server.start()
         }
         afterEach {
+            self.cleanupJobs.forEach { $0() }
+            self.cleanupJobs.removeAll()
             server.stop()
+        }
+
+        it("isolates storage between queue fixtures") {
+            let first = self.getSut(flushAt: 100)
+            let second = self.getSut(flushAt: 100)
+            defer {
+                first.clear()
+                second.clear()
+            }
+            second.add(PostHogEvent(event: "retained", distinctId: "id"))
+            first.clear()
+            expect(second.fileQueue.peek(10).count) == 1
         }
 
         it("add item to queue") {
@@ -75,7 +128,8 @@ class PostHogQueueTest: QuickSpec {
         }
 
         it("add item to queue and flush respecting flushAt") {
-            let sut = self.getSut(flushAt: 2)
+            let sender = ControlledBatchSender()
+            let sut = self.getSut(flushAt: 2, sender: sender)
 
             let event = PostHogEvent(event: "event", distinctId: "distinctId")
             let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
@@ -84,16 +138,17 @@ class PostHogQueueTest: QuickSpec {
             sut.add(event)
             expect(sut.depth) == 1
 
-            // flush() takes the batch asynchronously, so let it drain before adding more —
-            // otherwise a later add races into the in-flight peek() and joins the batch.
+            expect(sender.requestCount) == 0
             sut.add(event2)
-
-            let events = getBatchedEvents(server)
-            expect(events.count) == 2
-            expect(sut.depth).toEventually(equal(0))
+            expect(sender.requestCount).toEventually(equal(1))
+            expect(sender.batches.first?.map(\.event)) == ["event", "event2"]
+            expect(sut.depth) == 2
+            sender.completeRequest(at: 0, with: PostHogUploadInfo(statusCode: 200, error: nil))
+            expect(sut.depth) == 0
 
             sut.add(event3)
             expect(sut.depth) == 1
+            expect(sender.requestCount) == 1
 
             sut.clear()
         }
@@ -260,7 +315,13 @@ class PostHogQueueTest: QuickSpec {
             now = { mockNow.date }
             defer { now = { Date() } }
 
-            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 1)
+            let uploads = (1 ... 6).map { XCTestExpectation(description: "upload \($0) processed") }
+            var uploadIndex = 0
+            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 1) {
+                let upload = uploads[uploadIndex]
+                uploadIndex += 1
+                upload.fulfill()
+            }
             server.start(batchCount: 6)
             server.batchResponseHandler = { _, requestNumber in
                 requestNumber <= 3 || requestNumber == 5
@@ -274,26 +335,30 @@ class PostHogQueueTest: QuickSpec {
             for expectedAttempt in 1 ... 3 {
                 sut.flush()
                 expect(server.batchRequests.count).toEventually(equal(expectedAttempt))
-                expect(sut.currentRetryCountForTesting).toEventually(equal(expectedAttempt))
+                expect(XCTWaiter.wait(for: [uploads[expectedAttempt - 1]], timeout: testRequestTimeout)) == .completed
+                expect(sut.currentRetryCountForTesting) == expectedAttempt
                 expect(sut.depth) == 2
                 mockNow.date.addTimeInterval(60)
             }
 
             sut.flush()
-            expect(server.batchRequests.count).toEventually(equal(4))
-            expect(sut.depth).toEventually(equal(0))
-            expect(sut.currentRetryCountForTesting).toEventually(equal(0))
+            expect(XCTWaiter.wait(for: [uploads[3]], timeout: testRequestTimeout)) == .completed
+            expect(server.batchRequests.count) == 4
+            expect(sut.depth) == 0
+            expect(sut.currentRetryCountForTesting) == 0
 
             sut.add(PostHogEvent(event: "fresh", distinctId: "id3"))
             sut.flush()
-            expect(server.batchRequests.count).toEventually(equal(5))
-            expect(sut.currentRetryCountForTesting).toEventually(equal(1))
+            expect(XCTWaiter.wait(for: [uploads[4]], timeout: testRequestTimeout)) == .completed
+            expect(server.batchRequests.count) == 5
+            expect(sut.currentRetryCountForTesting) == 1
             expect(sut.depth) == 1
             sut.flush()
             expect(server.batchRequests.count) == 5
             mockNow.date.addTimeInterval(1)
             sut.flush()
-            expect(server.batchRequests.count).toEventually(equal(6))
+            expect(XCTWaiter.wait(for: [uploads[5]], timeout: testRequestTimeout)) == .completed
+            expect(server.batchRequests.count) == 6
             expect(sut.depth).toEventually(equal(0))
             expect(sut.currentRetryCountForTesting).toEventually(equal(0))
 
@@ -305,7 +370,13 @@ class PostHogQueueTest: QuickSpec {
             now = { mockNow.date }
             defer { now = { Date() } }
 
-            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 0)
+            let uploads = (1 ... 4).map { XCTestExpectation(description: "upload \($0) processed") }
+            var uploadIndex = 0
+            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 0) {
+                let upload = uploads[uploadIndex]
+                uploadIndex += 1
+                upload.fulfill()
+            }
             let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost, userInfo: nil)
             server.start(batchCount: 4)
             server.batchResponseHandler = { _, requestNumber in
@@ -320,13 +391,15 @@ class PostHogQueueTest: QuickSpec {
             for expectedAttempt in 1 ... 3 {
                 sut.flush()
                 expect(server.batchRequests.count).toEventually(equal(expectedAttempt))
-                expect(sut.currentRetryCountForTesting).toEventually(equal(expectedAttempt))
+                expect(XCTWaiter.wait(for: [uploads[expectedAttempt - 1]], timeout: testRequestTimeout)) == .completed
+                expect(sut.currentRetryCountForTesting) == expectedAttempt
                 expect(sut.depth) == 2
                 mockNow.date.addTimeInterval(60)
             }
 
             sut.flush()
-            expect(server.batchRequests.count).toEventually(equal(4))
+            expect(XCTWaiter.wait(for: [uploads[3]], timeout: testRequestTimeout)) == .completed
+            expect(server.batchRequests.count) == 4
             expect(sut.depth).toEventually(equal(0))
 
             sut.clear()
@@ -386,7 +459,13 @@ class PostHogQueueTest: QuickSpec {
         it("halves cap repeatedly across multiple 413s and drops once cap reaches 1") {
             // flushAt is high so add() doesn't trigger an auto-flush — we drive
             // each flush manually to observe the multi-step halving sequence.
-            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 0)
+            let uploads = (1 ... 3).map { XCTestExpectation(description: "413 upload \($0) processed") }
+            var uploadIndex = 0
+            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 0) {
+                let upload = uploads[uploadIndex]
+                uploadIndex += 1
+                upload.fulfill()
+            }
             server.start(batchCount: 3)
             server.batchResponseHandler = { _, _ in
                 HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
@@ -398,18 +477,21 @@ class PostHogQueueTest: QuickSpec {
 
             // First flush: batch=4 → 413 → cap halves to 2, batch retained.
             sut.flush()
-            expect(sut.currentBatchCapForTesting).toEventually(equal(2))
+            expect(XCTWaiter.wait(for: [uploads[0]], timeout: testRequestTimeout)) == .completed
+            expect(sut.currentBatchCapForTesting) == 2
             expect(sut.depth) == 4
 
             // Second flush: batch=2 → 413 → cap halves to 1, batch retained.
             sut.flush()
-            expect(sut.currentBatchCapForTesting).toEventually(equal(1))
+            expect(XCTWaiter.wait(for: [uploads[1]], timeout: testRequestTimeout)) == .completed
+            expect(sut.currentBatchCapForTesting) == 1
             expect(sut.depth) == 4
 
             // Third flush: batch=1, cap already at 1 → drop one record. Cap
             // stays at 1 (no reset, matching Android).
             sut.flush()
-            expect(sut.depth).toEventually(equal(3))
+            expect(XCTWaiter.wait(for: [uploads[2]], timeout: testRequestTimeout)) == .completed
+            expect(sut.depth) == 3
             expect(sut.currentBatchCapForTesting) == 1
 
             sut.clear()
@@ -419,7 +501,8 @@ class PostHogQueueTest: QuickSpec {
             // 501/505/etc. are NOT in the narrow 5xx retriable set
             // {500, 502, 503, 504}. Treat as non-retriable so a poison
             // record can't block the queue.
-            let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
+            let upload = XCTestExpectation(description: "terminal response processed")
+            let sut = self.getSut(flushAt: 2, maxBatchSize: 4) { upload.fulfill() }
             server.batchResponseHandler = { _, _ in
                 HTTPStubsResponse(jsonObject: [], statusCode: 501, headers: nil)
             }
@@ -428,8 +511,9 @@ class PostHogQueueTest: QuickSpec {
             sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
 
             _ = getBatchedEvents(server)
+            expect(XCTWaiter.wait(for: [upload], timeout: testRequestTimeout)) == .completed
 
-            expect(sut.depth).toEventually(equal(0))
+            expect(sut.depth) == 0
             expect(sut.currentBatchCapForTesting) == 4
 
             sut.clear()

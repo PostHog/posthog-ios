@@ -12,17 +12,32 @@ import Testing
 @Suite(.serialized, .resetsGlobalState)
 enum PostHogSessionManagerTest {
     @Suite("Test session id rotation logic")
-    struct SessionRotation {
+    final class SessionRotation {
         let mockAppLifecycle: MockApplicationLifecyclePublisher
+        private var sdks: [PostHogSDK] = []
 
         init() {
             mockAppLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockAppLifecycle
         }
 
+        deinit {
+            for sdk in sdks {
+                let storage = PostHogStorage(sdk.config)
+                sdk.close()
+                deleteSafely(storage.appFolderUrl)
+            }
+        }
+
         func getSut() -> PostHogSDK {
-            let config = PostHogConfig(projectToken: "test_project_token")
-            return PostHogSDK.with(config)
+            let config = PostHogConfig(projectToken: UUID().uuidString)
+            config.captureApplicationLifecycleEvents = false
+            config.disableRemoteConfigForTesting = true
+            config.preloadFeatureFlags = false
+            config.disableQueueTimerForTesting = true
+            let sdk = PostHogSDK.with(config)
+            sdks.append(sdk)
+            return sdk
         }
 
         @Test("Session id is cleared after 30 min of background time")
@@ -158,6 +173,7 @@ enum PostHogSessionManagerTest {
     class PostHogSDKEvents {
         let mockAppLifecycle: MockApplicationLifecyclePublisher
         var server: MockPostHogServer!
+        private var cleanupJobs = [() -> Void]()
 
         init() {
             PostHogAppLifeCycleIntegration.clearInstalls()
@@ -167,12 +183,10 @@ enum PostHogSessionManagerTest {
 
             server = MockPostHogServer()
             server.start()
-
-            // important!
-            deleteSafely(applicationSupportDirectoryURL())
         }
 
         deinit {
+            cleanupJobs.forEach { $0() }
             now = { Date() }
             server.stop()
             server = nil
@@ -187,7 +201,7 @@ enum PostHogSessionManagerTest {
             propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
             personProfiles: PostHogPersonProfiles = .identifiedOnly
         ) -> PostHogSDK {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
             config.flushAt = flushAt
             config.preloadFeatureFlags = preloadFeatureFlags
             config.sendFeatureFlagEvent = sendFeatureFlagEvent
@@ -199,7 +213,13 @@ enum PostHogSessionManagerTest {
             config.propertiesSanitizer = propertiesSanitizer
             config.personProfiles = personProfiles
             config.maxBatchSize = max(flushAt, config.maxBatchSize)
-            return PostHogSDK.with(config)
+            let sdk = PostHogSDK.with(config)
+            let storage = PostHogStorage(config)
+            cleanupJobs.append {
+                sdk.close()
+                deleteSafely(storage.appFolderUrl)
+            }
+            return sdk
         }
 
         @Test("Clears $session_id after 30 mins of background inactivity")

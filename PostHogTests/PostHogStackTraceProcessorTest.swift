@@ -19,6 +19,7 @@ struct PostHogStackTraceProcessorTest {
         func marksInAppWhenInIncludes() {
             let config = PostHogErrorTrackingConfig()
             config.inAppIncludes = ["MyApp", "SharedModule"]
+            config.inAppByDefault = false
 
             #expect(PostHogStackTraceProcessor.isInApp(module: "MyApp", config: config) == true)
             #expect(PostHogStackTraceProcessor.isInApp(module: "MyAppExtension", config: config) == true)
@@ -105,6 +106,7 @@ struct PostHogStackTraceProcessorTest {
             let config = PostHogErrorTrackingConfig()
             let frames = PostHogStackTraceProcessor.captureCurrentStackTraceWithMetadata(config: config)
 
+            #expect(!frames.isEmpty)
             for frame in frames {
                 #expect(frame.instructionAddress > 0)
             }
@@ -120,12 +122,13 @@ struct PostHogStackTraceProcessorTest {
         }
 
         @Test("strips PostHog frames from top of stack")
-        func stripsPostHogFrames() {
+        func stripsPostHogFrames() throws {
             let config = PostHogErrorTrackingConfig()
             let frames = PostHogStackTraceProcessor.captureCurrentStackTraceWithMetadata(config: config)
 
-            let topFrame = frames.first
-            #expect(topFrame?.module != "PostHog")
+            let module = try #require(frames.first?.module)
+            #expect(module != "PostHog")
+            #expect(!module.hasPrefix("PostHog."))
         }
     }
 
@@ -164,7 +167,11 @@ struct PostHogStackTraceProcessorTest {
                 stripTopPostHogFrames: false
             )
 
-            #expect(framesWithStrip.count <= framesWithoutStrip.count)
+            #expect(!framesWithoutStrip.isEmpty)
+            let expected = framesWithoutStrip.drop(while: { frame in
+                frame.module == "PostHog" || frame.module?.hasPrefix("PostHog.") == true
+            })
+            #expect(framesWithStrip.map(\.instructionAddress) == expected.map(\.instructionAddress))
         }
     }
 
@@ -232,9 +239,9 @@ struct PostHogStackTraceProcessorTest {
 
             let dict = frame.toDictionary
 
-            #expect((dict["instruction_addr"] as? String)?.hasPrefix("0x") == true)
-            #expect((dict["image_addr"] as? String)?.hasPrefix("0x") == true)
-            #expect((dict["symbol_addr"] as? String)?.hasPrefix("0x") == true)
+            #expect(dict["instruction_addr"] as? String == "0x00007fff12345678")
+            #expect(dict["image_addr"] as? String == "0x00007fff00000000")
+            #expect(dict["symbol_addr"] as? String == "0x00007fff12345000")
         }
     }
 }

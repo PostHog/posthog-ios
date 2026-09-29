@@ -97,8 +97,17 @@ class PostHogMulticastCallbackTests {
     }
 }
 
+@MainActor
 @Suite("PostHogThrottledMulticastCallback Tests", .resetsGlobalState)
 class PostHogThrottledMulticastCallbackTests {
+    private func waitUntil(_ condition: () -> Bool) async {
+        let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(testRequestTimeout * 1_000_000_000)
+        while !condition(), DispatchTime.now().uptimeNanoseconds < deadline {
+            try? await Task.sleep(nanoseconds: 5 * NSEC_PER_MSEC)
+        }
+        #expect(condition())
+    }
+
     @Test("Subscriber-count callbacks can reenter without overlapping or reporting stale state")
     func reentrantSubscriberCountChanges() {
         weak var callback: PostHogThrottledMulticastCallback<Void>?
@@ -231,8 +240,7 @@ class PostHogThrottledMulticastCallbackTests {
 
         callback.invoke(42)
 
-        // Wait for async dispatch
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { receivedValue == 42 }
 
         #expect(receivedValue == 42)
         _ = token
@@ -253,7 +261,7 @@ class PostHogThrottledMulticastCallbackTests {
 
         callback.invoke("hello")
 
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { values.count == 2 } }
 
         #expect(values.count == 2)
         #expect(values.contains("sub1: hello"))
@@ -286,7 +294,7 @@ class PostHogThrottledMulticastCallbackTests {
         }
 
         callback.invoke(1)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { receivedCount == 1 }
         #expect(receivedCount == 1)
         #expect(callback.subscriberCount == 1)
 
@@ -317,7 +325,7 @@ class PostHogThrottledMulticastCallbackTests {
 
         // First invoke should go through
         callback.invoke(1)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { receivedValues == [1] } }
         #expect(lock.withLock { receivedValues } == [1])
 
         // Second invoke within throttle window should be ignored
@@ -329,7 +337,7 @@ class PostHogThrottledMulticastCallbackTests {
         // Third invoke after throttle window should go through
         mockNow.date.addTimeInterval(0.6) // Total: 1.1s
         callback.invoke(3)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { receivedValues.count >= 2 } }
         #expect(lock.withLock { receivedValues } == [1, 3])
 
         _ = token
@@ -355,21 +363,21 @@ class PostHogThrottledMulticastCallbackTests {
 
         // First invoke - both receive
         callback.invoke(1)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { fastValues.count == 1 && slowValues.count == 1 } }
         #expect(lock.withLock { fastValues } == [1])
         #expect(lock.withLock { slowValues } == [1])
 
         // After 0.6s - only fast subscriber receives
         mockNow.date.addTimeInterval(0.6)
         callback.invoke(2)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { fastValues.count >= 2 } }
         #expect(lock.withLock { fastValues } == [1, 2])
         #expect(lock.withLock { slowValues } == [1])
 
         // After another 1.5s (total 2.1s) - both receive
         mockNow.date.addTimeInterval(1.5)
         callback.invoke(3)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { fastValues.count >= 3 && slowValues.count >= 2 } }
         #expect(lock.withLock { fastValues } == [1, 2, 3])
         #expect(lock.withLock { slowValues } == [1, 3])
 
@@ -404,7 +412,7 @@ class PostHogThrottledMulticastCallbackTests {
         }
 
         callback.invoke(())
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { callCount == 1 }
 
         #expect(callCount == 1)
         _ = token
@@ -436,7 +444,7 @@ class PostHogThrottledMulticastCallbackTests {
         }
 
         callback.invoke(1)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { slowValues == [1] } }
         #expect(lock.withLock { slowValues } == [1])
 
         // Deep inside the slow subscriber's throttle window, a new subscriber
@@ -448,7 +456,7 @@ class PostHogThrottledMulticastCallbackTests {
         }
 
         callback.invoke(2)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { lateValues == [2] } }
         #expect(lock.withLock { lateValues } == [2])
         #expect(lock.withLock { slowValues } == [1], "still inside its 10s window")
 
@@ -466,7 +474,7 @@ class PostHogThrottledMulticastCallbackTests {
             lock.withLock { firstValues.append(value) }
         }
         callback.invoke(1)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { firstValues == [1] } }
         #expect(lock.withLock { firstValues } == [1])
 
         token = nil
@@ -477,7 +485,7 @@ class PostHogThrottledMulticastCallbackTests {
             lock.withLock { secondValues.append(value) }
         }
         callback.invoke(3)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        await waitUntil { lock.withLock { secondValues == [3] } }
 
         #expect(lock.withLock { firstValues } == [1])
         #expect(lock.withLock { secondValues } == [3])

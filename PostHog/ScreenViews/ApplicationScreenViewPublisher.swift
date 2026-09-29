@@ -98,10 +98,17 @@ final class ApplicationScreenViewPublisher: ScreenViewPublishing {
 
             guard let top = UIViewController.ph_topViewController(base: viewController) else { return }
 
-            // Skipped names are not recorded, so the next real screen still counts.
-            guard let name = UIViewController.getViewControllerName(top),
-                  !PostHogScreenNameSanitizer.isSwiftUIInternal(rawScreenName: name)
-            else { return }
+            guard let name = UIViewController.getViewControllerName(top) else {
+                // An unnamed screen is still a navigation away, so returning to
+                // the last screen must be captured again.
+                handlerLock.withLock {
+                    lastScreen = nil
+                    lastScreenName = nil
+                }
+                return
+            }
+            // Skipped placeholders are not recorded, so the next real screen still counts.
+            guard !PostHogScreenNameSanitizer.isSwiftUIInternal(rawScreenName: name) else { return }
 
             let handler = handlerLock.withLock { () -> ((String) -> Void)? in
                 // A new controller with the same name is still a navigation.

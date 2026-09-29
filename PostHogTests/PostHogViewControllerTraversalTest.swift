@@ -333,6 +333,33 @@
             }
         }
 
+        @Test("Returning from an unnamed screen captures the earlier screen again")
+        func returnsFromUnnamedScreen() {
+            let first = OneViewController()
+            let navigation = UINavigationController(rootViewController: first)
+
+            withWindow(root: navigation) { _ in
+                var names: [String] = []
+                ApplicationScreenViewPublisher.shared.startAutoCapture { names.append($0) }
+                defer { ApplicationScreenViewPublisher.shared.stopAutoCapture() }
+                navigation.view.layoutIfNeeded()
+                first.viewDidAppear(false)
+                #expect(names == ["One"])
+
+                let untitled = UIViewController()
+                #expect(UIViewController.getViewControllerName(untitled) == nil)
+                navigation.pushViewController(untitled, animated: false)
+                navigation.view.layoutIfNeeded()
+                untitled.viewDidAppear(false)
+                #expect(names == ["One"])
+
+                navigation.popViewController(animated: false)
+                navigation.view.layoutIfNeeded()
+                first.viewDidAppear(false)
+                #expect(names == ["One", "One"])
+            }
+        }
+
         @Test("Collapsed split views resolve to their visible column unless mid-layout", arguments: [
             UIModalPresentationStyle?.none,
             .some(.fullScreen),

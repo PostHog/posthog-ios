@@ -318,14 +318,13 @@ class PostHogRemoteConfig {
     }
 
     private func preloadSessionReplay() {
-        let sessionReplay = remoteConfigLock.withLock {
-            getCachedRemoteConfig()?["sessionRecording"] as? [String: Any]
-        }
+        let cachedRemoteConfig = remoteConfigLock.withLock { getCachedRemoteConfig() }
+        let sessionReplay = cachedRemoteConfig?["sessionRecording"] as? [String: Any]
         let featureFlags = featureFlagsLock.withLock {
             self.getCachedFeatureFlags()
         }
 
-        if let sessionReplay = sessionReplay {
+        if let sessionReplay = sessionReplay, !Self.isMobileRecordingsQuotaLimited(cachedRemoteConfig) {
             if let endpoint = sessionReplay["endpoint"] as? String {
                 config.snapshotEndpoint = endpoint
             }
@@ -349,6 +348,11 @@ class PostHogRemoteConfig {
     /// (so a plain `!= nil` check is wrong). Mirrors the shapes `isRecordingActive` evaluates.
     private static func hasLinkedFlag(_ sessionRecording: [String: Any]) -> Bool {
         sessionRecording["linkedFlag"] is String || sessionRecording["linkedFlag"] is [String: Any]
+    }
+
+    /// `sessionRecording` is shared with web, so the server reports the mobile replay quota only here.
+    private static func isMobileRecordingsQuotaLimited(_ remoteConfig: [String: Any]?) -> Bool {
+        (remoteConfig?["quotaLimited"] as? [String])?.contains("mobile_recordings") ?? false
     }
 
     private func isRecordingActive(_ featureFlags: [String: Any], _ sessionRecording: [String: Any]) -> (active: Bool, flagKey: String?, flagValue: Any?) {
@@ -573,9 +577,14 @@ class PostHogRemoteConfig {
 
     #if os(iOS)
         private func processSessionRecordingConfig(_ data: [String: Any]?, featureFlags: [String: Any]) {
+            let cachedRemoteConfig = remoteConfigLock.withLock { getCachedRemoteConfig() }
             // fall back to the cached remote config (survives reset()) so replay re-arms; only Bool false disables
-            let sessionRecording: Any? = data?["sessionRecording"]
-                ?? remoteConfigLock.withLock { getCachedRemoteConfig()?["sessionRecording"] }
+            var sessionRecording: Any? = data?["sessionRecording"] ?? cachedRemoteConfig?["sessionRecording"]
+            if Self.isMobileRecordingsQuotaLimited(data ?? cachedRemoteConfig) {
+                // swiftlint:disable:next line_length
+                hedgeLog("Warning: Session replay quota limit reached - recording is disabled. See https://posthog.com/docs/billing/limits-alerts for more information.")
+                sessionRecording = false
+            }
 
             var exposureKey: String?
             var exposureValue: Any?

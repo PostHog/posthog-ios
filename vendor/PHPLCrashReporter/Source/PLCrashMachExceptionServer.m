@@ -117,6 +117,38 @@ typedef __Reply__exception_raise_t PLReply_exception_raise_t;
 #  define PLCRASH_DEFAULT_BEHAVIOR EXCEPTION_DEFAULT
 #endif
 
+#ifdef PL_MACH64_EXC_CODES
+/*
+ * PostHog: processes with Mach IPC platform restrictions (Enhanced Security) are killed when registering
+ * EXCEPTION_DEFAULT. See https://developer.apple.com/documentation/xcode/conforming-to-mach-ipc-security-restrictions
+ * Layout and msgh_id from `mig -DMACH_EXC_SERVER_TASKIDTOKEN=1 mach/mach_exc.defs` (mach_exception_raise_identity_protected).
+ */
+#define PLCRASH_IDENTITY_PROTECTED_MSGH_ID 2408
+
+typedef struct {
+    mach_msg_header_t Head;
+    mach_msg_body_t msgh_body;
+    mach_msg_port_descriptor_t task_id_token;
+    NDR_record_t NDR;
+    uint64_t thread_id;
+    exception_type_t exception;
+    mach_msg_type_number_t codeCnt;
+    int64_t code[2];
+} PLRequest_exception_raise_identity_protected_t;
+
+/* PostHog: weak, as iOS 13 / macOS 10.15 don't export it; only called where exception_server_behavior() is protected. */
+extern kern_return_t task_identity_token_get_task_port (task_id_token_t token, task_flavor_t flavor, mach_port_t *task_port) __attribute__((weak_import));
+#endif
+
+/* PostHog: EXCEPTION_IDENTITY_PROTECTED where the OS supports it, otherwise PLCRASH_DEFAULT_BEHAVIOR. */
+static exception_behavior_t exception_server_behavior (void) {
+#ifdef PL_MACH64_EXC_CODES
+    if (@available(macOS 12.0, iOS 15.0, *))
+        return EXCEPTION_IDENTITY_PROTECTED | MACH_EXCEPTION_CODES;
+#endif
+    return PLCRASH_DEFAULT_BEHAVIOR;
+}
+
 /**
  * @internal
  * Map an exception type to its corresponding mask value.
@@ -463,7 +495,7 @@ struct plcrash_exception_server_context {
     PLCrashMachExceptionPort *result;
     result = [[PLCrashMachExceptionPort alloc] initWithServerPort: port
                                                               mask: mask
-                                                          behavior: PLCRASH_DEFAULT_BEHAVIOR
+                                                          behavior: exception_server_behavior()
                                                             flavor: MACHINE_THREAD_STATE];
 
     /* Drop our send right */
@@ -650,6 +682,57 @@ kern_return_t PLCrashMachExceptionForward (task_t task,
 }
 
 
+#ifdef PL_MACH64_EXC_CODES
+/* PostHog: resolve the task and thread from the identity token and thread ID, then dispatch to the callback. */
+static kern_return_t exception_server_handle_identity_protected (struct plcrash_exception_server_context *exc_context,
+                                                                  PLRequest_exception_raise_identity_protected_t *request)
+{
+    const mach_msg_size_t code_offset = offsetof(PLRequest_exception_raise_identity_protected_t, code);
+    if (request->Head.msgh_size < code_offset || request->codeCnt > 2 ||
+        request->Head.msgh_size < code_offset + request->codeCnt * sizeof(request->code[0])) {
+        PLCF_DEBUG("Unexpected identity protected message of size %" PRIu64, (uint64_t) request->Head.msgh_size);
+        return KERN_FAILURE;
+    }
+
+    task_t task;
+    kern_return_t kr = task_identity_token_get_task_port(request->task_id_token.name, TASK_FLAVOR_CONTROL, &task);
+    mach_port_deallocate(mach_task_self(), request->task_id_token.name);
+    if (kr != KERN_SUCCESS) {
+        PLCF_DEBUG("Failed to resolve the task identity token: 0x%x", kr);
+        return KERN_FAILURE;
+    }
+
+    thread_t thread = THREAD_NULL;
+    thread_act_array_t threads;
+    mach_msg_type_number_t thread_count;
+    if (task_threads(task, &threads, &thread_count) == KERN_SUCCESS) {
+        for (mach_msg_type_number_t i = 0; i < thread_count; i++) {
+            thread_identifier_info_data_t info;
+            mach_msg_type_number_t info_count = THREAD_IDENTIFIER_INFO_COUNT;
+            if (thread == THREAD_NULL &&
+                thread_info(threads[i], THREAD_IDENTIFIER_INFO, (thread_info_t) &info, &info_count) == KERN_SUCCESS &&
+                info.thread_id == request->thread_id) {
+                thread = threads[i];
+            } else {
+                mach_port_deallocate(mach_task_self(), threads[i]);
+            }
+        }
+        vm_deallocate(mach_task_self(), (vm_address_t) threads, thread_count * sizeof(thread_t));
+    }
+
+    kern_return_t result = KERN_FAILURE;
+    if (thread != THREAD_NULL) {
+        result = exc_context->callback(task, thread, request->exception, request->code, request->codeCnt, exc_context->callback_context);
+        mach_port_deallocate(mach_task_self(), thread);
+    } else {
+        PLCF_DEBUG("Failed to find the crashed thread 0x%" PRIx64, request->thread_id);
+    }
+
+    mach_port_deallocate(mach_task_self(), task);
+    return result;
+}
+#endif
+
 /**
  * Background exception server. Handles incoming exception messages and dispatches
  * them to the registered callback.
@@ -746,6 +829,18 @@ static void *exception_server_thread (void *arg) {
                     }
                 }
             }
+
+#ifdef PL_MACH64_EXC_CODES
+            /* PostHog: see exception_server_behavior() */
+            if (request->Head.msgh_id == PLCRASH_IDENTITY_PROTECTED_MSGH_ID) {
+                kern_return_t exc_result = exception_server_handle_identity_protected(exc_context, (PLRequest_exception_raise_identity_protected_t *) request);
+                mr = exception_server_reply(request, exc_result);
+                if (mr != MACH_MSG_SUCCESS)
+                    PLCF_DEBUG("Unexpected failure replying to Mach exception message: 0x%x", mr);
+
+                continue;
+            }
+#endif
 
             /* Sanity check the message size */
             if (request->Head.msgh_size < sizeof(*request)) {

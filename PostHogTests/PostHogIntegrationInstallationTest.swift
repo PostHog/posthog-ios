@@ -266,7 +266,7 @@ class PostHogIntegrationInstallationTest {
         }
 
         @Test("error tracking integration stays installed when remote config loads with autocapture enabled")
-        func errorTrackingStaysInstalledWhenRemoteConfigEnables() async {
+        func errorTrackingStaysInstalledWhenRemoteConfigEnables() async throws {
             server.remoteConfigErrorTracking = ["autocaptureExceptions": true]
 
             let token = "test_error_tracking_\(UUID().uuidString)"
@@ -289,6 +289,7 @@ class PostHogIntegrationInstallationTest {
             // onRemoteConfigLoaded is enqueued on main before hasFetchedRemoteConfig flips, so a
             // main-queue hop after the flag flips guarantees any removal callback has already run.
             await waitUntil(timeout: 10) { sut.remoteConfig?.hasFetchedRemoteConfig == true }
+            try #require(sut.remoteConfig?.hasFetchedRemoteConfig == true)
             await MainActor.run {}
 
             #expect(sut.getErrorTrackingIntegration() != nil)

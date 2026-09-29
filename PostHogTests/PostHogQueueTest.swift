@@ -17,13 +17,21 @@ import XCTest
 private final class ControlledBatchSender {
     private let lock = NSLock()
     private var completions = [(PostHogUploadInfo) -> Void]()
+    private var recordedBatches = [[PostHogEvent]]()
+
+    var batches: [[PostHogEvent]] {
+        lock.withLock { recordedBatches }
+    }
 
     var requestCount: Int {
         lock.withLock { completions.count }
     }
 
-    func send(_: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {
-        lock.withLock { completions.append(completion) }
+    func send(_ events: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {
+        lock.withLock {
+            recordedBatches.append(events)
+            completions.append(completion)
+        }
     }
 
     func completeRequest(at index: Int, with result: PostHogUploadInfo) {
@@ -35,7 +43,7 @@ private final class ControlledBatchSender {
 class PostHogQueueTest: QuickSpec {
     private var cleanupJobs = [() -> Void]()
 
-    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3, afterUpload: (() -> Void)? = nil) -> PostHogQueue<PostHogEvent> {
+    private func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3, sender: ControlledBatchSender? = nil, afterUpload: (() -> Void)? = nil) -> PostHogQueue<PostHogEvent> {
         let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
@@ -59,7 +67,8 @@ class PostHogQueueTest: QuickSpec {
             decode: base.decode,
             describe: base.describe,
             send: { events, completion in
-                base.send(events) { result in
+                let send = sender?.send ?? base.send
+                send(events) { result in
                     completion(result)
                     afterUpload?()
                 }
@@ -119,7 +128,8 @@ class PostHogQueueTest: QuickSpec {
         }
 
         it("add item to queue and flush respecting flushAt") {
-            let sut = self.getSut(flushAt: 2)
+            let sender = ControlledBatchSender()
+            let sut = self.getSut(flushAt: 2, sender: sender)
 
             let event = PostHogEvent(event: "event", distinctId: "distinctId")
             let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
@@ -128,16 +138,17 @@ class PostHogQueueTest: QuickSpec {
             sut.add(event)
             expect(sut.depth) == 1
 
-            // flush() takes the batch asynchronously, so let it drain before adding more —
-            // otherwise a later add races into the in-flight peek() and joins the batch.
+            expect(sender.requestCount) == 0
             sut.add(event2)
-
-            let events = getBatchedEvents(server)
-            expect(events.count) == 2
-            expect(sut.depth).toEventually(equal(0))
+            expect(sender.requestCount).toEventually(equal(1))
+            expect(sender.batches.first?.map(\.event)) == ["event", "event2"]
+            expect(sut.depth) == 2
+            sender.completeRequest(at: 0, with: PostHogUploadInfo(statusCode: 200, error: nil))
+            expect(sut.depth) == 0
 
             sut.add(event3)
             expect(sut.depth) == 1
+            expect(sender.requestCount) == 1
 
             sut.clear()
         }

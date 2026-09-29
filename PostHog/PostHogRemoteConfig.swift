@@ -324,10 +324,12 @@ class PostHogRemoteConfig {
             self.getCachedFeatureFlags()
         }
 
-        if let sessionReplay = sessionReplay, !Self.isMobileRecordingsQuotaLimited(cachedRemoteConfig) {
+        if let sessionReplay = sessionReplay {
             if let endpoint = sessionReplay["endpoint"] as? String {
                 config.snapshotEndpoint = endpoint
             }
+            // Snapshots queued before the limit still flush to the cached endpoint.
+            guard !Self.isMobileRecordingsQuotaLimited(cachedRemoteConfig) else { return }
 
             let exposure = sessionReplayLock.withLock { () -> (String?, Any?) in
                 let decision = isRecordingActive(featureFlags ?? [:], sessionReplay)

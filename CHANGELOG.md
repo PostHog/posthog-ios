@@ -1,5 +1,11 @@
 ## Next
 
+## 3.85.3
+
+### Patch Changes
+
+- b3b6ee4: Fix apps with Apple's Enhanced Security capability being killed at launch when error tracking autocapture is enabled.
+
 ## 3.85.2
 
 ### Patch Changes

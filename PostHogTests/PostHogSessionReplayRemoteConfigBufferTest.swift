@@ -641,7 +641,7 @@
                 lock.withLock { capturedProperties = event.properties }
                 return event
             }
-            // A `$`-prefixed SDK event: custom events no longer carry the replay debug bundle.
+            // A custom event would carry only the required keys.
             sut.screen("test screen")
 
             let eventProperties = try #require(lock.withLock { capturedProperties })

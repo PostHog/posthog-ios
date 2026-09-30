@@ -313,7 +313,7 @@ enum PostHogSessionManagerTest {
             #expect(start2 == Int64(mockNow.date.timeIntervalSince1970 * 1000))
         }
 
-        @Test("a custom event carries the queue size but no replay debug bundle")
+        @Test("a custom event carries the required keys but none of the optional replay debug bundle")
         func customEventCarriesNoReplayDebugBundle() async throws {
             let sut = getSut()
 
@@ -331,13 +331,15 @@ enum PostHogSessionManagerTest {
             try #require(events.count == 1)
 
             let properties = events[0].properties
-            #expect(properties["$recording_status"] == nil)
-            #expect(properties["$sdk_debug_session_start"] == nil)
-            #expect(properties.keys.filter { $0.hasPrefix("$sdk_debug_replay_") }.isEmpty)
+            #expect(properties["$recording_status"] != nil)
             #expect(properties["$sdk_debug_pending_queue_size"] != nil)
+            #expect(properties["$sdk_debug_session_start"] == nil)
+            #expect(properties["$sdk_debug_replay_capture_mode"] == nil)
+            #expect(properties["$sdk_debug_replay_flush_hold_reason"] == nil)
+            #expect(properties["$sdk_debug_replay_pending_trigger_conditions"] == nil)
         }
 
-        @Test("the replay debug bundle is attached at most once every 30 seconds")
+        @Test("the optional replay debug bundle is attached at most once every 30 seconds; required keys stay on every event")
         func replayDebugBundleIsThrottled() async throws {
             let sut = getSut(flushAt: 3)
             let mockNow = MockDate()
@@ -362,17 +364,17 @@ enum PostHogSessionManagerTest {
             let events = try await getServerEvents(server)
             try #require(events.count == 3)
 
-            #expect(events[0].properties["$recording_status"] != nil)
+            for event in events {
+                #expect(event.properties["$recording_status"] != nil)
+            }
             #expect(events[0].properties["$sdk_debug_session_start"] != nil)
-            #expect(events[1].properties["$recording_status"] == nil)
             #expect(events[1].properties["$sdk_debug_session_start"] == nil)
-            #expect(events[2].properties["$recording_status"] != nil)
             #expect(events[2].properties["$sdk_debug_session_start"] != nil)
         }
 
-        @Test("a backdated capture neither attaches the replay debug bundle nor moves the window")
-        func replayDebugBundleIgnoresBackdatedCaptures() async throws {
-            let sut = getSut(flushAt: 3)
+        @Test("a far-future eligible capture doesn't suppress the optional bundle once wall clock catches up")
+        func replayDebugBundleFollowsWallClockNotEventTimestamp() async throws {
+            let sut = getSut(flushAt: 2)
             let mockNow = MockDate()
             now = { mockNow.date }
 
@@ -384,22 +386,16 @@ enum PostHogSessionManagerTest {
             }
 
             sut.getSessionManager()?.touchSession()
-            let windowStart = mockNow.date
-            sut.capture("$first", timestamp: windowStart)
-
-            // Backdated before the window opened: the window is measured against the event's own
-            // time, so this neither attaches nor rewinds it.
-            sut.capture("$backdated", timestamp: windowStart.addingTimeInterval(-10))
+            sut.capture("$future", timestamp: mockNow.date.addingTimeInterval(60 * 60))
 
             mockNow.date.addTimeInterval(30)
             sut.capture("$after", timestamp: mockNow.date)
 
             let events = try await getServerEvents(server)
-            try #require(events.count == 3)
+            try #require(events.count == 2)
 
-            #expect(events[0].properties["$recording_status"] != nil)
-            #expect(events[1].properties["$recording_status"] == nil)
-            #expect(events[2].properties["$recording_status"] != nil)
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+            #expect(events[1].properties["$sdk_debug_session_start"] != nil)
         }
 
         @Test("the crash-context snapshot always carries the bundle and never arms the window")
@@ -440,6 +436,94 @@ enum PostHogSessionManagerTest {
             #expect(events[0].properties["$recording_status"] != nil)
 
             withExtendedLifetime(token) {}
+        }
+
+        @Test("an event dropped by beforeSend does not consume the throttle window")
+        func beforeSendDroppedEventDoesNotArmWindow() async throws {
+            let sut = getSut()
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { $0.event == "$dropped" ? nil : $0 }
+            // Dropped while the window is open, which is when it could have armed it.
+            sut.capture("$dropped")
+
+            mockNow.date.addTimeInterval(1)
+            sut.capture("$after")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 1)
+
+            #expect(events[0].event == "$after")
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+        }
+
+        @Test("a deduplicated identify() $set does not arm the throttle window")
+        func deduplicatedSetDoesNotArmWindow() async throws {
+            let sut = getSut(flushAt: 3)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+
+            sut.identify("user_dedup")
+
+            mockNow.date.addTimeInterval(31)
+            sut.identify("user_dedup", userProperties: ["name": "John"])
+
+            mockNow.date.addTimeInterval(31)
+            // Same properties again: deduplicated, never queued.
+            sut.identify("user_dedup", userProperties: ["name": "John"])
+
+            sut.capture("$after")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 3)
+
+            #expect(events[0].event == "$identify")
+            #expect(events[1].event == "$set")
+            #expect(events[2].event == "$after")
+            #expect(events[2].properties["$sdk_debug_session_start"] != nil)
+        }
+
+        @Test("a custom event captured while the window is open does not arm it")
+        func customEventDoesNotArmWindow() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.capture("custom event")
+
+            mockNow.date.addTimeInterval(1)
+            sut.capture("$eligible")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            #expect(events[1].properties["$sdk_debug_session_start"] != nil)
         }
 
         @Test("Rotates $session_id after max session length of 24 hours")

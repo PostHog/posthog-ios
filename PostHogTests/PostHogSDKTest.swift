@@ -380,7 +380,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         #if os(iOS)
-            it("captures $recording_status and $sdk_debug_* debug properties on the first SDK event only") {
+            it("captures $recording_status on every event and the full replay debug bundle on the first eligible SDK event only") {
                 server.reset(batchCount: 1)
                 let sut = self.getSut(flushAt: 3)
 
@@ -391,16 +391,18 @@ class PostHogSDKTest: QuickSpec {
                 let events = getBatchedEvents(server)
                 expect(events.count) == 3
 
-                expect(events[0].properties["$recording_status"]).to(beNil())
+                expect(events[0].properties["$recording_status"] as? String) == "disabled"
                 expect(events[0].properties["$sdk_debug_session_start"]).to(beNil())
+                expect(events[0].properties["$sdk_debug_replay_capture_mode"]).to(beNil())
 
                 expect(events[1].properties["$recording_status"] as? String) == "disabled"
                 expect(events[1].properties["$sdk_debug_replay_capture_mode"] as? String) == "wireframe"
                 expect(events[1].properties["$sdk_debug_session_start"]).toNot(beNil())
 
                 // Inside the 30s window opened by $screen.
-                expect(events[2].properties["$recording_status"]).to(beNil())
+                expect(events[2].properties["$recording_status"] as? String) == "disabled"
                 expect(events[2].properties["$sdk_debug_session_start"]).to(beNil())
+                expect(events[2].properties["$sdk_debug_replay_capture_mode"]).to(beNil())
 
                 for event in events {
                     expect(event.properties["$sdk_debug_pending_queue_size"]).toNot(beNil())
@@ -460,7 +462,7 @@ class PostHogSDKTest: QuickSpec {
                 let sut = self.getSut()
                 sut.register(["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
 
-                sut.screen("theScreen")
+                sut.capture("test event")
 
                 let events = getBatchedEvents(server)
                 let props = events.first!.properties
@@ -476,7 +478,7 @@ class PostHogSDKTest: QuickSpec {
                 server.reset(batchCount: 1)
                 let sut = self.getSut()
 
-                sut.screen("theScreen")
+                sut.capture("test event")
 
                 let events = getBatchedEvents(server)
                 expect(events.count) == 1
@@ -648,8 +650,8 @@ class PostHogSDKTest: QuickSpec {
             expect(event.properties["$feature_flag_reason"] as? String) == "Matched condition set 3"
             expect(event.properties["$feature_flag_has_experiment"] as? Bool) == true
 
-            // $feature_flag_called is excluded from the replay debug bundle even in its full variant.
-            expect(event.properties["$recording_status"]).to(beNil())
+            // $feature_flag_called gets the required keys but never the optional ones.
+            expect(event.properties["$recording_status"] as? String) == "disabled"
             expect(event.properties["$sdk_debug_session_start"]).to(beNil())
             expect(event.properties["$sdk_debug_pending_queue_size"]).toNot(beNil())
 
@@ -805,8 +807,7 @@ class PostHogSDKTest: QuickSpec {
             expect(event.properties["$feature/bool-value"] as? Bool) == true
             expect(event.properties["$active_feature_flags"]).toNot(beNil())
             expect(event.properties["$is_identified"]).toNot(beNil())
-            // $feature_flag_called carries no replay debug bundle in either envelope.
-            expect(event.properties["$recording_status"]).to(beNil())
+            expect(event.properties["$recording_status"] as? String) == "disabled"
 
             sut.reset()
             sut.close()

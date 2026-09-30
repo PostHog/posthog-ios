@@ -593,26 +593,47 @@ let maxRetryDelay = 30.0
         return true
     }
 
-    /// The replay capture diagnostics read the latest event carrying the bundle, so one every 30
-    /// seconds is enough.
     private static let replayDebugPropertiesInterval: TimeInterval = 30
+
+    /// The app reads these from individual events (recording buttons, capture diagnostics), so
+    /// they go on every event. The rest of the replay bundle is gated and throttled.
+    private static let requiredReplayDebugPropertyKeys: Set<String> = [
+        "$recording_status",
+        "$sdk_debug_replay_event_trigger_status",
+        "$sdk_debug_replay_linked_flag_trigger_status",
+        "$sdk_debug_replay_internal_buffer_length",
+    ]
 
     private var lastReplayDebugPropertiesAt: Date?
 
-    /// Compared against the event's resolved time so a backdated capture can't move the window.
-    /// Read-only builds always attach and never arm it: they are the crash-context snapshot,
-    /// refreshed on every status transition.
-    private func shouldAttachReplayDebugProperties(event: String?, at eventTime: Date, readOnly: Bool) -> Bool {
-        if readOnly { return true }
-        guard let event, event.hasPrefix("$"), event != PostHogKnownUnsafeEditableEvent.featureFlagCalled.rawValue else { return false }
-        return replayDebugPropertiesLock.withLock {
+    private static func isReplayDebugEvent(_ event: String?) -> Bool {
+        guard let event else { return false }
+        return event.hasPrefix("$")
+            && event != PostHogKnownUnsafeEditableEvent.featureFlagCalled.rawValue
+            && event != PostHogKnownUnsafeEditableEvent.snapshot.rawValue
+    }
+
+    /// Wall clock rather than the event's timestamp, so a future-dated capture can't hold the
+    /// window shut.
+    private func isReplayDebugPropertiesWindowOpen() -> Bool {
+        replayDebugPropertiesLock.withLock {
+            guard let last = lastReplayDebugPropertiesAt else { return true }
+            return now().timeIntervalSince(last) >= Self.replayDebugPropertiesInterval
+        }
+    }
+
+    /// Armed once an event is queued, so one dropped by `beforeSend` or deduplicated doesn't use
+    /// up the window.
+    private func armReplayDebugPropertiesWindow(event: String) {
+        guard Self.isReplayDebugEvent(event) else { return }
+        replayDebugPropertiesLock.withLock {
+            let currentTime = now()
             if let last = lastReplayDebugPropertiesAt,
-               eventTime.timeIntervalSince(last) < Self.replayDebugPropertiesInterval
+               currentTime.timeIntervalSince(last) < Self.replayDebugPropertiesInterval
             {
-                return false
+                return
             }
-            lastReplayDebugPropertiesAt = eventTime
-            return true
+            lastReplayDebugPropertiesAt = currentTime
         }
     }
 
@@ -672,19 +693,26 @@ let maxRetryDelay = 30.0
 
             // SDK-computed debug keys overwrite a same-named registered super property (js: `extend`
             // after super properties), so a stale `register()` can't shadow the live status.
-            if shouldAttachReplayDebugProperties(event: event, at: eventTime, readOnly: readOnlySession) {
-                #if os(iOS)
-                    var replayDebugProperties = replayIntegration?.debugProperties() ?? [
-                        "$recording_status": "disabled",
-                        "$sdk_debug_replay_capture_mode": PostHogReplayIntegration.captureMode(config: config),
-                    ]
-                #else
-                    var replayDebugProperties: [String: Any] = ["$recording_status": "disabled"]
-                #endif
-                if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
-                    replayDebugProperties["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
-                }
+            #if os(iOS)
+                var replayDebugProperties = replayIntegration?.debugProperties() ?? [
+                    "$recording_status": "disabled",
+                    "$sdk_debug_replay_capture_mode": PostHogReplayIntegration.captureMode(config: config),
+                ]
+            #else
+                var replayDebugProperties: [String: Any] = ["$recording_status": "disabled"]
+            #endif
+            if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
+                replayDebugProperties["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
+            }
+            // Read-only builds are the crash-context snapshot, refreshed on every status transition.
+            if readOnlySession || (Self.isReplayDebugEvent(event) && isReplayDebugPropertiesWindowOpen()) {
                 props.merge(replayDebugProperties) { _, new in new }
+            } else {
+                for key in Self.requiredReplayDebugPropertyKeys {
+                    if let value = replayDebugProperties[key] {
+                        props[key] = value
+                    }
+                }
             }
             if let depth = queue?.depth {
                 props["$sdk_debug_pending_queue_size"] = depth
@@ -1890,6 +1918,7 @@ let maxRetryDelay = 30.0
         } else {
             queue.add(event)
         }
+        armReplayDebugPropertiesWindow(event: event.event)
         onEventCaptured.invoke(event)
     }
 

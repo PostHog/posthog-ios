@@ -272,7 +272,7 @@
 
         /// Flips `isEnabled` and resets the buffering state in one lock acquisition, re-checking the
         /// automatic-start permission under that same lock: an explicit `stop()` that lands between the
-        /// early gate in `startRecording()` and this claim clears the marker first, so it always wins.
+        /// early gate in `startRecording()` and this claim clears the marker first, so it wins for `isEnabled`.
         private func claimRecording() -> Bool {
             let awaiting = shouldAwaitFirstRemoteConfig()
             let claimed = bufferingLock.withLock { () -> Bool in

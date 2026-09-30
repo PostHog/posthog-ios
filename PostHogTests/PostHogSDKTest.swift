@@ -429,10 +429,15 @@ class PostHogSDKTest: QuickSpec {
                 let result = XCTWaiter.wait(for: [server.snapshotExpectation!], timeout: testRequestTimeout)
                 expect(result) == .completed
 
-                let request = server.snapshotRequests.first
-                expect(request).toNot(beNil())
-                let body = request.flatMap { server.parseRequest($0, gzip: true) }
-                let props = body?["properties"] as? [String: Any] ?? [:]
+                let request = try XCTUnwrap(server.snapshotRequests.first)
+                let data = try XCTUnwrap(request.body()).gunzipped()
+                let events = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+                expect(events.count) == 1
+                let event = try XCTUnwrap(events.first)
+                expect(event["event"] as? String) == "$snapshot"
+                let props = try XCTUnwrap(event["properties"] as? [String: Any])
+                expect(props["$session_id"] as? String) == "00000000-0000-7000-8000-000000000099"
+                expect(props["$snapshot_source"] as? String) == "mobile"
 
                 expect(props["$recording_status"]).to(beNil())
                 expect(props.keys.contains { $0.hasPrefix("$sdk_debug_") }).to(beFalse())
@@ -562,8 +567,6 @@ class PostHogSDKTest: QuickSpec {
 
         it("sets opt out via config") {
             let sut = self.getSut(optOut: true)
-
-            sut.optOut()
 
             expect(sut.isOptOut()) == true
 
@@ -1049,9 +1052,12 @@ class PostHogSDKTest: QuickSpec {
             let event = events.first!
 
             expect(event.properties["test1"]) == nil
-            expect(event.properties["test2"]) == nil
-            expect(event.properties["test3"]) == nil
-            expect(event.properties["test4"]) == nil
+            let set = try XCTUnwrap(event.properties["$set"] as? [String: Any])
+            let setOnce = try XCTUnwrap(event.properties["$set_once"] as? [String: Any])
+            expect(set["userProp"] as? String) == "value"
+            expect(setOnce["userPropOnce"] as? String) == "value"
+            expect(set["test2"]).to(beNil())
+            expect(setOnce["test3"]).to(beNil())
             expect(event.properties["test5"]) == nil
             expect(event.properties["arrayIsOk"]) != nil
             expect(event.properties["dictIsOk"]) != nil
@@ -1286,9 +1292,12 @@ class PostHogSDKTest: QuickSpec {
 
             _ = sut.getFeatureFlag("some_key")
 
+            let reloaded = XCTestExpectation(description: "second flag lookup completed")
             sut.reloadFeatureFlags {
                 _ = sut.getFeatureFlag("some_key")
+                reloaded.fulfill()
             }
+            expect(XCTWaiter.wait(for: [reloaded], timeout: testRequestTimeout)) == .completed
             sut.capture("force_batch_flush")
 
             let event = getBatchedEvents(server)
@@ -1340,7 +1349,7 @@ class PostHogSDKTest: QuickSpec {
                     beforeEach {
                         sut = self.getSut(
                             sendFeatureFlagEvent: true,
-                            flushAt: 1,
+                            flushAt: 100,
                             beforeSend: [{
                                 $0.event == eventTrigger.targetKey ? nil : $0
                             }]
@@ -1351,6 +1360,7 @@ class PostHogSDKTest: QuickSpec {
                         it("skips the event") {
                             sut.capture(testOtherEventKey)
                             eventTrigger.triggerClosure(sut)
+                            sut.flush()
 
                             let events = getBatchedEvents(server)
                             let eventNames = events.map(\.event)
@@ -1362,6 +1372,7 @@ class PostHogSDKTest: QuickSpec {
                         it("preserves other events") {
                             sut.capture(testOtherEventKey)
                             eventTrigger.triggerClosure(sut)
+                            sut.flush()
 
                             let event = getBatchedEvents(server)
 
@@ -1625,6 +1636,7 @@ class PostHogSDKTest: QuickSpec {
                     let config = PostHogConfig(projectToken: testProjectToken)
                     config.captureElementInteractions = false
                     let sut = PostHogSDK.with(config)
+                    defer { sut.close() }
 
                     expect(sut.isAutocaptureActive()).to(beFalse())
                 }

@@ -1,5 +1,40 @@
 ## Next
 
+## 3.86.1
+
+### Patch Changes
+
+- f0d1260: Fix `sessionReplay = false` so remote config loads, event triggers and session changes no longer restart a recording the app stopped with `stopSessionRecording()`; a manual `startSessionRecording()` keeps recording into new sessions until the app stops it, matching Android
+- 509140d: Stop session replay when the project is over its mobile session replay quota. The SDK now treats `quotaLimited: ["mobile_recordings"]` in remote config the same as `sessionRecording: false`.
+
+## 3.86.0
+
+### Minor Changes
+
+- b3b42e2: Add `$hinge_status` (`closed`, `partially_open` or `fully_open`) to events on foldable iPhones running iOS 27.1 or later, in apps built with Xcode 27.1 or later.
+
+### Patch Changes
+
+- e897380: Fix survey sheets being sized against the device's main screen instead of the app's window, which could show a sheet at half height or too tall to fit on foldables and in resizable iPad windows.
+
+## 3.85.3
+
+### Patch Changes
+
+- b3b6ee4: Fix apps with Apple's Enhanced Security capability being killed at launch when error tracking autocapture is enabled.
+
+## 3.85.2
+
+### Patch Changes
+
+- 25b5a4b: Fix session replay keeping the original screen size after the app's window is resized, such as when it rotates or a foldable iPhone is folded or unfolded.
+
+## 3.85.1
+
+### Patch Changes
+
+- 08290dc: Fix a deadlock when session replay is linked to a feature flag. The `$feature_flag_called` capture now runs after `sessionReplayLock` is released, so setup and replay config can no longer wait on each other.
+
 ## 3.85.0
 
 ### Minor Changes

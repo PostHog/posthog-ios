@@ -95,7 +95,7 @@ class PostHogConfigTest: QuickSpec {
 
         #if os(iOS)
             context("when initialized with default values for captureElementInteractions") {
-                it("should enable autocapture by default") {
+                it("should disable autocapture by default") {
                     let sut = PostHogConfig(projectToken: testProjectToken)
                     expect(sut.captureElementInteractions).to(beFalse())
                 }

@@ -136,9 +136,12 @@
                         }
                     }
             }
+            // Keep a single column in regular-width containers, where the default style is a
+            // split view that can hide the survey in a collapsed sidebar.
+            .navigationViewStyle(.stack)
             .interactiveDismissDisabled()
             .background(
-                SurveyPresentationDetentsRepresentable(detents: sheetDetents)
+                SurveyPresentationDetentsRepresentable(sheetHeight: adjustedSheetHeight)
             )
         }
 
@@ -159,13 +162,6 @@
                 }
                 .coordinateSpace(name: "survey-scroll-view")
             }
-        }
-
-        private var sheetDetents: [SurveyPresentationDetentsRepresentable.Detent] {
-            if adjustedSheetHeight >= UIScreen.main.bounds.height {
-                return [.medium, .large]
-            }
-            return [.height(adjustedSheetHeight)]
         }
 
         var adjustedSheetHeight: CGFloat {

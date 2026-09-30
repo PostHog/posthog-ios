@@ -24,6 +24,13 @@ class PostHogContext {
         var screenSizeOverride: (() -> CGSize?)?
     #endif
 
+    #if TESTING
+        /// Tests swap in their own so they don't share the process-wide observer.
+        var hingeStatusObserver = PostHogHingeStatusObserver.shared
+    #else
+        let hingeStatusObserver = PostHogHingeStatusObserver.shared
+    #endif
+
     /// All guarded by `screenSizeLock`.
     private var isScreenSizeRefreshScheduled = false
     private var lastScreenSizeRefresh: Date = .distantPast
@@ -127,6 +134,7 @@ class PostHogContext {
         init(_ reachability: Reachability?) {
             self.reachability = reachability
             registerNotifications()
+            hingeStatusObserver.start()
         }
     #else
         init() {
@@ -281,6 +289,10 @@ class PostHogContext {
         if let currentScreenSize {
             properties["$screen_width"] = Float(currentScreenSize.width)
             properties["$screen_height"] = Float(currentScreenSize.height)
+        }
+
+        if let hingeStatus = hingeStatusObserver.status {
+            properties["$hinge_status"] = hingeStatus
         }
 
         if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {

@@ -349,6 +349,7 @@ enum PostHogRemoteConfigTest {
             sut.reloadFeatureFlagsForSurvey { _ in bothDone.signal() }
             await bothDone.wait()
 
+            #expect(bothDone.isSignaled)
             #expect(server.flagsRequests.count == 1)
         }
 
@@ -484,17 +485,21 @@ enum PostHogRemoteConfigTest {
     #if os(iOS)
         @Suite("Test Session Replay Flags")
         class TestSessionReplayFlags: BaseTestClass {
-            @Test("returns isSessionReplayFlagActive true if there is a value")
-            func returnsIsSessionReplayFlagActiveTrueIfThereIsAValue() {
+            @Test("returns isSessionReplayFlagActive from the cached value unless mobile recordings are quota limited", arguments: [
+                (nil, true),
+                (["mobile_recordings"], false),
+            ] as [([String]?, Bool)])
+            func returnsIsSessionReplayFlagActiveFromCachedValue(quotaLimited: [String]?, expectedActive: Bool) {
                 let storage = PostHogStorage(config)
                 defer { storage.reset() }
 
-                let recording: [String: Any] = ["test": 1]
-                storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": recording])
+                var remoteConfig: [String: Any] = ["sessionRecording": ["test": 1]]
+                remoteConfig["quotaLimited"] = quotaLimited
+                storage.setDictionary(forKey: .remoteConfig, contents: remoteConfig)
 
                 let sut = getSut(storage: storage)
 
-                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(sut.isSessionReplayFlagActive() == expectedActive)
             }
 
             @Test("returns isSessionReplayFlagActive false if there is no value")
@@ -549,6 +554,30 @@ enum PostHogRemoteConfigTest {
                 await reloadConfigThenFlags(sut)
 
                 #expect(config.snapshotEndpoint == "/s/")
+                #expect(sut.isSessionReplayFlagActive() == true)
+            }
+
+            @Test("mobile recordings quota limit in /config keeps replay inactive until lifted", arguments: [
+                (nil, true),
+                (["feature_flags"], true),
+                (["mobile_recordings"], false),
+            ] as [([String]?, Bool)])
+            func mobileRecordingsQuotaLimitKeepsReplayInactive(quotaLimited: [String]?, expectedActive: Bool) async {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+                let sut = getSut(storage: storage)
+
+                server.returnReplay = true
+                server.remoteConfigQuotaLimited = quotaLimited
+
+                await reloadConfigThenFlags(sut)
+
+                #expect(sut.isSessionReplayFlagActive() == expectedActive)
+
+                server.remoteConfigQuotaLimited = nil
+
+                await reloadConfigThenFlags(sut)
+
                 #expect(sut.isSessionReplayFlagActive() == true)
             }
 
@@ -675,6 +704,55 @@ enum PostHogRemoteConfigTest {
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(calledFlagKey != nil)
                 #expect(calledFlagValue != nil)
+            }
+
+            /// `$feature_flag_called` reads replay state under `sessionReplayLock`. That lock is not
+            /// recursive, so the exposure callback has to run after it is released. Asking for the
+            /// flag from another thread only returns while this callback is still on the stack if
+            /// the lock is not held here. A timeout fails the test; it does not wedge the runner.
+            @Test("linked flag callback does not run while sessionReplayLock is held")
+            func linkedFlagCallbackDoesNotRunUnderSessionReplayLock() async {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                final class Probe {
+                    var sut: PostHogRemoteConfig?
+                    private let lock = NSLock()
+                    private var acquired = 0
+                    private var timedOut = 0
+                    func note(acquiredInTime: Bool) {
+                        lock.withLock {
+                            if acquiredInTime {
+                                acquired += 1
+                            } else {
+                                timedOut += 1
+                            }
+                        }
+                    }
+
+                    var acquiredCount: Int { lock.withLock { acquired } }
+                    var timedOutCount: Int { lock.withLock { timedOut } }
+                }
+                let probe = Probe()
+                let sut = getSut(storage: storage) { _, _ in
+                    let entered = DispatchSemaphore(value: 0)
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        _ = probe.sut?.isSessionReplayFlagActive()
+                        _ = probe.sut?.getRecordingMinimumDuration()
+                        entered.signal()
+                    }
+                    probe.note(acquiredInTime: entered.wait(timeout: .now() + 1) == .success)
+                }
+                probe.sut = sut
+
+                server.returnReplay = true
+                server.returnReplayWithVariant = true
+
+                await reloadConfigThenFlags(sut)
+
+                #expect(probe.timedOutCount == 0)
+                #expect(probe.acquiredCount > 0)
+                #expect(sut.isSessionReplayFlagActive() == true)
             }
 
             @Test("calls featureFlagCalledCallback when multi variant linked flag is checked")
@@ -970,6 +1048,7 @@ enum PostHogRemoteConfigTest {
 
             await remoteConfigLoaded.wait()
 
+            #expect(remoteConfigLoaded.isSignaled)
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
             _ = token
@@ -1026,6 +1105,7 @@ enum PostHogRemoteConfigTest {
 
             await remoteConfigLoaded.wait()
 
+            #expect(remoteConfigLoaded.isSignaled)
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
             _ = token

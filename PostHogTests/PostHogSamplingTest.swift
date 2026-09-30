@@ -266,6 +266,7 @@ class PostHogSamplingTests {
 
             await remoteConfigLoaded.wait()
 
+            #expect(remoteConfigLoaded.isSignaled)
             #expect(sut.getRecordingSampleRate() == nil)
             _ = token
         }

@@ -117,6 +117,17 @@ class PostHogSurveyEventsTest {
         return integration
     }
 
+    func surveyJSON(questions: [[String: Any]]) throws -> PostHogSurvey {
+        let json: [String: Any] = [
+            "id": "branch-survey",
+            "name": "Branch survey",
+            "type": "popover",
+            "questions": questions,
+        ]
+        let data = try JSONSerialization.data(withJSONObject: json)
+        return try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+    }
+
     func partialResponseSurvey(enabled: Bool?, branching: [String: Any]? = nil, properties: [String: Any] = [:]) throws -> PostHogSurvey {
         var first: [String: Any] = ["id": "first", "type": "open", "question": "First?", "optional": true]
         first["branching"] = branching
@@ -458,6 +469,98 @@ class PostHogSurveyEventsTest {
         #expect(matching.isEmpty)
     }
 
+    @Test("next branching on the last question completes the survey")
+    func nextBranchingOnLastQuestionCompletesSurvey() throws {
+        let postHog = getSut()
+        postHog.config.setBeforeSend { _ in nil }
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
+        let survey = try surveyJSON(questions: [[
+            "id": "only",
+            "type": "open",
+            "question": "Only?",
+            "branching": ["type": "next_question"],
+        ]])
+        let integration = try getSurveyIntegration(postHog)
+        integration.setShownSurvey(survey)
+
+        let next = try #require(integration.getNextQuestion(index: 0, response: .openEnded("ok")))
+        #expect(next == (0, true))
+    }
+
+    @Test("next branching before the last question advances")
+    func nextBranchingBeforeLastQuestionAdvances() throws {
+        let postHog = getSut()
+        postHog.config.setBeforeSend { _ in nil }
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
+        let survey = try surveyJSON(questions: [
+            [
+                "id": "first",
+                "type": "open",
+                "question": "First?",
+                "branching": ["type": "next_question"],
+            ],
+            ["id": "second", "type": "open", "question": "Second?"],
+        ])
+        let integration = try getSurveyIntegration(postHog)
+        integration.setShownSurvey(survey)
+
+        let next = try #require(integration.getNextQuestion(index: 0, response: .openEnded("ok")))
+        #expect(next == (1, false))
+    }
+
+    @Test("unmapped response branching on the last question completes the survey")
+    func unmappedResponseBranchingOnLastQuestionCompletesSurvey() throws {
+        let postHog = getSut()
+        postHog.config.setBeforeSend { _ in nil }
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
+        let survey = try surveyJSON(questions: [[
+            "id": "only",
+            "type": "single_choice",
+            "question": "Pick",
+            "choices": ["Yes", "No"],
+            "branching": ["type": "response_based", "responseValues": ["0": "end"]],
+        ]])
+        let integration = try getSurveyIntegration(postHog)
+        integration.setShownSurvey(survey)
+
+        let next = try #require(integration.getNextQuestion(index: 0, response: .singleChoice("No")))
+        #expect(next == (0, true))
+    }
+
+    @Test("unmapped response branching before the last question advances")
+    func unmappedResponseBranchingBeforeLastQuestionAdvances() throws {
+        let postHog = getSut()
+        postHog.config.setBeforeSend { _ in nil }
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
+        let survey = try surveyJSON(questions: [
+            [
+                "id": "first",
+                "type": "single_choice",
+                "question": "Pick",
+                "choices": ["Yes", "No"],
+                "branching": ["type": "response_based", "responseValues": ["0": "end"]],
+            ],
+            ["id": "second", "type": "open", "question": "Second?"],
+        ])
+        let integration = try getSurveyIntegration(postHog)
+        integration.setShownSurvey(survey)
+
+        let next = try #require(integration.getNextQuestion(index: 0, response: .singleChoice("No")))
+        #expect(next == (1, false))
+    }
+
     @Test("custom delegates resume only when opted in", arguments: ["legacy", "disabled", "enabled"])
     func customDelegateResume(capability: String) throws {
         let postHog = getSut()
@@ -682,6 +785,7 @@ class PostHogSurveyEventsTest {
             currentIterationStartDate: Date(timeIntervalSince1970: 1609459200) // 2021-01-01
         )
 
+        server.reset(batchCount: 1)
         integration.testSendSurveyShownEvent(survey: survey)
 
         let events = try await getServerEvents(server)
@@ -711,6 +815,7 @@ class PostHogSurveyEventsTest {
             questions: defaultQuestions
         )
 
+        server.reset(batchCount: 1)
         integration.testSendSurveyShownEvent(survey: survey)
 
         let events = try await getServerEvents(server)
@@ -785,6 +890,7 @@ class PostHogSurveyEventsTest {
             integration.testGetResponseKey(questionId: "qID3"): .rating(4),
         ]
 
+        server.reset(batchCount: 1)
         integration.testSendSurveySentEvent(survey: survey, responses: responses)
 
         let events = try await getServerEvents(server)
@@ -838,6 +944,7 @@ class PostHogSurveyEventsTest {
             integration.testGetResponseKey(questionId: "qID1"): .openEnded("Excellent product!"),
         ]
 
+        server.reset(batchCount: 1)
         integration.testSendSurveySentEvent(survey: survey, responses: responses)
 
         let events = try await getServerEvents(server)
@@ -871,6 +978,7 @@ class PostHogSurveyEventsTest {
             questions: defaultQuestions
         )
 
+        server.reset(batchCount: 1)
         integration.testSendSurveyDismissedEvent(survey: survey)
 
         let events = try await getServerEvents(server)
@@ -910,6 +1018,7 @@ class PostHogSurveyEventsTest {
             "$survey_response_2": .rating(4),
         ]
 
+        server.reset(batchCount: 1)
         integration.testSendSurveyDismissedEvent(survey: survey, responses: responses)
 
         let events = try await getServerEvents(server)
@@ -948,6 +1057,7 @@ class PostHogSurveyEventsTest {
             questions: defaultQuestions
         )
 
+        server.reset(batchCount: 1)
         integration.testSendSurveyDismissedEvent(survey: survey, responses: [:])
 
         let events = try await getServerEvents(server)
@@ -981,6 +1091,7 @@ class PostHogSurveyEventsTest {
             currentIteration: 2
         )
 
+        server.reset(batchCount: 1)
         integration.testSendSurveyDismissedEvent(survey: survey)
 
         let events = try await getServerEvents(server)

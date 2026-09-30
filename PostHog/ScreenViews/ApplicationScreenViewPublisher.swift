@@ -91,20 +91,21 @@ final class ApplicationScreenViewPublisher: ScreenViewPublishing {
         // is what fans out via onScreenView. Going direct (not via
         // onScreenView) keeps the auto-capture path loop-free.
         fileprivate func viewDidAppear(in viewController: UIViewController?) {
-            // ignore views from keyboard window
-            guard let window = viewController?.viewIfLoaded?.window, !window.isKeyboardWindow else {
+            guard let window = viewController?.viewIfLoaded?.window else {
+                // A full-screen presentation takes the root out of its window, so
+                // the presented screen is not captured. It is still a navigation
+                // away, so returning to the last screen must be captured again.
+                forgetLastScreen()
                 return
             }
+            // ignore views from keyboard window
+            guard !window.isKeyboardWindow else { return }
 
             guard let top = UIViewController.ph_topViewController(base: viewController) else { return }
 
             guard let name = UIViewController.getViewControllerName(top) else {
-                // An unnamed screen is still a navigation away, so returning to
-                // the last screen must be captured again.
-                handlerLock.withLock {
-                    lastScreen = nil
-                    lastScreenName = nil
-                }
+                // An unnamed screen is a navigation away too.
+                forgetLastScreen()
                 return
             }
             // Skipped placeholders are not recorded, so the next real screen still counts.
@@ -118,6 +119,13 @@ final class ApplicationScreenViewPublisher: ScreenViewPublishing {
                 return autoCaptureHandler
             }
             handler?(name)
+        }
+
+        private func forgetLastScreen() {
+            handlerLock.withLock {
+                lastScreen = nil
+                lastScreenName = nil
+            }
         }
 
     #else

@@ -150,6 +150,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Automatically captures a `$screen` event whenever the visible screen changes
     /// (via `viewDidAppear` swizzling).
     ///
+    /// A split view that shows several columns at once counts as one screen, named
+    /// after the split view, so navigating inside one of its columns does not capture
+    /// a `$screen` event. Call `PostHogSDK.shared.screen(...)` to track those screens.
+    ///
     /// `$screen_name` stamping on subsequent events is a related effect: any
     /// successful `screen()` call — whether fired by this auto-capture path **or
     /// invoked manually** via `PostHogSDK.shared.screen(...)` — caches the screen

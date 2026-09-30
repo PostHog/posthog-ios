@@ -56,12 +56,15 @@
         /// on a foldable, SwiftUI shows one column while the window is still at its
         /// folded width; UIKit reports collapsed after its size class is already
         /// regular; and during rotation the split carries its own layout
-        /// transition coordinator (presentation style `.none`) while it still
-        /// reports collapsed and compact.
+        /// transition coordinator while it still reports collapsed and compact.
         private static func splitLayout(_ split: UISplitViewController) -> SplitLayout {
-            // A presentation coordinator carries a modal style; the split's own
-            // layout change uses `.none`.
-            if split.transitionCoordinator?.presentationStyle == UIModalPresentationStyle.none {
+            // A split also inherits the coordinator of a push or presentation
+            // around it. Those move between two view controllers; the split's
+            // own layout change has neither.
+            if let coordinator = split.transitionCoordinator,
+               coordinator.viewController(forKey: .from) == nil,
+               coordinator.viewController(forKey: .to) == nil
+            {
                 return .transitioning
             }
             guard split.isCollapsed else { return .expanded }

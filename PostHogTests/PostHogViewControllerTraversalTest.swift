@@ -39,11 +39,14 @@
         }
 
         private final class StubTransitionCoordinator: NSObject, UIViewControllerTransitionCoordinator {
-            let presentationStyle: UIModalPresentationStyle
-            init(presentationStyle: UIModalPresentationStyle) {
-                self.presentationStyle = presentationStyle
+            private let from: UIViewController?
+            private let to: UIViewController?
+            init(from: UIViewController? = nil, to: UIViewController? = nil) {
+                self.from = from
+                self.to = to
             }
 
+            var presentationStyle: UIModalPresentationStyle { .none }
             var isAnimated: Bool { true }
             var initiallyInteractive: Bool { false }
             var isInterruptible: Bool { false }
@@ -55,8 +58,8 @@
             var completionCurve: UIView.AnimationCurve { .easeInOut }
             var containerView: UIView { UIView() }
             var targetTransform: CGAffineTransform { .identity }
-            func viewController(forKey _: UITransitionContextViewControllerKey) -> UIViewController? {
-                nil
+            func viewController(forKey key: UITransitionContextViewControllerKey) -> UIViewController? {
+                key == .from ? from : key == .to ? to : nil
             }
             func view(forKey _: UITransitionContextViewKey) -> UIView? {
                 nil
@@ -360,20 +363,51 @@
             }
         }
 
-        @Test("Collapsed split views resolve to their visible column unless mid-layout", arguments: [
-            UIModalPresentationStyle?.none,
-            .some(.fullScreen),
-            // Rotation: the split's own layout transition has no modal style.
-            .some(UIModalPresentationStyle.none),
-        ])
-        func collapsedSplitView(coordinatorStyle: UIModalPresentationStyle?) {
+        @Test("Returning from a full-screen presentation captures the earlier screen again")
+        func returnsFromFullScreenPresentation() {
+            let first = OneViewController()
+            let navigation = UINavigationController(rootViewController: first)
+
+            withWindow(root: navigation) { window in
+                var names: [String] = []
+                ApplicationScreenViewPublisher.shared.startAutoCapture { names.append($0) }
+                defer { ApplicationScreenViewPublisher.shared.stopAutoCapture() }
+                navigation.view.layoutIfNeeded()
+                first.viewDidAppear(false)
+                #expect(names == ["One"])
+
+                // A full-screen presentation puts the presented view in the window
+                // and takes the root's view out, which UIKit only does after the
+                // transition; do the same by hand.
+                let presented = TwoViewController()
+                window.addSubview(presented.view)
+                navigation.view.removeFromSuperview()
+                presented.viewDidAppear(false)
+                #expect(names == ["One"])
+
+                presented.view.removeFromSuperview()
+                window.addSubview(navigation.view)
+                first.viewDidAppear(false)
+                #expect(names == ["One", "One"])
+            }
+        }
+
+        @Test("Collapsed split views resolve to their visible column unless mid-layout", arguments: ["none", "navigation", "appearing", "layout"])
+        func collapsedSplitView(transition: String) {
             let (root, split, primary, _) = makeSplit(sizeClass: .compact)
-            split.stubCoordinator = coordinatorStyle.map { StubTransitionCoordinator(presentationStyle: $0) }
+            switch transition {
+            // A push or presentation moves between two view controllers.
+            case "navigation": split.stubCoordinator = StubTransitionCoordinator(from: InitialViewController(), to: root)
+            case "appearing": split.stubCoordinator = StubTransitionCoordinator(to: root)
+            // Rotation: the split's own layout transition has neither.
+            case "layout": split.stubCoordinator = StubTransitionCoordinator()
+            default: break
+            }
 
             withWindow(root: root, width: 1024) { _ in
                 root.view.layoutIfNeeded()
                 #expect(split.isCollapsed)
-                let expected: UIViewController = coordinatorStyle == UIModalPresentationStyle.none ? split : primary
+                let expected: UIViewController = transition == "layout" ? split : primary
                 #expect(UIViewController.ph_topViewController(base: root) === expected)
             }
         }
@@ -456,6 +490,33 @@
                     screen.viewDidAppear(false)
                 }
                 #expect(names == ["Two", "One"])
+            }
+        }
+
+        @Test("A split pushed with animation resolves to its visible screen", arguments: [
+            UIUserInterfaceSizeClass.compact,
+            .regular,
+        ])
+        func animatedOuterNavigation(sizeClass: UIUserInterfaceSizeClass) {
+            let (root, split, primary, secondary) = makeSplit(sizeClass: sizeClass)
+            if sizeClass == .regular {
+                split.displayModeOverride = .secondaryOnly
+            }
+            let navigation = UINavigationController(rootViewController: InitialViewController())
+
+            withWindow(root: navigation, width: 1024) { _ in
+                navigation.view.layoutIfNeeded()
+                var names: [String] = []
+                ApplicationScreenViewPublisher.shared.startAutoCapture { names.append($0) }
+                defer { ApplicationScreenViewPublisher.shared.stopAutoCapture() }
+
+                navigation.pushViewController(root, animated: true)
+                navigation.view.layoutIfNeeded()
+                // The split inherits the push's coordinator, which is not its own layout change.
+                #expect(split.transitionCoordinator != nil)
+                let visible = sizeClass == .compact ? primary : secondary
+                visible.viewDidAppear(true)
+                #expect(names == [sizeClass == .compact ? "One" : "Two"])
             }
         }
 

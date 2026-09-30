@@ -10,7 +10,6 @@
 
     /// Optional intro screen shown before the first question — the leading mirror of the
     /// trailing `ConfirmationMessage`. Advancing records no response and sends no survey event.
-    @available(iOS 15.0, *)
     struct IntroMessage: View {
         @Environment(\.surveyAppearance) private var appearance
 
@@ -39,7 +38,6 @@
         }
     }
 
-    @available(iOS 15.0, *)
     #Preview {
         IntroMessage {}
     }

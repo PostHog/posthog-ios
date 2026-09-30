@@ -25,7 +25,6 @@
 
         @Test(arguments: [false, true], [false, true])
         func independentCaptureOptions(legacy: Bool, swiftUI: Bool) throws {
-            guard #available(iOS 13.4, *) else { return }
             PostHogAutocaptureEventTracker.eventProcessor = nil
             let server = MockPostHogServer()
             server.start()
@@ -153,7 +152,6 @@
         }
 
         @Test func genuineSwiftUIHostingViewCapturesOnlyThroughTouchObserver() {
-            guard #available(iOS 13.4, *) else { return }
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
             let controller = UIHostingController(rootView: Color.clear)
             window.rootViewController = controller
@@ -412,7 +410,6 @@
         }
 
         @Test func edgeReleaseOutsideMarkerDoesNotCapture() {
-            guard #available(iOS 13.4, *) else { return }
             let (window, host) = fixture()
             let marker = PostHogLabelTaggerView(label: "edge-target")
             marker.frame = CGRect(x: 0, y: 0, width: 20, height: 40)
@@ -451,7 +448,6 @@
         }
 
         @Test func pointerTapUsesTheSameCaptureRoute() {
-            guard #available(iOS 13.4, *) else { return }
             let (window, host) = fixture()
             host.accessibilityIdentifier = "pointer-target"
             let publisher = TapTestPublisher()
@@ -530,7 +526,6 @@
         }
     }
 
-    @available(iOS 13.4, *)
     private final class PointerTestTouch: UITouch {
         let target: UIView
         let targetWindow: UIWindow

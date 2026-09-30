@@ -8,7 +8,6 @@
 #if os(iOS)
     import SwiftUI
 
-    @available(iOS 15.0, *)
     struct SurveysRootView: View {
         @EnvironmentObject private var displayManager: SurveyDisplayController
 

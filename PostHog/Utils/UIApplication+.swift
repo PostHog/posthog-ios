@@ -19,7 +19,7 @@
 
             for scene in windowScenes {
                 // attempt to retrieve directly from UIWindowScene
-                if #available(iOS 15.0, tvOS 15.0, *) {
+                if #available(tvOS 15.0, *) {
                     if let keyWindow = scene.keyWindow {
                         return keyWindow
                     }

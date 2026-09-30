@@ -1,5 +1,12 @@
 ## Next
 
+## 3.86.1
+
+### Patch Changes
+
+- f0d1260: Fix `sessionReplay = false` so remote config loads, event triggers and session changes no longer restart a recording the app stopped with `stopSessionRecording()`; a manual `startSessionRecording()` keeps recording into new sessions until the app stops it, matching Android
+- 509140d: Stop session replay when the project is over its mobile session replay quota. The SDK now treats `quotaLimited: ["mobile_recordings"]` in remote config the same as `sessionRecording: false`.
+
 ## 3.86.0
 
 ### Minor Changes

@@ -23,6 +23,8 @@ enum DI {
         #if os(iOS)
             // publishes global view layout events within a throttle interval (UIView.layoutSubviews)
             lazy var viewLayoutPublisher: ViewLayoutPublishing = ApplicationViewLayoutPublisher.shared
+            // publishes main run-loop capture opportunities (CFRunLoopObserver)
+            lazy var runLoopPublisher: RunLoopOpportunityPublishing = ApplicationRunLoopPublisher.shared
         #endif
 
         #if os(iOS) || os(macOS)

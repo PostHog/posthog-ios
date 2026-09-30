@@ -485,17 +485,21 @@ enum PostHogRemoteConfigTest {
     #if os(iOS)
         @Suite("Test Session Replay Flags")
         class TestSessionReplayFlags: BaseTestClass {
-            @Test("returns isSessionReplayFlagActive true if there is a value")
-            func returnsIsSessionReplayFlagActiveTrueIfThereIsAValue() {
+            @Test("returns isSessionReplayFlagActive from the cached value unless mobile recordings are quota limited", arguments: [
+                (nil, true),
+                (["mobile_recordings"], false),
+            ] as [([String]?, Bool)])
+            func returnsIsSessionReplayFlagActiveFromCachedValue(quotaLimited: [String]?, expectedActive: Bool) {
                 let storage = PostHogStorage(config)
                 defer { storage.reset() }
 
-                let recording: [String: Any] = ["test": 1]
-                storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": recording])
+                var remoteConfig: [String: Any] = ["sessionRecording": ["test": 1]]
+                remoteConfig["quotaLimited"] = quotaLimited
+                storage.setDictionary(forKey: .remoteConfig, contents: remoteConfig)
 
                 let sut = getSut(storage: storage)
 
-                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(sut.isSessionReplayFlagActive() == expectedActive)
             }
 
             @Test("returns isSessionReplayFlagActive false if there is no value")
@@ -550,6 +554,30 @@ enum PostHogRemoteConfigTest {
                 await reloadConfigThenFlags(sut)
 
                 #expect(config.snapshotEndpoint == "/s/")
+                #expect(sut.isSessionReplayFlagActive() == true)
+            }
+
+            @Test("mobile recordings quota limit in /config keeps replay inactive until lifted", arguments: [
+                (nil, true),
+                (["feature_flags"], true),
+                (["mobile_recordings"], false),
+            ] as [([String]?, Bool)])
+            func mobileRecordingsQuotaLimitKeepsReplayInactive(quotaLimited: [String]?, expectedActive: Bool) async {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+                let sut = getSut(storage: storage)
+
+                server.returnReplay = true
+                server.remoteConfigQuotaLimited = quotaLimited
+
+                await reloadConfigThenFlags(sut)
+
+                #expect(sut.isSessionReplayFlagActive() == expectedActive)
+
+                server.remoteConfigQuotaLimited = nil
+
+                await reloadConfigThenFlags(sut)
+
                 #expect(sut.isSessionReplayFlagActive() == true)
             }
 

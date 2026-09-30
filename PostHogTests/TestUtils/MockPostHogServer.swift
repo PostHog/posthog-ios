@@ -138,6 +138,7 @@ class MockPostHogServer {
     var sessionRecordingSampleRate: String?
     var sessionRecordingEventTriggers: [String]?
     var remoteConfigErrorTracking: Any? = ["autocaptureExceptions": true]
+    var remoteConfigQuotaLimited: [String]?
 
     // version is the version of the response we want to return regardless of the request version
     init(version: Int = 3) {
@@ -491,6 +492,16 @@ class MockPostHogServer {
                 return "false"
             }()
 
+            let quotaLimitedPayload: String = {
+                guard let quotaLimited = self.remoteConfigQuotaLimited,
+                      let data = try? JSONSerialization.data(withJSONObject: quotaLimited),
+                      let jsonString = String(data: data, encoding: .utf8)
+                else {
+                    return ""
+                }
+                return "\"quotaLimited\": \(jsonString),"
+            }()
+
             let configData =
                 """
                 {
@@ -508,6 +519,7 @@ class MockPostHogServer {
                     },
                     "autocapture_opt_out": false,
                     \(errorTrackingPayload)
+                    \(quotaLimitedPayload)
                     "analytics": {
                         "endpoint": "/i/v0/e/"
                     },

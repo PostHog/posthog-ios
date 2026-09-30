@@ -126,9 +126,7 @@ app.post("init") { req async throws -> Response in
 
     #if os(iOS)
         config.sessionReplay = false
-        if #available(iOS 15.0, *) {
-            config.surveys = false
-        }
+        config.surveys = false
     #endif
 
     // Configure custom URLSession with our RequestInterceptor

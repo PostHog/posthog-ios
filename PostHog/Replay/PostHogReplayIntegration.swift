@@ -1372,12 +1372,7 @@
         }
 
         private func isSwitchSensitive(_ view: UISwitch) -> Bool {
-            var containsText = true
-            if #available(iOS 14.0, *) {
-                containsText = hasText(view.title)
-            }
-
-            return isTextInputSensitive(view) && containsText
+            isTextInputSensitive(view) && hasText(view.title)
         }
 
         private func isTextFieldSensitive(_ view: UITextField) -> Bool {
@@ -1477,10 +1472,8 @@
                 wireframe.type = "input"
                 wireframe.inputType = "toggle"
                 wireframe.checked = theSwitch.isOn
-                if #available(iOS 14.0, *) {
-                    if let text = theSwitch.title {
-                        wireframe.label = isSwitchSensitive(theSwitch) ? text.mask() : text
-                    }
+                if let text = theSwitch.title {
+                    wireframe.label = isSwitchSensitive(theSwitch) ? text.mask() : text
                 }
             }
 

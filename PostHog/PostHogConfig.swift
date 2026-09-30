@@ -418,28 +418,25 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     ///
     /// Note: Event triggers will only work with the instance that first enables surveys.
     /// In case of multiple instances, please make sure you are capturing events on the instance that has config.surveys = true
-    @available(iOS 15.0, *)
     @available(watchOS, unavailable, message: "Surveys are only available on iOS 15+")
     @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
     @available(tvOS, unavailable, message: "Surveys are only available on iOS 15+")
     @available(visionOS, unavailable, message: "Surveys are only available on iOS 15+")
     @objc public var surveys: Bool {
         get { _surveys }
-        set { setSurveys(newValue) }
+        set { _surveys = newValue }
     }
 
     /// Configuration for mobile survey presentation and localization.
     ///
     /// Mutate fields on `config.surveysConfig` or replace this object before calling setup.
-    /// Available on iOS 15 and later.
-    @available(iOS 15.0, *)
     @available(watchOS, unavailable, message: "Surveys are only available on iOS 15+")
     @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
     @available(tvOS, unavailable, message: "Surveys are only available on iOS 15+")
     @available(visionOS, unavailable, message: "Surveys are only available on iOS 15+")
     @objc public var surveysConfig: PostHogSurveysConfig {
         get { _surveysConfig }
-        set { setSurveysConfig(newValue) }
+        set { _surveysConfig = newValue }
     }
 
     /// Optional custom URLSessionConfiguration for network requests
@@ -545,7 +542,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         #endif
 
         #if os(iOS) || os(macOS)
-            if #available(iOS 14.0, macOS 11.0, *) {
+            if #available(macOS 11.0, *) {
                 // Token registration is iOS-only in v1 (the backend rejects `macos`); opened-capture
                 // works on both platforms.
                 #if os(iOS)
@@ -572,22 +569,8 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     #endif
 
     var _surveys: Bool = true // swiftlint:disable:this identifier_name
-    private func setSurveys(_ value: Bool) {
-        // protection against objc API availability warning instead of error
-        // Unlike swift, which enforces stricter safety rules, objc just displays a warning
-        if #available(iOS 15.0, *) {
-            _surveys = value
-        }
-    }
 
     var _surveysConfig: PostHogSurveysConfig = .init() // swiftlint:disable:this identifier_name
-    private func setSurveysConfig(_ value: PostHogSurveysConfig) {
-        // protection against objc API availability warning instead of error
-        // Unlike swift, which enforces stricter safety rules, objc just displays a warning
-        if #available(iOS 15.0, *) {
-            _surveysConfig = value
-        }
-    }
 
     /// Hook that allows to sanitize the event
     /// The hook is called before the event is cached or sent over the wire

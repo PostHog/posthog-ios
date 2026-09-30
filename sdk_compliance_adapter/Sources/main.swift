@@ -1,5 +1,5 @@
 import Foundation
-import PostHog
+@_spi(PostHogInternal) import PostHog
 import Vapor
 
 // Redirect all SDK on-disk storage into a private sandbox this adapter fully owns, so a

@@ -12,7 +12,7 @@ import Foundation
 /// - Warning: This class is public for backwards compatibility, but is intended for
 ///   SDK-internal use only. Application code should use `PostHogSDK.getSessionId()`,
 ///   `startSession()`, and `endSession()` instead of interacting with this manager directly.
-@objc public class PostHogSessionManager: NSObject {
+@_spi(PostHogInternal) @objc public class PostHogSessionManager: NSObject {
     enum SessionIDChangeReason: String {
         case sessionIdEmpty = "Session id was empty"
         case sessionStart = "Session started"

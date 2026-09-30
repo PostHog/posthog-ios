@@ -3,7 +3,7 @@
 //  PostHogExample
 //
 
-import PostHog
+@_spi(PostHogInternal) import PostHog
 import SwiftUI
 
 struct SessionRecordingView: View {

@@ -28,7 +28,6 @@ class PostHogDeviceBucketingTests {
         config.maxBatchSize = flushAt
         config.disableFlushOnBackgroundForTesting = true
         config.disableQueueTimerForTesting = true
-        config.remoteConfig = false
         config.preloadFeatureFlags = false
         let sut = PostHogSDK.with(config)
         cleanupJobs.append {

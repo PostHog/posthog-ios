@@ -227,7 +227,6 @@ class PostHogSamplingTests {
         @Test("parses sample rate from remote config response")
         func parsesSampleRateFromRemoteConfig() async {
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 
@@ -250,7 +249,6 @@ class PostHogSamplingTests {
         @Test("remote config without sample rate leaves it nil")
         func remoteConfigWithoutSampleRate() async {
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 

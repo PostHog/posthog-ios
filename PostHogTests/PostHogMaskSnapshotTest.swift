@@ -424,6 +424,9 @@
                 config.disableReachabilityForTesting = true
                 sdk = PostHogSDK.with(config)
                 _ = integration.install(sdk)
+                // Masking only reads config through the bound SDK. Left started, the integration
+                // keeps a capture subscription on the shared run loop for the rest of the process.
+                integration.stop()
             }
 
             func composite(for scenario: Scenario) -> UIImage {

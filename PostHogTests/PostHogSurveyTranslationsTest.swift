@@ -207,6 +207,7 @@
         class TestSurveyLanguageEventProperty {
             let server: MockPostHogServer
             let postHog: PostHogSDK
+            let integrations = TestIntegrationLifetime()
 
             init() {
                 server = MockPostHogServer()
@@ -217,6 +218,7 @@
             deinit {
                 // Tear down in deinit so a `#require` throwing in a test body can't leak the SDK
                 // (and its person-property subscription) into the next serialized test.
+                integrations.stopAll()
                 let storage = PostHogStorage(postHog.config)
                 postHog.close()
                 deleteSafely(storage.appFolderUrl)
@@ -243,7 +245,7 @@
                 let integration = PostHogSurveyIntegration()
                 let installResult = integration.install(postHog)
                 try #require(installResult == .installed)
-                return integration
+                return integrations.track(integration)
             }
 
             private func minimalSurvey() -> PostHogSurvey {
@@ -414,6 +416,7 @@
             class TestLiveTranslationUpdate {
                 let server: MockPostHogServer
                 let postHog: PostHogSDK
+                let integrations = TestIntegrationLifetime()
 
                 init() {
                     server = MockPostHogServer()
@@ -424,6 +427,7 @@
                 deinit {
                     // Tear down in deinit so a `#require` throwing in a test body can't leak the SDK
                     // (and its person-property subscription) into the next serialized test.
+                    integrations.stopAll()
                     let storage = PostHogStorage(postHog.config)
                     postHog.close()
                     deleteSafely(storage.appFolderUrl)
@@ -450,7 +454,7 @@
                     let integration = PostHogSurveyIntegration()
                     let installResult = integration.install(postHog)
                     try #require(installResult == .installed)
-                    return integration
+                    return integrations.track(integration)
                 }
 
                 private func translatedSurvey() -> PostHogSurvey {

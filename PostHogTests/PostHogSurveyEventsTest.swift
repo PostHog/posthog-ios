@@ -671,6 +671,10 @@ class PostHogSurveyEventsTest {
     @Test("survey shown event has correct event name and properties")
     func surveyShownEventHasCorrectNameAndBaseProperties() async throws {
         let postHog = getSut()
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
 
         let integration = try getSurveyIntegration(postHog)
 
@@ -694,14 +698,15 @@ class PostHogSurveyEventsTest {
         #expect(event.properties["$survey_id"] as? String == "survey-123")
         #expect(event.properties["$survey_iteration"] as? Int == 2)
         #expect(event.properties["$survey_iteration_start_date"] as? String == "2021-01-01T00:00:00.000Z")
-
-        postHog.close()
-        postHog.reset()
     }
 
     @Test("survey shown event without iteration has correct properties")
     func surveyShownEventWithoutIterationHasCorrectProperties() async throws {
         let postHog = getSut()
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
 
         let integration = try getSurveyIntegration(postHog)
 
@@ -723,9 +728,6 @@ class PostHogSurveyEventsTest {
         #expect(event.properties["$survey_id"] as? String == "survey-id-456")
         #expect(event.properties["$survey_iteration"] == nil)
         #expect(event.properties["$survey_iteration_start_date"] == nil)
-
-        postHog.close()
-        postHog.reset()
     }
 
     // MARK: - Survey Sent Event Tests
@@ -733,6 +735,10 @@ class PostHogSurveyEventsTest {
     @Test("survey sent event has correct event name and response properties")
     func surveySentEventHasCorrectNameAndResponseProperties() async throws {
         let postHog = getSut()
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
 
         let integration = try getSurveyIntegration(postHog)
 
@@ -805,14 +811,15 @@ class PostHogSurveyEventsTest {
         #expect(event.properties["$survey_response_qID1"] as? String == "Great product!")
         #expect(event.properties["$survey_response_qID2"] as? String == "Very likely")
         #expect(event.properties["$survey_response_qID3"] as? String == "4")
-
-        postHog.close()
-        postHog.reset()
     }
 
     @Test("survey sent event with a single response")
     func surveySentEventWithSingleResponse() async throws {
         let postHog = getSut()
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
 
         let integration = try getSurveyIntegration(postHog)
 
@@ -852,9 +859,6 @@ class PostHogSurveyEventsTest {
 
         let setProperties = event.properties["$set"] as? [String: Any]
         #expect(setProperties?["$survey_responded/single-response-survey"] as? Bool == true)
-
-        postHog.close()
-        postHog.reset()
     }
 
     // MARK: - Survey Dismissed Event Tests
@@ -862,6 +866,10 @@ class PostHogSurveyEventsTest {
     @Test("survey dismissed event has correct name and properties")
     func surveyDismissedEventHasCorrectNameAndProperties() async throws {
         let postHog = getSut()
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
 
         let integration = try getSurveyIntegration(postHog)
 
@@ -884,14 +892,15 @@ class PostHogSurveyEventsTest {
 
         let setProperties = event.properties["$set"] as? [String: Any]
         #expect(setProperties?["$survey_dismissed/dismissed-survey"] as? Bool == true)
-
-        postHog.close()
-        postHog.reset()
     }
 
     @Test("survey dismissed event includes responses and partial completion when there are answers")
     func surveyDismissedEventIncludesResponsesWhenThereAreAnswers() async throws {
         let postHog = getSut()
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
 
         let integration = try getSurveyIntegration(postHog)
 
@@ -931,14 +940,15 @@ class PostHogSurveyEventsTest {
         #expect(questions?[0]["response"] as? String == "Great product!")
         #expect(questions?[1]["response"] as? String == "Very likely")
         #expect(questions?[2]["response"] as? String == "4")
-
-        postHog.close()
-        postHog.reset()
     }
 
     @Test("survey dismissed event marks partial completion false when there are no answers")
     func surveyDismissedEventMarksPartialCompletionFalseWhenThereAreNoAnswers() async throws {
         let postHog = getSut()
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
 
         let integration = try getSurveyIntegration(postHog)
 
@@ -963,14 +973,15 @@ class PostHogSurveyEventsTest {
         #expect(questions?[0]["response"] == nil)
         #expect(questions?[1]["response"] == nil)
         #expect(questions?[2]["response"] == nil)
-
-        postHog.close()
-        postHog.reset()
     }
 
     @Test("survey dismissed event with iteration has correct interaction property")
     func surveyDismissedEventWithIterationHasCorrectInteractionProperty() async throws {
         let postHog = getSut()
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
 
         let integration = try getSurveyIntegration(postHog)
 
@@ -990,9 +1001,6 @@ class PostHogSurveyEventsTest {
 
         let setProperties = event.properties["$set"] as? [String: Any]
         #expect(setProperties?["$survey_dismissed/iter-dismissed-survey/2"] as? Bool == true)
-
-        postHog.close()
-        postHog.reset()
     }
 
     // MARK: - Base Survey Event Properties Tests
@@ -1000,6 +1008,10 @@ class PostHogSurveyEventsTest {
     @Test("base survey event properties include all required fields")
     func baseSurveyEventPropertiesIncludeAllRequiredFields() async throws {
         let postHog = getSut()
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
 
         let integration = try getSurveyIntegration(postHog)
 
@@ -1017,14 +1029,15 @@ class PostHogSurveyEventsTest {
         #expect(properties["$survey_id"] as? String == "complete-survey-id")
         #expect(properties["$survey_iteration"] as? Int == 5)
         #expect(properties["$survey_iteration_start_date"] as? String == "2022-01-01T00:00:00.000Z")
-
-        postHog.close()
-        postHog.reset()
     }
 
     @Test("base survey event properties exclude nil values")
     func baseSurveyEventPropertiesExcludeNilValues() async throws {
         let postHog = getSut()
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
 
         let integration = try getSurveyIntegration(postHog)
 
@@ -1040,14 +1053,15 @@ class PostHogSurveyEventsTest {
         #expect(properties["$survey_id"] as? String == "minimal-survey-id")
         #expect(properties["$survey_iteration"] == nil)
         #expect(properties["$survey_iteration_start_date"] == nil)
-
-        postHog.close()
-        postHog.reset()
     }
 
     @Test("survey interaction property formats correctly")
     func surveyInteractionPropertyFormatsCorrectly() async throws {
         let postHog = getSut()
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
 
         let integration = try getSurveyIntegration(postHog)
 
@@ -1075,9 +1089,6 @@ class PostHogSurveyEventsTest {
             property: "dismissed"
         )
         #expect(propertyWithIteration == "$survey_dismissed/test-survey/3")
-
-        postHog.close()
-        postHog.reset()
     }
 }
 

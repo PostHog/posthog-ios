@@ -3534,6 +3534,10 @@ let maxRetryDelay = 30.0
             func getReplayIntegration() -> PostHogReplayIntegration? {
                 getIntegration()
             }
+
+            func getSurveysIntegration() -> PostHogSurveyIntegration? {
+                getIntegration()
+            }
         #endif
 
         #if os(iOS) || os(macOS) || os(tvOS)

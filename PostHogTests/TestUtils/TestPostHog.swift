@@ -126,6 +126,30 @@ func getServerEvents(_ server: MockPostHogServer) async throws -> [PostHogEvent]
     }
 }
 
+/// Tracks integrations a test installs so they stop deterministically. A live integration keeps
+/// taking run-loop opportunities for the rest of the process, so one left running bleeds capture
+/// work and events into whatever suite runs next.
+final class TestIntegrationLifetime {
+    private var tracked: [PostHogIntegration] = []
+
+    func track<Integration: PostHogIntegration>(_ integration: Integration) -> Integration {
+        tracked.append(integration)
+        return integration
+    }
+
+    func stopAll() {
+        let integrations = tracked
+        tracked = []
+        for integration in integrations {
+            integration.stop()
+        }
+    }
+
+    deinit {
+        stopAll()
+    }
+}
+
 final class MockDate {
     var date = Date()
 }

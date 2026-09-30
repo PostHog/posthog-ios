@@ -38,47 +38,47 @@ import Foundation
 #endif
 
 /// Namespace for gzip constants used by the SDK's compression helpers.
-public enum Gzip {
+enum Gzip {
     /// Maximum value for windowBits (`MAX_WBITS`).
-    public static let maxWindowBits = MAX_WBITS
+    static let maxWindowBits = MAX_WBITS
 }
 
 /// Compression level whose raw value is based on zlib constants.
-public struct CompressionLevel: RawRepresentable, Sendable {
+struct CompressionLevel: RawRepresentable, Sendable {
     /// Compression level in the range of `0` (no compression) to `9` (maximum compression).
-    public let rawValue: Int32
+    let rawValue: Int32
 
     /// zlib `Z_NO_COMPRESSION` level.
-    public static let noCompression = Self(Z_NO_COMPRESSION)
+    static let noCompression = Self(Z_NO_COMPRESSION)
     /// zlib `Z_BEST_SPEED` level.
-    public static let bestSpeed = Self(Z_BEST_SPEED)
+    static let bestSpeed = Self(Z_BEST_SPEED)
     /// zlib `Z_BEST_COMPRESSION` level.
-    public static let bestCompression = Self(Z_BEST_COMPRESSION)
+    static let bestCompression = Self(Z_BEST_COMPRESSION)
 
     /// zlib `Z_DEFAULT_COMPRESSION` level.
-    public static let defaultCompression = Self(Z_DEFAULT_COMPRESSION)
+    static let defaultCompression = Self(Z_DEFAULT_COMPRESSION)
 
     /// Creates a compression level from a zlib raw value.
     ///
     /// - Parameter rawValue: zlib compression level constant.
-    public init(rawValue: Int32) {
+    init(rawValue: Int32) {
         self.rawValue = rawValue
     }
 
     /// Creates a compression level from a zlib raw value.
     ///
     /// - Parameter rawValue: zlib compression level constant.
-    public init(_ rawValue: Int32) {
+    init(_ rawValue: Int32) {
         self.rawValue = rawValue
     }
 }
 
 /// Errors on gzipping/gunzipping based on the zlib error codes.
-public struct GzipError: Swift.Error, Sendable {
+struct GzipError: Swift.Error, Sendable {
     // cf. http://www.zlib.net/manual.html
 
     /// High-level zlib error category.
-    public enum Kind: Equatable, Sendable {
+    enum Kind: Equatable, Sendable {
         /// The stream structure was inconsistent.
         ///
         /// - Note: Underlying zlib error: `Z_STREAM_ERROR` (-2).
@@ -112,10 +112,10 @@ public struct GzipError: Swift.Error, Sendable {
     }
 
     /// Error kind.
-    public let kind: Kind
+    let kind: Kind
 
     /// Returned message by zlib.
-    public let message: String
+    let message: String
 
     init(code: Int32, msg: UnsafePointer<CChar>?) {
         message = msg.flatMap(String.init(validatingUTF8:)) ?? "Unknown gzip error"
@@ -123,7 +123,7 @@ public struct GzipError: Swift.Error, Sendable {
     }
 
     /// Human-readable zlib error message.
-    public var localizedDescription: String {
+    var localizedDescription: String {
         message
     }
 }

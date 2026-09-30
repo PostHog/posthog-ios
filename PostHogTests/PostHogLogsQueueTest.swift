@@ -6,7 +6,7 @@
 import Foundation
 import OHHTTPStubs
 import OHHTTPStubsSwift
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 import XCTest
 

@@ -7,7 +7,7 @@
 
 import Foundation
 import Nimble
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 #if SWIFT_PACKAGE
     import PostHogTestsObjC
 #endif

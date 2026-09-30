@@ -31,7 +31,7 @@ import Foundation
     import SystemConfiguration
 
     /// Errors thrown while creating or configuring reachability monitoring.
-    public enum ReachabilityError: Error {
+    enum ReachabilityError: Error {
         /// Failed to create reachability with a socket address.
         ///
         /// - Parameters:

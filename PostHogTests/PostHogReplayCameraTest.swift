@@ -122,6 +122,13 @@
     @Suite("System camera replay regression", .serialized)
     @MainActor
     struct PostHogSystemCameraReplayTest {
+        private func waitUntil(_ condition: () -> Bool) async throws {
+            let deadline = DispatchTime.now().uptimeNanoseconds + 5_000_000_000
+            while !condition(), DispatchTime.now().uptimeNanoseconds < deadline {
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+        }
+
         @Test("Real camera flash changes discard frames; capture resumes after dismissal")
         func flashChanges() async throws {
             try #require(UIImagePickerController.isSourceTypeAvailable(.camera), "Requires a camera-capable runtime")
@@ -138,8 +145,8 @@
             let picker = UIImagePickerController()
             picker.sourceType = .camera
             root.present(picker, animated: false)
-            try await Task.sleep(nanoseconds: 2_000_000_000)
-            try #require(picker.view.window === window)
+            try await waitUntil { picker.viewIfLoaded?.window === window }
+            try #require(picker.viewIfLoaded?.window === window)
             let integration = PostHogReplayIntegration()
             for step in 0 ..< 30 {
                 picker.cameraFlashMode = step.isMultiple(of: 2) ? .on : .off
@@ -150,8 +157,8 @@
                 #expect(window.toImage(afterScreenUpdates: true) == nil)
             }
             root.dismiss(animated: false)
-            try await Task.sleep(nanoseconds: 200_000_000)
-            try #require(picker.view.window == nil)
+            try await waitUntil { picker.viewIfLoaded?.window == nil }
+            try #require(picker.viewIfLoaded?.window == nil)
             #expect(integration.collectMaskableRects(in: window) != nil)
             #expect(window.toImage(preferFidelityRenderer: false) != nil)
         }

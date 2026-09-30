@@ -30,7 +30,7 @@
 
     // swiftlint:disable identifier_name
     /// Convenience helpers for creating and describing survey colors.
-    public extension UIColor {
+    extension UIColor {
         /**
          Creates an immutable UIColor instance specified by a hex string, CSS color name, or nil.
 

@@ -7,7 +7,7 @@
 
 import Foundation
 import Nimble
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Quick
 
 class PostHogStorageManagerTest: QuickSpec {

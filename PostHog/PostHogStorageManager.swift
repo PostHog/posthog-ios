@@ -12,7 +12,7 @@ import Foundation
 /// - Warning: This class is public for backwards compatibility, but is intended for
 ///   SDK-internal use only. Application code should use `PostHogSDK` identity APIs
 ///   instead of interacting with storage directly.
-public class PostHogStorageManager {
+@_spi(PostHogInternal) public class PostHogStorageManager {
     private let storage: PostHogStorage!
 
     private let anonLock = NSLock()

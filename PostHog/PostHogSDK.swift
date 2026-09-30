@@ -1618,9 +1618,9 @@ let maxRetryDelay = 30.0
         }
 
         // Filtering after the full build stays robust as new context properties are added later:
-        // anything not explicitly allowlisted is stripped. beforeSend hooks and the legacy
-        // propertiesSanitizer run later (in buildEvent) and may re-add keys — an accepted
-        // escape hatch, codified in the minimal-event contract.
+        // anything not explicitly allowlisted is stripped. beforeSend hooks run later (in
+        // buildEvent) and may re-add keys — an accepted escape hatch, codified in the
+        // minimal-event contract.
         if let propertyAllowlist {
             finalProperties = finalProperties.filter {
                 propertyAllowlist.contains($0.key) || $0.key == Self.replayDebugClaimMarkerKey
@@ -1813,13 +1813,6 @@ let maxRetryDelay = 30.0
         queueEvent(event, queue: queue)
     }
 
-    private func sanitizeProperties(_ properties: [String: Any]) -> [String: Any] {
-        if let sanitizer = config.legacyPropertiesSanitizer {
-            return sanitizer.sanitize(properties)
-        }
-        return properties
-    }
-
     /// Assigns an additional distinct ID to the current user.
     ///
     /// Use alias when a user should be connected to another identifier that was previously used
@@ -1932,12 +1925,11 @@ let maxRetryDelay = 30.0
     func buildEvent(event eventName: String, distinctId: String, properties: [String: Any], timestamp: Date = Date()) -> PostHogEvent? {
         var properties = properties
         let carriesReplayDebugBundle = properties.removeValue(forKey: Self.replayDebugClaimMarkerKey) != nil
-        let sanitizedProperties = sanitizeProperties(properties)
 
         let event = PostHogEvent(
             event: eventName,
             distinctId: distinctId,
-            properties: sanitizedProperties,
+            properties: properties,
             timestamp: timestamp
         )
 
@@ -2579,19 +2571,6 @@ let maxRetryDelay = 30.0
             return nil
         }
         return remoteConfig?.getAllFeatureFlagResults()
-    }
-
-    /// Returns the payload for a feature flag.
-    ///
-    /// - Parameter key: The feature flag key.
-    /// - Returns: The flag payload, or `nil` if the flag or payload is unavailable.
-    /// - Warning: This method does not send the `$feature_flag_called` event.
-    ///   Use `getFeatureFlagResult(_:)` instead for proper analytics tracking.
-    @available(*, deprecated, message: "Use getFeatureFlagResult(_:) instead which properly tracks feature flag usage")
-    @objc public func getFeatureFlagPayload(_ key: String) -> Any? {
-        // Don't send event to maintain backwards compatibility
-        let result = getFeatureFlagResult(key, sendEvent: false)
-        return result?.payload
     }
 
     private func flagValuesEqual(_ lhs: Any?, _ rhs: Any?) -> Bool {

@@ -25,7 +25,6 @@ class PostHogSDKTest: QuickSpec {
                 captureApplicationLifecycleEvents: Bool = false,
                 flushAt: Int = 1,
                 optOut: Bool = false,
-                propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly,
                 setDefaultPersonProperties: Bool = true,
                 beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
@@ -39,7 +38,6 @@ class PostHogSDKTest: QuickSpec {
         config.disableFlushOnBackgroundForTesting = true
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.optOut = optOut
-        config.propertiesSanitizer = propertiesSanitizer
         config.personProfiles = personProfiles
         config.setDefaultPersonProperties = setDefaultPersonProperties
 
@@ -129,17 +127,6 @@ class PostHogSDKTest: QuickSpec {
 
         it("no-ops setup when project token is empty after trimming") {
             let config = PostHogConfig(projectToken: " \n\t ", host: "http://localhost:9001")
-
-            let sut = PostHogSDK.with(config)
-
-            expect(sut.config.projectToken).to(beEmpty())
-            expect(sut.storage).to(beNil())
-            expect(sut.getDistinctId()).to(beEmpty())
-            expect(sut.getSessionId()).to(beNil())
-        }
-
-        it("no-ops setup when legacy api key is empty after trimming") {
-            let config = PostHogConfig(apiKey: " \n\t ", host: "http://localhost:9001")
 
             let sut = PostHogSDK.with(config)
 
@@ -1179,22 +1166,6 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
 
             expect(FileManager.default.fileExists(atPath: appFolder.path)) == true
-        }
-
-        it("client sanitize properties") {
-            let sanitizer = ExampleSanitizer()
-            let sut = self.getSut(propertiesSanitizer: sanitizer)
-
-            let props: [String: Any] = ["empty": ""]
-
-            sut.capture("event", properties: props)
-
-            let events = getBatchedEvents(server)
-
-            expect(events[0].properties["empty"] as? String).to(beNil())
-
-            sut.reset()
-            sut.close()
         }
 
         it("reset reloads flags as anon user") {

@@ -13,7 +13,7 @@
     @Suite("Console Log Interceptor Tests", .serialized)
     class PostHogConsoleLogInterceptorTest {
         private func getConfig() -> PostHogConfig {
-            PostHogConfig(apiKey: "test-api-key")
+            PostHogConfig(projectToken: "test-api-key")
         }
 
         /// A broken pipe on a descriptor the SDK owns has to surface as `EPIPE`, not as a

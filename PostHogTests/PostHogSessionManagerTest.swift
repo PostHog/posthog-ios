@@ -198,7 +198,6 @@ enum PostHogSessionManagerTest {
             captureApplicationLifecycleEvents: Bool = false,
             flushAt: Int = 1,
             optOut: Bool = false,
-            propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
             personProfiles: PostHogPersonProfiles = .identifiedOnly
         ) -> PostHogSDK {
             let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
@@ -211,7 +210,6 @@ enum PostHogSessionManagerTest {
             config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
             config.captureScreenViews = false
             config.optOut = optOut
-            config.propertiesSanitizer = propertiesSanitizer
             config.personProfiles = personProfiles
             config.maxBatchSize = max(flushAt, config.maxBatchSize)
             server.batchProjectToken = config.projectToken

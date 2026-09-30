@@ -1,5 +1,15 @@
 ## Next
 
+## 3.86.0
+
+### Minor Changes
+
+- b3b42e2: Add `$hinge_status` (`closed`, `partially_open` or `fully_open`) to events on foldable iPhones running iOS 27.1 or later, in apps built with Xcode 27.1 or later.
+
+### Patch Changes
+
+- e897380: Fix survey sheets being sized against the device's main screen instead of the app's window, which could show a sheet at half height or too tall to fit on foldables and in resizable iPad windows.
+
 ## 3.85.3
 
 ### Patch Changes

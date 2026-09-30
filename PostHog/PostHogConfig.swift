@@ -61,12 +61,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// This field was formerly named `apiKey`.
     @objc public let projectToken: String
 
-    /// Obsolete alias for `projectToken`.
-    @available(*, deprecated, message: "Use projectToken instead. This will be removed in the next major version.")
-    @objc public var apiKey: String {
-        hedgeLog("apiKey is deprecated and will be removed in the next major version. Use projectToken instead.")
-        return projectToken
-    }
     /// Number of queued events that triggers an automatic flush.
     ///
     /// Lower values send data sooner but can increase battery and network usage.
@@ -124,21 +118,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     ///
     /// Default: `true`.
     @objc public var preloadFeatureFlags: Bool = true
-
-    /// Deprecated no-op for remote config loading.
-    ///
-    /// Remote config is now always loaded; setting this property has no effect.
-    ///
-    /// - Deprecated: Remote config is always loaded. This option will be removed in a future version.
-    @available(*, deprecated, message: "Remote config is now always loaded. This option is a no-op and will be removed in a future version.")
-    @objc public var remoteConfig: Bool {
-        get { true }
-        set {
-            if !newValue {
-                hedgeLog("remoteConfig is deprecated and is now always enabled. Setting it to false has no effect.")
-            }
-        }
-    }
 
     /// Whether the SDK automatically captures application lifecycle events.
     ///
@@ -344,18 +323,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Defaults to false.
     @objc public var reuseAnonymousId: Bool = false
 
-    private var _propertiesSanitizer: PostHogPropertiesSanitizer?
-    var legacyPropertiesSanitizer: PostHogPropertiesSanitizer? {
-        _propertiesSanitizer
-    }
-
-    /// Hook that allows to sanitize the event properties
-    /// The hook is called before the event is cached or sent over the wire
-    @available(*, deprecated, message: "Use beforeSend instead")
-    @objc public var propertiesSanitizer: PostHogPropertiesSanitizer? {
-        get { _propertiesSanitizer }
-        set { _propertiesSanitizer = newValue }
-    }
     /// Determines the behavior for processing user profiles.
     @objc public var personProfiles: PostHogPersonProfiles = .identifiedOnly
 
@@ -393,20 +360,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     ///
     /// Default: nil (all flags are evaluated)
     @objc public var evaluationContexts: [String]?
-
-    /// Deprecated alias for `evaluationContexts`.
-    ///
-    /// - Deprecated: Use `evaluationContexts` instead. This property will be removed in a future version.
-    @available(*, deprecated, message: "Use evaluationContexts instead. This property will continue to work but will be removed in a future version.")
-    @objc public var evaluationEnvironments: [String]? {
-        get { evaluationContexts }
-        set {
-            if newValue != nil {
-                hedgeLog("evaluationEnvironments is deprecated. Use evaluationContexts instead.")
-            }
-            evaluationContexts = newValue
-        }
-    }
 
     /// The identifier of the App Group that should be used to store shared analytics data.
     /// PostHog will try to get the physical location of the App Group’s shared container, otherwise fallback to the default location
@@ -548,35 +501,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
         self.projectToken = Self.normalizeProjectToken(projectToken)
         self.host = URL(string: normalizedHost.isEmpty ? PostHogConfig.defaultHost : normalizedHost) ?? URL(string: PostHogConfig.defaultHost)!
-    }
-
-    /// Creates a configuration using the deprecated `apiKey` name.
-    ///
-    /// - Parameter apiKey: Your PostHog project token.
-    /// - Deprecated: Use `init(projectToken:)` instead.
-    @available(*, deprecated, message: "Use init(projectToken:) instead. This will be removed in the next major version.")
-    @objc(apiKey:)
-    public convenience init(
-        apiKey: String
-    ) {
-        hedgeLog("apiKey is deprecated and will be removed in the next major version. Use projectToken instead.")
-        self.init(projectToken: apiKey)
-    }
-
-    /// Creates a configuration using the deprecated `apiKey` name and an explicit host.
-    ///
-    /// - Parameters:
-    ///   - apiKey: Your PostHog project token.
-    ///   - host: PostHog ingestion host. Empty or invalid values fall back to `defaultHost`.
-    /// - Deprecated: Use `init(projectToken:host:)` instead.
-    @available(*, deprecated, message: "Use init(projectToken:host:) instead. This will be removed in the next major version.")
-    @objc(apiKey:host:)
-    public convenience init(
-        apiKey: String,
-        host: String = defaultHost
-    ) {
-        hedgeLog("apiKey is deprecated and will be removed in the next major version. Use projectToken instead.")
-        self.init(projectToken: apiKey, host: host)
     }
 
     /// Returns an array of integrations to be installed based on current configuration

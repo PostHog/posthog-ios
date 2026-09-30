@@ -152,7 +152,7 @@ class PostHogRemoteConfig {
         preloadErrorTrackingConfig()
         preloadPushConfig()
 
-        // Remote config is always loaded (config.remoteConfig is now a no-op)
+        // Remote config is always loaded
         preloadRemoteConfig()
     }
 
@@ -220,7 +220,7 @@ class PostHogRemoteConfig {
     func reloadRemoteConfig(
         callback: (([String: Any]?) -> Void)? = nil
     ) {
-        // Remote config is always loaded (config.remoteConfig is now a no-op)
+        // Remote config is always loaded
         // Note: this guard has the same withLock closure-return bug as loadFeatureFlags
         // had, but for remote config duplicate concurrent requests are harmless (no
         // identity-sensitive params). Fixing it properly requires a pending callback

@@ -656,6 +656,39 @@
             #expect(NSDictionary(dictionary: spiProperties) == NSDictionary(dictionary: eventReplayKeys))
         }
 
+        @Test("a custom event carries every required key from the installed integration, and none of the gated ones")
+        func customEventCarriesRequiredKeysFromIntegration() throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+
+            // Buffering with one held snapshot, so the required keys carry values the
+            // no-integration fallback could not produce.
+            replayQueue.add(snapshotEvent("1"))
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isBuffering == true)
+
+            let lock = NSLock()
+            var capturedProperties: [String: Any]?
+            sut.config.setBeforeSend { event in
+                lock.withLock { capturedProperties = event.properties }
+                return event
+            }
+            sut.capture("custom event")
+
+            let props = try #require(lock.withLock { capturedProperties })
+
+            #expect(props["$recording_status"] as? String == "buffering")
+            #expect(props["$sdk_debug_replay_internal_buffer_length"] as? Int == 1)
+            #expect(props["$sdk_debug_replay_event_trigger_status"] as? String != nil)
+            #expect(props["$sdk_debug_replay_linked_flag_trigger_status"] as? String != nil)
+            #expect(props["$sdk_debug_pending_queue_size"] != nil)
+
+            #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
+            #expect(props["$sdk_debug_replay_capture_mode"] == nil)
+            #expect(props["$sdk_debug_replay_pending_trigger_conditions"] == nil)
+            #expect(props["$sdk_debug_session_start"] == nil)
+        }
+
         @Test("sessionReplayDebugProperties() returns an empty map when the replay integration is not installed")
         func spiGetterIsEmptyWithoutReplayIntegration() {
             let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")

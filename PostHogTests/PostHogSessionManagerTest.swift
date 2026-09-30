@@ -466,6 +466,43 @@ enum PostHogSessionManagerTest {
             #expect(events[0].properties["$sdk_debug_session_start"] != nil)
         }
 
+        @Test("an event that carried no bundle does not consume the window when the interval elapses mid-capture")
+        func eventWithoutBundleDoesNotConsumeWindow() async throws {
+            let sut = getSut(flushAt: 3)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.capture("$first")
+
+            mockNow.date.addTimeInterval(29)
+            // beforeSend runs after the properties are built, so this crosses the interval boundary
+            // between the claim and the commit.
+            sut.config.setBeforeSend { event in
+                if event.event == "$inside" { mockNow.date.addTimeInterval(6) }
+                return event
+            }
+            sut.capture("$inside")
+
+            sut.config.setBeforeSend { $0 }
+            mockNow.date.addTimeInterval(1)
+            sut.capture("$after")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 3)
+
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+            #expect(events[1].properties["$sdk_debug_session_start"] == nil)
+            #expect(events[2].properties["$sdk_debug_session_start"] != nil)
+        }
+
         @Test("a deduplicated identify() $set does not arm the throttle window")
         func deduplicatedSetDoesNotArmWindow() async throws {
             let sut = getSut(flushAt: 3)

@@ -605,6 +605,7 @@ let maxRetryDelay = 30.0
     ]
 
     private var lastReplayDebugPropertiesAt: Date?
+    private var pendingReplayDebugPropertiesAt: Date?
 
     private static func isReplayDebugEvent(_ event: String?) -> Bool {
         guard let event else { return false }
@@ -613,27 +614,31 @@ let maxRetryDelay = 30.0
             && event != PostHogKnownUnsafeEditableEvent.snapshot.rawValue
     }
 
-    /// Wall clock rather than the event's timestamp, so a future-dated capture can't hold the
-    /// window shut.
-    private func isReplayDebugPropertiesWindowOpen() -> Bool {
-        replayDebugPropertiesLock.withLock {
-            guard let last = lastReplayDebugPropertiesAt else { return true }
-            return now().timeIntervalSince(last) >= Self.replayDebugPropertiesInterval
-        }
-    }
-
-    /// Armed once an event is queued, so one dropped by `beforeSend` or deduplicated doesn't use
-    /// up the window.
-    private func armReplayDebugPropertiesWindow(event: String) {
-        guard Self.isReplayDebugEvent(event) else { return }
+    /// Claimed while building, committed once the event is queued, so the two can't reach different
+    /// answers when the interval elapses in between (a slow `beforeSend`) and an event that carried
+    /// nothing consumes the window. Wall clock rather than the event's timestamp, so a future-dated
+    /// capture can't hold the window shut.
+    private func claimReplayDebugPropertiesWindow() -> Bool {
         replayDebugPropertiesLock.withLock {
             let currentTime = now()
             if let last = lastReplayDebugPropertiesAt,
                currentTime.timeIntervalSince(last) < Self.replayDebugPropertiesInterval
             {
-                return
+                return false
             }
-            lastReplayDebugPropertiesAt = currentTime
+            pendingReplayDebugPropertiesAt = currentTime
+            return true
+        }
+    }
+
+    /// Only a queued event commits its claim, so one dropped by `beforeSend` or deduplicated
+    /// doesn't use up the window.
+    private func commitReplayDebugPropertiesWindow(event: String) {
+        guard Self.isReplayDebugEvent(event) else { return }
+        replayDebugPropertiesLock.withLock {
+            guard let pending = pendingReplayDebugPropertiesAt else { return }
+            pendingReplayDebugPropertiesAt = nil
+            lastReplayDebugPropertiesAt = pending
         }
     }
 
@@ -705,7 +710,7 @@ let maxRetryDelay = 30.0
                 replayDebugProperties["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
             }
             // Read-only builds are the crash-context snapshot, refreshed on every status transition.
-            if readOnlySession || (Self.isReplayDebugEvent(event) && isReplayDebugPropertiesWindowOpen()) {
+            if readOnlySession || (Self.isReplayDebugEvent(event) && claimReplayDebugPropertiesWindow()) {
                 props.merge(replayDebugProperties) { _, new in new }
             } else {
                 for key in Self.requiredReplayDebugPropertyKeys {
@@ -1918,7 +1923,7 @@ let maxRetryDelay = 30.0
         } else {
             queue.add(event)
         }
-        armReplayDebugPropertiesWindow(event: event.event)
+        commitReplayDebugPropertiesWindow(event: event.event)
         onEventCaptured.invoke(event)
     }
 
@@ -2703,7 +2708,10 @@ let maxRetryDelay = 30.0
             replayQueue = nil
             logsQueue = nil
             pushSubscriptionHandler = nil
-            replayDebugPropertiesLock.withLock { lastReplayDebugPropertiesAt = nil }
+            replayDebugPropertiesLock.withLock {
+                lastReplayDebugPropertiesAt = nil
+                pendingReplayDebugPropertiesAt = nil
+            }
             // Closing ends the run: clear the buffer, which publishes empty steps so the integration
             // drops them from customData. Nil the reference so later adds no-op. (reset()/identify keep it.)
             let bufferToClear = exceptionStepsBuffer

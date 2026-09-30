@@ -5,7 +5,7 @@ PostHog iOS SDK is a Swift Package Manager and CocoaPods compatible analytics li
 
 ## Tech Stack
 - **Language**: Swift 5.3+
-- **Platforms**: iOS 13+, macOS 10.15+, tvOS 13+, watchOS 6+, visionOS 1.0+
+- **Platforms**: iOS 15+, macOS 10.15+, tvOS 13+, watchOS 6+, visionOS 1.0+
 - **Package Management**: Swift Package Manager (primary), CocoaPods (legacy)
 - **Build Tools**: Xcode, xcpretty for formatted output
 - **Dependencies**: libwebp (embedded), Quick/Nimble (testing only)

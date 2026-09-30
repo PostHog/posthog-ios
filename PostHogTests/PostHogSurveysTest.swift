@@ -28,7 +28,6 @@ enum PostHogSurveysTest {
 
         #if os(iOS)
             @Test("rating selection emits one answer immediately and clearing emits none", arguments: [true, false], ["number", "emoji"])
-            @available(iOS 15.0, *)
             @MainActor
             func ratingSelection(skipSubmit: Bool, display: String) throws {
                 let question = try #require(displayQuestion(type: "rating", skipSubmit: skipSubmit, display: display) as? PostHogDisplayRatingQuestion)
@@ -41,7 +40,6 @@ enum PostHogSurveysTest {
             }
 
             @Test("single-choice selection emits the answer only when eligible", arguments: [true, false], [false, true])
-            @available(iOS 15.0, *)
             @MainActor
             func choiceSelection(skipSubmit: Bool, hasOpenChoice: Bool) throws {
                 let question = try #require(displayQuestion(type: "single_choice", skipSubmit: skipSubmit, hasOpenChoice: hasOpenChoice) as? PostHogDisplayChoiceQuestion)

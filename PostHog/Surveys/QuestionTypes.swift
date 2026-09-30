@@ -8,7 +8,6 @@
 #if os(iOS)
     import SwiftUI
 
-    @available(iOS 15.0, *)
     struct OpenTextQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
@@ -81,7 +80,6 @@
         }
     }
 
-    @available(iOS 15.0, *)
     struct LinkQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
@@ -113,7 +111,6 @@
         }
     }
 
-    @available(iOS 15.0, *)
     struct RatingQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
@@ -173,7 +170,6 @@
         }
     }
 
-    @available(iOS 15.0, *)
     struct SingleChoiceQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
@@ -240,7 +236,6 @@
         }
     }
 
-    @available(iOS 15.0, *)
     struct MultipleChoiceQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 

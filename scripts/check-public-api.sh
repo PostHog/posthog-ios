@@ -52,7 +52,7 @@ fi
 
 xcrun swift-symbolgraph-extract \
     -module-name PostHog \
-    -target arm64-apple-ios13.0 \
+    -target arm64-apple-ios15.0 \
     -sdk "$(xcrun --sdk iphoneos --show-sdk-path)" \
     -I "$PRODUCTS_DIR" \
     -F "$PRODUCTS_DIR" \

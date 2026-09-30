@@ -563,6 +563,169 @@ enum PostHogSessionManagerTest {
             #expect(events[1].properties["$sdk_debug_session_start"] != nil)
         }
 
+        @Test("an eligible event captured from inside beforeSend does not also carry the optional bundle")
+        func captureInsideBeforeSendDoesNotDoubleClaim() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { event in
+                if event.event == "$outer" { sut.capture("$inner") }
+                return event
+            }
+            sut.capture("$outer")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            let carriers = events.filter { $0.properties["$sdk_debug_session_start"] != nil }
+            #expect(carriers.count == 1)
+            #expect(carriers.first?.event == "$outer")
+        }
+
+        @Test("an eligible event renamed by beforeSend still carries the bundle and consumes the window")
+        func renamedEligibleEventConsumesWindow() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { event in
+                if event.event == "$renamed" { event.event = "custom name" }
+                return event
+            }
+            sut.capture("$renamed")
+
+            mockNow.date.addTimeInterval(1)
+            sut.capture("$after")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            #expect(events[0].event == "custom name")
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+            #expect(events[1].properties["$sdk_debug_session_start"] == nil)
+        }
+
+        @Test("a custom event renamed to an eligible name by beforeSend carries no bundle and does not consume the window")
+        func customEventRenamedToEligibleDoesNotConsumeWindow() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { event in
+                if event.event == "custom name" { event.event = "$renamed" }
+                return event
+            }
+            sut.capture("custom name")
+
+            mockNow.date.addTimeInterval(1)
+            sut.capture("$after")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            #expect(events[0].event == "$renamed")
+            #expect(events[0].properties["$sdk_debug_session_start"] == nil)
+            #expect(events[1].properties["$sdk_debug_session_start"] != nil)
+        }
+
+        @Test("the window starts when the event is accepted, not while beforeSend is running")
+        func windowStartsAtAcceptance() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { event in
+                if event.event == "$slow" { mockNow.date.addTimeInterval(31) }
+                return event
+            }
+            sut.capture("$slow")
+            sut.capture("$next")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+            #expect(events[1].properties["$sdk_debug_session_start"] == nil)
+        }
+
+        @Test("a claimer dropped by beforeSend releases the claim so the next eligible event gets the bundle immediately")
+        func droppedClaimerReleasesClaim() async throws {
+            let sut = getSut()
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { $0.event == "$dropped" ? nil : $0 }
+            sut.capture("$dropped")
+            sut.capture("$after")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 1)
+
+            #expect(events[0].event == "$after")
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+        }
+
+        @Test("the internal claim marker never reaches a queued event")
+        func claimMarkerNeverReachesQueuedEvent() async throws {
+            let sut = getSut()
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.capture("$eligible")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 1)
+
+            #expect(events[0].properties["$__replay_debug_claim"] == nil)
+        }
+
         @Test("Rotates $session_id after max session length of 24 hours")
         func sessionRotatedAfterMaxSessionLength() async throws {
             let sut = getSut(flushAt: 52)

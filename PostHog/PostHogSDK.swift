@@ -605,7 +605,10 @@ let maxRetryDelay = 30.0
     ]
 
     private var lastReplayDebugPropertiesAt: Date?
-    private var pendingReplayDebugPropertiesAt: Date?
+    private var outstandingReplayDebugClaimAt: Date?
+
+    /// Internal marker on built properties, stripped in `buildEvent` and carried on the event instead.
+    private static let replayDebugClaimMarkerKey = "$__replay_debug_claim"
 
     private static func isReplayDebugEvent(_ event: String?) -> Bool {
         guard let event else { return false }
@@ -614,10 +617,11 @@ let maxRetryDelay = 30.0
             && event != PostHogKnownUnsafeEditableEvent.snapshot.rawValue
     }
 
-    /// Claimed while building, committed once the event is queued, so the two can't reach different
-    /// answers when the interval elapses in between (a slow `beforeSend`) and an event that carried
-    /// nothing consumes the window. Wall clock rather than the event's timestamp, so a future-dated
-    /// capture can't hold the window shut.
+    /// At most one claim is outstanding, so an event captured from inside `beforeSend` can't also
+    /// carry the bundle. A claim older than the interval is treated as leaked and can be replaced.
+    /// The window starts when the claimer is accepted (`commitReplayDebugPropertiesWindow`), not
+    /// here, so time spent in `beforeSend` doesn't shorten it. Wall clock rather than the event's
+    /// timestamp, so a future-dated capture can't hold the window shut.
     private func claimReplayDebugPropertiesWindow() -> Bool {
         replayDebugPropertiesLock.withLock {
             let currentTime = now()
@@ -626,19 +630,28 @@ let maxRetryDelay = 30.0
             {
                 return false
             }
-            pendingReplayDebugPropertiesAt = currentTime
+            if let outstanding = outstandingReplayDebugClaimAt,
+               currentTime.timeIntervalSince(outstanding) < Self.replayDebugPropertiesInterval
+            {
+                return false
+            }
+            outstandingReplayDebugClaimAt = currentTime
             return true
         }
     }
 
-    /// Only a queued event commits its claim, so one dropped by `beforeSend` or deduplicated
-    /// doesn't use up the window.
-    private func commitReplayDebugPropertiesWindow(event: String) {
-        guard Self.isReplayDebugEvent(event) else { return }
+    /// Only a stored event that carried the bundle starts the window; it starts at acceptance.
+    private func commitReplayDebugPropertiesWindow() {
         replayDebugPropertiesLock.withLock {
-            guard let pending = pendingReplayDebugPropertiesAt else { return }
-            pendingReplayDebugPropertiesAt = nil
-            lastReplayDebugPropertiesAt = pending
+            lastReplayDebugPropertiesAt = now()
+            outstandingReplayDebugClaimAt = nil
+        }
+    }
+
+    /// Frees the claim of an event that carried the bundle but was dropped, deduplicated, or not stored.
+    private func releaseReplayDebugPropertiesClaim() {
+        replayDebugPropertiesLock.withLock {
+            outstandingReplayDebugClaimAt = nil
         }
     }
 
@@ -710,8 +723,12 @@ let maxRetryDelay = 30.0
                 replayDebugProperties["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
             }
             // Read-only builds are the crash-context snapshot, refreshed on every status transition.
-            if readOnlySession || (Self.isReplayDebugEvent(event) && claimReplayDebugPropertiesWindow()) {
+            let claimedReplayDebugWindow = !readOnlySession && Self.isReplayDebugEvent(event) && claimReplayDebugPropertiesWindow()
+            if readOnlySession || claimedReplayDebugWindow {
                 props.merge(replayDebugProperties) { _, new in new }
+                if claimedReplayDebugWindow {
+                    props[Self.replayDebugClaimMarkerKey] = true
+                }
             } else {
                 for key in Self.requiredReplayDebugPropertyKeys {
                     if let value = replayDebugProperties[key] {
@@ -1571,7 +1588,9 @@ let maxRetryDelay = 30.0
         // propertiesSanitizer run later (in buildEvent) and may re-add keys — an accepted
         // escape hatch, codified in the minimal-event contract.
         if let propertyAllowlist {
-            finalProperties = finalProperties.filter { propertyAllowlist.contains($0.key) }
+            finalProperties = finalProperties.filter {
+                propertyAllowlist.contains($0.key) || $0.key == Self.replayDebugClaimMarkerKey
+            }
         }
 
         // Attach the session-scoped step buffer to a `$exception` unless the caller provided their own.
@@ -1601,6 +1620,7 @@ let maxRetryDelay = 30.0
 
         // if this is a $snapshot event and $session_id is missing, don't process then event
         if isSnapshotEvent, posthogEvent.properties["$session_id"] == nil {
+            releaseClaimIfCarried(posthogEvent)
             return
         }
 
@@ -1611,6 +1631,7 @@ let maxRetryDelay = 30.0
 
         // Session Replay has its own queue
         if isSnapshotEvent {
+            releaseClaimIfCarried(posthogEvent)
             replayQueue?.add(posthogEvent)
             onEventCaptured.invoke(posthogEvent)
         } else {
@@ -1868,7 +1889,15 @@ let maxRetryDelay = 30.0
         queueEvent(event, queue: queue)
     }
 
+    private func releaseClaimIfCarried(_ event: PostHogEvent) {
+        if event.carriesReplayDebugBundle {
+            releaseReplayDebugPropertiesClaim()
+        }
+    }
+
     func buildEvent(event eventName: String, distinctId: String, properties: [String: Any], timestamp: Date = Date()) -> PostHogEvent? {
+        var properties = properties
+        let carriesReplayDebugBundle = properties.removeValue(forKey: Self.replayDebugClaimMarkerKey) != nil
         let sanitizedProperties = sanitizeProperties(properties)
 
         let event = PostHogEvent(
@@ -1880,7 +1909,12 @@ let maxRetryDelay = 30.0
 
         let resultEvent = config.runBeforeSend(event)
 
-        if resultEvent == nil {
+        if let resultEvent {
+            resultEvent.carriesReplayDebugBundle = carriesReplayDebugBundle
+        } else {
+            if carriesReplayDebugBundle {
+                releaseReplayDebugPropertiesClaim()
+            }
             let originalMessage = "PostHog event \(eventName) was dropped"
             let message = PostHogKnownUnsafeEditableEvent.contains(eventName)
                 ? "\(originalMessage). This can cause unexpected behavior."
@@ -1893,6 +1927,7 @@ let maxRetryDelay = 30.0
     }
 
     private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>, deduplicatePersonProperties: Bool = false) {
+        let storedInQueue: Bool
         let userProperties = event.properties["$set"] as? [String: Any]
         let userPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]
         // Presence, not content: sanitizing can empty a non-empty input (a `UUID` or `Data` value
@@ -1907,23 +1942,34 @@ let maxRetryDelay = 30.0
                 userPropertiesToSetOnce: userPropertiesSetOnce
             )
             // Check and enqueue under the same lock so concurrent calls cannot enqueue duplicates.
-            let isDuplicate = cachedPersonPropertiesLock.withLock {
+            let (isDuplicate, stored) = cachedPersonPropertiesLock.withLock { () -> (Bool, Bool) in
                 if deduplicatePersonProperties, storageManager.getPersonPropertiesHash() == hash {
-                    return true
+                    return (true, false)
                 }
                 // Only a stored event marks the properties as sent, so a failed write is retried.
-                if queue.add(event) {
+                let stored = queue.add(event)
+                if stored {
                     storageManager.setPersonPropertiesHash(hash)
                 }
-                return false
+                return (false, stored)
             }
-            // Only a suppressed duplicate skips the callback below: subscribers such as replay
-            // triggers and event-activated surveys don't depend on this queue reaching disk.
-            guard !isDuplicate else { return }
+            if isDuplicate {
+                releaseClaimIfCarried(event)
+                // Only a suppressed duplicate skips the callback below: subscribers such as replay
+                // triggers and event-activated surveys don't depend on this queue reaching disk.
+                return
+            }
+            storedInQueue = stored
         } else {
-            queue.add(event)
+            storedInQueue = queue.add(event)
         }
-        commitReplayDebugPropertiesWindow(event: event.event)
+        if event.carriesReplayDebugBundle {
+            if storedInQueue {
+                commitReplayDebugPropertiesWindow()
+            } else {
+                releaseReplayDebugPropertiesClaim()
+            }
+        }
         onEventCaptured.invoke(event)
     }
 
@@ -2710,7 +2756,7 @@ let maxRetryDelay = 30.0
             pushSubscriptionHandler = nil
             replayDebugPropertiesLock.withLock {
                 lastReplayDebugPropertiesAt = nil
-                pendingReplayDebugPropertiesAt = nil
+                outstandingReplayDebugClaimAt = nil
             }
             // Closing ends the run: clear the buffer, which publishes empty steps so the integration
             // drops them from customData. Nil the reference so later adds no-op. (reset()/identify keep it.)

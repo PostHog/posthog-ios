@@ -61,7 +61,6 @@ private final class SDKTestFixture {
                 captureApplicationLifecycleEvents: Bool = false,
                 flushAt: Int = 1,
                 optOut: Bool = false,
-                propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly,
                 setDefaultPersonProperties: Bool = true,
                 beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
@@ -75,7 +74,6 @@ private final class SDKTestFixture {
         config.disableFlushOnBackgroundForTesting = true
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.optOut = optOut
-        config.propertiesSanitizer = propertiesSanitizer
         config.personProfiles = personProfiles
         config.setDefaultPersonProperties = setDefaultPersonProperties
 
@@ -121,15 +119,13 @@ final class PostHogSDKTests {
                         sendFeatureFlagEvent: Bool = false,
                         captureApplicationLifecycleEvents: Bool = false,
                         flushAt: Int = 1,
-                        optOut: Bool = false,
-                        propertiesSanitizer: PostHogPropertiesSanitizer? = nil) -> PostHogSDK
+                        optOut: Bool = false) -> PostHogSDK
     {
         fixture.getSut(preloadFeatureFlags: preloadFeatureFlags,
                        sendFeatureFlagEvent: sendFeatureFlagEvent,
                        captureApplicationLifecycleEvents: captureApplicationLifecycleEvents,
                        flushAt: flushAt,
-                       optOut: optOut,
-                       propertiesSanitizer: propertiesSanitizer)
+                       optOut: optOut)
     }
 
     private func bootstrapReconcileConfig(existing: (anon: String, distinct: String?, identified: Bool)) -> PostHogConfig {
@@ -153,18 +149,6 @@ final class PostHogSDKTests {
     @Test("no-ops setup when project token is empty after trimming")
     func noOpsSetupWhenProjectTokenIsEmpty() {
         let config = PostHogConfig(projectToken: " \n\t ", host: "http://localhost:9001")
-
-        let sut = PostHogSDK.with(config)
-
-        #expect(sut.config.projectToken.isEmpty)
-        #expect(sut.storage == nil)
-        #expect(sut.getDistinctId().isEmpty)
-        #expect(sut.getSessionId() == nil)
-    }
-
-    @Test("no-ops setup when legacy api key is empty after trimming")
-    func noOpsSetupWhenLegacyApiKeyIsEmpty() {
-        let config = PostHogConfig(apiKey: " \n\t ", host: "http://localhost:9001")
 
         let sut = PostHogSDK.with(config)
 
@@ -1235,24 +1219,6 @@ final class PostHogSDKTests {
         sut.close()
 
         #expect(FileManager.default.fileExists(atPath: appFolder.path) == true)
-    }
-
-    @Test("client sanitize properties")
-    func clientSanitizeProperties() throws {
-        let sanitizer = ExampleSanitizer()
-        let sut = getSut(propertiesSanitizer: sanitizer)
-
-        let props: [String: Any] = ["empty": ""]
-
-        sut.capture("event", properties: props)
-
-        let events = getBatchedEvents(server)
-
-        let event = try #require(events.first)
-        #expect(event.properties["empty"] as? String == nil)
-
-        sut.reset()
-        sut.close()
     }
 
     @Test("reset reloads flags as anon user")

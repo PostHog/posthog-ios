@@ -32,7 +32,9 @@ struct PostHogReplayBatchBoundaryTest {
         ])
     }
 
-    private func queue(_ config: PostHogConfig, _ sender: Sender, replay: Bool = true) -> PostHogQueue<PostHogEvent> {
+    private func queue(_ config: PostHogConfig, _ sender: Sender, replay: Bool = true,
+                       reachability: Reachability? = nil) -> PostHogQueue<PostHogEvent>
+    {
         let api = PostHogApi(config)
         var endpoint = replay ? QueueEndpoint<PostHogEvent>.snapshot(api: api) : .batch(api: api)
         endpoint = QueueEndpoint(
@@ -52,7 +54,7 @@ struct PostHogReplayBatchBoundaryTest {
             send: sender.send,
             isRetriableStatusCode: endpoint.isRetriableStatusCode
         )
-        return PostHogQueue(config, PostHogStorage(config), endpoint, nil)
+        return PostHogQueue(config, PostHogStorage(config), endpoint, reachability)
     }
 
     private func config(cap: Int = 50) -> PostHogConfig {
@@ -66,6 +68,126 @@ struct PostHogReplayBatchBoundaryTest {
         queue.flush()
         await waitUntil { sender.batches.count == count }
         try #require(sender.batches.count == count)
+    }
+
+    @Test("One flush sends every boundary group in its bounded window")
+    func singleFlush() async throws {
+        let sender = Sender()
+        let queue = queue(config(cap: 4), sender)
+        defer { queue.clear() }
+        let events = [event("1"), event("2", session: "b"),
+                      event("3", session: "b", identity: "identified"), event("4"),
+                      event("outside", session: "c")]
+        events.forEach { queue.add($0) }
+        try await flush(queue, sender, count: 1)
+        queue.add(event("appended", session: "d"))
+        queue.flush() // An overlapping trigger must not claim another window.
+        for index in 0 ..< 4 {
+            await waitUntil { sender.batches.count == index + 1 }
+            try #require(sender.batches.count == index + 1)
+            #expect(sender.batches[index].map(\.uuid) == [events[index].uuid])
+            sender.complete(index, status: 200)
+        }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        #expect(sender.batches.count == 4)
+        #expect(queue.depth == 2)
+        // The cap-excluded and concurrently appended entries are still eligible.
+        try await flush(queue, sender, count: 5)
+        sender.complete(4, status: 200)
+        await waitUntil { sender.batches.count == 6 }
+        try #require(sender.batches.count == 6)
+        sender.complete(5, status: 200)
+        #expect(queue.depth == 0)
+    }
+
+    @Test("A failed group stops continuation and preserves the remaining window", arguments: [503, -1, 413])
+    func failureStopsContinuation(status: Int) async throws {
+        let clock = MockDate()
+        now = { clock.date }
+        defer { now = { Date() } }
+        let sender = Sender()
+        let queue = queue(config(), sender)
+        defer { queue.clear() }
+        let events = [event("first"), event("second", session: "b"),
+                      event("third", session: "b"), event("later", session: "c")]
+        events.forEach { queue.add($0) }
+        try await flush(queue, sender, count: 1)
+        sender.complete(0, status: 200)
+        await waitUntil { sender.batches.count == 2 }
+        try #require(sender.batches.count == 2)
+        sender.complete(1, status: status)
+        try await Task.sleep(nanoseconds: 50_000_000)
+        #expect(sender.batches.count == 2)
+        #expect(queue.fileQueue.peekEntries(4).compactMap { PostHogEvent.fromJSON($0.data)?.uuid } == events.dropFirst().map(\.uuid))
+        clock.date.addTimeInterval(60)
+        try await flush(queue, sender, count: 3)
+        #expect(sender.batches[2].first?.uuid == events[1].uuid)
+        sender.complete(2, status: 200)
+    }
+
+    @Test("Stopping an in-flight flush leaves later groups for the next queue")
+    func stopBetweenGroups() async throws {
+        let config = config()
+        let sender = Sender()
+        let previous = queue(config, sender)
+        defer { previous.clear() }
+        previous.add(event("first"))
+        let later = event("later", session: "b")
+        previous.add(later)
+        try await flush(previous, sender, count: 1)
+        previous.stop()
+        let reopenedSender = Sender()
+        sender.complete(0, status: 200)
+        try await Task.sleep(nanoseconds: 50_000_000)
+        #expect(sender.batches.count == 1)
+        #expect(previous.depth == 1)
+        // A new queue owns the persisted tail; the stopped queue must not send it too.
+        let reopened = queue(config, reopenedSender)
+        try await flush(reopened, reopenedSender, count: 1)
+        #expect(reopenedSender.batches[0].map(\.uuid) == [later.uuid])
+        reopenedSender.complete(0, status: 200)
+        #expect(reopened.depth == 0)
+    }
+
+    @Test("Reachability pauses continuation between groups")
+    func pauseBetweenGroups() async throws {
+        let reachability = try Reachability(notificationQueue: nil)
+        let sender = Sender()
+        let queue = queue(config(), sender, reachability: reachability)
+        queue.start(disableReachabilityForTesting: false, disableQueueTimerForTesting: true)
+        reachability.stopNotifier()
+        defer { queue.clear()
+            queue.stop()
+        }
+        queue.add(event("first"))
+        queue.add(event("later", session: "b"))
+        try await flush(queue, sender, count: 1)
+        reachability.onUnreachable.invoke(reachability)
+        sender.complete(0, status: 200)
+        try await Task.sleep(nanoseconds: 50_000_000)
+        #expect(sender.batches.count == 1)
+        #expect(queue.depth == 1)
+        reachability.onReachable.invoke(reachability)
+        await waitUntil { sender.batches.count == 2 }
+        try #require(sender.batches.count == 2)
+        sender.complete(1, status: 200)
+        #expect(queue.depth == 0)
+    }
+
+    @Test("Terminal responses continue to the next group", arguments: [400, 413])
+    func terminalContinues(status: Int) async throws {
+        let sender = Sender()
+        let queue = queue(config(), sender)
+        defer { queue.clear() }
+        queue.add(event("first"))
+        queue.add(event("later", session: "b"))
+        try await flush(queue, sender, count: 1)
+        sender.complete(0, status: status)
+        await waitUntil { sender.batches.count == 2 }
+        try #require(sender.batches.count == 2)
+        #expect(queue.depth == 1)
+        sender.complete(1, status: 200)
+        #expect(queue.depth == 0)
     }
 
     @Test("Session and identity changes split FIFO batches, including repeated keys")

@@ -72,7 +72,18 @@ class MockPostHogServer {
     var logsResponseHandler: ((URLRequest, Int) -> HTTPStubsResponse)?
     var version: Int = 3
 
+    /// When set, `/batch` requests whose `api_key` differs are not recorded, so batches from other
+    /// tests' still-running SDK instances can't satisfy or inflate this server's expectations.
+    var batchProjectToken: String?
+
     func trackBatchRequest(_ request: URLRequest) {
+        var request = request
+        if let batchProjectToken {
+            // Buffer the body: a stream-backed body can only be read once.
+            request.httpBody = request.body()
+            guard parseRequest(request)?["api_key"] as? String == batchProjectToken else { return }
+        }
+
         requestsLock.lock()
         defer { requestsLock.unlock() }
         recordedBatchRequests.append(request)

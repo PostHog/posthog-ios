@@ -62,7 +62,7 @@ jobs:
           xcode-version: latest-stable
       - name: Test SDK on iOS Simulator
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
-        # Run once so process-wide swizzles are not reinstalled by whole-suite retries.
+        # Reruns only failed XCTest cases; Swift Testing suites run once so swizzles aren't reinstalled.
         run: make testOniOSSimulator
       - name: Test survey interactions on iOS Simulator
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'

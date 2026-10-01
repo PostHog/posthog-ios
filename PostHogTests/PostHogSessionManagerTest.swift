@@ -209,6 +209,7 @@ enum PostHogSessionManagerTest {
             config.disableQueueTimerForTesting = true
             config.disableFlushOnBackgroundForTesting = true
             config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
+            config.captureScreenViews = false
             config.optOut = optOut
             config.propertiesSanitizer = propertiesSanitizer
             config.personProfiles = personProfiles

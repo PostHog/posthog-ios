@@ -436,18 +436,27 @@ class PostHogQueue<Record> {
             let entries = self.fileQueue.peekEntries(count)
 
             var processing: [Record] = []
+            var selectedIds: [String] = []
 
             for entry in entries {
                 guard let record = self.endpoint.decode(entry.data) else {
+                    selectedIds.append(entry.id)
                     continue
                 }
+                if let first = processing.first,
+                   let canBatchTogether = self.endpoint.canBatchTogether,
+                   !canBatchTogether(first, record)
+                {
+                    break
+                }
+                selectedIds.append(entry.id)
                 processing.append(record)
             }
 
             completion(PostHogConsumerPayload(records: processing) { [weak self] success in
                 guard let self else { return }
-                if success, !entries.isEmpty {
-                    self.fileQueue.remove(ids: entries.map(\.id))
+                if success, !selectedIds.isEmpty {
+                    self.fileQueue.remove(ids: selectedIds)
                     hedgeLog("Completed!")
                 }
 

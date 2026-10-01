@@ -19,7 +19,20 @@ fi
 echo "Testing on simulator: $device"
 destination="platform=iOS Simulator,name=$device"
 
-xcrun xcodebuild test -scheme PostHog -destination "$destination" -parallel-testing-enabled NO 2>&1 | tee "$log" | xcpretty
+# DIAGNOSTIC (do not merge): sample CPU, pre-boot, then warm up the test host before the full run.
+( while true; do echo "=== $(date -u +%H:%M:%S)"; top -l 2 -s 1 -o cpu -n 8 -stats pid,command,cpu,state | tail -n 9; sleep 4; done ) > cpu.log 2>&1 &
+sampler=$!
+trap 'kill $sampler 2>/dev/null' EXIT
+echo "[PHDIAG] $(date -u +%H:%M:%S) booting $device"
+xcrun simctl boot "$device" || true
+xcrun simctl bootstatus "$device" -b
+echo "[PHDIAG] $(date -u +%H:%M:%S) simulator booted"
+xcrun xcodebuild build-for-testing -scheme PostHog -destination "$destination" 2>&1 | tail -3
+echo "[PHDIAG] $(date -u +%H:%M:%S) warm-up start"
+xcrun xcodebuild test-without-building -scheme PostHog -destination "$destination" -parallel-testing-enabled NO "-only-testing:PostHogTests/UUIDTest" 2>&1 | grep -E "Test Case|Executed"
+echo "[PHDIAG] $(date -u +%H:%M:%S) warm-up done"
+
+xcrun xcodebuild test-without-building -scheme PostHog -destination "$destination" -parallel-testing-enabled NO 2>&1 | tee "$log" | xcpretty
 status=$?
 if [[ "$status" -eq 0 ]]; then
     exit 0

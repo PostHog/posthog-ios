@@ -78,6 +78,7 @@ jobs:
           name: ios-test-logs
           path: |
             xcodebuild-ios.log
+            cpu.log
             survey-ui-tests.log
             presentation-masks.log
           if-no-files-found: ignore

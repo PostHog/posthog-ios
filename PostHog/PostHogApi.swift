@@ -195,7 +195,10 @@ class PostHogApi {
 
         let (request, payload) = requestAndPayload(url: url, data: data, endpointName: "batch")
 
+        let resumedAt = Date()
+        phDiag("api batch resume")
         session.uploadTask(with: request, from: payload) { data, response, error in
+            phDiag("api batch response after \(String(format: "%.3f", Date().timeIntervalSince(resumedAt)))s status=\((response as? HTTPURLResponse)?.statusCode ?? -1) error=\(String(describing: error))")
             processUploadResponse(endpointName: "batch", data: data, response: response, error: error, completion: completion)
         }.resume()
     }

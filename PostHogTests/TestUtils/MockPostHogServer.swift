@@ -382,6 +382,7 @@ class MockPostHogServer {
         })
 
         stubDescriptors.append(stub(condition: pathEndsWith("/batch")) { request in
+            phDiag("mock /batch stub responding")
             if let handler = self.batchResponseHandler {
                 let index = self.batchRequests.count + 1
                 return handler(request, index)
@@ -540,6 +541,7 @@ class MockPostHogServer {
         })
 
         HTTPStubs.onStubActivation { request, _, _ in
+            phDiag("mock stub activated \(request.url?.path ?? "?")")
             if request.url?.lastPathComponent == "batch" {
                 self.trackBatchRequest(request)
             } else if request.url?.lastPathComponent == "s" {

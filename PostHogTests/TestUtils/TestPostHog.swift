@@ -40,6 +40,7 @@ func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = testR
     let result = XCTWaiter.wait(for: [server.batchExpectation!], timeout: timeout)
 
     if result != XCTWaiter.Result.completed, failIfNotCompleted {
+        phDiag("request wait timed out")
         XCTFail("The expected requests never arrived")
     }
 
@@ -56,6 +57,7 @@ func waitFlagsRequest(_ server: MockPostHogServer) {
     let result = XCTWaiter.wait(for: [server.flagsExpectation!], timeout: testRequestTimeout)
 
     if result != XCTWaiter.Result.completed {
+        phDiag("request wait timed out")
         XCTFail("The expected requests never arrived")
     }
 }

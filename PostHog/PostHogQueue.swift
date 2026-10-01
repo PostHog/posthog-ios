@@ -142,7 +142,10 @@ class PostHogQueue<Record> {
 
     private func sendBatch(_ payload: PostHogConsumerPayload<Record>) {
         hedgeLog("Sending batch of \(payload.records.count) records to PostHog")
+        let sentAt = Date()
+        phDiag("queue send \(payload.records.count) records")
         endpoint.send(payload.records) { [weak self] result in
+            phDiag("queue send completed status=\(result.statusCode.map(String.init) ?? "nil") after \(String(format: "%.3f", Date().timeIntervalSince(sentAt)))s error=\(String(describing: result.error))")
             self?.handleResult(result, payload)
         }
     }
@@ -313,8 +316,10 @@ class PostHogQueue<Record> {
 
     func flush() {
         if !canFlush() {
+            phDiag("queue flush skipped: \(pauseReason() ?? "unknown") depth=\(fileQueue.depth)")
             return
         }
+        phDiag("queue flush requested depth=\(fileQueue.depth)")
 
         let cap = batchLimitsLock.withLock { batchLimits.cap }
         take(cap) { payload in
@@ -411,8 +416,10 @@ class PostHogQueue<Record> {
     }
 
     private func take(_ count: Int, completion: @escaping (PostHogConsumerPayload<Record>) -> Void) {
+        let enqueuedAt = Date()
         dispatchQueue.async { [weak self] in
             guard let self else { return }
+            phDiag("queue take started after \(String(format: "%.3f", Date().timeIntervalSince(enqueuedAt)))s")
 
             // Re-check pause state on the dispatch queue: the synchronous
             // `canFlush()` snapshot can lie if reachability flipped or

@@ -24,6 +24,7 @@ import Foundation
     }
 
     /// Session manager used by `PostHogSDK.shared`.
+    @available(*, deprecated, message: "PostHogSessionManager becomes SDK-internal in PostHog 4.0. Use PostHogSDK.shared.getSessionId(), startSession() and endSession() instead. From 4.0, wrapper SDKs must import PostHog with @_spi(PostHogInternal) to use it.")
     @objc public static var shared: PostHogSessionManager {
         PostHogSDK.shared.sessionManager
     }
@@ -74,6 +75,7 @@ import Foundation
     /// Use with care: changing the session ID affects analytics session attribution and session replay.
     ///
     /// - Parameter sessionId: Session ID to use for subsequent events.
+    @available(*, deprecated, message: "PostHogSessionManager becomes SDK-internal in PostHog 4.0. Use PostHogSDK.shared.getSessionId(), startSession() and endSession() instead. From 4.0, wrapper SDKs must import PostHog with @_spi(PostHogInternal) to use it.")
     @objc public func setSessionId(_ sessionId: String) {
         setSessionIdInternal(sessionId, at: now(), reason: .customSessionId)
     }

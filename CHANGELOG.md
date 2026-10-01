@@ -1,5 +1,12 @@
 ## Next
 
+## 3.86.3
+
+### Patch Changes
+
+- 35a5caa: Fix automatic screen views capturing duplicate or wrongly named `$screen` events, such as SwiftUI's `_UnaryViewAdaptor<EmptyView>` placeholder, when the device is rotated, folded or unfolded. A screen that appears again without the visible screen changing is no longer captured twice, so navigating inside a split view that shows several columns no longer repeats the split view's `$screen` event. To track the screens inside a column of such a split view, call `screen()` manually.
+- edd15c0: Complete a survey when the last question's branching is `next_question`, or when response-based branching has no match for the answer. The survey no longer stays on that question after it is answered.
+
 ## 3.86.2
 
 ### Patch Changes

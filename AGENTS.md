@@ -5,8 +5,8 @@
 - SDK entry point: [PostHog/PostHogSDK.swift](PostHog/PostHogSDK.swift); tests: `PostHogTests/`; replay/privacy: `PostHog/Replay/` and `PostHog/Resources/`.
 
 ## Repository invariants
-- Maintain Swift 5 SDK language compatibility. Tests require Swift 6+ with Swift Testing (Xcode 16+); prefer Swift Testing for new tests. Use `PostHogTests/TestUtils/MockPostHogServer.swift` for HTTP stubbing.
-- Preserve deployment minima: iOS 15, tvOS 13, macOS 10.15, watchOS 6, visionOS 1. Keep platform guards and graceful degradation, especially for session replay. Availability annotations/checks do not require adding platform support or raising targets. Intentional support changes require checking both `Package.swift` and `Package@swift-5.9.swift`, plus CocoaPods/Xcode packaging/build configuration; visionOS declarations belong in the Swift 5.9 manifest.
+- Maintain Swift 5 SDK language mode. The package needs swift-tools-version 6.2 (Xcode 26+); prefer Swift Testing for new tests. Use `PostHogTests/TestUtils/MockPostHogServer.swift` for HTTP stubbing.
+- Preserve deployment minima: iOS 15, tvOS 13, macOS 10.15, watchOS 6, visionOS 1. Keep platform guards and graceful degradation, especially for session replay. Availability annotations/checks do not require adding platform support or raising targets. Intentional support changes require checking `Package.swift` plus CocoaPods/Xcode packaging/build configuration.
 - Public APIs must remain thread-safe and callable from any thread. Preserve offline operation and queue-based event batching; never assume connectivity. `PostHogSDK.shared` is the default singleton; independent instances use `PostHogSDK.with(_:)` with `PostHogConfig`.
 - Preserve replay masking/privacy behavior and privacy-safe error logging; do not expose sensitive user data.
 - Prefer no new dependencies. libwebp is embedded; PHPLCrashReporter is vendored, prefixed PLCrashReporter for native crash reporting on iOS/macOS/tvOS, excluded on watchOS/visionOS.

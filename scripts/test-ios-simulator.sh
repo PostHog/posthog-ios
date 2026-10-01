@@ -2,6 +2,10 @@
 # Runs the PostHog test target on an iOS simulator once, then reruns only the XCTest cases that
 # failed or crashed, each rerun in a fresh test process.
 #
+# The first test-host launch on a fresh CI simulator can stall the test process for minutes, which
+# fails whichever tests are waiting on a timeout at the time. A short warm-up run in its own process
+# absorbs that stall before the full suite starts.
+#
 # Swift Testing failures are never retried: rerunning Swift Testing suites in the same process
 # reinstalls irreversible swizzles. XCTest (Quick) cases are retried because CI simulators
 # occasionally deliver a stubbed request tens of seconds late, past the tests' 30s wait.
@@ -19,7 +23,20 @@ fi
 echo "Testing on simulator: $device"
 destination="platform=iOS Simulator,name=$device"
 
-xcrun xcodebuild test -scheme PostHog -destination "$destination" -parallel-testing-enabled NO 2>&1 | tee "$log" | xcpretty
+xcrun simctl boot "$device" 2>/dev/null || true
+xcrun simctl bootstatus "$device" -b
+
+xcrun xcodebuild build-for-testing -scheme PostHog -destination "$destination" 2>&1 | tee "$log" | xcpretty
+status=$?
+if [[ "$status" -ne 0 ]]; then
+    exec scripts/check-ios-test-result.sh "$status" "$log"
+fi
+
+echo "Warming up the test host"
+xcrun xcodebuild test-without-building -scheme PostHog -destination "$destination" -parallel-testing-enabled NO \
+    -only-testing:PostHogTests/UUIDTest 2>&1 | xcpretty || true
+
+xcrun xcodebuild test-without-building -scheme PostHog -destination "$destination" -parallel-testing-enabled NO 2>&1 | tee -a "$log" | xcpretty
 status=$?
 if [[ "$status" -eq 0 ]]; then
     exit 0

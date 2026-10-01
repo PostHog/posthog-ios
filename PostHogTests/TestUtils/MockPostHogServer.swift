@@ -56,6 +56,9 @@ class MockPostHogServer {
     /// When set, picks the `/push_subscriptions` status per request (1-based request number); takes
     /// precedence over all fixed toggles. Used for scripted sequences (e.g. 401 then 200).
     var pushSubscriptionStatusHandler: ((Int) -> Int)?
+    /// When set, `/push_subscriptions` requests whose `api_key` differs get a 200 but are not
+    /// recorded, so other tests' still-running SDK instances can't affect this server's assertions.
+    var pushSubscriptionProjectToken: String?
     /// When set, `/push_subscriptions` responses carry this `Retry-After` header value.
     var pushSubscriptionRetryAfter: String?
     /// When set, replaces the entire `/push_subscriptions` response (e.g. `HTTPStubsResponse(error:)`
@@ -412,6 +415,15 @@ class MockPostHogServer {
         })
 
         stubDescriptors.append(stub(condition: pathEndsWith("/push_subscriptions")) { request in
+            var request = request
+            if let projectToken = self.pushSubscriptionProjectToken {
+                // Buffer the body: a stream-backed body can only be read once.
+                request.httpBody = request.body()
+                guard self.parseRequest(request)?["api_key"] as? String == projectToken else {
+                    return HTTPStubsResponse(jsonObject: ["distinct_id": "test", "platform": "ios"], statusCode: 200, headers: nil)
+                }
+            }
+
             let requestCount = self.pushSubscriptionRequestsLock.withLock { () -> Int in
                 self._pushSubscriptionRequests.append(request)
                 return self._pushSubscriptionRequests.count

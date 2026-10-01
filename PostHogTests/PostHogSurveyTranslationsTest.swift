@@ -212,6 +212,8 @@
                 server = MockPostHogServer()
                 server.start()
                 postHog = Self.getSut()
+                // Ignore batches that other tests' still-running SDK instances send to the shared mock.
+                server.batchProjectToken = postHog.config.projectToken
             }
 
             deinit {
@@ -419,6 +421,8 @@
                     server = MockPostHogServer()
                     server.start()
                     postHog = Self.getSut()
+                    // Ignore batches that other tests' still-running SDK instances send to the shared mock.
+                    server.batchProjectToken = postHog.config.projectToken
                 }
 
                 deinit {

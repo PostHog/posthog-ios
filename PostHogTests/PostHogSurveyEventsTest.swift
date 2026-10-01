@@ -785,7 +785,6 @@ class PostHogSurveyEventsTest {
             currentIterationStartDate: Date(timeIntervalSince1970: 1609459200) // 2021-01-01
         )
 
-        server.reset(batchCount: 1)
         integration.testSendSurveyShownEvent(survey: survey)
 
         let events = try await getServerEvents(server)
@@ -815,7 +814,6 @@ class PostHogSurveyEventsTest {
             questions: defaultQuestions
         )
 
-        server.reset(batchCount: 1)
         integration.testSendSurveyShownEvent(survey: survey)
 
         let events = try await getServerEvents(server)
@@ -890,7 +888,6 @@ class PostHogSurveyEventsTest {
             integration.testGetResponseKey(questionId: "qID3"): .rating(4),
         ]
 
-        server.reset(batchCount: 1)
         integration.testSendSurveySentEvent(survey: survey, responses: responses)
 
         let events = try await getServerEvents(server)
@@ -944,7 +941,6 @@ class PostHogSurveyEventsTest {
             integration.testGetResponseKey(questionId: "qID1"): .openEnded("Excellent product!"),
         ]
 
-        server.reset(batchCount: 1)
         integration.testSendSurveySentEvent(survey: survey, responses: responses)
 
         let events = try await getServerEvents(server)
@@ -978,7 +974,6 @@ class PostHogSurveyEventsTest {
             questions: defaultQuestions
         )
 
-        server.reset(batchCount: 1)
         integration.testSendSurveyDismissedEvent(survey: survey)
 
         let events = try await getServerEvents(server)
@@ -1018,7 +1013,6 @@ class PostHogSurveyEventsTest {
             "$survey_response_2": .rating(4),
         ]
 
-        server.reset(batchCount: 1)
         integration.testSendSurveyDismissedEvent(survey: survey, responses: responses)
 
         let events = try await getServerEvents(server)
@@ -1057,7 +1051,6 @@ class PostHogSurveyEventsTest {
             questions: defaultQuestions
         )
 
-        server.reset(batchCount: 1)
         integration.testSendSurveyDismissedEvent(survey: survey, responses: [:])
 
         let events = try await getServerEvents(server)
@@ -1091,7 +1084,6 @@ class PostHogSurveyEventsTest {
             currentIteration: 2
         )
 
-        server.reset(batchCount: 1)
         integration.testSendSurveyDismissedEvent(survey: survey)
 
         let events = try await getServerEvents(server)

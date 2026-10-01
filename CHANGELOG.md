@@ -1,5 +1,11 @@
 ## Next
 
+## 3.86.2
+
+### Patch Changes
+
+- 9dec867: Keep nested dates and URLs when sanitizing event properties. A `Date` or `URL` inside a dictionary or array is converted the same way as a top-level value, and the surrounding fields are no longer dropped with it.
+
 ## 3.86.1
 
 ### Patch Changes

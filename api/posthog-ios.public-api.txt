@@ -51,7 +51,6 @@ PostHog | PostHogCompression.none | enum.case | case none | c:@M@PostHog@E@PostH
 PostHog | PostHogConfig | class | @objc(PostHogConfig) class PostHogConfig | c:@M@PostHog@objc(cs)PostHogConfig
 PostHog | PostHogConfig.PostHogDataMode | enum | @frozen @objc(PostHogDataMode) enum PostHogDataMode | s:7PostHog0aB6ConfigC0aB8DataModeO
 PostHog | PostHogConfig.PostHogDataMode.any | enum.case | case any | s:7PostHog0aB6ConfigC0aB8DataModeO3anyyA2EmF
-PostHog | PostHogConfig.PostHogDataMode.cellular | enum.case | case cellular | s:7PostHog0aB6ConfigC0aB8DataModeO8cellularyA2EmF
 PostHog | PostHogConfig.PostHogDataMode.init(rawValue:) | init | init?(rawValue: Int) | s:7PostHog0aB6ConfigC0aB8DataModeO8rawValueAESgSi_tcfc
 PostHog | PostHogConfig.PostHogDataMode.wifi | enum.case | case wifi | s:7PostHog0aB6ConfigC0aB8DataModeO4wifiyA2EmF
 PostHog | PostHogConfig.appGroupIdentifier | property | @objc var appGroupIdentifier: String? | c:@M@PostHog@objc(cs)PostHogConfig(py)appGroupIdentifier
@@ -104,7 +103,6 @@ PostHog | PostHogConfig.tracingHeaders | property | @objc var tracingHeaders: [S
 PostHog | PostHogConfig.urlSessionConfiguration | property | @objc var urlSessionConfiguration: URLSessionConfiguration? | c:@M@PostHog@objc(cs)PostHogConfig(py)urlSessionConfiguration
 PostHog | PostHogDataMode | enum | @frozen enum PostHogDataMode | c:@M@PostHog@E@PostHogDataMode
 PostHog | PostHogDataMode.any | enum.case | case any | c:@M@PostHog@E@PostHogDataMode@PostHogDataModeAny
-PostHog | PostHogDataMode.cellular | enum.case | case cellular | c:@M@PostHog@E@PostHogDataMode@PostHogDataModeCellular
 PostHog | PostHogDataMode.init(rawValue:) | init | init?(rawValue: Int) | s:So15PostHogDataModeV8rawValueABSgSi_tcfc
 PostHog | PostHogDataMode.wifi | enum.case | case wifi | c:@M@PostHog@E@PostHogDataMode@PostHogDataModeWifi
 PostHog | PostHogDisplayChoiceQuestion | class | @objc class PostHogDisplayChoiceQuestion | c:@M@PostHog@objc(cs)PostHogDisplayChoiceQuestion

@@ -380,6 +380,13 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: true
     @objc public var setDefaultPersonProperties: Bool = true
 
+    /// Skip GeoIP enrichment on the server for captured events and feature flag requests.
+    ///
+    /// When enabled, the server won't infer the user's location from their IP address.
+    ///
+    /// Default: false
+    @objc public var disableGeoIp: Bool = false
+
     /// Evaluation contexts for feature flags.
     ///
     /// When configured, only feature flags that have at least one matching evaluation tag

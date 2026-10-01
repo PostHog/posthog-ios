@@ -62,8 +62,7 @@ jobs:
           xcode-version: latest-stable
       - name: Test SDK on iOS Simulator
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
-        # Retries (3 iterations) protect merges from transient simulator flakiness; the macOS `test`
-        # job runs without retries, so a genuine flake still surfaces as a hard failure there.
+        # Reruns only failed XCTest cases; Swift Testing suites run once so swizzles aren't reinstalled.
         run: make testOniOSSimulator
       - name: Test survey interactions on iOS Simulator
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
@@ -72,6 +71,16 @@ jobs:
       - name: Test presentation masking in an app host
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make testPresentationMasks
+      - name: Upload iOS test logs
+        if: always() && needs.detect-markdown-only.outputs.markdown_only != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ios-test-logs
+          path: |
+            xcodebuild-ios.log
+            survey-ui-tests.log
+            presentation-masks.log
+          if-no-files-found: ignore
       - name: Report flaky (retried) tests
         # Retries can hide flakiness by turning a transient red into green. Surface any test that only
         # passed after a retry so flakes get tracked and fixed instead of silently masked. Best-effort:

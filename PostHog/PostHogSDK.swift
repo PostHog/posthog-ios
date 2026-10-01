@@ -2698,6 +2698,7 @@ let maxRetryDelay = 30.0
 
          ## Note:
          - Calling this method will resume the current session or create a new one if it doesn't exist
+         - With `config.sessionReplay = false`, recording started here continues into new sessions until `stopSessionRecording()` is called
          */
         @objc(startSessionRecording)
         public func startSessionRecording() {
@@ -2759,6 +2760,10 @@ let maxRetryDelay = 30.0
         /**
          Stops the current session recording if one is in progress.
 
+         With `config.sessionReplay = false`, this also cancels a pending `startSessionRecording()` call, so
+         remote config loads, event triggers and session changes will not start recording until the app
+         calls `startSessionRecording()` again.
+
          This method will have no effect if PostHog is not enabled
          */
         @objc public func stopSessionRecording() {
@@ -2766,7 +2771,7 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            guard let replayIntegration, replayIntegration.isActive() else {
+            guard let replayIntegration else {
                 return
             }
 

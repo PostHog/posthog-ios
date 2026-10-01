@@ -62,35 +62,49 @@
             }
         }
 
-        let detents: [Detent]
+        /// The height the sheet's content needs, including the top safe area.
+        let sheetHeight: CGFloat
+
+        /// A sheet that fits in the window gets a detent of its own height; a taller one
+        /// gets the medium and large detents so it can be expanded and scrolled.
+        static func detents(forSheetHeight sheetHeight: CGFloat, availableHeight: CGFloat) -> [Detent] {
+            if sheetHeight >= availableHeight {
+                return [.medium, .large]
+            }
+            return [.height(sheetHeight)]
+        }
 
         func makeUIViewController(context _: Context) -> Controller {
-            Controller(detents: detents)
+            Controller(sheetHeight: sheetHeight)
         }
 
         func updateUIViewController(_ controller: Controller, context _: Context) {
-            controller.detents = detents
+            controller.sheetHeight = sheetHeight
             DispatchQueue.main.async(execute: controller.update)
         }
 
         final class Controller: UIViewController, UISheetPresentationControllerDelegate {
-            var detents: [Detent]
+            var sheetHeight: CGFloat
 
-            init(detents: [Detent]) {
-                self.detents = detents
+            init(sheetHeight: CGFloat) {
+                self.sheetHeight = sheetHeight
                 super.init(nibName: nil, bundle: nil)
             }
 
             @available(*, unavailable)
             required init?(coder _: NSCoder) {
-                detents = []
+                sheetHeight = .zero
                 super.init(nibName: nil, bundle: nil)
             }
 
             func update() {
-                let newDetents = detents.map(\.toPresentationDetents)
-
                 if let controller = sheetPresentationController {
+                    // Measure against the window the sheet is shown in, not `UIScreen.main`, which
+                    // can be a different display (e.g. a foldable's outer screen) or a different
+                    // height than the window (e.g. Stage Manager).
+                    let availableHeight = view.window?.bounds.height ?? controller.presentingViewController.view.bounds.height
+                    let detents = SurveyPresentationDetentsRepresentable.detents(forSheetHeight: sheetHeight, availableHeight: availableHeight)
+                    let newDetents = detents.map(\.toPresentationDetents)
                     controller.detents = newDetents
 
                     // present as bottom sheet on compact-size (e.g landscape)

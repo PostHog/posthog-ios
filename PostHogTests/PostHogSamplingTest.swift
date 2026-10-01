@@ -106,22 +106,20 @@ class PostHogSamplingTests {
 
     @Suite("parseSampleRate Tests", .serialized)
     class ParseSampleRateTests {
-        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
         var server: MockPostHogServer!
 
         init() {
+            // Cache parsing must not race a remote config fetch.
+            config.disableRemoteConfigForTesting = true
             server = MockPostHogServer()
             server.start()
-            let storage = PostHogStorage(config)
-            storage.reset()
-            // reset() keeps .remoteConfig (project-level config); clear it so shared on-disk storage
-            // doesn't leak recording config between these serialized tests.
-            storage.remove(key: .remoteConfig)
         }
 
         deinit {
             server.stop()
             server = nil
+            deleteSafely(PostHogStorage(config).appFolderUrl)
         }
 
         func getSut(
@@ -226,7 +224,7 @@ class PostHogSamplingTests {
 
         @Test("parses sample rate from remote config response")
         func parsesSampleRateFromRemoteConfig() async {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: self.config.projectToken, host: "http://localhost:9001")
             config.remoteConfig = true
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
@@ -249,7 +247,7 @@ class PostHogSamplingTests {
 
         @Test("remote config without sample rate leaves it nil")
         func remoteConfigWithoutSampleRate() async {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: self.config.projectToken, host: "http://localhost:9001")
             config.remoteConfig = true
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
@@ -266,6 +264,7 @@ class PostHogSamplingTests {
 
             await remoteConfigLoaded.wait()
 
+            #expect(remoteConfigLoaded.isSignaled)
             #expect(sut.getRecordingSampleRate() == nil)
             _ = token
         }

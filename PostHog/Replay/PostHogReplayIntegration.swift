@@ -27,6 +27,11 @@
 
         private var isEnabled: Bool = false
 
+        // Set by an explicit start while `config.sessionReplay` is false; survives internal stops
+        // (sampling, flag, triggers, session change), cleared only by an explicit stop or uninstall.
+        // Guarded by `bufferingLock`.
+        private var startedWithAutomaticDisabled: Bool = false
+
         /// Last reported status handed to the crash context, so a reload that moved nothing doesn't
         /// rebuild the whole snapshot. Guards only itself.
         private let statusNotifyLock = NSLock()
@@ -246,9 +251,50 @@
             return activatedSession != currentSessionId
         }
 
-        /// Starts session replay recording.
+        /// Starts session replay recording from an explicit request (`startSessionRecording` or install).
+        /// Automatic paths (remote config, sampling, event triggers, session change) call `startRecording()`
+        /// instead, so only an explicit request can establish manual-start provenance.
         func start() {
+            // Record the intent before the gates below: the event-trigger gate can defer the actual start.
+            if let config, !config.sessionReplay {
+                bufferingLock.withLock { startedWithAutomaticDisabled = true }
+            }
+            startRecording()
+        }
+
+        /// `config.sessionReplay` controls automatic starts; a recording explicitly started while it was
+        /// off is allowed to resume (e.g. into a new session) until an explicit stop. Caller holds
+        /// `bufferingLock`.
+        private func isAutomaticStartPermittedLocked() -> Bool {
+            guard let config else { return false }
+            return config.sessionReplay || startedWithAutomaticDisabled
+        }
+
+        /// Flips `isEnabled` and resets the buffering state in one lock acquisition, re-checking the
+        /// automatic-start permission under that same lock: an explicit `stop()` that lands between the
+        /// early gate in `startRecording()` and this claim clears the marker first, so it wins for `isEnabled`.
+        private func claimRecording() -> Bool {
+            let awaiting = shouldAwaitFirstRemoteConfig()
+            let claimed = bufferingLock.withLock { () -> Bool in
+                guard !isEnabled, isAutomaticStartPermittedLocked() else { return false }
+                isEnabled = true
+                hasPassedMinimumDuration = false
+                awaitingFirstRemoteConfig = awaiting
+                return true
+            }
+            if claimed {
+                replayQueue?.clearBuffer()
+            }
+            return claimed
+        }
+
+        private func startRecording() {
             guard let postHog, !isEnabled else { return }
+
+            guard bufferingLock.withLock({ isAutomaticStartPermittedLocked() }) else {
+                hedgeLog("[Session Replay] Automatic replay is disabled in config and no manual start is pending. Skipping start.")
+                return
+            }
 
             // Check if we should wait for event triggers before starting
             if shouldWaitForEventTriggers() {
@@ -265,10 +311,7 @@
                 return
             }
 
-            // isEnabled flips atomically with the buffering-state reset (same lock acquisition) so a
-            // concurrent debugProperties() reader can't observe enabled:true with stale prior-session
-            // buffering state.
-            resetBufferingState(for: postHog, isEnabled: true)
+            guard claimRecording() else { return }
 
             // Listen for session changes to stop recording when a new session starts (if triggers are configured)
             sessionIdChangedToken = postHog.sessionManager.onSessionIdChanged.subscribe { [weak self] in
@@ -343,9 +386,16 @@
             postHog.notifyContextDidChange()
         }
 
-        /// Stops session replay recording.
-        /// Note: This does not clear remoteConfigLoadedToken or eventCapturedToken as those are managed by install/uninstall.
+        /// Stops session replay recording from an explicit request (`stopSessionRecording` or uninstall) and
+        /// forgets any manual start, so with `config.sessionReplay == false` nothing restarts until the app
+        /// calls `start()` again. Internal stops call `stopRecording()` so a manual recording can resume.
         func stop() {
+            bufferingLock.withLock { startedWithAutomaticDisabled = false }
+            stopRecording()
+        }
+
+        /// Note: This does not clear remoteConfigLoadedToken or eventCapturedToken as those are managed by install/uninstall.
+        private func stopRecording() {
             guard isEnabled else { return }
             bufferingLock.withLock { isEnabled = false }
             resetViews()
@@ -426,10 +476,10 @@
 
             if sampled, !isEnabled {
                 hedgeLog("[Session Replay] Session \(sessionId) sampled for recording. Starting.")
-                start()
+                startRecording()
             } else if !sampled, isEnabled {
                 hedgeLog("[Session Replay] Session \(sessionId) not sampled for recording. Stopping.")
-                stop()
+                stopRecording()
             }
         }
 
@@ -462,7 +512,7 @@
             if let triggers = triggers, !triggers.isEmpty, activatedSession != currentSessionId {
                 if isEnabled {
                     hedgeLog("[Session Replay] New session \(currentSessionId), stopping until event trigger is matched")
-                    stop()
+                    stopRecording()
                 }
                 return
             }
@@ -475,13 +525,11 @@
         /// minimum duration, and re-arms the first-remote-config gate only while the first `/config`
         /// is still pending (e.g. a session rotation during an offline cold start). Once any `/config`
         /// attempt has completed the gate stays disarmed — including across reset(), which keeps the
-        /// fetched config — so recording is not re-buffered. Pass `isEnabled` to flip the enabled flag
-        /// in the same lock acquisition, so a concurrent `debugProperties()` reader never sees
-        /// enabled:true alongside the previous session's buffering state.
-        private func resetBufferingState(for _: PostHogSDK, isEnabled newIsEnabled: Bool? = nil) {
+        /// fetched config — so recording is not re-buffered. `claimRecording()` does the same reset
+        /// while flipping `isEnabled`.
+        private func resetBufferingState(for _: PostHogSDK) {
             let awaiting = shouldAwaitFirstRemoteConfig()
             bufferingLock.withLock {
-                if let newIsEnabled { isEnabled = newIsEnabled }
                 hasPassedMinimumDuration = false
                 awaitingFirstRemoteConfig = awaiting
             }
@@ -495,23 +543,8 @@
             return !remoteConfig.hasFetchedRemoteConfig
         }
 
-        private func pauseAllPlugins() {
-            updateAllPlugins { $0.pause() }
-        }
-
-        private func resumeAllPlugins() {
-            updateAllPlugins { $0.resume() }
-        }
-
-        private func updateAllPlugins(_ update: (PostHogSessionReplayPlugin) -> Void) {
-            let plugins = installedPluginsLock.withLock { installedPlugins }
-            for plugin in plugins {
-                update(plugin)
-            }
-        }
-
         func applyRemoteConfig(remoteConfig: [String: Any]?) {
-            // Every branch below can move a reported value without calling start()/stop() — a changed
+            // Every branch below can move a reported value without calling startRecording()/stopRecording() — a changed
             // minimum duration or a replaced trigger list, say — so re-snapshot once at the end
             // regardless. `notifyRecordingStatusChanged` drops the call when nothing actually moved.
             defer { notifyRecordingStatusChanged() }
@@ -551,8 +584,8 @@
                 // loaded by now), so stop immediately instead of waiting for session rotation. The
                 // first `/config` is intentionally skipped: for a linkedFlag config it can evaluate
                 // false before `/flags` lands, and the capturer self-gates on the flag meanwhile, so
-                // recording resumes if `/flags` turns it on — a stop() here would never restart.
-                stop()
+                // recording resumes if `/flags` turns it on — a stopRecording() here would never restart.
+                stopRecording()
             } else {
                 reevaluateSampling()
             }
@@ -574,7 +607,7 @@
             // config — flag on, still sampled in, and not gated behind a not-yet-fired event trigger.
             // A stale cache that recorded the window for a session the fresh config now excludes (sampled
             // out, or newly trigger-gated) must drop it, not migrate it, or it leaks against the fresh
-            // policy — `start()` enforces the same gates. These mirror the flag-off discard path.
+            // policy — `startRecording()` enforces the same gates. These mirror the flag-off discard path.
             if flagActive, isCurrentSessionSampledIn(), !shouldWaitForEventTriggers(), let replayQueue {
                 migrateBufferIfMinimumDurationMet(replayQueue)
             } else {
@@ -621,7 +654,7 @@
         /// (b) the **linkedFlag-deferred** path where the first `/config` succeeded but routed the
         /// buffer resolve to the imminent `/flags` reload (the linkedFlag value isn't fresh until then).
         /// Only acts once a `/config` attempt has completed, so it never resolves from a
-        /// pre-`/config` cache. The capturer self-gates on flag-off, so no stop() is needed here.
+        /// pre-`/config` cache. The capturer self-gates on flag-off, so no stopRecording() is needed here.
         private func resolveBufferFromFeatureFlags() {
             // A completed `/config` attempt (success or failure) makes the cached recording config as
             // fresh as it will get; latch that locally so later reloads can still resolve.
@@ -792,9 +825,9 @@
                 }
 
                 var snapshotsData: [Any] = []
-                if !snapshotStatus.sentMetaEvent {
-                    let width = windowSize.width.toInt() ?? 0
-                    let height = windowSize.height.toInt() ?? 0
+                let width = windowSize.width.toInt() ?? 0
+                let height = windowSize.height.toInt() ?? 0
+                if !snapshotStatus.sentMetaEvent || snapshotStatus.metaEventSize != CGSize(width: width, height: height) {
                     var data: [String: Any] = ["width": width, "height": height]
                     if let screenName = screenName {
                         data["href"] = screenName
@@ -802,6 +835,7 @@
                     let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
                     snapshotsData.append(snapshotData)
                     snapshotStatus.sentMetaEvent = true
+                    snapshotStatus.metaEventSize = CGSize(width: width, height: height)
                 }
 
                 // Re-arm the hash on an episode's first frame so a recurring
@@ -1706,10 +1740,10 @@
                     triggerActivatedSessionId = currentSessionId
                 }
                 hedgeLog("[Session Replay] Event trigger matched: \(event). Starting replay for session \(currentSessionId).")
-                // Start the integration now that a trigger has matched. start() re-snapshots the crash
+                // Start the integration now that a trigger has matched. startRecording() re-snapshots the crash
                 // context itself when it succeeds; when it bails (e.g. sampled out) the trigger status
                 // still changed, so re-snapshot here.
-                start()
+                startRecording()
                 if !isActive() {
                     notifyRecordingStatusChanged()
                 }
@@ -1745,14 +1779,33 @@
             if let newTriggers = remoteEventTriggers, !newTriggers.isEmpty {
                 if isEnabled {
                     hedgeLog("[Session Replay] Event triggers updated. Stopping until trigger is matched.")
-                    stop()
+                    stopRecording()
                 }
             } else if previousTriggers != nil, !previousTriggers!.isEmpty, remoteEventTriggers?.isEmpty != false {
                 // Triggers were removed - start if not already running and sampling allows
                 if !isEnabled {
                     hedgeLog("[Session Replay] Event triggers removed. Starting replay.")
-                    start()
+                    startRecording()
                 }
+            }
+        }
+    }
+
+    // MARK: - Plugins
+
+    extension PostHogReplayIntegration {
+        private func pauseAllPlugins() {
+            updateAllPlugins { $0.pause() }
+        }
+
+        private func resumeAllPlugins() {
+            updateAllPlugins { $0.resume() }
+        }
+
+        private func updateAllPlugins(_ update: (PostHogSessionReplayPlugin) -> Void) {
+            let plugins = installedPluginsLock.withLock { installedPlugins }
+            for plugin in plugins {
+                update(plugin)
             }
         }
 
@@ -1835,7 +1888,7 @@
         }
 
         /// `$recording_status` / `$sdk_debug_*` replay properties for the event being captured. The
-        /// buffering fields are read in one `bufferingLock` acquisition so a concurrent start()/stop()
+        /// buffering fields are read in one `bufferingLock` acquisition so a concurrent startRecording()/stopRecording()
         /// can't tear them across keys on the same event.
         func debugProperties() -> [String: Any] {
             let (enabled, awaitingConfig, passedMinimumDuration, minimumDuration) = bufferingLock.withLock {
@@ -1879,7 +1932,7 @@
             let eventTriggerStatus = Self.triggerStatus(
                 isConfigured: triggers?.isEmpty == false,
                 // Reuses shouldWaitForEventTriggers()'s own semantics (a nil session id is "not
-                // waiting"), so this can't disagree with the gate that actually decides start().
+                // waiting"), so this can't disagree with the gate that actually decides startRecording().
                 isActivated: !shouldWaitForEventTriggers()
             )
 

@@ -12,9 +12,28 @@ import OHHTTPStubsSwift
 import XCTest
 
 class MockPostHogServer {
-    var batchRequests = [URLRequest]()
-    var snapshotRequests = [URLRequest]()
-    var logsRequests = [URLRequest]()
+    private let requestsLock = NSRecursiveLock()
+    private var recordedBatchRequests = [URLRequest]()
+    private var recordedSnapshotRequests = [URLRequest]()
+    private var recordedLogsRequests = [URLRequest]()
+    private var recordedFlagsRequests = [URLRequest]()
+
+    var batchRequests: [URLRequest] {
+        get { requestsLock.withLock { recordedBatchRequests } }
+        set { requestsLock.withLock { recordedBatchRequests = newValue } }
+    }
+    var snapshotRequests: [URLRequest] {
+        get { requestsLock.withLock { recordedSnapshotRequests } }
+        set { requestsLock.withLock { recordedSnapshotRequests = newValue } }
+    }
+    var logsRequests: [URLRequest] {
+        get { requestsLock.withLock { recordedLogsRequests } }
+        set { requestsLock.withLock { recordedLogsRequests = newValue } }
+    }
+    var flagsRequests: [URLRequest] {
+        get { requestsLock.withLock { recordedFlagsRequests } }
+        set { requestsLock.withLock { recordedFlagsRequests = newValue } }
+    }
     var batchExpectation: XCTestExpectation?
     var snapshotExpectation: XCTestExpectation?
     var logsExpectation: XCTestExpectation?
@@ -23,11 +42,6 @@ class MockPostHogServer {
     var snapshotExpectationCount: Int?
     var logsExpectationCount: Int?
     var flagsExpectationCount: Int?
-    var flagsRequests = [URLRequest]()
-    /// Appended from OHHTTPStubs' network queue while tests read/reset it from their own thread. The
-    /// push suite drives heavy cross-thread resend churn (mint queue + watchdog + context-change
-    /// resend), so unlike the other bare request arrays this one races — a lock keeps the concurrent
-    /// append from corrupting the array (segfault). Access only via `pushSubscriptionRequests`.
     private let pushSubscriptionRequestsLock = NSLock()
     private var _pushSubscriptionRequests = [URLRequest]()
     var pushSubscriptionRequests: [URLRequest] {
@@ -59,7 +73,9 @@ class MockPostHogServer {
     var version: Int = 3
 
     func trackBatchRequest(_ request: URLRequest) {
-        batchRequests.append(request)
+        requestsLock.lock()
+        defer { requestsLock.unlock() }
+        recordedBatchRequests.append(request)
 
         if batchRequests.count >= (batchExpectationCount ?? 0) {
             batchExpectation?.fulfill()
@@ -67,7 +83,9 @@ class MockPostHogServer {
     }
 
     func trackSnapshotRequest(_ request: URLRequest) {
-        snapshotRequests.append(request)
+        requestsLock.lock()
+        defer { requestsLock.unlock() }
+        recordedSnapshotRequests.append(request)
 
         if snapshotRequests.count >= (snapshotExpectationCount ?? 0) {
             snapshotExpectation?.fulfill()
@@ -75,7 +93,9 @@ class MockPostHogServer {
     }
 
     func trackLogsRequest(_ request: URLRequest) {
-        logsRequests.append(request)
+        requestsLock.lock()
+        defer { requestsLock.unlock() }
+        recordedLogsRequests.append(request)
 
         if logsRequests.count >= (logsExpectationCount ?? 0) {
             logsExpectation?.fulfill()
@@ -83,7 +103,9 @@ class MockPostHogServer {
     }
 
     func trackFlags(_ request: URLRequest) {
-        flagsRequests.append(request)
+        requestsLock.lock()
+        defer { requestsLock.unlock() }
+        recordedFlagsRequests.append(request)
 
         if let count = flagsExpectationCount {
             if flagsRequests.count >= count {
@@ -116,6 +138,7 @@ class MockPostHogServer {
     var sessionRecordingSampleRate: String?
     var sessionRecordingEventTriggers: [String]?
     var remoteConfigErrorTracking: Any? = ["autocaptureExceptions": true]
+    var remoteConfigQuotaLimited: [String]?
 
     // version is the version of the response we want to return regardless of the request version
     init(version: Int = 3) {
@@ -469,6 +492,16 @@ class MockPostHogServer {
                 return "false"
             }()
 
+            let quotaLimitedPayload: String = {
+                guard let quotaLimited = self.remoteConfigQuotaLimited,
+                      let data = try? JSONSerialization.data(withJSONObject: quotaLimited),
+                      let jsonString = String(data: data, encoding: .utf8)
+                else {
+                    return ""
+                }
+                return "\"quotaLimited\": \(jsonString),"
+            }()
+
             let configData =
                 """
                 {
@@ -486,6 +519,7 @@ class MockPostHogServer {
                     },
                     "autocapture_opt_out": false,
                     \(errorTrackingPayload)
+                    \(quotaLimitedPayload)
                     "analytics": {
                         "endpoint": "/i/v0/e/"
                     },
@@ -534,6 +568,8 @@ class MockPostHogServer {
     }
 
     func reset(batchCount: Int = 1, snapshotCount: Int = 0, flagsCount: Int? = nil, logsCount: Int = 0) {
+        requestsLock.lock()
+        defer { requestsLock.unlock() }
         batchRequests = []
         snapshotRequests = []
         logsRequests = []
@@ -561,18 +597,10 @@ class MockPostHogServer {
     }
 
     func parseRequest(_ context: URLRequest, gzip: Bool = true) -> [String: Any]? {
-        var unzippedData: Data?
-        do {
-            if gzip {
-                unzippedData = try context.body()!.gunzipped()
-            } else {
-                unzippedData = context.body()!
-            }
-        } catch {
-            // its ok
-        }
-
-        return try? JSONSerialization.jsonObject(with: unzippedData!, options: []) as? [String: Any]
+        guard let body = context.body(),
+              let data = gzip ? try? body.gunzipped() : body
+        else { return nil }
+        return try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
     }
 
     func parsePostHogEvents(_ context: URLRequest) -> [PostHogEvent] {

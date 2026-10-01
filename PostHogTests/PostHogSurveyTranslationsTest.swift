@@ -152,6 +152,7 @@
             func emptyResolutionWhenTargetNil() throws {
                 let survey = try decodeTranslationsFixture()
                 let resolved = resolveSurveyTranslations(survey: survey, targetLanguage: nil)
+                #expect(resolved.questions.count == survey.questions.count)
                 #expect(resolved.matchedKey == nil)
                 #expect(resolved.survey == nil)
                 #expect(resolved.questions.allSatisfy { $0 == nil })
@@ -179,6 +180,7 @@
             func nilWhenNoMatch() throws {
                 let survey = try decodeTranslationsFixture()
                 let resolved = resolveSurveyTranslations(survey: survey, targetLanguage: "ja")
+                #expect(resolved.questions.count == survey.questions.count)
                 #expect(resolved.matchedKey == nil)
                 #expect(resolved.survey == nil)
                 #expect(resolved.questions.allSatisfy { $0 == nil })
@@ -189,6 +191,7 @@
                 let data = try loadFixture("fixture_survey_translation_noop")
                 let survey = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
                 let resolved = resolveSurveyTranslations(survey: survey, targetLanguage: "fr")
+                #expect(resolved.questions.count == survey.questions.count)
                 #expect(resolved.matchedKey == nil)
                 #expect(resolved.survey == nil)
                 #expect(resolved.questions.allSatisfy { $0 == nil })
@@ -214,13 +217,16 @@
             deinit {
                 // Tear down in deinit so a `#require` throwing in a test body can't leak the SDK
                 // (and its person-property subscription) into the next serialized test.
+                let storage = PostHogStorage(postHog.config)
                 postHog.close()
-                postHog.reset()
+                deleteSafely(storage.appFolderUrl)
                 server.stop()
             }
 
             private static func getSut() -> PostHogSDK {
-                let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
+                let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9090")
+                config.disableRemoteConfigForTesting = true
+                config.preloadFeatureFlags = false
                 config._surveys = true
                 config.flushAt = 1
                 config.disableReachabilityForTesting = true
@@ -418,13 +424,16 @@
                 deinit {
                     // Tear down in deinit so a `#require` throwing in a test body can't leak the SDK
                     // (and its person-property subscription) into the next serialized test.
+                    let storage = PostHogStorage(postHog.config)
                     postHog.close()
-                    postHog.reset()
+                    deleteSafely(storage.appFolderUrl)
                     server.stop()
                 }
 
                 private static func getSut() -> PostHogSDK {
-                    let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
+                    let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9090")
+                    config.disableRemoteConfigForTesting = true
+                    config.preloadFeatureFlags = false
                     config._surveys = true
                     config.flushAt = 1
                     config.disableReachabilityForTesting = true
@@ -697,7 +706,8 @@
                     await drainMainQueue()
                     try #require(integration.testActiveSurveyLanguage == "fr")
 
-                    _ = integration.getNextQuestion(index: 1, response: .openEnded("a2"))
+                    let next = try #require(integration.getNextQuestion(index: 1, response: .openEnded("a2")))
+                    try #require(next.1)
 
                     let events = try await getServerEvents(server)
                     let sent = try #require(events.first { $0.event == "survey sent" })
@@ -851,8 +861,17 @@
                 func dismissIntroScreenIsPureUITransition() {
                     let controller = SurveyDisplayController()
                     var closedCount = 0
+                    var shownCount = 0
+                    var responseCount = 0
                     controller.onSurveyClosed = { _ in closedCount += 1 }
+                    controller.onSurveyShown = { _ in shownCount += 1 }
+                    controller.onSurveyResponse = { _, _, _ in
+                        responseCount += 1
+                        return nil
+                    }
                     controller.showSurvey(displaySurvey(displayIntroScreen: true))
+                    #expect(controller.showingIntroScreen)
+                    #expect(shownCount == 1)
 
                     controller.dismissIntroScreen()
 
@@ -860,6 +879,8 @@
                     #expect(controller.displayedSurvey != nil)
                     #expect(controller.currentQuestionIndex == 0)
                     #expect(closedCount == 0)
+                    #expect(shownCount == 1)
+                    #expect(responseCount == 0)
                 }
             }
 
@@ -959,13 +980,13 @@
                 let survey = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
                 let display = survey.toDisplaySurvey()
                 #expect(display.name == "Hello")
-                if let rating = display.questions[0] as? PostHogDisplayRatingQuestion {
-                    #expect(rating.question == "How was it?")
-                    #expect(rating.lowerBoundLabel == "Bad")
-                }
-                if let choice = display.questions[1] as? PostHogDisplayChoiceQuestion {
-                    #expect(choice.choices == ["One", "Two"])
-                }
+                try #require(display.questions.count == 2)
+                let rating = try #require(display.questions[0] as? PostHogDisplayRatingQuestion)
+                #expect(rating.question == "How was it?")
+                #expect(rating.lowerBoundLabel == "Bad")
+                #expect(rating.upperBoundLabel == "Great")
+                let choice = try #require(display.questions[1] as? PostHogDisplayChoiceQuestion)
+                #expect(choice.choices == ["One", "Two"])
                 #expect(display.appearance?.thankYouMessageHeader == "Thanks!")
                 #expect(display.appearance?.displayIntroScreen == true)
                 #expect(display.appearance?.introScreenHeader == "Welcome!")

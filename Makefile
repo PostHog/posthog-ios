@@ -90,20 +90,10 @@ swiftFormatCheck: installSwiftFormat
 	swiftformat . --lint --swiftversion 5.3
 
 # use -only-testing:PostHogTests/PostHogQueueTest to run only a specific test
-# -retry-tests-on-failure -test-iterations 3: a few tests assert real-time behaviour (autocapture
-# debounce/flush windows) that can't be made deterministic; on slow, load-variable CI runners those
-# windows occasionally slip. Rerun a *failed* test up to 3 times so a transient miss doesn't fail the
-# job — a genuinely broken test fails all 3 and stays red. Retries can *mask* flakiness, so we tee the
-# raw log to xcodebuild-ios.log; CI reads it back to surface tests that only passed after a retry (the
-# macOS `test` job runs without retries, so a genuine flake still hard-fails there).
+# Runs the suite once, then reruns only failed XCTest cases in a fresh process. Swift Testing
+# failures are never retried, since rerunning those suites reinstalls irreversible swizzles.
 testOniOSSimulator:
-	@device="$$(xcrun simctl list devices available | grep -E '^[[:space:]]*iPhone' | head -1 | sed -E 's/^[[:space:]]*//; s/ \(.*//')"; \
-	[ -n "$$device" ] || { echo "No available iPhone simulator found; install one via Xcode or 'xcrun simctl create'."; exit 1; }; \
-	echo "Testing on simulator: $$device"; \
-	set -o pipefail; \
-	xcrun xcodebuild test -scheme PostHog -destination "platform=iOS Simulator,name=$$device" -retry-tests-on-failure -test-iterations 3 | tee xcodebuild-ios.log | xcpretty; \
-	status=$$?; \
-	scripts/check-ios-test-result.sh "$$status" xcodebuild-ios.log
+	scripts/test-ios-simulator.sh xcodebuild-ios.log
 
 # Mounted interaction tests use a small test host and the SDK's real survey views.
 # Override SURVEY_UI_DESTINATION to select an installed simulator explicitly.
@@ -186,7 +176,11 @@ recordMaskSnapshots: checkMaskSnapshotRuntime
 testUploadSymbols:
 	build-tools/upload-symbols.test.sh
 
-test: testUploadSymbols
+.PHONY: testIOSResultParser
+testIOSResultParser:
+	bash scripts/check-ios-test-result.test.sh
+
+test: testUploadSymbols testIOSResultParser
 	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING $(if $(filter),--filter $(filter))
 
 recordEventShapeSnapshots:

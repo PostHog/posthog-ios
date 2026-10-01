@@ -153,19 +153,29 @@
             queueTogether: Bool = false,
             episodeFirstFrames: Set<Int> = []
         ) -> [[Int]] {
+            captureSnapshots(failures: failures, queueTogether: queueTogether, episodeFirstFrames: episodeFirstFrames)
+                .map { $0.compactMap { $0["type"] as? Int } }
+        }
+
+        private func captureSnapshots(
+            failures: [Bool],
+            queueTogether: Bool = false,
+            episodeFirstFrames: Set<Int> = [],
+            windowSizes: [CGSize] = []
+        ) -> [[[String: Any]]] {
             let server = MockPostHogServer()
             server.start()
             defer { server.stop() }
 
             let lock = NSLock()
-            var captured: [[Int]] = []
+            var captured: [[[String: Any]]] = []
             let config = PostHogConfig(projectToken: "phc_snapshotMetadataTest", host: "http://localhost:9001")
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
             config.captureApplicationLifecycleEvents = false
             config.setBeforeSend { event in
                 if event.event == "$snapshot", let snapshots = event.properties["$snapshot_data"] as? [[String: Any]] {
-                    lock.withLock { captured.append(snapshots.compactMap { $0["type"] as? Int }) }
+                    lock.withLock { captured.append(snapshots) }
                 }
                 return nil
             }
@@ -183,6 +193,9 @@
                 wireframe.type = "screenshot"
                 wireframe.image = fails ? makeUnrenderableImage() : makeRenderableImage()
                 wireframe.maskableWidgets = [CGRect(x: index * 5, y: 0, width: 10, height: 10)]
+                if index < windowSizes.count {
+                    window.frame = CGRect(origin: .zero, size: windowSizes[index])
+                }
                 integration.captureSnapshot(
                     wireframe,
                     window: window,
@@ -226,6 +239,30 @@
         @Test("a failed opening frame of a new bridge episode keeps its metadata pending")
         func failedEpisodeOpeningPreservesMetadata() {
             #expect(captureSnapshotTypes(failures: [false, true, false], episodeFirstFrames: [1]) == [[4, 2], [4, 2]])
+        }
+
+        @Test("metadata is resent when the same window changes size, as on rotation or a fold")
+        func windowResizeResendsMetadata() {
+            let portrait = CGSize(width: 320, height: 640)
+            let landscape = CGSize(width: 640, height: 320)
+            let snapshots = captureSnapshots(
+                failures: [false, false, false, false],
+                windowSizes: [portrait, landscape, landscape, portrait]
+            )
+            #expect(snapshots.map { $0.compactMap { $0["type"] as? Int } } == [[4, 2], [4, 2], [2], [4, 2]])
+            let metaSizes = snapshots.flatMap { $0 }
+                .filter { $0["type"] as? Int == 4 }
+                .compactMap { $0["data"] as? [String: Any] }
+                .map { [$0["width"] as? Int, $0["height"] as? Int] }
+            #expect(metaSizes == [[320, 640], [640, 320], [320, 640]])
+        }
+
+        @Test("a sub-point resize that reports the same size does not resend metadata")
+        func subPointResizeKeepsMetadata() {
+            #expect(captureSnapshots(
+                failures: [false, false, false],
+                windowSizes: [CGSize(width: 320, height: 640), CGSize(width: 320.2, height: 640.3), CGSize(width: 640, height: 320)]
+            ).map { $0.compactMap { $0["type"] as? Int } } == [[4, 2], [2], [4, 2]])
         }
 
         // MARK: - Zero-size parents

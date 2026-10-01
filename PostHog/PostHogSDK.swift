@@ -663,7 +663,7 @@ let maxRetryDelay = 30.0
 
             props["$process_person_profile"] = hasPersonProcessing()
 
-            if config.disableGeoip {
+            if config.disableGeoIp {
                 props["$geoip_disable"] = true
             }
 

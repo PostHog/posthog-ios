@@ -3,7 +3,7 @@ import Foundation
 import Testing
 
 @Suite("GeoIP Tests", .serialized)
-class PostHogGeoipTests {
+class PostHogGeoIpTests {
     let server: MockPostHogServer
 
     init() {
@@ -25,13 +25,13 @@ class PostHogGeoipTests {
         deleteSafely(applicationSupportDirectoryURL())
     }
 
-    func getSut(disableGeoip: Bool = false) -> PostHogSDK {
+    func getSut(disableGeoIp: Bool = false) -> PostHogSDK {
         let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
         config.flushAt = 1
         config.captureApplicationLifecycleEvents = false
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
-        config.disableGeoip = disableGeoip
+        config.disableGeoIp = disableGeoIp
 
         let storage = PostHogStorage(config)
         storage.reset()
@@ -39,10 +39,10 @@ class PostHogGeoipTests {
         return PostHogSDK.with(config)
     }
 
-    @Test("disableGeoip defaults to false")
-    func disableGeoipDefaultsToFalse() {
+    @Test("disableGeoIp defaults to false")
+    func disableGeoIpDefaultsToFalse() {
         let config = PostHogConfig(projectToken: testProjectToken)
-        #expect(config.disableGeoip == false)
+        #expect(config.disableGeoIp == false)
     }
 
     @Test("captured events have no $geoip_disable by default")
@@ -59,9 +59,9 @@ class PostHogGeoipTests {
         sut.close()
     }
 
-    @Test("captured events have $geoip_disable when disableGeoip is enabled")
+    @Test("captured events have $geoip_disable when disableGeoIp is enabled")
     func eventsHaveGeoipDisableWhenEnabled() {
-        let sut = getSut(disableGeoip: true)
+        let sut = getSut(disableGeoIp: true)
 
         sut.capture("test event")
 
@@ -91,9 +91,9 @@ class PostHogGeoipTests {
         sut.close()
     }
 
-    @Test("flags requests have geoip_disable when disableGeoip is enabled")
+    @Test("flags requests have geoip_disable when disableGeoIp is enabled")
     func flagsRequestsHaveGeoipDisableWhenEnabled() async throws {
-        let sut = getSut(disableGeoip: true)
+        let sut = getSut(disableGeoIp: true)
 
         await withCheckedContinuation { continuation in
             sut.reloadFeatureFlags {

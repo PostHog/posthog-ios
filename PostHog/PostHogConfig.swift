@@ -382,7 +382,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// When enabled, the server won't infer the user's location from their IP address.
     ///
     /// Default: false
-    @objc public var disableGeoip: Bool = false
+    @objc public var disableGeoIp: Bool = false
 
     /// Evaluation contexts for feature flags.
     ///

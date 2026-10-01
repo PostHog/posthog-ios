@@ -292,7 +292,7 @@
 		DA27AEC12F56B3E3002A59CE /* PostHogSessionReplayEventTriggersTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA27AEC02F56B3E3002A59CE /* PostHogSessionReplayEventTriggersTest.swift */; };
 		DB72000A2F80000100000002 /* PostHogSessionReplayRemoteConfigBufferTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB72000A2F80000100000001 /* PostHogSessionReplayRemoteConfigBufferTest.swift */; };
 		DA27AEC92F56B3F3002A59CE /* PostHogSamplingTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA27AEC82F56B3F3002A59CE /* PostHogSamplingTest.swift */; };
-		DA27AEF22F56B3F3002A59CE /* PostHogGeoipTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA27AEF12F56B3F3002A59CE /* PostHogGeoipTest.swift */; };
+		DA27AEF22F56B3F3002A59CE /* PostHogGeoIpTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA27AEF12F56B3F3002A59CE /* PostHogGeoIpTest.swift */; };
 		DA30AE692D3EFB4F00465A64 /* Optional+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */; };
 		DA30AE812D3FE63F00465A64 /* PostHogSurvey.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA30AE802D3FE63F00465A64 /* PostHogSurvey.swift */; };
 		DA37933C2DBA571D005C6AA3 /* PostHogSurveysConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3793352DBA5718005C6AA3 /* PostHogSurveysConfig.swift */; };
@@ -1143,7 +1143,7 @@
 		DA27AEC02F56B3E3002A59CE /* PostHogSessionReplayEventTriggersTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayEventTriggersTest.swift; sourceTree = "<group>"; };
 		DB72000A2F80000100000001 /* PostHogSessionReplayRemoteConfigBufferTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayRemoteConfigBufferTest.swift; sourceTree = "<group>"; };
 		DA27AEC82F56B3F3002A59CE /* PostHogSamplingTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSamplingTest.swift; sourceTree = "<group>"; };
-		DA27AEF12F56B3F3002A59CE /* PostHogGeoipTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogGeoipTest.swift; sourceTree = "<group>"; };
+		DA27AEF12F56B3F3002A59CE /* PostHogGeoIpTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogGeoIpTest.swift; sourceTree = "<group>"; };
 		DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Optional+Util.swift"; sourceTree = "<group>"; };
 		DA30AE802D3FE63F00465A64 /* PostHogSurvey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurvey.swift; sourceTree = "<group>"; };
 		DA3793352DBA5718005C6AA3 /* PostHogSurveysConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveysConfig.swift; sourceTree = "<group>"; };
@@ -1845,7 +1845,7 @@
 				B74800000000000000000003 /* PostHogPushNotificationSwizzlingTest.swift */,
 				D0E500012FA0000100000001 /* PostHogEventSnapshotTests.swift */,
 				DA27AEC82F56B3F3002A59CE /* PostHogSamplingTest.swift */,
-				DA27AEF12F56B3F3002A59CE /* PostHogGeoipTest.swift */,
+				DA27AEF12F56B3F3002A59CE /* PostHogGeoIpTest.swift */,
 				DB7100052F80000100000001 /* PostHogTracingHeadersTest.swift */,
 				DA27AEC02F56B3E3002A59CE /* PostHogSessionReplayEventTriggersTest.swift */,
 				DB72000A2F80000100000001 /* PostHogSessionReplayRemoteConfigBufferTest.swift */,
@@ -3811,7 +3811,7 @@
 				DAD39DF62D56178D002A1A69 /* UtilsTest.swift in Sources */,
 				46A911BC1659B0FEFA8D1E43 /* BundleUtilsTest.swift in Sources */,
 				DA27AEC92F56B3F3002A59CE /* PostHogSamplingTest.swift in Sources */,
-				DA27AEF22F56B3F3002A59CE /* PostHogGeoipTest.swift in Sources */,
+				DA27AEF22F56B3F3002A59CE /* PostHogGeoIpTest.swift in Sources */,
 				DB7100042F80000100000001 /* PostHogTracingHeadersTest.swift in Sources */,
 				3A580B4329E489D000C5C6F3 /* URLSession+body.swift in Sources */,
 				DA1D29602D10C810003A31DA /* PostHogSessionManagerTest.swift in Sources */,

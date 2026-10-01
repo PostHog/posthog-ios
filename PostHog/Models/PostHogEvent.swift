@@ -59,18 +59,11 @@ import Foundation
 
         let timestampDate = toISO8601Date(timestamp) ?? Date()
 
-        var properties = (json["properties"] as? [String: Any]) ?? [:]
-
-        // back compatibility with v2
-        let setProps = json["$set"] as? [String: Any]
-        if setProps != nil {
-            properties["$set"] = setProps
-        }
+        let properties = (json["properties"] as? [String: Any]) ?? [:]
 
         guard let distinctId = (json["distinct_id"] as? String) ?? (properties["distinct_id"] as? String) else { return nil }
 
-        // `message_id` is deprecated and only accepted for backwards compatibility with legacy persisted events.
-        let uuid = ((json["uuid"] as? String) ?? (json["message_id"] as? String)) ?? UUID.v7String()
+        let uuid = (json["uuid"] as? String) ?? UUID.v7String()
         let uuidObj = UUID(uuidString: uuid) ?? UUID.v7()
 
         // Wire field name remains api_key, but it carries the PostHog project token.

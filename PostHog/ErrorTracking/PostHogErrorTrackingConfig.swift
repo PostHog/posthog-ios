@@ -105,38 +105,19 @@ import Foundation
 
     // MARK: - Exception Filtering
 
-    /// List of exception class names (the `NSException.name.rawValue` /
-    /// `$exception_list[*].type` field) that should be skipped during
-    /// autocapture and manual `captureException(_:)` instead of being sent
-    /// as `$exception` events.
+    /// Exception types to drop instead of sending them as `$exception` events.
     ///
-    /// Exists primarily to dedup fatal exceptions when the React Native
-    /// plugin's native-crash autocapture is enabled. React Native rethrows
-    /// fatal JS errors via `RCTFatal(...)` as an `NSException` named
-    /// `RCTFatalException`, which the iOS crash reporter then captures
-    /// as a separate native crash — duplicating the event the JS layer
-    /// already captured with its own stack trace. The default `["RCTFatalException"]`
-    /// makes the JS-side `$exception` event the single source of truth out
-    /// of the box; native iOS apps that never raise that type are
-    /// unaffected. Mirrors `addIgnoredExceptionForType(...)` on
-    /// sentry-react-native's native side, and pairs with
-    /// `errorTrackingConfig.ignoredExceptionTypes` on posthog-android.
+    /// Applies to every `$exception` event, including crash autocapture and
+    /// `captureException(_:)`. An exception is dropped when any entry in its
+    /// `$exception_list` has a `type` (for an `NSException`, its `name`) that
+    /// exactly matches a value in this list. Matching is case-sensitive.
     ///
-    /// Override (or clear) the default when you need different behavior:
     /// ```swift
-    /// // Add more types in addition to the default.
-    /// config.errorTrackingConfig.ignoredExceptionTypes += [
-    ///     "MyCustomNSException",
-    /// ]
-    ///
-    /// // Or disable the default filtering entirely.
-    /// config.errorTrackingConfig.ignoredExceptionTypes = []
+    /// config.errorTrackingConfig.ignoredExceptionTypes = ["MyCustomException"]
     /// ```
     ///
-    /// See https://github.com/PostHog/posthog-ios/issues/653.
-    ///
-    /// Default: `["RCTFatalException"]`.
-    @objc public var ignoredExceptionTypes: [String] = ["RCTFatalException"]
+    /// Default: `[]`.
+    @objc public var ignoredExceptionTypes: [String] = []
 
     // MARK: - Initialization
 

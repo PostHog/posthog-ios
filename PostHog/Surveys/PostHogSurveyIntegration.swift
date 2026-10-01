@@ -1003,10 +1003,10 @@
                     question: question,
                     response: response,
                     responseValues: responseValues
-                ) ?? .index(nextQuestionIndex)
+                ) ?? (questionIndex == survey.questions.count - 1 ? .end : .index(nextQuestionIndex))
 
             case .next, .unknown:
-                return .index(nextQuestionIndex)
+                return questionIndex == survey.questions.count - 1 ? .end : .index(nextQuestionIndex)
             }
         }
 

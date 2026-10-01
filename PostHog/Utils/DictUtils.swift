@@ -36,8 +36,12 @@ func fromJSONData(_ data: Data, options: JSONSerialization.ReadingOptions = []) 
 
 /// Removes or converts values that cannot be serialized to JSON.
 ///
-/// `URL` values are converted to absolute strings and `Date` values to ISO-8601 strings.
-/// Other non-serializable values are dropped.
+/// `URL` values are converted to absolute strings and `Date` values to ISO-8601 strings,
+/// including when they are nested inside dictionaries or arrays. Other non-serializable
+/// values are dropped. A nested dictionary is kept when it still has serializable values;
+/// if every nested value is dropped it becomes `{}`, matching posthog-js. On the previous
+/// release the parent key was omitted instead. A nested array whose items are all dropped
+/// is omitted entirely so identify does not overwrite a person property with `[]`.
 ///
 /// - Parameter dict: Dictionary to sanitize.
 /// - Returns: A sanitized dictionary, or `nil` when the input is `nil` or empty.
@@ -49,12 +53,8 @@ public func sanitizeDictionary(_ dict: [String: Any]?) -> [String: Any]? {
     var newDict = dict!
 
     for (key, value) in newDict where !isValidObject(value) {
-        if value is URL {
-            newDict[key] = (value as! URL).absoluteString
-            continue
-        }
-        if value is Date {
-            newDict[key] = ISO8601DateFormatter().string(from: (value as! Date))
+        if let sanitized = sanitizeInvalidValue(value) {
+            newDict[key] = sanitized
             continue
         }
 
@@ -63,6 +63,44 @@ public func sanitizeDictionary(_ dict: [String: Any]?) -> [String: Any]? {
     }
 
     return newDict
+}
+
+/// Converts one non-JSON value, or `nil` when it should be dropped.
+/// Dictionaries and arrays are sanitized in place so one bad child does not discard its siblings.
+private func sanitizeInvalidValue(_ value: Any) -> Any? {
+    if let url = value as? URL {
+        return url.absoluteString
+    }
+    if let date = value as? Date {
+        return ISO8601DateFormatter().string(from: date)
+    }
+    if let nested = value as? [String: Any] {
+        return sanitizeDictionary(nested) ?? [:]
+    }
+    if let array = value as? [Any] {
+        let sanitized = sanitizeArray(array)
+        return sanitized.isEmpty ? nil : sanitized
+    }
+    return nil
+}
+
+private func sanitizeArray(_ array: [Any]) -> [Any] {
+    var sanitized: [Any] = []
+    sanitized.reserveCapacity(array.count)
+
+    for value in array {
+        if isValidObject(value) {
+            sanitized.append(value)
+            continue
+        }
+        if let converted = sanitizeInvalidValue(value) {
+            sanitized.append(converted)
+            continue
+        }
+        hedgeLog("array item isn't serializable, dropping the item")
+    }
+
+    return sanitized
 }
 
 private func isValidObject(_ object: Any) -> Bool {

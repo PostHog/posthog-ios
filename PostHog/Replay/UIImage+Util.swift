@@ -37,6 +37,7 @@
     ///   - image: Image to encode.
     ///   - compressionQuality: Compression quality from `0.0` to `1.0`. Defaults to `0.3`.
     /// - Returns: A `data:image/...;base64` string, or `nil` if encoding fails.
+    @available(*, deprecated, message: "imageToBase64(_:_:) becomes SDK-internal in PostHog 4.0. From 4.0, wrapper SDKs must import PostHog with @_spi(PostHogInternal) to use it.")
     public func imageToBase64(_ image: UIImage, _ compressionQuality: CGFloat = 0.3) -> String? {
         image.toBase64(compressionQuality)
     }

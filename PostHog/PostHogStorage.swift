@@ -256,7 +256,6 @@ class PostHogStorage {
         case personPropertiesForFlags = "posthog.personPropertiesForFlags"
         case groupPropertiesForFlags = "posthog.groupPropertiesForFlags"
         case errorTracking = "posthog.errorTracking"
-        case capturePerformance = "posthog.capturePerformance"
         case deviceId = "posthog.deviceId"
         case pushSubscription = "posthog.pushSubscription"
         case pushPendingUnregister = "posthog.pushPendingUnregister"
@@ -525,7 +524,6 @@ class PostHogStorage {
             // legacy slices, no longer written (config now lives in .remoteConfig); drop stragglers from older SDKs
             deleteSafely(url(forKey: .sessionReplay))
             deleteSafely(url(forKey: .errorTracking))
-            deleteSafely(url(forKey: .capturePerformance))
             // .pushSubscription is deliberately NOT cleared here: PostHogPushSubscriptionHandler.recordForReset()
             // clears it under its own recordLock (before this runs) so a concurrent send() can't write a
             // fresh record into the gap and have it erased unlocked. When there is no push handler

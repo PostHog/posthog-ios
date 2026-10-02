@@ -1,5 +1,11 @@
 ## Next
 
+## 3.88.1
+
+### Patch Changes
+
+- 1557aac: Fix surveys with a question type this SDK version can't display getting stuck on an empty sheet after the last answer; such surveys are now skipped.
+
 ## 3.88.0
 
 ### Minor Changes

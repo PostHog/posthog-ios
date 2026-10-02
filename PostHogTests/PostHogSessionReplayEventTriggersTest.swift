@@ -5,7 +5,6 @@
 
     @Suite("Session Replay Event Triggers", .serialized)
     class PostHogSessionReplayEventTriggersTests {
-        let testProjectToken = "test_project_token"
         let server: MockPostHogServer
 
         init() {
@@ -21,7 +20,8 @@
             eventTriggers: [String]? = nil,
             linkedFlagNotMatched: Bool = false
         ) -> PostHogSDK {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            // A token per test keeps the seeded recording config apart from other suites' SDK instances
+            let config = PostHogConfig(projectToken: "replay_triggers_\(UUID().uuidString)", host: "http://localhost:9001")
             config.sessionReplay = true
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
@@ -51,6 +51,9 @@
             // Reset the static install flag a prior replay suite may have left set, so this SUT installs
             // a fresh integration rather than no-opping onto a stale one.
             PostHogReplayIntegration.clearInstalls()
+            // REPRO: another suite's SDK saves its remote config (no event triggers) under the shared test token
+            PostHogStorage(PostHogConfig(projectToken: "test_project_token"))
+                .setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
 
             return PostHogSDK.with(config)
         }

@@ -433,29 +433,59 @@ class PostHogQueue<Record> {
                 return
             }
 
+            // Bound this flush to its original FIFO window, including across
+            // replay boundaries. Concurrent appends belong to a later flush.
             let entries = self.fileQueue.peekEntries(count)
+            self.consume(entries, from: 0, completion: completion)
+        }
+    }
 
-            var processing: [Record] = []
+    /// Called on `dispatchQueue`, with the flush claimed for the entire window.
+    private func consume(_ entries: [PostHogFileBackedQueue.Entry], from start: Int,
+                         completion: @escaping (PostHogConsumerPayload<Record>) -> Void)
+    {
+        // `stop()` allows the already in-flight request to finish, but a
+        // completed prefix must not start another upload after SDK shutdown.
+        let stoppedBetweenPrefixes = start > 0 && timerLock.withLock { stopped }
+        guard !stoppedBetweenPrefixes, pauseReason() == nil else {
+            isFlushingLock.withLock { isFlushing = false }
+            return
+        }
 
-            for entry in entries {
-                guard let record = self.endpoint.decode(entry.data) else {
-                    continue
+        var processing: [Record] = []
+        var selectedIds: [String] = []
+        var next = start
+        while next < entries.count {
+            let entry = entries[next]
+            if let record = endpoint.decode(entry.data) {
+                if let first = processing.first,
+                   let canBatchTogether = endpoint.canBatchTogether,
+                   !canBatchTogether(first, record)
+                {
+                    break
                 }
                 processing.append(record)
             }
-
-            completion(PostHogConsumerPayload(records: processing) { [weak self] success in
-                guard let self else { return }
-                if success, !entries.isEmpty {
-                    self.fileQueue.remove(ids: entries.map(\.id))
-                    hedgeLog("Completed!")
-                }
-
-                self.isFlushingLock.withLock {
-                    self.isFlushing = false
-                }
-            })
+            selectedIds.append(entry.id)
+            next += 1
         }
+        let nextIndex = next
+
+        completion(PostHogConsumerPayload(records: processing) { [weak self] success in
+            guard let self else { return }
+            if success, !selectedIds.isEmpty {
+                self.fileQueue.remove(ids: selectedIds)
+                hedgeLog("Completed!")
+            }
+
+            if success, nextIndex < entries.count {
+                self.dispatchQueue.async { [weak self] in
+                    self?.consume(entries, from: nextIndex, completion: completion)
+                }
+            } else {
+                self.isFlushingLock.withLock { self.isFlushing = false }
+            }
+        })
     }
 
     #if !os(watchOS)

@@ -51,6 +51,11 @@ extension QueueEndpoint where Record == PostHogEvent {
             encode: { event in toJSONData(event.toJSON()) },
             decode: { data in PostHogEvent.fromJSON(data) },
             describe: { _ in "snapshot" },
+            canBatchTogether: { first, next in
+                // Capture attributes the entire request to the first snapshot.
+                first.distinctId == next.distinctId
+                    && (first.properties["$session_id"] as? String) == (next.properties["$session_id"] as? String)
+            },
             send: { events, completion in
                 api.snapshot(events: events, completion: completion)
             },

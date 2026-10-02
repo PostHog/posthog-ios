@@ -77,6 +77,9 @@ struct PostHogDeepLinkHelperTests {
 
 @Suite("Deep Link Event Capture Tests", .serialized)
 final class PostHogDeepLinkEventTests {
+    // A fresh token per test gives each test its own on-disk queue, so batches an
+    // earlier SDK closed before acknowledging can't be resent into this test.
+    let projectToken = UUID().uuidString
     var server: MockPostHogServer!
 
     init() {
@@ -87,18 +90,16 @@ final class PostHogDeepLinkEventTests {
     deinit {
         server.stop()
         server = nil
+        deleteSafely(PostHogStorage(PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")).appFolderUrl)
     }
 
     private func getSut(flushAt: Int = 1) -> PostHogSDK {
-        let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
         config.captureApplicationLifecycleEvents = false
         config.disableReachabilityForTesting = true
         config.disableFlushOnBackgroundForTesting = true
-
-        let storage = PostHogStorage(config)
-        storage.reset()
 
         return PostHogSDK.with(config)
     }
@@ -194,7 +195,7 @@ final class PostHogDeepLinkEventTests {
         sut.captureDeepLink(url: url)
 
         // Capture should be ignored, re-enable and capture something else
-        let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
         config.flushAt = 1
         config.captureApplicationLifecycleEvents = false
         config.disableReachabilityForTesting = true

@@ -209,10 +209,12 @@ enum PostHogSessionManagerTest {
             config.disableQueueTimerForTesting = true
             config.disableFlushOnBackgroundForTesting = true
             config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
+            config.captureScreenViews = false
             config.optOut = optOut
             config.propertiesSanitizer = propertiesSanitizer
             config.personProfiles = personProfiles
             config.maxBatchSize = max(flushAt, config.maxBatchSize)
+            server.batchProjectToken = config.projectToken
             let sdk = PostHogSDK.with(config)
             let storage = PostHogStorage(config)
             cleanupJobs.append {

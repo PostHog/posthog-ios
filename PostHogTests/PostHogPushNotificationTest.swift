@@ -10,6 +10,9 @@
     @Suite("Push Notification Tests", .serialized)
     final class PostHogPushNotificationTest {
         var server: MockPostHogServer!
+        // A fresh token per test lets the server ignore requests that earlier tests' SDK
+        // instances send late.
+        let projectToken = "push_\(UUID().uuidString)"
 
         init() {
             if #available(iOS 14.0, macOS 11.0, *) {
@@ -30,6 +33,8 @@
             deleteSafely(applicationSupportDirectoryURL())
 
             server = MockPostHogServer()
+            server.batchProjectToken = projectToken
+            server.pushSubscriptionProjectToken = projectToken
             server.start()
         }
 
@@ -116,7 +121,7 @@
             onEventContextChanged: PostHogMulticastCallback<[String: Any]> = .init(),
             resetStorage: Bool = true
         ) -> (handler: PostHogPushSubscriptionHandler, storage: PostHogStorage, config: PostHogConfig) {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
             config.maxRetries = maxRetries
             config.disableReachabilityForTesting = true
             let api = PostHogApi(config)
@@ -152,7 +157,7 @@
             pushIdentityProvider: ((String, String, @escaping (String?) -> Void) -> Void)? = nil,
             recordOpens: PushOpenRecorder? = nil
         ) -> PostHogSDK {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
             if let recordOpens {
                 config.setBeforeSend { event in
                     if event.event == "$push_notification_opened" { recordOpens.record(event) }
@@ -184,7 +189,7 @@
 
         @Test("capturePushNotificationSubscriptions and capturePushNotificationOpened default to true")
         func configFlagsDefaultToTrue() {
-            let config = PostHogConfig(projectToken: testProjectToken)
+            let config = PostHogConfig(projectToken: projectToken)
             #expect(config.capturePushNotificationSubscriptions == true)
             #expect(config.capturePushNotificationOpened == true)
         }
@@ -195,11 +200,11 @@
         func getIntegrationsGatesOpenedIntegration() {
             guard #available(iOS 14.0, macOS 11.0, *) else { return }
 
-            let enabled = PostHogConfig(projectToken: testProjectToken)
+            let enabled = PostHogConfig(projectToken: projectToken)
             enabled.capturePushNotificationOpened = true
             #expect(enabled.getIntegrations().contains { $0 is PostHogPushNotificationOpenIntegration })
 
-            let disabled = PostHogConfig(projectToken: testProjectToken)
+            let disabled = PostHogConfig(projectToken: projectToken)
             disabled.capturePushNotificationOpened = false
             #expect(!disabled.getIntegrations().contains { $0 is PostHogPushNotificationOpenIntegration })
         }
@@ -209,11 +214,11 @@
             func getIntegrationsGatesSubscriptionIntegration() {
                 guard #available(iOS 14.0, *) else { return }
 
-                let enabled = PostHogConfig(projectToken: testProjectToken)
+                let enabled = PostHogConfig(projectToken: projectToken)
                 enabled.capturePushNotificationSubscriptions = true
                 #expect(enabled.getIntegrations().contains { $0 is PostHogPushNotificationSubscriptionIntegration })
 
-                let disabled = PostHogConfig(projectToken: testProjectToken)
+                let disabled = PostHogConfig(projectToken: projectToken)
                 disabled.capturePushNotificationSubscriptions = false
                 #expect(!disabled.getIntegrations().contains { $0 is PostHogPushNotificationSubscriptionIntegration })
             }
@@ -316,7 +321,7 @@
 
             let firstDelete = try #require(deletes.first)
             let body = try #require(server.parseRequest(firstDelete))
-            #expect(body["api_key"] as? String == testProjectToken)
+            #expect(body["api_key"] as? String == projectToken)
             #expect(body["distinct_id"] as? String == "user-1")
             #expect(body["device_token"] as? String == "tok")
             #expect(body["platform"] as? String == "ios")
@@ -871,7 +876,7 @@
             let post = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "POST" })
             let postBody = try #require(server.parseRequest(post))
             #expect(postBody["identity_token"] as? String == "jwt-abc")
-            #expect(postBody["api_key"] as? String == testProjectToken)
+            #expect(postBody["api_key"] as? String == projectToken)
             #expect(postBody["distinct_id"] as? String == "user-1")
             #expect(postBody["device_token"] as? String == "tok")
             #expect(postBody["platform"] as? String == "ios")
@@ -1507,7 +1512,7 @@
 
         @Test("setup retries a persisted subscription from a previous launch")
         func setupRetriesPersistedSubscriptionFromPreviousLaunch() async throws {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false
             config.capturePushNotificationSubscriptions = false
@@ -1534,7 +1539,7 @@
 
         @Test("config.optOut before setup: one DELETE, the record parked, nothing on a later flush")
         func optedOutSetupUnregistersOnceAndParksRecord() async throws {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
             config.optOut = true
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false

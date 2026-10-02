@@ -88,9 +88,6 @@ import Foundation
                 case .unavailable: return "No Connection"
                 }
             }
-
-            @available(*, deprecated, renamed: "unavailable")
-            static let none: Connection = .unavailable
         }
 
         /// Multicast hooks: every subscriber gets called on every transition.
@@ -99,19 +96,11 @@ import Foundation
         let onReachable = PostHogMulticastCallback<Reachability>()
         let onUnreachable = PostHogMulticastCallback<Reachability>()
 
-        @available(*, deprecated, renamed: "allowsCellularConnection")
-        let reachableOnWWAN: Bool = true
-
         /// Set to `false` to force Reachability.connection to .none when on cellular connection (default value `true`)
         var allowsCellularConnection: Bool
 
         // The notification center on which "reachability changed" events are being posted
         var notificationCenter: NotificationCenter = .default
-
-        @available(*, deprecated, renamed: "connection.description")
-        var currentReachabilityString: String {
-            "\(connection)"
-        }
 
         @available(*, unavailable, renamed: "connection")
         var currentReachabilityStatus: Connection {
@@ -245,24 +234,6 @@ import Foundation
 
             SCNetworkReachabilitySetCallback(reachabilityRef, nil, nil)
             SCNetworkReachabilitySetDispatchQueue(reachabilityRef, nil)
-        }
-
-        // MARK: - *** Connection test methods ***
-
-        @available(*, deprecated, message: "Please use `connection != .none`")
-        var isReachable: Bool {
-            connection != .unavailable
-        }
-
-        @available(*, deprecated, message: "Please use `connection == .cellular`")
-        var isReachableViaWWAN: Bool {
-            // Check we're not on the simulator, we're REACHABLE and check we're on WWAN
-            connection == .cellular
-        }
-
-        @available(*, deprecated, message: "Please use `connection == .wifi`")
-        var isReachableViaWiFi: Bool {
-            connection == .wifi
         }
 
         var description: String {

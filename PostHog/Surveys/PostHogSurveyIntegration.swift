@@ -601,15 +601,7 @@
 
                 guard !activeSurveyCompleted, index >= 0, index == activeSurveyQuestionIndex, activeSurvey.questions.indices.contains(index) else { return nil }
 
-                // TODO: ideally the handleSurveyResponse should pass the question ID as param but it would break the Flutter SDK for older versions
-                let questionId: String
-                if index < survey.questions.count {
-                    let question = survey.questions[index]
-                    questionId = question.id
-                } else {
-                    // this should not happen, its only for back compatibility
-                    questionId = ""
-                }
+                let questionId = activeSurvey.questions[index].id
 
                 // 2. Get next step
                 let nextStep = getNextSurveyStep(
@@ -1003,10 +995,10 @@
                     question: question,
                     response: response,
                     responseValues: responseValues
-                ) ?? .index(nextQuestionIndex)
+                ) ?? (questionIndex == survey.questions.count - 1 ? .end : .index(nextQuestionIndex))
 
             case .next, .unknown:
-                return .index(nextQuestionIndex)
+                return questionIndex == survey.questions.count - 1 ? .end : .index(nextQuestionIndex)
             }
         }
 

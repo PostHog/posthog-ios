@@ -117,6 +117,17 @@ class PostHogSurveyEventsTest {
         return integration
     }
 
+    func surveyJSON(questions: [[String: Any]]) throws -> PostHogSurvey {
+        let json: [String: Any] = [
+            "id": "branch-survey",
+            "name": "Branch survey",
+            "type": "popover",
+            "questions": questions,
+        ]
+        let data = try JSONSerialization.data(withJSONObject: json)
+        return try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+    }
+
     func partialResponseSurvey(enabled: Bool?, branching: [String: Any]? = nil, properties: [String: Any] = [:]) throws -> PostHogSurvey {
         var first: [String: Any] = ["id": "first", "type": "open", "question": "First?", "optional": true]
         first["branching"] = branching
@@ -129,6 +140,19 @@ class PostHogSurveyEventsTest {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode(PostHogSurvey.self, from: JSONSerialization.data(withJSONObject: json))
+    }
+
+    @Test("surveys with a question type the SDK can't render are not shown")
+    func unsupportedQuestionTypeIsNotRendered() throws {
+        let integration = PostHogSurveyIntegration()
+        let first: [String: Any] = ["id": "first", "type": "open", "question": "First?"]
+        let second: [String: Any] = ["id": "second", "type": "open", "question": "Second?"]
+        let future: [String: Any] = ["id": "future", "type": "future_question_type", "question": "Future?"]
+
+        #expect(try integration.canRenderSurvey(survey: surveyJSON(questions: [first, second])))
+        // Rendering only the known questions would shift `second` to index 1 while branching and
+        // responses still treat index 1 as `future`, so the survey could never complete.
+        #expect(try !integration.canRenderSurvey(survey: surveyJSON(questions: [first, future, second])))
     }
 
     @Test("resumed completion and dismissal preserve seen history", arguments: [false, true])
@@ -456,6 +480,98 @@ class PostHogSurveyEventsTest {
         resumed.setSurveys([gated])
         resumed.getActiveMatchingSurveys { matching = $0 }
         #expect(matching.isEmpty)
+    }
+
+    @Test("next branching on the last question completes the survey")
+    func nextBranchingOnLastQuestionCompletesSurvey() throws {
+        let postHog = getSut()
+        postHog.config.setBeforeSend { _ in nil }
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
+        let survey = try surveyJSON(questions: [[
+            "id": "only",
+            "type": "open",
+            "question": "Only?",
+            "branching": ["type": "next_question"],
+        ]])
+        let integration = try getSurveyIntegration(postHog)
+        integration.setShownSurvey(survey)
+
+        let next = try #require(integration.getNextQuestion(index: 0, response: .openEnded("ok")))
+        #expect(next == (0, true))
+    }
+
+    @Test("next branching before the last question advances")
+    func nextBranchingBeforeLastQuestionAdvances() throws {
+        let postHog = getSut()
+        postHog.config.setBeforeSend { _ in nil }
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
+        let survey = try surveyJSON(questions: [
+            [
+                "id": "first",
+                "type": "open",
+                "question": "First?",
+                "branching": ["type": "next_question"],
+            ],
+            ["id": "second", "type": "open", "question": "Second?"],
+        ])
+        let integration = try getSurveyIntegration(postHog)
+        integration.setShownSurvey(survey)
+
+        let next = try #require(integration.getNextQuestion(index: 0, response: .openEnded("ok")))
+        #expect(next == (1, false))
+    }
+
+    @Test("unmapped response branching on the last question completes the survey")
+    func unmappedResponseBranchingOnLastQuestionCompletesSurvey() throws {
+        let postHog = getSut()
+        postHog.config.setBeforeSend { _ in nil }
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
+        let survey = try surveyJSON(questions: [[
+            "id": "only",
+            "type": "single_choice",
+            "question": "Pick",
+            "choices": ["Yes", "No"],
+            "branching": ["type": "response_based", "responseValues": ["0": "end"]],
+        ]])
+        let integration = try getSurveyIntegration(postHog)
+        integration.setShownSurvey(survey)
+
+        let next = try #require(integration.getNextQuestion(index: 0, response: .singleChoice("No")))
+        #expect(next == (0, true))
+    }
+
+    @Test("unmapped response branching before the last question advances")
+    func unmappedResponseBranchingBeforeLastQuestionAdvances() throws {
+        let postHog = getSut()
+        postHog.config.setBeforeSend { _ in nil }
+        defer {
+            postHog.close()
+            postHog.reset()
+        }
+        let survey = try surveyJSON(questions: [
+            [
+                "id": "first",
+                "type": "single_choice",
+                "question": "Pick",
+                "choices": ["Yes", "No"],
+                "branching": ["type": "response_based", "responseValues": ["0": "end"]],
+            ],
+            ["id": "second", "type": "open", "question": "Second?"],
+        ])
+        let integration = try getSurveyIntegration(postHog)
+        integration.setShownSurvey(survey)
+
+        let next = try #require(integration.getNextQuestion(index: 0, response: .singleChoice("No")))
+        #expect(next == (1, false))
     }
 
     @Test("custom delegates resume only when opted in", arguments: ["legacy", "disabled", "enabled"])

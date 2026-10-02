@@ -209,9 +209,13 @@
             let postHog: PostHogSDK
 
             init() {
+                let projectToken = UUID().uuidString
                 server = MockPostHogServer()
+                // Filter before starting, so batches from other tests' still-running SDK instances are
+                // ignored even while this test's SDK is being created.
+                server.batchProjectToken = projectToken
                 server.start()
-                postHog = Self.getSut()
+                postHog = Self.getSut(projectToken: projectToken)
             }
 
             deinit {
@@ -223,8 +227,8 @@
                 server.stop()
             }
 
-            private static func getSut() -> PostHogSDK {
-                let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9090")
+            private static func getSut(projectToken: String) -> PostHogSDK {
+                let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9090")
                 config.disableRemoteConfigForTesting = true
                 config.preloadFeatureFlags = false
                 config._surveys = true
@@ -416,9 +420,13 @@
                 let postHog: PostHogSDK
 
                 init() {
+                    let projectToken = UUID().uuidString
                     server = MockPostHogServer()
+                    // Filter before starting, so batches from other tests' still-running SDK instances are
+                    // ignored even while this test's SDK is being created.
+                    server.batchProjectToken = projectToken
                     server.start()
-                    postHog = Self.getSut()
+                    postHog = Self.getSut(projectToken: projectToken)
                 }
 
                 deinit {
@@ -430,8 +438,8 @@
                     server.stop()
                 }
 
-                private static func getSut() -> PostHogSDK {
-                    let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9090")
+                private static func getSut(projectToken: String) -> PostHogSDK {
+                    let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9090")
                     config.disableRemoteConfigForTesting = true
                     config.preloadFeatureFlags = false
                     config._surveys = true
@@ -710,7 +718,7 @@
                     try #require(next.1)
 
                     let events = try await getServerEvents(server)
-                    let sent = try #require(events.first { $0.event == "survey sent" })
+                    let sent = try #require(events.first { $0.event == "survey sent" }, "received: \(events.map(\.event))")
                     let questions = try #require(sent.properties["$survey_questions"] as? [[String: Any]])
                     #expect(questions.count == 2)
                     #expect(questions[0]["question"] as? String == "Question 1?") // answered in English
@@ -735,7 +743,7 @@
                     integration.testHandleSurveyClosed(survey: twoQuestionTranslatedSurvey().toDisplaySurvey())
 
                     let events = try await getServerEvents(server)
-                    let dismissed = try #require(events.first { $0.event == "survey dismissed" })
+                    let dismissed = try #require(events.first { $0.event == "survey dismissed" }, "received: \(events.map(\.event))")
                     let questions = try #require(dismissed.properties["$survey_questions"] as? [[String: Any]])
                     // Q1 was answered in English and keeps that text despite the later switch.
                     #expect(questions[0]["question"] as? String == "Question 1?")

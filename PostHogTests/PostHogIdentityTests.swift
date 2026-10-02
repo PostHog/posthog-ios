@@ -12,6 +12,9 @@ import Testing
 @Suite("Identity tests", .serialized)
 class PostHogIdentityTests {
     let server: MockPostHogServer
+    // A fresh token per test gives each test its own storage and lets the server ignore batches
+    // that earlier tests' SDK instances send late.
+    let projectToken = "identity_\(UUID().uuidString)"
 
     var cleanupJobs: [() -> Void]
 
@@ -19,7 +22,7 @@ class PostHogIdentityTests {
         reuseAnonymousId: Bool = false,
         flushAt: Int = 1
     ) -> PostHogSDK {
-        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
         config.captureApplicationLifecycleEvents = false
         config.reuseAnonymousId = reuseAnonymousId
         config.flushAt = flushAt
@@ -36,6 +39,7 @@ class PostHogIdentityTests {
 
     init() throws {
         server = MockPostHogServer()
+        server.batchProjectToken = projectToken
         server.start()
         cleanupJobs = []
     }

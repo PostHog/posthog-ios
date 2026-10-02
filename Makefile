@@ -90,16 +90,10 @@ swiftFormatCheck: installSwiftFormat
 	swiftformat . --lint --swiftversion 5.3
 
 # use -only-testing:PostHogTests/PostHogQueueTest to run only a specific test
-# Swift Testing retries rerun whole suites in the same process, including irreversible swizzles.
-# Run once and retain the raw log rather than hiding failures or contaminating retry state.
+# Runs the suite once, then reruns only failed XCTest cases in a fresh process. Swift Testing
+# failures are never retried, since rerunning those suites reinstalls irreversible swizzles.
 testOniOSSimulator:
-	@device="$$(xcrun simctl list devices available | grep -E '^[[:space:]]*iPhone' | head -1 | sed -E 's/^[[:space:]]*//; s/ \(.*//')"; \
-	[ -n "$$device" ] || { echo "No available iPhone simulator found; install one via Xcode or 'xcrun simctl create'."; exit 1; }; \
-	echo "Testing on simulator: $$device"; \
-	set -o pipefail; \
-	xcrun xcodebuild test -scheme PostHog -destination "platform=iOS Simulator,name=$$device" -parallel-testing-enabled NO 2>&1 | tee xcodebuild-ios.log | xcpretty; \
-	status=$$?; \
-	scripts/check-ios-test-result.sh "$$status" xcodebuild-ios.log
+	scripts/test-ios-simulator.sh xcodebuild-ios.log
 
 # Mounted interaction tests use a small test host and the SDK's real survey views.
 # Override SURVEY_UI_DESTINATION to select an installed simulator explicitly.

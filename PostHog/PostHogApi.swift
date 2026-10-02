@@ -357,6 +357,7 @@ class PostHogApi {
             "distinct_id": distinctId,
             "groups": groups,
             "timezone": TimeZone.current.identifier,
+            "geoip_disable": config.disableGeoIp,
         ]
 
         if let anonymousId {

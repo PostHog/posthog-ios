@@ -236,11 +236,14 @@ let maxRetryDelay = 30.0
             // Invoked on the main queue, after the new flags are readable through the getters.
             featureFlagsLoadedToken = remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] featureFlags in
                 guard let self else { return }
+                let current = self.remoteConfig?.getFeatureFlags() ?? [:]
+                // Each notification carries the flags cached when it was sent. If the cache has moved on
+                // since (reset() or a newer load), drop it: a newer notification follows if there is one.
+                if let featureFlags, !NSDictionary(dictionary: featureFlags).isEqual(to: current) {
+                    return
+                }
                 // nil means the request failed; report the last known flags, like posthog-js.
-                let loaded = PostHogFeatureFlagsLoaded(
-                    featureFlags: featureFlags ?? self.remoteConfig?.getFeatureFlags() ?? [:],
-                    errorsLoading: featureFlags == nil
-                )
+                let loaded = PostHogFeatureFlagsLoaded(featureFlags: featureFlags ?? current, errorsLoading: featureFlags == nil)
                 self.featureFlagsListenersLock.withLock { self.lastFeatureFlagsLoaded = loaded }
                 self.onFeatureFlagsLoaded.invoke(loaded)
             }
@@ -2262,7 +2265,9 @@ let maxRetryDelay = 30.0
         let id = UUID()
         // Main-thread only: every delivery and the replay below run on main.
         var lastDelivered: PostHogFeatureFlagsLoaded?
-        let token = onFeatureFlagsLoaded.subscribe { loaded in
+        let token = onFeatureFlagsLoaded.subscribe { [weak self] loaded in
+            // Deliveries iterate a snapshot of listeners, so another callback may have unsubscribed this one.
+            guard let self, self.featureFlagsListenersLock.withLock({ self.featureFlagsListenerTokens[id] != nil }) else { return }
             lastDelivered = loaded
             callback(loaded)
         }

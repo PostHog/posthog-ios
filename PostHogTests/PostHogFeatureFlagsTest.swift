@@ -1788,6 +1788,55 @@ enum PostHogFeatureFlagsTest {
             #expect(received.isEmpty)
         }
 
+        @Test("drops a delivery queued before reset")
+        func dropsDeliveryQueuedBeforeReset() async {
+            let sut = track(PostHogSDK.with(config))
+            await reload(sut)
+
+            var received: [PostHogFeatureFlagsLoaded] = []
+            sut.onFeatureFlags { received.append($0) }
+            await MainActor.run {}
+            let before = received.count
+
+            // Hold main so the reload's delivery is still queued when reset() clears the flags
+            let mainBlocked = DispatchSemaphore(value: 0)
+            DispatchQueue.main.async { _ = mainBlocked.wait(timeout: .now() + 5) }
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    sut.remoteConfig?.canReloadFlagsForTesting = false
+                    sut.reset()
+                    sut.onFeatureFlags { received.append($0) }
+                    mainBlocked.signal()
+                    continuation.resume()
+                }
+            }
+            await MainActor.run {}
+
+            #expect(received.count == before)
+        }
+
+        @Test("does not call a listener unsubscribed by another listener during the same delivery")
+        func unsubscribedDuringDelivery() async {
+            let sut = track(PostHogSDK.with(config))
+            var subscriptionA: PostHogFeatureFlagsSubscription?
+            var subscriptionB: PostHogFeatureFlagsSubscription?
+            var countA = 0
+            var countB = 0
+            // Whichever runs first unsubscribes the other, so exactly one of them is called
+            subscriptionA = sut.onFeatureFlags { _ in
+                countA += 1
+                subscriptionB?.unsubscribe()
+            }
+            subscriptionB = sut.onFeatureFlags { _ in
+                countB += 1
+                subscriptionA?.unsubscribe()
+            }
+
+            await reload(sut)
+
+            #expect(countA + countB == 1)
+        }
+
         private func makeBootstrapConfig() -> PostHogConfig {
             let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
             config.preloadFeatureFlags = false

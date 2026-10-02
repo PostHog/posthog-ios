@@ -124,6 +124,23 @@ testPresentationMasks:
 	@grep -q 'Suite "Replay masking behind a cover" passed' presentation-masks.log
 	@grep -q 'Suite "Replay presentation privacy" passed' presentation-masks.log
 
+.PHONY: testCameraReplay
+
+# Opt-in system camera regression; requires an app host and a camera-capable runtime.
+# Pass CAMERA_REPLAY_DESTINATION to select the simulator/device and CAMERA_REPLAY_XCODEBUILD_ARGS
+# for local build overrides. Regular controller-exclusion tests also run in the normal suite.
+testCameraReplay:
+	set -o pipefail && xcrun xcodebuild test -project PostHog.xcodeproj -scheme PostHog \
+	  -destination "$(CAMERA_REPLAY_DESTINATION)" -parallel-testing-enabled NO \
+	  POSTHOG_PRESENTATION_TEST_HOST='$$(BUILT_PRODUCTS_DIR)/PostHogExample.app/PostHogExample' \
+	  INFOPLIST_KEY_NSCameraUsageDescription='Test replay capture while the camera is open.' \
+	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TEST_CAMERA_REPLAY' \
+	  -only-testing:PostHogTests/PostHogReplayCameraTest \
+	  -only-testing:PostHogTests/PostHogSystemCameraReplayTest \
+	  $(CAMERA_REPLAY_XCODEBUILD_ARGS) 2>&1 | tee camera-replay.log | xcpretty
+	@grep -q 'Suite "System camera replay regression" passed' camera-replay.log
+	@grep -q 'Suite "Replay camera exclusion" passed' camera-replay.log
+
 testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
 

@@ -87,15 +87,15 @@ final class RegistrationToken {
 ///
 /// Usage:
 /// ```swift
-/// let onViewLayout = PostHogThrottledMulticastCallback<Void>()
+/// let onOpportunity = PostHogThrottledMulticastCallback<Void>()
 ///
 /// // Subscribe with throttle
-/// let token = onViewLayout.subscribe(throttle: 0.5) {
-///     print("View laid out (throttled)")
+/// let token = onOpportunity.subscribe(throttle: 0.5) {
+///     print("Opportunity to capture (throttled)")
 /// }
 ///
 /// // Invoke all subscribers (each respects its own throttle)
-/// onViewLayout.invoke(())
+/// onOpportunity.invoke(())
 /// ```
 final class PostHogThrottledMulticastCallback<T> {
     private var callbacks: [UUID: ThrottledCallback] = [:]

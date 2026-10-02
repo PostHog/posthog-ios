@@ -159,4 +159,84 @@ struct UtilsTest {
             #expect(dateString == "2023-12-21T16:00:00.000Z")
         }
     }
+
+    @Suite("Property sanitizing")
+    struct SanitizeDictionaryTests {
+        private let date = Date(timeIntervalSince1970: 1_700_000_000)
+
+        private var dateString: String {
+            ISO8601DateFormatter().string(from: date)
+        }
+
+        @Test("converts a top-level date and drops a value that cannot be serialized")
+        func convertsTopLevelDateAndDropsUUID() {
+            let sanitized = sanitizeDictionary([
+                "when": date,
+                "id": UUID(),
+                "name": "ada",
+            ])
+
+            #expect(sanitized?["when"] as? String == dateString)
+            #expect(sanitized?["name"] as? String == "ada")
+            #expect(sanitized?["id"] == nil)
+        }
+
+        @Test("converts dates and URLs inside nested dictionaries and arrays")
+        func convertsNestedDatesAndURLs() {
+            let sanitized = sanitizeDictionary([
+                "user": [
+                    "name": "ada",
+                    "joined": date,
+                    "site": URL(string: "https://posthog.com")!,
+                ] as [String: Any],
+                "events": ["launch", date, true] as [Any],
+            ])
+
+            let user = sanitized?["user"] as? [String: Any]
+            #expect(user?["name"] as? String == "ada")
+            #expect(user?["joined"] as? String == dateString)
+            #expect(user?["site"] as? String == "https://posthog.com")
+
+            let events = sanitized?["events"] as? [Any]
+            #expect(events?.count == 3)
+            #expect(events?[0] as? String == "launch")
+            #expect(events?[1] as? String == dateString)
+            #expect(events?[2] as? Bool == true)
+        }
+
+        @Test("keeps an empty nested dictionary when every nested value is dropped")
+        func keepsEmptyNestedDictionaryForWebParity() {
+            let sanitized = sanitizeDictionary([
+                "user": ["id": UUID()] as [String: Any],
+                "name": "ada",
+            ])
+
+            let user = sanitized?["user"] as? [String: Any]
+            #expect(user?.isEmpty == true)
+            #expect(sanitized?["name"] as? String == "ada")
+        }
+
+        @Test("drops a nested array key when every item is non-serializable")
+        func omitsNestedArrayWhenAllItemsDropped() {
+            let sanitized = sanitizeDictionary([
+                "tags": [UUID()] as [Any],
+                "name": "ada",
+            ])
+
+            #expect(sanitized?["tags"] == nil)
+            #expect(sanitized?["name"] as? String == "ada")
+        }
+
+        @Test("sanitizes mixed array items and drops non-serializable entries")
+        func sanitizesMixedArrayItems() {
+            let sanitized = sanitizeDictionary([
+                "items": ["a", UUID(), date] as [Any],
+            ])
+
+            let items = sanitized?["items"] as? [Any]
+            #expect(items?.count == 2)
+            #expect(items?[0] as? String == "a")
+            #expect(items?[1] as? String == dateString)
+        }
+    }
 }

@@ -4,6 +4,7 @@
     "$device_id" : "<uuid>",
     "api_key" : "snapshot-project-token",
     "distinct_id" : "user-123",
+    "geoip_disable" : false,
     "group_properties" : {
       "company" : {
         "employees" : 120,

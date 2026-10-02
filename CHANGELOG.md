@@ -1,5 +1,46 @@
 ## Next
 
+## 3.88.0
+
+### Minor Changes
+
+- b3e7772: Add the `disableGeoIp` config so an app can opt out of server-side GeoIP enrichment. When enabled, captured events carry `$geoip_disable` and feature flag requests send `geoip_disable`, so the server doesn't infer the user's location from their IP address.
+
+## 3.87.0
+
+### Minor Changes
+
+- a60a2b0: Deprecate APIs that PostHog 4.0 hides or removes, and announce iOS 15 as the minimum iOS version in 4.0.
+  
+  Becoming SDK-internal in 4.0 (wrapper SDKs can keep using them by importing PostHog with `@_spi(PostHogInternal)`):
+  
+  - `PostHogSessionManager.shared` and `setSessionId(_:)`: use `PostHogSDK.getSessionId()`, `startSession()` and `endSession()`.
+  - `dateToMillis(_:)` and `imageToBase64(_:_:)`
+  
+  Removed from the public API in 4.0:
+  
+  - `UIColor.hexDescription(_:)`
+  
+  These also change in 4.0 but show no deprecation warning in 3.x, because the SDK uses them internally:
+  
+  - Becoming SDK-internal: `postHogSdkName`, `postHogVersion`, `PostHogConfig.storageManager` and `PostHogConfig.snapshotEndpoint`.
+  - Removed from the public API: `toISO8601String(_:)`, `toISO8601Date(_:)`, `sanitizeDictionary(_:)`, `deleteSafely(_:)`, `postHogiOSSdkName`, `UIColor.init(hex:)`, `Gzip`, `GzipError`, `CompressionLevel` and `ReachabilityError`.
+  
+  PostHog 4.0 raises the minimum iOS deployment target from 13.0 to 15.0. The macOS, tvOS, watchOS and visionOS minimums are unchanged.
+
+## 3.86.3
+
+### Patch Changes
+
+- 35a5caa: Fix automatic screen views capturing duplicate or wrongly named `$screen` events, such as SwiftUI's `_UnaryViewAdaptor<EmptyView>` placeholder, when the device is rotated, folded or unfolded. A screen that appears again without the visible screen changing is no longer captured twice, so navigating inside a split view that shows several columns no longer repeats the split view's `$screen` event. To track the screens inside a column of such a split view, call `screen()` manually.
+- edd15c0: Complete a survey when the last question's branching is `next_question`, or when response-based branching has no match for the answer. The survey no longer stays on that question after it is answered.
+
+## 3.86.2
+
+### Patch Changes
+
+- 9dec867: Keep nested dates and URLs when sanitizing event properties. A `Date` or `URL` inside a dictionary or array is converted the same way as a top-level value, and the surrounding fields are no longer dropped with it.
+
 ## 3.86.1
 
 ### Patch Changes

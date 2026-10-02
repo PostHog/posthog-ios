@@ -1,5 +1,12 @@
 ## Next
 
+## 3.88.2
+
+### Patch Changes
+
+- 9deadc5: Discard session replay screenshots while the system camera picker is open to avoid an iOS CameraUI layer-copy crash. Screenshot capture resumes after the camera is dismissed.
+- ae6063c: Split session replay uploads at session or distinct ID changes so queued snapshots retain their session and identity attribution. Send the boundary-separated groups within a flush's batch limit sequentially without waiting for another flush trigger.
+
 ## 3.88.1
 
 ### Patch Changes

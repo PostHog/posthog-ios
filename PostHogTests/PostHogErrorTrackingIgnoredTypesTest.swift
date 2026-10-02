@@ -70,7 +70,7 @@ import Testing
                 expected: false
             ),
             MatchCase(
-                label: "match is case-sensitive (NSException class names are stable identifiers)",
+                label: "match is case-sensitive",
                 properties: ["$exception_list": [["type": "RCTFatalException", "value": "boom"]]],
                 ignoredTypes: ["rctfatalexception"],
                 expected: false

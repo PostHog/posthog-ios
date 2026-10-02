@@ -304,7 +304,8 @@ import Foundation
         /// `type` matching one of `ignoredTypes`. Walks the exception list rather
         /// than only the outermost entry so a wrapped exception whose underlying
         /// cause has an ignored type is still suppressed. Match is
-        /// case-sensitive and exact (the field is a class name, not free text).
+        /// case-sensitive and exact. For an `NSException` the type is its `name`,
+        /// which can embed free text.
         static func exceptionListMatchesIgnoredTypes(_ properties: [String: Any], ignoredTypes: [String]) -> Bool {
             guard let exceptionList = properties["$exception_list"] as? [[String: Any]] else {
                 return false

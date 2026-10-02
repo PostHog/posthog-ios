@@ -235,15 +235,19 @@ let maxRetryDelay = 30.0
 
             // Invoked on the main queue, after the new flags are readable through the getters.
             featureFlagsLoadedToken = remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] featureFlags in
-                guard let self else { return }
-                let current = self.remoteConfig?.getFeatureFlags() ?? [:]
+                guard let self, let remoteConfig = self.remoteConfig else { return }
+                let current = remoteConfig.getFeatureFlags() ?? [:]
                 // Each notification carries the flags cached when it was sent. If the cache has moved on
                 // since (reset() or a newer load), drop it: a newer notification follows if there is one.
                 if let featureFlags, !NSDictionary(dictionary: featureFlags).isEqual(to: current) {
                     return
                 }
                 // nil means the request failed; report the last known flags, like posthog-js.
-                let loaded = PostHogFeatureFlagsLoaded(featureFlags: featureFlags ?? current, errorsLoading: featureFlags == nil)
+                // errorsLoading reflects the latest load, so a bootstrap notification after a failure still reports it.
+                let loaded = PostHogFeatureFlagsLoaded(
+                    featureFlags: featureFlags ?? current,
+                    errorsLoading: featureFlags == nil || remoteConfig.didLatestFeatureFlagsLoadFail()
+                )
                 self.featureFlagsListenersLock.withLock { self.lastFeatureFlagsLoaded = loaded }
                 self.onFeatureFlagsLoaded.invoke(loaded)
             }

@@ -1895,6 +1895,33 @@ enum PostHogFeatureFlagsTest {
             #expect(countA + countB == 3)
         }
 
+        @Test("keeps errorsLoading from a failed load when the bootstrap notification arrives after it")
+        func bootstrapAfterFailureKeepsErrorsLoading() async {
+            let sut = track(PostHogSDK.with(makeBootstrapConfig()))
+            var received: [PostHogFeatureFlagsLoaded] = []
+            sut.onFeatureFlags { received.append($0) }
+            await MainActor.run {}
+
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+            }
+            await reload(sut)
+            #expect(received.last?.errorsLoading == true)
+
+            // A startup failure can reach listeners before the deferred bootstrap notification
+            sut.remoteConfig?.bootstrapNotifyPending = true
+            sut.remoteConfig?.notifyBootstrappedFlagsIfSeeded()
+            await MainActor.run {}
+
+            #expect(received.last?.errorsLoading == true)
+            #expect(received.last?.variants["beta-ui"] as? Bool == true)
+
+            let replayed = await withCheckedContinuation { continuation in
+                sut.onFeatureFlags { continuation.resume(returning: $0) }
+            }
+            #expect(replayed.errorsLoading == true)
+        }
+
         private func makeBootstrapConfig() -> PostHogConfig {
             let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
             config.preloadFeatureFlags = false

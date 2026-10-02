@@ -4,7 +4,7 @@ If you would like to contribute code to `posthog-ios` you can do so through GitH
 
 ## Development guide
 
-1. Install Xcode.
+1. Install Xcode 26 or later.
 2. Run `make bootstrap` to install the required development tools.
 3. Use the same core checks that CI runs before opening a pull request:
 

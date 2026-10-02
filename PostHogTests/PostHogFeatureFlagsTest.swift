@@ -1837,6 +1837,64 @@ enum PostHogFeatureFlagsTest {
             #expect(countA + countB == 1)
         }
 
+        @Test("does not deliver an update to the remaining listeners after a listener calls reset()")
+        func resetFromListener() async {
+            let sut = track(PostHogSDK.with(config))
+            var countA = 0
+            var countB = 0
+            var didReset = false
+            // Whichever runs first resets, so the other must not get the invalidated update
+            let resetOnce = {
+                guard !didReset else { return }
+                didReset = true
+                sut.remoteConfig?.canReloadFlagsForTesting = false
+                sut.reset()
+            }
+            sut.onFeatureFlags { _ in
+                countA += 1
+                resetOnce()
+            }
+            sut.onFeatureFlags { _ in
+                countB += 1
+                resetOnce()
+            }
+
+            await reload(sut)
+            #expect(countA + countB == 1)
+
+            sut.remoteConfig?.canReloadFlagsForTesting = true
+            await reload(sut)
+            #expect(countA + countB == 3)
+        }
+
+        @Test("does not deliver an update to the remaining listeners after a listener calls close()")
+        func closeFromListener() async {
+            let sut = track(PostHogSDK.with(config))
+            var countA = 0
+            var countB = 0
+            var didClose = false
+            let closeOnce = {
+                guard !didClose else { return }
+                didClose = true
+                sut.close()
+            }
+            sut.onFeatureFlags { _ in
+                countA += 1
+                closeOnce()
+            }
+            sut.onFeatureFlags { _ in
+                countB += 1
+                closeOnce()
+            }
+
+            await reload(sut)
+            #expect(countA + countB == 1)
+
+            sut.setup(config)
+            await reload(sut)
+            #expect(countA + countB == 3)
+        }
+
         private func makeBootstrapConfig() -> PostHogConfig {
             let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
             config.preloadFeatureFlags = false

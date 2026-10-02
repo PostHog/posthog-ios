@@ -2266,8 +2266,11 @@ let maxRetryDelay = 30.0
         // Main-thread only: every delivery and the replay below run on main.
         var lastDelivered: PostHogFeatureFlagsLoaded?
         let token = onFeatureFlagsLoaded.subscribe { [weak self] loaded in
-            // Deliveries iterate a snapshot of listeners, so another callback may have unsubscribed this one.
-            guard let self, self.featureFlagsListenersLock.withLock({ self.featureFlagsListenerTokens[id] != nil }) else { return }
+            // Deliveries iterate a snapshot of listeners, so an earlier callback may have unsubscribed this one,
+            // or invalidated this update by calling reset() or close().
+            guard let self, self.featureFlagsListenersLock.withLock({
+                self.featureFlagsListenerTokens[id] != nil && self.lastFeatureFlagsLoaded === loaded
+            }) else { return }
             lastDelivered = loaded
             callback(loaded)
         }

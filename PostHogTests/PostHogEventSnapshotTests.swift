@@ -277,11 +277,6 @@ final class PostHogEventSnapshotTests {
             #expect(mode == "wireframe" || mode == "screenshot")
             properties.removeValue(forKey: "$sdk_debug_replay_capture_mode")
         }
-        if let throttleDelayMs = properties["$sdk_debug_replay_throttle_delay_ms"] {
-            _ = try #require(throttleDelayMs as? Int)
-            properties.removeValue(forKey: "$sdk_debug_replay_throttle_delay_ms")
-        }
-
         if let appBuild = properties["$app_build"] {
             if let appBuild = appBuild as? String {
                 #expect(!appBuild.isEmpty)
@@ -316,7 +311,7 @@ final class PostHogEventSnapshotTests {
 
         // Wall-clock-derived, not reproducible under a mocked `now()` fixed relative to a real
         // sessionStartTimestamp — normalize rather than assert an exact value.
-        for key in ["$sdk_debug_session_start", "$sdk_debug_current_session_duration"] where properties[key] != nil {
+        for key in ["$sdk_debug_session_start"] where properties[key] != nil {
             _ = try #require(properties[key] as? NSNumber)
             properties[key] = "<timestamp-ms>"
         }

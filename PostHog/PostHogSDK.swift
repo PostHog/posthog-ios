@@ -107,6 +107,14 @@ let maxRetryDelay = 30.0
     private var sessionIdChangedToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
     private var pushRemoteConfigToken: RegistrationToken?
+    /// Public `onFeatureFlags` listeners. Owned by the SDK rather than `remoteConfig`, so listeners
+    /// registered before `setup()` (or across `close()`/`setup()`) keep receiving updates.
+    private let onFeatureFlagsLoaded = PostHogMulticastCallback<PostHogFeatureFlagsLoaded>()
+    private let featureFlagsListenersLock = NSLock()
+    private var featureFlagsListenerTokens: [UUID: RegistrationToken] = [:]
+    /// The last update delivered to listeners, replayed to late subscribers. Nil until flags load.
+    private var lastFeatureFlagsLoaded: PostHogFeatureFlagsLoaded?
+    private var featureFlagsLoadedToken: RegistrationToken?
 
     /// Logger facade exposing `trace/debug/info/warn/error/fatal(_:attributes:)`.
     /// `nil` before `setup(_:)` is called.
@@ -225,6 +233,25 @@ let maxRetryDelay = 30.0
                 onEventContextChanged: onEventContextChanged
             )
 
+            // Invoked on the main queue, after the new flags are readable through the getters.
+            featureFlagsLoadedToken = remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] featureFlags in
+                guard let self, let remoteConfig = self.remoteConfig else { return }
+                let current = remoteConfig.getFeatureFlags() ?? [:]
+                // Each notification carries the flags cached when it was sent. If the cache has moved on
+                // since (reset() or a newer load), drop it: a newer notification follows if there is one.
+                if let featureFlags, !NSDictionary(dictionary: featureFlags).isEqual(to: current) {
+                    return
+                }
+                // nil means the request failed; report the last known flags, like posthog-js.
+                // errorsLoading reflects the latest load, so a bootstrap notification after a failure still reports it.
+                let loaded = PostHogFeatureFlagsLoaded(
+                    featureFlags: featureFlags ?? current,
+                    errorsLoading: featureFlags == nil || remoteConfig.didLatestFeatureFlagsLoadFail()
+                )
+                self.featureFlagsListenersLock.withLock { self.lastFeatureFlagsLoaded = loaded }
+                self.onFeatureFlagsLoaded.invoke(loaded)
+            }
+
             // A device whose project had no push integration was answered 200 and stopped asking.
             // Draining the transition here is the only signal that reaches it.
             pushRemoteConfigToken = remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] _ in
@@ -322,6 +349,10 @@ let maxRetryDelay = 30.0
             // offline or when the record was already delivered). While opted out it unregisters a
             // still-delivered record instead, covering `config.optOut = true` set before `setup()`.
             pushSubscriptionHandler?.retryIfNeeded()
+
+            // After every flags listener (ours and the integrations') is subscribed, so the bootstrap
+            // notification isn't lost when setup runs off the main thread.
+            remoteConfig?.notifyBootstrappedFlagsIfSeeded()
 
             // Flush the queue when the app enters background to ensure
             // pending events are sent before the app is suspended
@@ -794,6 +825,7 @@ let maxRetryDelay = 30.0
 
         // Clear all in-memory caches (feature flags, session replay state, etc.)
         remoteConfig?.clear()
+        featureFlagsListenersLock.withLock { lastFeatureFlagsLoaded = nil }
 
         lastScreenLock.withLock { _lastScreenName = nil }
 
@@ -2219,6 +2251,51 @@ let maxRetryDelay = 30.0
         }
     }
 
+    /// Registers a callback that's invoked whenever feature flags are loaded or updated.
+    ///
+    /// The callback runs on the main thread. It's invoked after the SDK loads flags at startup
+    /// (including from bootstrap values), after `reloadFeatureFlags()`, and after calls that reload
+    /// flags such as `identify()`, `group()` or `reset()`. If flags have already loaded when you
+    /// register, it's also invoked with the current values shortly afterwards.
+    ///
+    /// You can register before `setup()`. Treat each invocation as "flags may have changed",
+    /// not as an exactly-once event.
+    ///
+    /// - Parameter callback: Receives the enabled flags, their values, and whether loading failed.
+    /// - Returns: A subscription. Call `unsubscribe()` on it to stop receiving updates.
+    @discardableResult
+    @objc(onFeatureFlags:)
+    public func onFeatureFlags(_ callback: @escaping (PostHogFeatureFlagsLoaded) -> Void) -> PostHogFeatureFlagsSubscription {
+        let id = UUID()
+        // Main-thread only: every delivery and the replay below run on main.
+        var lastDelivered: PostHogFeatureFlagsLoaded?
+        let token = onFeatureFlagsLoaded.subscribe { [weak self] loaded in
+            // Deliveries iterate a snapshot of listeners, so an earlier callback may have unsubscribed this one,
+            // or invalidated this update by calling reset() or close().
+            guard let self, self.featureFlagsListenersLock.withLock({
+                self.featureFlagsListenerTokens[id] != nil && self.lastFeatureFlagsLoaded === loaded
+            }) else { return }
+            lastDelivered = loaded
+            callback(loaded)
+        }
+        featureFlagsListenersLock.withLock { featureFlagsListenerTokens[id] = token }
+
+        DispatchQueue.main.async { [weak self] in
+            // Read at delivery time so a delivery already queued on main can't be followed by an older value.
+            // Skip if unsubscribed before this ran, or if that queued delivery already passed these values.
+            guard let self, let current = self.featureFlagsListenersLock.withLock({
+                self.featureFlagsListenerTokens[id] != nil ? self.lastFeatureFlagsLoaded : nil
+            }), current !== lastDelivered else { return }
+            callback(current)
+        }
+
+        return PostHogFeatureFlagsSubscription { [weak self] in
+            guard let self else { return }
+            // Release the token outside the lock; its deinit takes the callback's own lock.
+            _ = self.featureFlagsListenersLock.withLock { self.featureFlagsListenerTokens.removeValue(forKey: id) }
+        }
+    }
+
     /// Captures a `$feature_view` event for the specified feature flag.
     ///
     /// - Parameters:
@@ -2668,6 +2745,8 @@ let maxRetryDelay = 30.0
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
             remoteConfig = nil
+            featureFlagsLoadedToken = nil
+            featureFlagsListenersLock.withLock { lastFeatureFlagsLoaded = nil }
             storage = nil
             #if !os(watchOS)
                 self.reachability?.stopNotifier()

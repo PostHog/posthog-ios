@@ -201,6 +201,12 @@ PostHog | PostHogFeatureFlagResult.key | property | @objc let key: String | c:@M
 PostHog | PostHogFeatureFlagResult.payload | property | @objc let payload: Any? | c:@M@PostHog@objc(cs)PostHogFeatureFlagResult(py)payload
 PostHog | PostHogFeatureFlagResult.payloadAs(_:) | method | func payloadAs<T>(_ type: T.Type) -> T? where T : Decodable | s:7PostHog0aB17FeatureFlagResultC9payloadAsyxSgxmSeRzlF
 PostHog | PostHogFeatureFlagResult.variant | property | @objc let variant: String? | c:@M@PostHog@objc(cs)PostHogFeatureFlagResult(py)variant
+PostHog | PostHogFeatureFlagsLoaded | class | @objc(PostHogFeatureFlagsLoaded) final class PostHogFeatureFlagsLoaded | c:@M@PostHog@objc(cs)PostHogFeatureFlagsLoaded
+PostHog | PostHogFeatureFlagsLoaded.errorsLoading | property | @objc let errorsLoading: Bool | c:@M@PostHog@objc(cs)PostHogFeatureFlagsLoaded(py)errorsLoading
+PostHog | PostHogFeatureFlagsLoaded.flags | property | @objc let flags: [String] | c:@M@PostHog@objc(cs)PostHogFeatureFlagsLoaded(py)flags
+PostHog | PostHogFeatureFlagsLoaded.variants | property | @objc let variants: [String : Any] | c:@M@PostHog@objc(cs)PostHogFeatureFlagsLoaded(py)variants
+PostHog | PostHogFeatureFlagsSubscription | class | @objc(PostHogFeatureFlagsSubscription) final class PostHogFeatureFlagsSubscription | c:@M@PostHog@objc(cs)PostHogFeatureFlagsSubscription
+PostHog | PostHogFeatureFlagsSubscription.unsubscribe() | method | @objc func unsubscribe() | c:@M@PostHog@objc(cs)PostHogFeatureFlagsSubscription(im)unsubscribe
 PostHog | PostHogLogEntry | class | @objc class PostHogLogEntry | c:@M@PostHog@objc(cs)PostHogLogEntry
 PostHog | PostHogLogEntry.init(level:message:) | init | @objc init(level: PostHogLogLevel, message: String) | c:@M@PostHog@objc(cs)PostHogLogEntry(im)initWithLevel:message:
 PostHog | PostHogLogEntry.level | property | @objc let level: PostHogLogLevel | c:@M@PostHog@objc(cs)PostHogLogEntry(py)level
@@ -329,6 +335,7 @@ PostHog | PostHogSDK.isOptOut() | method | @objc func isOptOut() -> Bool | c:@M@
 PostHog | PostHogSDK.isRageClickActive() | method | @objc func isRageClickActive() -> Bool | c:@M@PostHog@objc(cs)PostHogSDK(im)isRageClickActive
 PostHog | PostHogSDK.isSessionReplayActive() | method | @objc func isSessionReplayActive() -> Bool | c:@M@PostHog@objc(cs)PostHogSDK(im)isSessionReplayActive
 PostHog | PostHogSDK.logger | property | @objc var logger: PostHogLogger? { get } | c:@M@PostHog@objc(cs)PostHogSDK(py)logger
+PostHog | PostHogSDK.onFeatureFlags(_:) | method | @discardableResult @objc(onFeatureFlags:) func onFeatureFlags(_ callback: @escaping (PostHogFeatureFlagsLoaded) -> Void) -> PostHogFeatureFlagsSubscription | c:@M@PostHog@objc(cs)PostHogSDK(im)onFeatureFlags:
 PostHog | PostHogSDK.optIn() | method | @objc func optIn() | c:@M@PostHog@objc(cs)PostHogSDK(im)optIn
 PostHog | PostHogSDK.optOut() | method | @objc func optOut() | c:@M@PostHog@objc(cs)PostHogSDK(im)optOut
 PostHog | PostHogSDK.prewarmPushNotificationOpenCapture() | type.method | @objc static func prewarmPushNotificationOpenCapture() | c:@M@PostHog@objc(cs)PostHogSDK(cm)prewarmPushNotificationOpenCapture

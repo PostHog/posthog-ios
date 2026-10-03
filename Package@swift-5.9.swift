@@ -12,6 +12,12 @@ let package = Package(
             name: "PostHog",
             targets: ["PostHog"]
         ),
+        // AI observability for Apple Foundation Models. Needs Xcode 27 (Swift 6.4) and iOS 27+ at
+        // runtime; with older toolchains the module builds empty.
+        .library(
+            name: "PostHogAI",
+            targets: ["PostHogAI"]
+        ),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -36,6 +42,11 @@ let package = Package(
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy"),
             ]
+        ),
+        .target(
+            name: "PostHogAI",
+            dependencies: ["PostHog"],
+            path: "PostHogAI"
         ),
         .target(
             name: "PostHogObjCExceptionSupport",
@@ -105,6 +116,13 @@ let package = Package(
             resources: [
                 .process("Resources"),
             ]
+        ),
+        .testTarget(
+            name: "PostHogAITests",
+            dependencies: ["PostHogAI"],
+            path: "PostHogAITests",
+            // Swift 6 mode, so the tests fail to compile if `capture` can't be called from the main actor.
+            swiftSettings: [.unsafeFlags(["-swift-version", "6"])]
         ),
     ]
 )

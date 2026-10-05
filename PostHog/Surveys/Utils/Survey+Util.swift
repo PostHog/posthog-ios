@@ -30,7 +30,7 @@
 
     // swiftlint:disable identifier_name
     /// Convenience helpers for creating and describing survey colors.
-    public extension UIColor {
+    extension UIColor {
         /**
          Creates an immutable UIColor instance specified by a hex string, CSS color name, or nil.
 
@@ -71,7 +71,6 @@
 
          - Returns: A new `String` with the color's hexadecimal value.
          */
-        @available(*, deprecated, message: "UIColor.hexDescription(_:) is removed from the public API in PostHog 4.0.")
         func hexDescription(_ includeAlpha: Bool = false) -> String {
             guard cgColor.numberOfComponents == 4 else {
                 return "Color not RGB."

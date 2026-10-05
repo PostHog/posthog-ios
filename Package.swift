@@ -1,11 +1,10 @@
-// swift-tools-version:5.3
+// swift-tools-version:6.2
 import PackageDescription
 
 let package = Package(
     name: "PostHog",
     platforms: [
-        // visionOS is supported via Package@swift-5.9.swift for Swift 5.9+ users
-        .macOS(.v10_15), .iOS(.v15), .tvOS(.v13), .watchOS(.v6),
+        .macOS(.v10_15), .iOS(.v15), .tvOS(.v13), .watchOS(.v6), .visionOS(.v1),
     ],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
@@ -26,7 +25,7 @@ let package = Package(
             dependencies: [
                 "PostHogObjCExceptionSupport",
                 "phlibwebp",
-                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .tvOS])),
+                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .macCatalyst, .tvOS])),
             ],
             path: "PostHog",
             exclude: [
@@ -96,12 +95,13 @@ let package = Package(
                 "OHHTTPStubs",
                 .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs"),
                 // The crash-report processor tests import this directly to build a PHPLCrashReport.
-                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .tvOS])),
+                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .macCatalyst, .tvOS])),
             ],
             path: "PostHogTests",
             resources: [
                 .process("Resources"),
             ]
         ),
-    ]
+    ],
+    swiftLanguageModes: [.v5]
 )

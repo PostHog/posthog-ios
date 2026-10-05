@@ -8,12 +8,7 @@
 import Foundation
 
 #if os(iOS) || os(macOS) || os(tvOS)
-    #if compiler(>=6.0)
-        internal import PHPLCrashReporter
-    #else
-        // swiftlint:disable:next duplicate_imports
-        @_implementationOnly import PHPLCrashReporter
-    #endif
+    internal import PHPLCrashReporter
 
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
         private static let integrationInstallState = PostHogIntegrationInstallState()

@@ -15,13 +15,11 @@
         let projectToken = "push_\(UUID().uuidString)"
 
         init() {
-            if #available(iOS 14.0, macOS 11.0, *) {
+            if #available(macOS 11.0, *) {
                 PostHogPushNotificationOpenIntegration.clearInstalls()
             }
             #if os(iOS)
-                if #available(iOS 14.0, *) {
-                    PostHogPushNotificationSubscriptionIntegration.clearInstalls()
-                }
+                PostHogPushNotificationSubscriptionIntegration.clearInstalls()
             #endif
             PostHogAppLifeCycleIntegration.clearInstalls()
             PostHogScreenViewIntegration.clearInstalls()
@@ -197,7 +195,7 @@
 
         @Test("getIntegrations includes the opened integration only when its flag is enabled")
         func getIntegrationsGatesOpenedIntegration() {
-            guard #available(iOS 14.0, macOS 11.0, *) else { return }
+            guard #available(macOS 11.0, *) else { return }
 
             let enabled = PostHogConfig(projectToken: projectToken)
             enabled.capturePushNotificationOpened = true
@@ -211,8 +209,6 @@
         #if os(iOS)
             @Test("getIntegrations includes the subscription integration only when its flag is enabled (iOS)")
             func getIntegrationsGatesSubscriptionIntegration() {
-                guard #available(iOS 14.0, *) else { return }
-
                 let enabled = PostHogConfig(projectToken: projectToken)
                 enabled.capturePushNotificationSubscriptions = true
                 #expect(enabled.getIntegrations().contains { $0 is PostHogPushNotificationSubscriptionIntegration })
@@ -1769,7 +1765,7 @@
             let sut = getSDK(enableSwizzling: false, capturePushNotificationOpened: true)
             defer { sut.close() }
 
-            if #available(iOS 14.0, macOS 11.0, *) {
+            if #available(macOS 11.0, *) {
                 #expect(sut.getPushNotificationIntegration() == nil)
             }
 
@@ -2074,53 +2070,47 @@
         #if os(iOS)
             @Test("opting back in re-requests the push token so push re-arms without an app restart")
             func optInReRequestsPushToken() {
-                if #available(iOS 14.0, *) {
-                    let original = PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh
-                    defer { PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = original }
-                    var refetchCount = 0
-                    PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = { refetchCount += 1 }
+                let original = PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh
+                defer { PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = original }
+                var refetchCount = 0
+                PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = { refetchCount += 1 }
 
-                    let sut = getSDK(optOut: true, capturePushNotificationSubscriptions: true)
-                    defer { sut.close() }
+                let sut = getSDK(optOut: true, capturePushNotificationSubscriptions: true)
+                defer { sut.close() }
 
-                    #expect(sut.isOptOut())
-                    sut.optIn()
-                    #expect(refetchCount == 1, "opt-in should re-request the APNs token, not just restore consent")
-                }
+                #expect(sut.isOptOut())
+                sut.optIn()
+                #expect(refetchCount == 1, "opt-in should re-request the APNs token, not just restore consent")
             }
 
             @Test("opt-in does not re-request the token when auto-capture is disabled")
             func optInSkipsReRequestWhenAutoCaptureDisabled() {
-                if #available(iOS 14.0, *) {
-                    let original = PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh
-                    defer { PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = original }
-                    var refetchCount = 0
-                    PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = { refetchCount += 1 }
+                let original = PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh
+                defer { PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = original }
+                var refetchCount = 0
+                PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = { refetchCount += 1 }
 
-                    let sut = getSDK(optOut: true, capturePushNotificationSubscriptions: false)
-                    defer { sut.close() }
+                let sut = getSDK(optOut: true, capturePushNotificationSubscriptions: false)
+                defer { sut.close() }
 
-                    sut.optIn()
-                    #expect(refetchCount == 0, "manual push mode leaves the token lifecycle to the host")
-                }
+                sut.optIn()
+                #expect(refetchCount == 0, "manual push mode leaves the token lifecycle to the host")
             }
 
             @Test("opt-in does not re-request the token when swizzling is disabled")
             func optInSkipsReRequestWhenSwizzlingDisabled() {
-                if #available(iOS 14.0, *) {
-                    let original = PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh
-                    defer { PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = original }
-                    var refetchCount = 0
-                    PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = { refetchCount += 1 }
+                let original = PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh
+                defer { PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = original }
+                var refetchCount = 0
+                PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = { refetchCount += 1 }
 
-                    // Auto-capture on, but swizzling off: the subscription integration is not installed,
-                    // so refetching would fire the host's APNs lifecycle with no observer to catch it.
-                    let sut = getSDK(optOut: true, enableSwizzling: false, capturePushNotificationSubscriptions: true)
-                    defer { sut.close() }
+                // Auto-capture on, but swizzling off: the subscription integration is not installed,
+                // so refetching would fire the host's APNs lifecycle with no observer to catch it.
+                let sut = getSDK(optOut: true, enableSwizzling: false, capturePushNotificationSubscriptions: true)
+                defer { sut.close() }
 
-                    sut.optIn()
-                    #expect(refetchCount == 0, "no observer is installed without swizzling, so opt-in must not refetch")
-                }
+                sut.optIn()
+                #expect(refetchCount == 0, "no observer is installed without swizzling, so opt-in must not refetch")
             }
         #endif
 
@@ -2295,7 +2285,7 @@
             #expect(try #require(server.parseRequest(del))["distinct_id"] as? String == "user-1")
         }
 
-        @available(iOS 14.0, macOS 11.0, *)
+        @available(macOS 11.0, *)
         @Test("posthog-ios#746: opt-out during an in-flight unregister must still send the DELETE")
         func optOutDuringUnregisterStrandsDelete() async throws {
             let parked = ParkedMint()

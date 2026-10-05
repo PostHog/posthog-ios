@@ -161,7 +161,6 @@
         }
 
         @Test("medium sheet keeps visible presenter PII and sheet PII masked")
-        @available(iOS 15.0, *)
         func mediumSheet() async throws {
             let base = Secrets()
             let h = try Harness(root: base.controller)
@@ -230,7 +229,6 @@
             func updateUIView(_: UIView, context _: Context) {}
         }
 
-        @available(iOS 14.0, *)
         private struct SwiftUIScreen: View {
             @ObservedObject var model: SwiftUIModel
             var body: some View {
@@ -250,7 +248,6 @@
             }
         }
 
-        @available(iOS 14.0, *)
         @Test("SwiftUI fullScreenCover masks its explicit text, automatic Text, TextField and Image")
         func swiftUISensitiveCover() async throws {
             let model = SwiftUIModel()

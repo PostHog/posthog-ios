@@ -656,6 +656,7 @@ enum PostHogSurveysTest {
             config.flushAt = 1
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
+            config.disableRemoteConfigForTesting = true
             config.captureApplicationLifecycleEvents = false
 
             let storage = PostHogStorage(config)

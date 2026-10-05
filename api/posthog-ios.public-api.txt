@@ -9,27 +9,6 @@ PostHog | BoxedBeforeSendBlock.init(block:) | init | @objc(block:) init(block: @
 PostHog | BoxedBeforeSendLogBlock | class | @objc final class BoxedBeforeSendLogBlock | c:@M@PostHog@objc(cs)BoxedBeforeSendLogBlock
 PostHog | BoxedBeforeSendLogBlock.block | property | @objc let block: PostHogBeforeSendLogBlock | c:@M@PostHog@objc(cs)BoxedBeforeSendLogBlock(py)block
 PostHog | BoxedBeforeSendLogBlock.init(block:) | init | @objc(block:) init(block: @escaping PostHogBeforeSendLogBlock) | c:@M@PostHog@objc(cs)BoxedBeforeSendLogBlock(im)block:
-PostHog | CompressionLevel | struct | struct CompressionLevel | s:7PostHog16CompressionLevelV
-PostHog | CompressionLevel.bestCompression | type.property | static let bestCompression: CompressionLevel | s:7PostHog16CompressionLevelV04bestC0ACvpZ
-PostHog | CompressionLevel.bestSpeed | type.property | static let bestSpeed: CompressionLevel | s:7PostHog16CompressionLevelV9bestSpeedACvpZ
-PostHog | CompressionLevel.defaultCompression | type.property | static let defaultCompression: CompressionLevel | s:7PostHog16CompressionLevelV07defaultC0ACvpZ
-PostHog | CompressionLevel.init(_:) | init | init(_ rawValue: Int32) | s:7PostHog16CompressionLevelVyACs5Int32Vcfc
-PostHog | CompressionLevel.init(rawValue:) | init | init(rawValue: Int32) | s:7PostHog16CompressionLevelV8rawValueACs5Int32V_tcfc
-PostHog | CompressionLevel.noCompression | type.property | static let noCompression: CompressionLevel | s:7PostHog16CompressionLevelV02noC0ACvpZ
-PostHog | CompressionLevel.rawValue | property | let rawValue: Int32 | s:7PostHog16CompressionLevelV8rawValues5Int32Vvp
-PostHog | Gzip | enum | enum Gzip | s:7PostHog4GzipO
-PostHog | Gzip.maxWindowBits | type.property | static let maxWindowBits: Int32 | s:7PostHog4GzipO13maxWindowBitss5Int32VvpZ
-PostHog | GzipError | struct | struct GzipError | s:7PostHog9GzipErrorV
-PostHog | GzipError.Kind | enum | enum Kind | s:7PostHog9GzipErrorV4KindO
-PostHog | GzipError.Kind.buffer | enum.case | case buffer | s:7PostHog9GzipErrorV4KindO6bufferyA2EmF
-PostHog | GzipError.Kind.data | enum.case | case data | s:7PostHog9GzipErrorV4KindO4datayA2EmF
-PostHog | GzipError.Kind.memory | enum.case | case memory | s:7PostHog9GzipErrorV4KindO6memoryyA2EmF
-PostHog | GzipError.Kind.stream | enum.case | case stream | s:7PostHog9GzipErrorV4KindO6streamyA2EmF
-PostHog | GzipError.Kind.unknown(code:) | enum.case | case unknown(code: Int) | s:7PostHog9GzipErrorV4KindO7unknownyAESi_tcAEmF
-PostHog | GzipError.Kind.version | enum.case | case version | s:7PostHog9GzipErrorV4KindO7versionyA2EmF
-PostHog | GzipError.kind | property | let kind: GzipError.Kind | s:7PostHog9GzipErrorV4kindAC4KindOvp
-PostHog | GzipError.localizedDescription | property | var localizedDescription: String { get } | s:7PostHog9GzipErrorV20localizedDescriptionSSvp
-PostHog | GzipError.message | property | let message: String | s:7PostHog9GzipErrorV7messageSSvp
 PostHog | OnPostHogSurveyClosed | typealias | typealias OnPostHogSurveyClosed = (PostHogDisplaySurvey) -> Void | s:7PostHog02OnaB12SurveyCloseda
 PostHog | OnPostHogSurveyResponse | typealias | typealias OnPostHogSurveyResponse = (PostHogDisplaySurvey, Int, PostHogSurveyResponse) -> PostHogNextSurveyQuestion? | s:7PostHog02OnaB14SurveyResponsea
 PostHog | OnPostHogSurveyShown | typealias | typealias OnPostHogSurveyShown = (PostHogDisplaySurvey) -> Void | s:7PostHog02OnaB11SurveyShowna
@@ -97,8 +76,6 @@ PostHog | PostHogConfig.setBeforeSend(_:) | method | @objc func setBeforeSend(_ 
 PostHog | PostHogConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: BeforeSendBlock...) | s:7PostHog0aB6ConfigC13setBeforeSendyyAA0aB5EventCSgAFcd_tF
 PostHog | PostHogConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: [BeforeSendBlock]) | s:7PostHog0aB6ConfigC13setBeforeSendyySayAA0aB5EventCSgAFcGF
 PostHog | PostHogConfig.setDefaultPersonProperties | property | @objc var setDefaultPersonProperties: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)setDefaultPersonProperties
-PostHog | PostHogConfig.snapshotEndpoint | property | @objc var snapshotEndpoint: String | c:@M@PostHog@objc(cs)PostHogConfig(py)snapshotEndpoint
-PostHog | PostHogConfig.storageManager | property | var storageManager: PostHogStorageManager? | s:7PostHog0aB6ConfigC14storageManagerAA0ab7StorageE0CSgvp
 PostHog | PostHogConfig.surveys | property | @objc var surveys: Bool { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)surveys
 PostHog | PostHogConfig.surveysConfig | property | @objc var surveysConfig: PostHogSurveysConfig { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)surveysConfig
 PostHog | PostHogConfig.tracingHeaders | property | @objc var tracingHeaders: [String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)tracingHeaders
@@ -359,9 +336,6 @@ PostHog | PostHogSDK.stopSessionRecording() | method | @objc func stopSessionRec
 PostHog | PostHogSDK.unregister(_:) | method | @objc(unregisterProperties:) func unregister(_ key: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)unregisterProperties:
 PostHog | PostHogSDK.unregisterPushNotificationToken() | method | @objc func unregisterPushNotificationToken() | c:@M@PostHog@objc(cs)PostHogSDK(im)unregisterPushNotificationToken
 PostHog | PostHogSDK.with(_:) | type.method | @objc static func with(_ config: PostHogConfig) -> PostHogSDK | c:@M@PostHog@objc(cs)PostHogSDK(cm)with:
-PostHog | PostHogSessionManager | class | @objc class PostHogSessionManager | c:@M@PostHog@objc(cs)PostHogSessionManager
-PostHog | PostHogSessionManager.setSessionId(_:) | method | @objc func setSessionId(_ sessionId: String) | c:@M@PostHog@objc(cs)PostHogSessionManager(im)setSessionId:
-PostHog | PostHogSessionManager.shared | type.property | @objc static var shared: PostHogSessionManager { get } | c:@M@PostHog@objc(cs)PostHogSessionManager(cpy)shared
 PostHog | PostHogSessionReplayConfig | class | @objc(PostHogSessionReplayConfig) class PostHogSessionReplayConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig
 PostHog | PostHogSessionReplayConfig.captureLogs | property | @objc var captureLogs: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureLogs
 PostHog | PostHogSessionReplayConfig.captureLogsConfig | property | @objc var captureLogsConfig: PostHogSessionReplayConsoleLogConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureLogsConfig
@@ -377,17 +351,6 @@ PostHog | PostHogSessionReplayConfig.throttleDelay | property | @objc var thrott
 PostHog | PostHogSessionReplayConsoleLogConfig | class | @objc class PostHogSessionReplayConsoleLogConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig
 PostHog | PostHogSessionReplayConsoleLogConfig.logSanitizer | property | @objc var logSanitizer: (String) -> PostHogLogEntry? | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)logSanitizer
 PostHog | PostHogSessionReplayConsoleLogConfig.minLogLevel | property | @objc var minLogLevel: PostHogLogLevel | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)minLogLevel
-PostHog | PostHogStorageManager | class | class PostHogStorageManager | s:7PostHog0aB14StorageManagerC
-PostHog | PostHogStorageManager.getAnonymousId() | method | func getAnonymousId() -> String | s:7PostHog0aB14StorageManagerC14getAnonymousIdSSyF
-PostHog | PostHogStorageManager.getDeviceId() | method | func getDeviceId() -> String | s:7PostHog0aB14StorageManagerC11getDeviceIdSSyF
-PostHog | PostHogStorageManager.getDistinctId() | method | func getDistinctId() -> String | s:7PostHog0aB14StorageManagerC13getDistinctIdSSyF
-PostHog | PostHogStorageManager.isIdentified() | method | func isIdentified() -> Bool | s:7PostHog0aB14StorageManagerC12isIdentifiedSbyF
-PostHog | PostHogStorageManager.isPersonProcessing() | method | func isPersonProcessing() -> Bool | s:7PostHog0aB14StorageManagerC18isPersonProcessingSbyF
-PostHog | PostHogStorageManager.reset(keepAnonymousId:_:) | method | func reset(keepAnonymousId: Bool = false, _ resetStorage: Bool = false) | s:7PostHog0aB14StorageManagerC5reset15keepAnonymousId_ySb_SbtF
-PostHog | PostHogStorageManager.setAnonymousId(_:) | method | func setAnonymousId(_ id: String) | s:7PostHog0aB14StorageManagerC14setAnonymousIdyySSF
-PostHog | PostHogStorageManager.setDistinctId(_:) | method | func setDistinctId(_ id: String) | s:7PostHog0aB14StorageManagerC13setDistinctIdyySSF
-PostHog | PostHogStorageManager.setIdentified(_:) | method | func setIdentified(_ isIdentified: Bool) | s:7PostHog0aB14StorageManagerC13setIdentifiedyySbF
-PostHog | PostHogStorageManager.setPersonProcessing(_:) | method | func setPersonProcessing(_ enable: Bool) | s:7PostHog0aB14StorageManagerC19setPersonProcessingyySbF
 PostHog | PostHogSurveyResponse | class | @objc @objcMembers class PostHogSurveyResponse | c:@M@PostHog@objc(cs)PostHogSurveyResponse
 PostHog | PostHogSurveyResponse.link(_:) | type.method | static func link(_ clicked: Bool) -> PostHogSurveyResponse | c:@M@PostHog@objc(cs)PostHogSurveyResponse(cm)link:
 PostHog | PostHogSurveyResponse.linkClicked | property | let linkClicked: Bool? | s:7PostHog0aB14SurveyResponseC11linkClickedSbSgvp
@@ -414,14 +377,6 @@ PostHog | PostHogSurveysDelegate.cleanupSurveys() | method | @objc func cleanupS
 PostHog | PostHogSurveysDelegate.renderSurvey(_:onSurveyShown:onSurveyResponse:onSurveyClosed:) | method | @objc func renderSurvey(_ survey: PostHogDisplaySurvey, onSurveyShown: @escaping OnPostHogSurveyShown, onSurveyResponse: @escaping OnPostHogSurveyResponse, onSurveyClosed: @escaping OnPostHogSurveyClosed) | c:@M@PostHog@objc(pl)PostHogSurveysDelegate(im)renderSurvey:onSurveyShown:onSurveyResponse:onSurveyClosed:
 PostHog | PostHogSurveysDelegate.supportsSurveyResume | property | @objc optional var supportsSurveyResume: Bool { get } | c:@M@PostHog@objc(pl)PostHogSurveysDelegate(py)supportsSurveyResume
 PostHog | PostHogSurveysDelegate.updateSurvey(_:) | method | @objc optional func updateSurvey(_ survey: PostHogDisplaySurvey) | c:@M@PostHog@objc(pl)PostHogSurveysDelegate(im)updateSurvey:
-PostHog | ReachabilityError | enum | enum ReachabilityError | s:7PostHog17ReachabilityErrorO
-PostHog | ReachabilityError.failedToCreateWithAddress(_:_:) | enum.case | case failedToCreateWithAddress(sockaddr, Int32) | s:7PostHog17ReachabilityErrorO25failedToCreateWithAddressyACSo8sockaddrV_s5Int32VtcACmF
-PostHog | ReachabilityError.failedToCreateWithHostname(_:_:) | enum.case | case failedToCreateWithHostname(String, Int32) | s:7PostHog17ReachabilityErrorO26failedToCreateWithHostnameyACSS_s5Int32VtcACmF
-PostHog | ReachabilityError.unableToGetFlags(_:) | enum.case | case unableToGetFlags(Int32) | s:7PostHog17ReachabilityErrorO16unableToGetFlagsyACs5Int32VcACmF
-PostHog | ReachabilityError.unableToSetCallback(_:) | enum.case | case unableToSetCallback(Int32) | s:7PostHog17ReachabilityErrorO19unableToSetCallbackyACs5Int32VcACmF
-PostHog | ReachabilityError.unableToSetDispatchQueue(_:) | enum.case | case unableToSetDispatchQueue(Int32) | s:7PostHog17ReachabilityErrorO24unableToSetDispatchQueueyACs5Int32VcACmF
-PostHog | UIColor.hexDescription(_:) | method | func hexDescription(_ includeAlpha: Bool = false) -> String | s:So7UIColorC7PostHogE14hexDescriptionySSSbF
-PostHog | UIColor.init(hex:) | init | convenience init(hex: String?) | s:So7UIColorC7PostHogE3hexABSSSg_tcfc
 PostHog | UIView.postHogLabel | property | @MainActor var postHogLabel: String? { get set } | s:So6UIViewC7PostHogE04postC5LabelSSSgvp
 PostHog | URLSession.postHogData(for:delegate:postHog:) | method | func postHogData(for request: URLRequest, delegate: (any URLSessionTaskDelegate)? = nil, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) | s:So12NSURLSessionC7PostHogE04postC4Data3for8delegate0dC010Foundation0E0V_So13NSURLResponseCtAH10URLRequestV_So0A12TaskDelegate_pSgAC0bC3SDKCSgtYaKF
 PostHog | URLSession.postHogData(for:postHog:) | method | func postHogData(for request: URLRequest, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) | s:So12NSURLSessionC7PostHogE04postC4Data3for0dC010Foundation0E0V_So13NSURLResponseCtAG10URLRequestV_AC0bC3SDKCSgtYaKF
@@ -448,12 +403,3 @@ PostHog | View.postHogScreenView(_:_:postHog:) | method | @MainActor func postHo
  | s:7SwiftUI4ViewP7PostHogE04poste6ScreenC0__0fE0QrSSSg_SDySSypGSgAD0dE3SDKCSgtF
 PostHog | View.postHogViewSeen(_:_:postHog:) | method | @MainActor func postHogViewSeen(_ event: String, _ properties: [String : Any]? = nil, postHog: PostHogSDK? = nil) -> some View
  | s:7SwiftUI4ViewP7PostHogE04posteC4Seen__0fE0QrSS_SDySSypGSgAD0dE3SDKCSgtF
-PostHog | dateToMillis(_:) | func | func dateToMillis(_ date: Date) -> Int64 | s:7PostHog12dateToMillisys5Int64V10Foundation4DateVF
-PostHog | deleteSafely(_:) | func | func deleteSafely(_ file: URL) | s:7PostHog12deleteSafelyyy10Foundation3URLVF
-PostHog | imageToBase64(_:_:) | func | func imageToBase64(_ image: UIImage, _ compressionQuality: CGFloat = 0.3) -> String? | s:7PostHog13imageToBase64ySSSgSo7UIImageC_14CoreFoundation7CGFloatVtF
-PostHog | postHogSdkName | var | var postHogSdkName: String | s:7PostHog04postB7SdkNameSSvp
-PostHog | postHogVersion | var | var postHogVersion: String | s:7PostHog04postB7VersionSSvp
-PostHog | postHogiOSSdkName | var | let postHogiOSSdkName: String | s:7PostHog17postHogiOSSdkNameSSvp
-PostHog | sanitizeDictionary(_:) | func | func sanitizeDictionary(_ dict: [String : Any]?) -> [String : Any]? | s:7PostHog18sanitizeDictionaryySDySSypGSgADF
-PostHog | toISO8601Date(_:) | func | func toISO8601Date(_ date: String) -> Date? | s:7PostHog13toISO8601Datey10Foundation0E0VSgSSF
-PostHog | toISO8601String(_:) | func | func toISO8601String(_ date: Date) -> String | s:7PostHog15toISO8601StringySS10Foundation4DateVF

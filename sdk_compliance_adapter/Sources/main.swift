@@ -1,5 +1,5 @@
 import Foundation
-import PostHog
+@_spi(PostHogInternal) import PostHog
 import Vapor
 
 // Redirect all SDK on-disk storage into a private sandbox this adapter fully owns, so a
@@ -50,7 +50,7 @@ app.middleware.use(RouteLoggingMiddleware())
 // Health endpoint
 app.get("health") { req async throws -> Response in
     let health: [String: Any] = [
-        "sdk_name": postHogiOSSdkName,
+        "sdk_name": postHogSdkName,
         "sdk_version": postHogVersion,
         "adapter_version": "1.0.0",
         // Declares which test suites apply. The iOS SDK posts events to /batch

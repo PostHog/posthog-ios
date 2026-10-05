@@ -1,6 +1,6 @@
 #if os(iOS)
     import Foundation
-    @testable import PostHog
+    @_spi(PostHogInternal) @testable import PostHog
     #if !SWIFT_PACKAGE
         import CwlCatchException
     #endif

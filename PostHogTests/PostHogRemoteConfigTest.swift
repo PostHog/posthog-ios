@@ -5,7 +5,7 @@
 //  Created by Yiannis Josephides on 20/01/2025.
 //
 
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 import XCTest
 

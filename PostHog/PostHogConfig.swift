@@ -39,12 +39,9 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Network connectivity mode required before queued data may be flushed.
     @frozen @objc(PostHogDataMode) public enum PostHogDataMode: Int {
         /// Flush only while the device is connected to Wi-Fi.
-        case wifi
-        /// Behaves the same as `.any`. Use `.any` instead.
-        @available(*, deprecated, message: "Behaves the same as .any. Use .any instead. This will be removed in the next major version.")
-        case cellular
+        case wifi = 0
         /// Flush while any network connection is available.
-        case any
+        case any = 2
     }
 
     /// PostHog ingestion host used for all SDK network requests.

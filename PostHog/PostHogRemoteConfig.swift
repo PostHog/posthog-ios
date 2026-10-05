@@ -878,7 +878,12 @@ class PostHogRemoteConfig {
         featureFlagsLock.withLock {
             guard !bootstrappedFlags.isEmpty else { return false }
             setCachedFeatureFlags(bootstrappedFlags)
-            setCachedFeatureFlagPayload(bootstrappedPayloads)
+            // Bootstrap payloads are already decoded; serialize them like /flags payloads so reads
+            // decode every cached payload exactly once (a bootstrapped "123" stays a String).
+            setCachedFeatureFlagPayload(bootstrappedPayloads.compactMapValues { payload in
+                (try? JSONSerialization.data(withJSONObject: payload, options: .fragmentsAllowed))
+                    .flatMap { String(data: $0, encoding: .utf8) }
+            })
             return true
         }
     }
@@ -1055,22 +1060,19 @@ class PostHogRemoteConfig {
             flags = getCachedFeatureFlagPayload()
         }
 
-        let value = flags?[key]
+        return Self.decodePayload(flags?[key], key: key)
+    }
 
-        guard let stringValue = value as? String else {
-            return value
-        }
-
+    /// Decodes a cached payload, which is stored as serialized JSON (mimicking posthog-js's `JSON.parse`).
+    /// Malformed, empty, or whitespace-only input returns `nil`, never the raw string.
+    private static func decodePayload(_ value: Any?, key: String) -> Any? {
+        guard let serialized = value as? String else { return value }
         do {
-            // The payload value is stored as a string and is not pre-parsed...
-            // We need to mimic the JSON.parse of JS which is what posthog-js uses
-            return try JSONSerialization.jsonObject(with: stringValue.data(using: .utf8)!, options: .fragmentsAllowed)
+            return try JSONSerialization.jsonObject(with: Data(serialized.utf8), options: .fragmentsAllowed)
         } catch {
-            hedgeLog("Error parsing the object \(String(describing: value)): \(error)")
+            hedgeLog("Ignoring malformed payload for feature flag \(key): \(error)")
+            return nil
         }
-
-        // fallback to original value if not possible to serialize
-        return value
     }
 
     func getFeatureFlagResult(_ key: String) -> PostHogFeatureFlagResult? {
@@ -1104,17 +1106,7 @@ class PostHogRemoteConfig {
     }
 
     private func makeFeatureFlagResult(key: String, flagValue: Any?, payloadValue: Any?) -> PostHogFeatureFlagResult {
-        let payload: Any?
-        if let stringValue = payloadValue as? String {
-            do {
-                payload = try JSONSerialization.jsonObject(with: stringValue.data(using: .utf8)!, options: .fragmentsAllowed)
-            } catch {
-                hedgeLog("Error parsing the object \(String(describing: payloadValue)): \(error)")
-                payload = payloadValue
-            }
-        } else {
-            payload = payloadValue
-        }
+        let payload = Self.decodePayload(payloadValue, key: key)
 
         let isEnabled: Bool
         let variant: String?

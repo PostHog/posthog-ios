@@ -145,6 +145,38 @@ enum PostHogFeatureFlagsTest {
 
             #expect(sut.getFeatureFlagPayload("payload-json") as? [String: String] == ["foo": "bar"])
         }
+
+        private func sutWithCachedPayloads(_ payloads: [String: Any]) -> PostHogRemoteConfig {
+            let storage = PostHogStorage(config)
+            storage.setDictionary(forKey: .enabledFeatureFlags, contents: ["checkout": "blue", "beta-ui": true])
+            storage.setDictionary(forKey: .enabledFeatureFlagPayloads, contents: payloads)
+            return getSut(storage: storage)
+        }
+
+        @Test("malformed payload is nil, keeping the flag and sibling payloads", arguments: ["{broken", "", "   "])
+        func malformedPayloadIsNil(input: String) throws {
+            let sut = sutWithCachedPayloads(["checkout": input, "beta-ui": "{\"color\":\"green\"}"])
+
+            #expect(sut.getFeatureFlagPayload("checkout") == nil)
+            let result = try #require(sut.getFeatureFlagResult("checkout"))
+            #expect(result.enabled && result.variant == "blue")
+            #expect(result.payload == nil)
+
+            let all = Dictionary(uniqueKeysWithValues: (sut.getAllFeatureFlagResults() ?? []).map { ($0.key, $0) })
+            #expect(all["checkout"]?.variant == "blue")
+            #expect(all["checkout"]?.payload == nil)
+            #expect(all["beta-ui"]?.payload as? [String: String] == ["color": "green"])
+        }
+
+        @Test("valid JSON payloads keep their decoded value")
+        func validPayloadsKeepValue() {
+            let sut = sutWithCachedPayloads(["string": "\"hello\"", "empty": "\"\"", "false": "false", "null": "null"])
+
+            #expect(sut.getFeatureFlagPayload("string") as? String == "hello")
+            #expect(sut.getFeatureFlagPayload("empty") as? String == "")
+            #expect(sut.getFeatureFlagPayload("false") as? Bool == false)
+            #expect(sut.getFeatureFlagPayload("null") is NSNull)
+        }
     }
 
     @Suite("Test feature flags loading")
@@ -1234,6 +1266,14 @@ enum PostHogFeatureFlagsTest {
 
             #expect(sut.getFeatureFlag("beta-ui") as? String == "variant-a")
             #expect(sut.getFeatureFlagPayload("beta-ui") as? [String: String] == ["color": "blue"])
+        }
+
+        @Test("Bootstrapped string payloads are not JSON-decoded again", arguments: ["hello", "123", "true"])
+        func bootstrappedStringPayloadNotDecodedAgain(payload: String) {
+            let config = bootstrapConfig(featureFlags: ["beta-ui": "variant-a"], featureFlagPayloads: ["beta-ui": payload])
+            let sut = getSut(storage: freshStorage(config), config: config)
+
+            #expect(sut.getFeatureFlagResult("beta-ui")?.payload as? String == payload)
         }
 
         @Test("Loaded flags override bootstrapped values")

@@ -380,7 +380,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     ///
     /// - Warning: This value is managed by the SDK from remote configuration and should not
     ///   be changed by application code.
-    @objc public var snapshotEndpoint: String = "/s/"
+    @_spi(PostHogInternal) public var snapshotEndpoint: String = "/s/"
 
     /// Default PostHog ingestion host for US Cloud projects.
     ///
@@ -476,7 +476,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     ///
     /// - Warning: This is an SDK extension point used internally to share identity storage
     ///   with SDK integrations and tests. Application code should not normally replace it.
-    public var storageManager: PostHogStorageManager?
+    @_spi(PostHogInternal) public var storageManager: PostHogStorageManager?
 
     private static func normalizeProjectToken(_ projectToken: String) -> String {
         projectToken.trimmingCharacters(in: .whitespacesAndNewlines)

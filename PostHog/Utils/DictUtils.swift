@@ -45,7 +45,7 @@ func fromJSONData(_ data: Data, options: JSONSerialization.ReadingOptions = []) 
 ///
 /// - Parameter dict: Dictionary to sanitize.
 /// - Returns: A sanitized dictionary, or `nil` when the input is `nil` or empty.
-public func sanitizeDictionary(_ dict: [String: Any]?) -> [String: Any]? {
+func sanitizeDictionary(_ dict: [String: Any]?) -> [String: Any]? {
     if dict == nil || dict!.isEmpty {
         return nil
     }

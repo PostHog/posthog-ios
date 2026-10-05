@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 
 @Suite("PostHog storage manager", .serialized, .resetsGlobalState)

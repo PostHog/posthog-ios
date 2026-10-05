@@ -35,7 +35,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             // Uncomment to force-render any matching survey in a specific language regardless of device locale.
             // config.surveysConfig.overrideDisplayLanguage = "fr"
             config.sessionReplay = false
-            config.sessionReplayConfig.screenshotMode = true
             config.sessionReplayConfig.maskAllTextInputs = true
             config.sessionReplayConfig.maskAllImages = true
             config.sessionReplayConfig.captureLogs = true

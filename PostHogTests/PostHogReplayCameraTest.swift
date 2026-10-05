@@ -68,7 +68,6 @@
         func bridgeRecoversAfterCamera() throws {
             let config = PostHogConfig(projectToken: UUID().uuidString)
             config.sessionReplay = true
-            config.sessionReplayConfig.screenshotMode = true
             config.sessionReplayConfig.captureNetworkTelemetry = false
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true

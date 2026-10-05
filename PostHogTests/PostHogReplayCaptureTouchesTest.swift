@@ -62,7 +62,6 @@
         private func makeSut(captureTouches: Bool? = nil) throws -> (PostHogSDK, PostHogReplayIntegration, Snapshots) {
             let config = PostHogConfig(projectToken: UUID().uuidString)
             config.sessionReplay = true
-            config.sessionReplayConfig.screenshotMode = true
             config.sessionReplayConfig.captureNetworkTelemetry = false
             if let captureTouches {
                 config.sessionReplayConfig.captureTouches = captureTouches

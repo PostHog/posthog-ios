@@ -68,7 +68,6 @@
                 config.captureScreenViews = false
                 config.sessionReplayConfig.maskAllTextInputs = true
                 config.sessionReplayConfig.maskAllImages = true
-                config.sessionReplayConfig.screenshotMode = true
                 sdk = PostHogSDK.with(config)
                 _ = integration.install(sdk)
                 integration.stop()

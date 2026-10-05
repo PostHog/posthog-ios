@@ -148,20 +148,16 @@
 		69F23A782BB30991001194F6 /* NetworkSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F23A772BB30991001194F6 /* NetworkSample.swift */; };
 		69F23A7A2BB309F3001194F6 /* MethodSwizzler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F23A792BB309F3001194F6 /* MethodSwizzler.swift */; };
 		69F517E82BAC675800F52C14 /* RRWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517E72BAC675800F52C14 /* RRWireframe.swift */; };
-		69F517EA2BAC684F00F52C14 /* RRStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517E92BAC684F00F52C14 /* RRStyle.swift */; };
-		69F517F32BAC734300F52C14 /* UIColor+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517F22BAC734300F52C14 /* UIColor+Util.swift */; };
 		69F517FB2BAC768100F52C14 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517FA2BAC768100F52C14 /* AppDelegate.swift */; };
 		69F517FD2BAC768100F52C14 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517FC2BAC768100F52C14 /* SceneDelegate.swift */; };
 		69F517FF2BAC768100F52C14 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517FE2BAC768100F52C14 /* ViewController.swift */; };
 		69F518022BAC768100F52C14 /* Base in Resources */ = {isa = PBXBuildFile; fileRef = 69F518012BAC768100F52C14 /* Base */; };
 		69F518042BAC768300F52C14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 69F518032BAC768300F52C14 /* Assets.xcassets */; };
 		69F518072BAC768300F52C14 /* Base in Resources */ = {isa = PBXBuildFile; fileRef = 69F518062BAC768300F52C14 /* Base */; };
-		69F518122BAC783300F52C14 /* CGColor+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518112BAC783300F52C14 /* CGColor+Util.swift */; };
 		69F518142BAC7F4300F52C14 /* Date+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518132BAC7F4300F52C14 /* Date+Util.swift */; };
 		69F518162BAC7F9200F52C14 /* UIView+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518152BAC7F9200F52C14 /* UIView+Util.swift */; };
 		654EC5A16DFC454F974A30A0 /* PostHogMaskSettleAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = E25D0AE93D314E7FBE8DA8C7 /* PostHogMaskSettleAnalysis.swift */; };
 		C0FFEE002F8000010000C002 /* PostHogPresentationCover.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE002F8000010000C001 /* PostHogPresentationCover.swift */; };
-		69F518182BAC80A300F52C14 /* String+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518172BAC80A300F52C14 /* String+Util.swift */; };
 		69F5181A2BAC81FC00F52C14 /* UITextInputTraits+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */; };
 		69F518382BB2BA0100F52C14 /* PostHogSwizzler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */; };
 		56061CE612D20303BC7F7E0E /* PushNotificationPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 174C3A4BC40DB1C70B84B25E /* PushNotificationPublisher.swift */; };
@@ -329,6 +325,7 @@
 		DA578E982D6768BC00B3A56C /* PostHogScreenViewIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA578E972D6768B400B3A56C /* PostHogScreenViewIntegration.swift */; };
 		DA578E9C2D68578500B3A56C /* MockApplicationLifecyclePublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA578E9B2D68578500B3A56C /* MockApplicationLifecyclePublisher.swift */; };
 		C08700012E00000100000870 /* PostHogReplayCameraTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08700022E00000100000870 /* PostHogReplayCameraTest.swift */; };
+		C0870A012E00000100000A01 /* PostHogReplayLayoutCaptureTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0870A022E00000100000A01 /* PostHogReplayLayoutCaptureTest.swift */; };
 		C02440012E00000100000244 /* PostHogViewControllerTraversalTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02440022E00000100000244 /* PostHogViewControllerTraversalTest.swift */; };
 		DA578E9E2D6858BA00B3A56C /* PostHogScreenViewIntegrationTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA578E9D2D6858B200B3A56C /* PostHogScreenViewIntegrationTest.swift */; };
 		DA578EA02D6858CE00B3A56C /* MockScreenViewPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA578E9F2D6858C900B3A56C /* MockScreenViewPublisher.swift */; };
@@ -1017,8 +1014,6 @@
 		69F23A772BB30991001194F6 /* NetworkSample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkSample.swift; sourceTree = "<group>"; };
 		69F23A792BB309F3001194F6 /* MethodSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MethodSwizzler.swift; sourceTree = "<group>"; };
 		69F517E72BAC675800F52C14 /* RRWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RRWireframe.swift; sourceTree = "<group>"; };
-		69F517E92BAC684F00F52C14 /* RRStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RRStyle.swift; sourceTree = "<group>"; };
-		69F517F22BAC734300F52C14 /* UIColor+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIColor+Util.swift"; sourceTree = "<group>"; };
 		69F517F82BAC768100F52C14 /* PostHogExampleStoryboard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PostHogExampleStoryboard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		69F517FA2BAC768100F52C14 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		69F517FC2BAC768100F52C14 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -1027,12 +1022,10 @@
 		69F518032BAC768300F52C14 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		69F518062BAC768300F52C14 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		69F518082BAC768300F52C14 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		69F518112BAC783300F52C14 /* CGColor+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGColor+Util.swift"; sourceTree = "<group>"; };
 		69F518132BAC7F4300F52C14 /* Date+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Util.swift"; sourceTree = "<group>"; };
 		69F518152BAC7F9200F52C14 /* UIView+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+Util.swift"; sourceTree = "<group>"; };
 		E25D0AE93D314E7FBE8DA8C7 /* PostHogMaskSettleAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PostHogMaskSettleAnalysis.swift"; sourceTree = "<group>"; };
 		C0FFEE002F8000010000C001 /* PostHogPresentationCover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogPresentationCover.swift; sourceTree = "<group>"; };
-		69F518172BAC80A300F52C14 /* String+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Util.swift"; sourceTree = "<group>"; };
 		69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UITextInputTraits+Util.swift"; sourceTree = "<group>"; };
 		69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSwizzler.swift; sourceTree = "<group>"; };
 		174C3A4BC40DB1C70B84B25E /* PushNotificationPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationPublisher.swift; sourceTree = "<group>"; };
@@ -1179,6 +1172,7 @@
 		DA578E992D676AE700B3A56C /* ApplicationScreenViewPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationScreenViewPublisher.swift; sourceTree = "<group>"; };
 		DA578E9B2D68578500B3A56C /* MockApplicationLifecyclePublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockApplicationLifecyclePublisher.swift; sourceTree = "<group>"; };
 		C08700022E00000100000870 /* PostHogReplayCameraTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReplayCameraTest.swift; sourceTree = "<group>"; };
+		C0870A022E00000100000A01 /* PostHogReplayLayoutCaptureTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReplayLayoutCaptureTest.swift; sourceTree = "<group>"; };
 		C02440022E00000100000244 /* PostHogViewControllerTraversalTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogViewControllerTraversalTest.swift; sourceTree = "<group>"; };
 		DA578E9D2D6858B200B3A56C /* PostHogScreenViewIntegrationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogScreenViewIntegrationTest.swift; sourceTree = "<group>"; };
 		DA578E9F2D6858C900B3A56C /* MockScreenViewPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockScreenViewPublisher.swift; sourceTree = "<group>"; };
@@ -1888,6 +1882,7 @@
 				DA6F24812D4A6CA100CA2777 /* PostHogApiTest.swift */,
 				DA578E9D2D6858B200B3A56C /* PostHogScreenViewIntegrationTest.swift */,
 				C08700022E00000100000870 /* PostHogReplayCameraTest.swift */,
+				C0870A022E00000100000A01 /* PostHogReplayLayoutCaptureTest.swift */,
 				C02440022E00000100000244 /* PostHogViewControllerTraversalTest.swift */,
 				DACF6D5C2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift */,
 				C2A0C3FD5963418C916D3CF6 /* SwiftUITapAutocaptureTests.swift */,
@@ -2050,14 +2045,10 @@
 				69EE82BB2BA9C53000EB9542 /* PostHogSessionReplayConfig.swift */,
 				69EE82CD2BAAC76000EB9542 /* ViewTreeSnapshotStatus.swift */,
 				69F517E72BAC675800F52C14 /* RRWireframe.swift */,
-				69F517E92BAC684F00F52C14 /* RRStyle.swift */,
-				69F517F22BAC734300F52C14 /* UIColor+Util.swift */,
-				69F518112BAC783300F52C14 /* CGColor+Util.swift */,
 				69F518132BAC7F4300F52C14 /* Date+Util.swift */,
 				69F518152BAC7F9200F52C14 /* UIView+Util.swift */,
 				E25D0AE93D314E7FBE8DA8C7 /* PostHogMaskSettleAnalysis.swift */,
 				C0FFEE002F8000010000C001 /* PostHogPresentationCover.swift */,
-				69F518172BAC80A300F52C14 /* String+Util.swift */,
 				DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */,
 				69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */,
 				69F23A772BB30991001194F6 /* NetworkSample.swift */,
@@ -3417,7 +3408,6 @@
 				69261D1F2AD9681300232EC7 /* PostHogConsumerPayload.swift in Sources */,
 				DAB565DF2D14C5660088F720 /* PostHogTagViewModifier.swift in Sources */,
 				6955CB732C517651008EFD8D /* CGSize+Util.swift in Sources */,
-				69F517EA2BAC684F00F52C14 /* RRStyle.swift in Sources */,
 				DA0CA6F12CFF6B6300AF9500 /* UIWindow+.swift in Sources */,
 				DAB9E23C2DE8901D00E62DB9 /* PostHogSessionReplayNetworkPlugin.swift in Sources */,
 				DB7100012F80000100000001 /* PostHogTracingHeadersIntegration.swift in Sources */,
@@ -3470,7 +3460,6 @@
 				69ED1A5C2C7F15F300FE7A91 /* PostHogSessionManager.swift in Sources */,
 				69F518142BAC7F4300F52C14 /* Date+Util.swift in Sources */,
 				DA86D0E32E02D78C00CF3065 /* PostHogSurveysDefaultDelegate.swift in Sources */,
-				69F518182BAC80A300F52C14 /* String+Util.swift in Sources */,
 				DA9AE9602D8E9960002F1B44 /* EdgeBorder.swift in Sources */,
 				DA9CE32B2D3108AD00DFE652 /* analysis_enc.c in Sources */,
 				DA9CE32C2D3108AD00DFE652 /* lossless_enc_neon.c in Sources */,
@@ -3599,7 +3588,6 @@
 				DAFEC4552E03F8EF0064535E /* PostHogNextSurveyQuestion.swift in Sources */,
 				3AE3FB3D29924E8200AFFC18 /* PostHogSDK.swift in Sources */,
 				DA690C6A2DA54BCC0045FF4E /* PostHogSurveyAppearance.swift in Sources */,
-				69F517F32BAC734300F52C14 /* UIColor+Util.swift in Sources */,
 				3AE3FB3F29924F4F00AFFC18 /* PostHogConfig.swift in Sources */,
 				69F518382BB2BA0100F52C14 /* PostHogSwizzler.swift in Sources */,
 				56061CE612D20303BC7F7E0E /* PushNotificationPublisher.swift in Sources */,
@@ -3649,7 +3637,6 @@
 				690B2DF32C205B5600AE3B45 /* TimeBasedEpochGenerator.swift in Sources */,
 				69261D1D2AD967CD00232EC7 /* PostHogFileBackedQueue.swift in Sources */,
 				3AE3FB432992985A00AFFC18 /* Reachability.swift in Sources */,
-				69F518122BAC783300F52C14 /* CGColor+Util.swift in Sources */,
 				D44A33B824C72C49F5A38E0E /* PLCrashAsync.c in Sources */,
 				990B703A6620B474798DD770 /* PLCrashAsyncCompactUnwindEncoding.c in Sources */,
 				ABB09493E02B20855285B547 /* PLCrashAsyncMObject.c in Sources */,
@@ -3767,6 +3754,7 @@
 				69ED1AB62C90711D00FE7A91 /* PostHogSDKPersonProfilesTest.swift in Sources */,
 				DA578E9E2D6858BA00B3A56C /* PostHogScreenViewIntegrationTest.swift in Sources */,
 				C08700012E00000100000870 /* PostHogReplayCameraTest.swift in Sources */,
+				C0870A012E00000100000A01 /* PostHogReplayLayoutCaptureTest.swift in Sources */,
 				C02440012E00000100000244 /* PostHogViewControllerTraversalTest.swift in Sources */,
 				3A62646A29C9E385007E8C07 /* MockPostHogServer.swift in Sources */,
 				690FF0BB2AEF8B8200A0B06B /* PostHogContextTest.swift in Sources */,

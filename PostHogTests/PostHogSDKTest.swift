@@ -401,7 +401,7 @@ final class PostHogSDKTests {
                 #expect(events[0].properties["$sdk_debug_replay_capture_mode"] == nil)
 
                 #expect(events[1].properties["$recording_status"] as? String == "disabled")
-                #expect(events[1].properties["$sdk_debug_replay_capture_mode"] as? String == "wireframe")
+                #expect(events[1].properties["$sdk_debug_replay_capture_mode"] as? String == "screenshot")
                 #expect(events[1].properties["$sdk_debug_session_start"] != nil)
 
                 // Inside the 30s window opened by $screen.
@@ -452,25 +452,6 @@ final class PostHogSDKTests {
             sut.reset()
             sut.close()
         }
-
-        #if !SWIFT_PACKAGE || SessionReplay
-            @Test("reports screenshot capture mode for the flutter host")
-            func reportsScreenshotCaptureModeForFlutterHost() {
-                server.reset(batchCount: 1)
-                let original = postHogSdkName
-                postHogSdkName = "posthog-flutter"
-                defer { postHogSdkName = original }
-
-                let sut = getSut()
-                sut.screen("theScreen")
-
-                let events = getBatchedEvents(server)
-                #expect(events.first?.properties["$sdk_debug_replay_capture_mode"] as? String == "screenshot")
-
-                sut.reset()
-                sut.close()
-            }
-        #endif
 
         @Test("SDK-computed debug keys win over a same-named registered super property")
         func sdkComputedDebugKeysWinOverRegisteredSuperProperty() throws {

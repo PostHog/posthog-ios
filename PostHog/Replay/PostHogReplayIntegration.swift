@@ -9,7 +9,6 @@
 #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     import PhotosUI
-    import SwiftUI
     import UIKit
     import WebKit
 
@@ -762,25 +761,6 @@
             }
         }
 
-        private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, postHog: PostHogSDK, timestampDate: Date) {
-            guard
-                let wireframe = autoreleasepool(invoking: {
-                    toWireframe(window)
-                })
-            else {
-                return
-            }
-
-            captureSnapshot(
-                wireframe,
-                window: window,
-                windowSize: window.bounds.size,
-                screenName: screenName,
-                postHog: postHog,
-                timestampDate: timestampDate
-            )
-        }
-
         func captureSnapshot(
             _ wireframe: RRWireframe,
             window: UIWindow,
@@ -875,24 +855,6 @@
         static func shouldSkipUnchangedScreenshot(imageHash: Int?, lastImageHash: Int?, hasPendingSnapshotData: Bool) -> Bool {
             guard let imageHash, !hasPendingSnapshotData else { return false }
             return imageHash == lastImageHash
-        }
-
-        private func setAlignment(_ alignment: NSTextAlignment, _ style: RRStyle) {
-            if alignment == .center {
-                style.verticalAlign = "center"
-                style.horizontalAlign = "center"
-            } else if alignment == .right {
-                style.horizontalAlign = "right"
-            } else if alignment == .left {
-                style.horizontalAlign = "left"
-            }
-        }
-
-        private func setPadding(_ insets: UIEdgeInsets, _ style: RRStyle) {
-            style.paddingTop = insets.top.toInt()
-            style.paddingRight = insets.right.toInt()
-            style.paddingBottom = insets.bottom.toInt()
-            style.paddingLeft = insets.left.toInt()
         }
 
         private func createBasicWireframe(_ view: UIView) -> RRWireframe {
@@ -1424,141 +1386,6 @@
             return config?.sessionReplayConfig.maskAllImages == true
         }
 
-        private func toWireframe(_ view: UIView) -> RRWireframe? {
-            if !view.isVisible() {
-                return nil
-            }
-
-            let wireframe = createBasicWireframe(view)
-
-            let style = RRStyle()
-
-            if let textView = view as? UITextView {
-                wireframe.type = "text"
-                wireframe.text = isTextViewSensitive(textView) ? textView.text.mask() : textView.text
-                wireframe.disabled = !textView.isEditable
-                style.color = textView.textColor?.toRGBString()
-                style.fontFamily = textView.font?.familyName
-                if let fontSize = textView.font?.pointSize.toInt() {
-                    style.fontSize = fontSize
-                }
-                setAlignment(textView.textAlignment, style)
-                setPadding(textView.textContainerInset, style)
-            }
-
-            if let textField = view as? UITextField {
-                wireframe.type = "input"
-                wireframe.inputType = "text_area"
-                let isSensitive = isTextFieldSensitive(textField)
-                if let text = textField.text {
-                    wireframe.value = isSensitive ? text.mask() : text
-                } else {
-                    if let text = textField.placeholder {
-                        wireframe.value = isSensitive ? text.mask() : text
-                    }
-                }
-                wireframe.disabled = !textField.isEnabled
-                style.color = textField.textColor?.toRGBString()
-                style.fontFamily = textField.font?.familyName
-                if let fontSize = textField.font?.pointSize.toInt() {
-                    style.fontSize = fontSize
-                }
-                setAlignment(textField.textAlignment, style)
-            }
-
-            if view is UIPickerView {
-                wireframe.type = "input"
-                wireframe.inputType = "select"
-                // set wireframe.value from selected row
-            }
-
-            if let theSwitch = view as? UISwitch {
-                wireframe.type = "input"
-                wireframe.inputType = "toggle"
-                wireframe.checked = theSwitch.isOn
-                if let text = theSwitch.title {
-                    wireframe.label = isSwitchSensitive(theSwitch) ? text.mask() : text
-                }
-            }
-
-            if let imageView = view as? UIImageView {
-                wireframe.type = "image"
-                if let image = imageView.image {
-                    if !isImageViewSensitive(imageView) {
-                        wireframe.image = image
-                    }
-                }
-            }
-
-            if let button = view as? UIButton {
-                wireframe.type = "input"
-                wireframe.inputType = "button"
-                wireframe.disabled = !button.isEnabled
-
-                if let text = button.titleLabel?.text {
-                    // NOTE: this will create a ghosting effect since text will also be captured in child UILabel
-                    //       We also may be masking this UIButton but child UILabel may remain unmasked
-                    wireframe.value = isButtonSensitive(button) ? text.mask() : text
-                }
-            }
-
-            if let label = view as? UILabel {
-                wireframe.type = "text"
-                if let text = label.text {
-                    wireframe.text = isLabelSensitive(label) ? text.mask() : text
-                }
-                wireframe.disabled = !label.isEnabled
-                style.color = label.textColor?.toRGBString()
-                style.fontFamily = label.font?.familyName
-                if let fontSize = label.font?.pointSize.toInt() {
-                    style.fontSize = fontSize
-                }
-                setAlignment(label.textAlignment, style)
-            }
-
-            if view is WKWebView {
-                wireframe.type = "web_view"
-            }
-
-            if let progressView = view as? UIProgressView {
-                wireframe.type = "input"
-                wireframe.inputType = "progress"
-                wireframe.value = progressView.progress
-                wireframe.max = 1
-                // UIProgressView theres not circular format, only custom view or swiftui
-                style.bar = "horizontal"
-            }
-
-            if view is UIActivityIndicatorView {
-                wireframe.type = "input"
-                wireframe.inputType = "progress"
-                style.bar = "circular"
-            }
-
-            // TODO: props: backgroundImage (probably not needed)
-            // TODO: componenets: UITabBar, UINavigationBar, UISlider, UIStepper, UIDatePicker
-
-            style.backgroundColor = view.backgroundColor?.toRGBString()
-            let layer = view.layer
-            style.borderWidth = layer.borderWidth.toInt()
-            style.borderRadius = layer.cornerRadius.toInt()
-            style.borderColor = layer.borderColor?.toRGBString()
-
-            wireframe.style = style
-
-            if !view.subviews.isEmpty {
-                var childWireframes: [RRWireframe] = []
-                for subview in view.subviews {
-                    if let child = toWireframe(subview) {
-                        childWireframes.append(child)
-                    }
-                }
-                wireframe.childWireframes = childWireframes
-            }
-
-            return wireframe
-        }
-
         /// Captures the current native window for the native-screen bridge.
         /// [episodeFirstFrame] renders with `afterScreenUpdates` so a
         /// freshly-presented screen isn't captured black, and re-arms the
@@ -1682,36 +1509,22 @@
                 return
             }
 
-            var screenName: String?
-
-            if let controller = window.rootViewController {
-                // SwiftUI only supported with screenshotMode
-                if controller is AnyObjectUIHostingViewController, !postHog.config.sessionReplayConfig.screenshotMode {
-                    hedgeLog("SwiftUI snapshot not supported, enable screenshotMode.")
-                    return
-                        // screen name only makes sense if we are not using SwiftUI
-                } else if !postHog.config.sessionReplayConfig.screenshotMode {
-                    screenName = UIViewController.getViewControllerName(controller)
-                }
-            }
-
-            if postHog.config.sessionReplayConfig.screenshotMode {
-                guard tryStartScreenshotRender() else {
-                    return
-                }
-
-                if postHog.config.sessionReplayConfig.screenshotModeBackgroundCapture {
-                    PostHogReplayIntegration.dispatchQueue.async { [weak self] in
-                        self?.performBracketedBackgroundCapture(window: window, screenName: screenName, postHog: postHog)
-                    }
-                } else {
-                    scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)
-                }
+            guard tryStartScreenshotRender() else {
                 return
             }
 
-            // Wireframe mode always stays on main thread
-            generateSnapshot(window, screenName, postHog: postHog, timestampDate: Date())
+            // The replay meta `href`: the visible screen, with SwiftUI hosting generics unwrapped.
+            let screenName = UIViewController.ph_topViewController(base: window.rootViewController)
+                .flatMap(UIViewController.getViewControllerName)
+                .flatMap { PostHogScreenNameSanitizer.sanitize(rawScreenName: $0) }
+
+            if postHog.config.sessionReplayConfig.screenshotModeBackgroundCapture {
+                PostHogReplayIntegration.dispatchQueue.async { [weak self] in
+                    self?.performBracketedBackgroundCapture(window: window, screenName: screenName, postHog: postHog)
+                }
+            } else {
+                scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)
+            }
         }
 
         private func handleEventCaptured(event: String) {
@@ -1849,12 +1662,9 @@
     // MARK: - Debug properties
 
     extension PostHogReplayIntegration {
-        // ponytail: host-name heuristic; replace with an explicit host mode if a third hybrid host appears
         /// `$sdk_debug_replay_capture_mode`, shared by `debugProperties()` and the no-integration
         /// fallback in `PostHogSDK.buildProperties`, so both stay in sync.
-        static func captureMode(config: PostHogConfig?) -> String {
-            (config?.sessionReplayConfig.screenshotMode == true || postHogSdkName == "posthog-flutter") ? "screenshot" : "wireframe"
-        }
+        static let captureMode = "screenshot"
 
         /// Shared by `$sdk_debug_replay_linked_flag_trigger_status` and `$sdk_debug_replay_event_trigger_status`.
         static func triggerStatus(isConfigured: Bool, isActivated: Bool) -> String {
@@ -1906,7 +1716,7 @@
 
             // Config-derived and freshly-computed keys stay present regardless of `enabled` — they
             // never go stale, unlike a cached hold reason would.
-            props["$sdk_debug_replay_capture_mode"] = Self.captureMode(config: config)
+            props["$sdk_debug_replay_capture_mode"] = Self.captureMode
             // The unsent snapshot count: the held buffer while buffering, else the persisted queue.
             props["$sdk_debug_replay_internal_buffer_length"] = (buffering ? replayQueue?.bufferDepth : replayQueue?.depth) ?? 0
 
@@ -2021,10 +1831,6 @@
             findMaskableWidgets(cover, window, &maskableWidgets, maskChildren)
         }
     }
-
-    private protocol AnyObjectUIHostingViewController: AnyObject {}
-
-    extension UIHostingController: AnyObjectUIHostingViewController {}
 
     #if TESTING
         extension PostHogReplayIntegration {

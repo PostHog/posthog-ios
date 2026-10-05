@@ -299,7 +299,6 @@
     }
 
     extension Color {
-        @available(iOS 15.0, *)
         func getContrastingTextColor() -> Color {
             var r, g, b, a: CGFloat
             (r, g, b, a) = (0, 0, 0, 0)

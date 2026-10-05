@@ -153,13 +153,6 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
             }
         }
 
-        if let versionName {
-            props["version"] = versionName
-        }
-        if let versionCode {
-            props["build"] = parseBundleVersion(versionCode)
-        }
-
         // Keep the launch comparison for the first capture-enabled client in this process.
         pendingInstallOrUpdate = (event, props)
     }
@@ -179,24 +172,8 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
             return
         }
 
-        var props: [String: Any] = [:]
-        props["from_background"] = !isFreshAppLaunch
-
-        if isFreshAppLaunch {
-            let bundle = Bundle.main
-
-            let versionName = appVersionString()
-            let versionCode = bundle.infoDictionary?["CFBundleVersion"] as? String
-
-            if versionName != nil {
-                props["version"] = versionName
-            }
-            if let versionCode {
-                props["build"] = parseBundleVersion(versionCode)
-            }
-
-            isFreshAppLaunch = false
-        }
+        let props: [String: Any] = ["from_background": !isFreshAppLaunch]
+        isFreshAppLaunch = false
 
         postHog.capture("Application Opened", properties: props)
     }

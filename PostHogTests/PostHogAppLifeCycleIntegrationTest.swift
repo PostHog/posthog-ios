@@ -208,7 +208,8 @@ final class PostHogAppLifeCycleIntegrationTest {
             print("running tests")
             #expect(events.first?.properties["$app_version"] != nil)
             #expect(events.first?.properties["$app_build"] != nil)
-            #expect(events.first?.properties["build"] != nil)
+            #expect(events.first?.properties["version"] == nil)
+            #expect(events.first?.properties["build"] == nil)
 
             #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)
             #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") != nil)
@@ -242,7 +243,8 @@ final class PostHogAppLifeCycleIntegrationTest {
             print("running tests")
             #expect(events.first?.properties["$app_version"] != nil)
             #expect(events.first?.properties["$app_build"] != nil)
-            #expect(events.first?.properties["build"] != nil)
+            #expect(events.first?.properties["version"] == nil)
+            #expect(events.first?.properties["build"] == nil)
             #expect(events.first?.properties["previous_build"] != nil)
 
             #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)
@@ -277,7 +279,8 @@ final class PostHogAppLifeCycleIntegrationTest {
             print("running tests")
             #expect(events.first?.properties["$app_version"] != nil)
             #expect(events.first?.properties["$app_build"] != nil)
-            #expect(events.first?.properties["build"] != nil)
+            #expect(events.first?.properties["version"] == nil)
+            #expect(events.first?.properties["build"] == nil)
 
             #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)
             #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") != nil)
@@ -349,8 +352,9 @@ final class PostHogAppLifeCycleIntegrationTest {
         #expect(events[1].properties["from_background"] as? Bool == false)
 
         #if targetEnvironment(simulator)
-            #expect(events[1].properties["version"] != nil)
-            #expect(events[1].properties["build"] != nil)
+            #expect(events[1].properties["version"] == nil)
+            #expect(events[1].properties["build"] == nil)
+            #expect(events[1].properties["$app_version"] != nil)
             #expect(events[1].properties["$app_build"] != nil)
         #endif
 
@@ -428,8 +432,9 @@ final class PostHogAppLifeCycleIntegrationTest {
         #expect(events[3].properties["from_background"] as? Bool == true)
 
         #if targetEnvironment(simulator)
-            #expect(events[1].properties["version"] != nil)
-            #expect(events[1].properties["build"] != nil)
+            #expect(events[1].properties["version"] == nil)
+            #expect(events[1].properties["build"] == nil)
+            #expect(events[1].properties["$app_version"] != nil)
             #expect(events[1].properties["$app_build"] != nil)
         #endif
 

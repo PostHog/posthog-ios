@@ -1,5 +1,11 @@
 ## Next
 
+## 3.90.1
+
+### Patch Changes
+
+- 8b793c5: `screen(_:properties:)` records the screen title as `$screen_name` again when `properties` also contains `$screen_name`, as it did before 3.59.0.
+
 ## 3.90.0
 
 ### Minor Changes

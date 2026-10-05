@@ -1685,11 +1685,12 @@ let maxRetryDelay = 30.0
     /// The title is also cached and automatically attached as `$screen_name` to
     /// every subsequent event (until `reset()` or `close()` clears it).
     ///
-    /// To override the auto-attached value on a specific event, pass `$screen_name`
+    /// To override the auto-attached value on another event, pass `$screen_name`
     /// in that event's `properties` dictionary.
     ///
     /// - Parameters:
-    ///   - screenTitle: The screen name to record.
+    ///   - screenTitle: The screen name to record. It takes precedence over a
+    ///     `$screen_name` key in `properties`.
     ///   - properties: Additional properties to attach to this `$screen` event.
     @objc(screenWithTitle:properties:)
     public func screen(_ screenTitle: String, properties: [String: Any]? = nil) {
@@ -1724,7 +1725,7 @@ let maxRetryDelay = 30.0
 
         let props = [
             "$screen_name": cleaned,
-        ].merging(sanitizeDictionary(properties) ?? [:]) { _, new in new }
+        ].merging(sanitizeDictionary(properties) ?? [:]) { current, _ in current }
 
         let distinctId = getDistinctId()
 

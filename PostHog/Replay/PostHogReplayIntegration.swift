@@ -1168,7 +1168,7 @@
 
         private func prepareScreenshotWireframe(_ window: UIWindow, overrideMaskRects: [CGRect]? = nil) -> RRWireframe? {
             // this will bail on view controller animations (interactive or not)
-            if !window.isVisible() || isAnimatingTransition(window) {
+            if !window.isVisible() || isAnimatingTransition(window) || window.hasCameraForReplay() {
                 return nil
             }
 
@@ -1194,6 +1194,10 @@
         /// render after this collection, so any rect source can go stale for content committed in
         /// between.
         private func collectMaskedRegions(in window: UIWindow) -> [MaskedRegion]? {
+            guard !window.hasCameraForReplay() else {
+                return nil
+            }
+
             // A cover such as a SwiftUI `fullScreenCover` leaves the screen it hides attached to
             // the window, and rects from that screen would be redacted over the cover's own
             // pixels. Everything still on screen sits inside the cover, so both rect sources
@@ -1615,7 +1619,9 @@
         private func performBracketedBackgroundCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) -> Bool {
             defer { finishScreenshotRender() }
 
-            let before = DispatchQueue.main.sync { self.collectMaskedRegions(in: window) }
+            guard let before = DispatchQueue.main.sync(execute: { self.collectMaskedRegions(in: window) }) else {
+                return false
+            }
             // Off-main on purpose, and the reason this mode exists: drawHierarchy on main was too
             // slow to keep up. UIKit documents it as main-thread-only, so it stays experimental
             // behind `screenshotModeBackgroundCapture` — the bracketing above is what keeps masks

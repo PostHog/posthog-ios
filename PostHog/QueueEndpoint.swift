@@ -60,6 +60,10 @@ struct QueueEndpoint<Record> {
     /// the event name; snapshots / logs return a generic label.
     let describe: (Record) -> String
 
+    /// Whether a later record can share a request with the first record.
+    /// When set, the queue sends only a compatible FIFO prefix.
+    var canBatchTogether: ((Record, Record) -> Bool)?
+
     // MARK: Send
 
     /// Build the wire payload from a list of records and POST it. The queue

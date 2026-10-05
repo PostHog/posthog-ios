@@ -111,6 +111,14 @@
         }
 
         func toImage(afterScreenUpdates: Bool = false, preferFidelityRenderer: Bool = true) -> UIImage? {
+            // Background capture also enters here; controller traversal belongs on main.
+            let hasCamera = {
+                (self as? UIWindow ?? self.window)?.hasCameraForReplay() ?? false
+            }
+            guard !(Thread.isMainThread ? hasCamera() : DispatchQueue.main.sync(execute: hasCamera)) else {
+                return nil
+            }
+
             let bounds = self.bounds
             let size = bounds.size
 
@@ -160,6 +168,27 @@
                 return convert(bounds, to: window)
             }
             return layer.toPresentationRect(window)
+        }
+    }
+
+    extension UIWindow {
+        /// CameraUI layers on iOS 26 can trap in init(layer:) when Core Animation copies
+        /// them. Skip the frame before either masking or rendering reads presentation layers.
+        /// Call on main; inspecting controllers does not copy the camera's layer tree.
+        func hasCameraForReplay() -> Bool {
+            func containsCamera(_ controller: UIViewController) -> Bool {
+                if let picker = controller as? UIImagePickerController,
+                   picker.sourceType == .camera,
+                   picker.viewIfLoaded?.window === self
+                {
+                    return true
+                }
+                if let presented = controller.presentedViewController, containsCamera(presented) {
+                    return true
+                }
+                return controller.children.contains(where: containsCamera)
+            }
+            return rootViewController.map(containsCamera) ?? false
         }
     }
 

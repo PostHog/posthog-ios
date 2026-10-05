@@ -89,7 +89,14 @@
 
         func canRenderSurvey(survey: PostHogSurvey) -> Bool {
             // only render popover surveys for now
-            survey.type == .popover
+            guard survey.type == .popover else { return false }
+            // The display survey drops question types this SDK can't render, which would shift every
+            // later question's index out of line with the full survey used for branching and responses.
+            if let question = survey.questions.first(where: { $0.toDisplayQuestion() == nil }) {
+                hedgeLog("[Surveys] Skipping survey \(survey.id): unsupported question type \(question)")
+                return false
+            }
+            return true
         }
 
         var canEvaluateSurveyFeatureFlags: Bool {

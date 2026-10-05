@@ -7,13 +7,6 @@ import Foundation
 @testable import PostHog
 import Testing
 
-// Regression coverage for https://github.com/PostHog/posthog-ios/issues/653.
-// React Native rethrows fatal JS errors as `NSException(name: "RCTFatalException")`,
-// which the iOS crash reporter captures as a separate native crash —
-// duplicating the event the JS layer already captured with its own stack
-// trace. Adding `RCTFatalException` to
-// `errorTrackingConfig.ignoredExceptionTypes` must cause that crash report
-// to be skipped at the autocapture layer.
 #if os(iOS) || os(macOS) || os(tvOS)
 
     @Suite("ErrorTracking ignoredExceptionTypes")
@@ -77,7 +70,7 @@ import Testing
                 expected: false
             ),
             MatchCase(
-                label: "match is case-sensitive (NSException class names are stable identifiers)",
+                label: "match is case-sensitive",
                 properties: ["$exception_list": [["type": "RCTFatalException", "value": "boom"]]],
                 ignoredTypes: ["rctfatalexception"],
                 expected: false
@@ -96,10 +89,10 @@ import Testing
             )
         }
 
-        @Test("config field defaults to RCTFatalException so React Native apps get dedup out of the box")
-        func defaultIsRCTFatalException() {
+        @Test("config field defaults to an empty list")
+        func defaultIsEmpty() {
             let config = PostHogErrorTrackingConfig()
-            #expect(config.ignoredExceptionTypes == ["RCTFatalException"])
+            #expect(config.ignoredExceptionTypes.isEmpty)
         }
     }
 
@@ -139,7 +132,7 @@ import Testing
 
         @Test("generic capture drops $exception whose list contains an ignored type")
         func genericCaptureDropsIgnoredType() {
-            let sut = getSut()
+            let sut = getSut(ignoredExceptionTypes: ["RCTFatalException"])
 
             sut.capture("$exception", properties: ["$exception_list": [["type": "RCTFatalException", "value": "boom"]]])
             sut.capture("marker")

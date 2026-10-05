@@ -593,6 +593,7 @@ struct PostHogQueueUploadDispositionTest {
             encode: base.encode,
             decode: base.decode,
             describe: base.describe,
+            canBatchTogether: base.canBatchTogether,
             send: sender.send,
             isRetriableStatusCode: base.isRetriableStatusCode
         )

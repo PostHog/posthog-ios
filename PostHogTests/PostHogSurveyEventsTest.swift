@@ -142,6 +142,19 @@ class PostHogSurveyEventsTest {
         return try decoder.decode(PostHogSurvey.self, from: JSONSerialization.data(withJSONObject: json))
     }
 
+    @Test("surveys with a question type the SDK can't render are not shown")
+    func unsupportedQuestionTypeIsNotRendered() throws {
+        let integration = PostHogSurveyIntegration()
+        let first: [String: Any] = ["id": "first", "type": "open", "question": "First?"]
+        let second: [String: Any] = ["id": "second", "type": "open", "question": "Second?"]
+        let future: [String: Any] = ["id": "future", "type": "future_question_type", "question": "Future?"]
+
+        #expect(try integration.canRenderSurvey(survey: surveyJSON(questions: [first, second])))
+        // Rendering only the known questions would shift `second` to index 1 while branching and
+        // responses still treat index 1 as `future`, so the survey could never complete.
+        #expect(try !integration.canRenderSurvey(survey: surveyJSON(questions: [first, future, second])))
+    }
+
     @Test("resumed completion and dismissal preserve seen history", arguments: [false, true])
     func resumedSurveyPreservesSeenHistory(closeWithoutCompleting: Bool) throws {
         let postHog = getSut()

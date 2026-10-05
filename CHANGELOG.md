@@ -1,5 +1,30 @@
 ## Next
 
+## 3.89.1
+
+### Patch Changes
+
+- 92f1abe: Remove the `RCTFatalException` default from `errorTrackingConfig.ignoredExceptionTypes` and correct its documentation. The default never matched the exception React Native raises for a fatal JS error, which is named `"RCTFatalException: <message>"`, so it filtered nothing. The option now defaults to `[]`. The PostHog React Native plugin removes these duplicates where it can (old architecture, and new architecture on React Native 0.83.5+ / 0.85+). On earlier new-architecture versions a native `SIGABRT` duplicate can still appear. If your app relied on filtering an exception named exactly `RCTFatalException`, add it back with `config.errorTrackingConfig.ignoredExceptionTypes = ["RCTFatalException"]`.
+
+## 3.89.0
+
+### Minor Changes
+
+- aca7e84: Add `PostHogSDK.onFeatureFlags(_:)` to run a callback on the main thread whenever feature flags load or change, including from bootstrap values. The callback receives a `PostHogFeatureFlagsLoaded` with the enabled flag keys, their values and whether loading failed, and runs shortly after you register if flags have already loaded. Call `unsubscribe()` on the returned `PostHogFeatureFlagsSubscription` to stop listening.
+
+## 3.88.2
+
+### Patch Changes
+
+- 9deadc5: Discard session replay screenshots while the system camera picker is open to avoid an iOS CameraUI layer-copy crash. Screenshot capture resumes after the camera is dismissed.
+- ae6063c: Split session replay uploads at session or distinct ID changes so queued snapshots retain their session and identity attribution. Send the boundary-separated groups within a flush's batch limit sequentially without waiting for another flush trigger.
+
+## 3.88.1
+
+### Patch Changes
+
+- 1557aac: Fix surveys with a question type this SDK version can't display getting stuck on an empty sheet after the last answer; such surveys are now skipped.
+
 ## 3.88.0
 
 ### Minor Changes

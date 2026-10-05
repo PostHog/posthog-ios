@@ -60,6 +60,11 @@ class PostHogRemoteConfig {
     /// `clear()` (on `reset()`) so bootstrap never re-applies to a different user. Under `featureFlagsLock`.
     private var bootstrappedFlags: [String: Any]
     private var bootstrappedPayloads: [String: Any]
+    /// Set in `init` when bootstrap flags were seeded, consumed by `notifyBootstrappedFlagsIfSeeded()`.
+    /// Under `featureFlagsLock`. Internal for testing.
+    var bootstrapNotifyPending = false
+    /// Main thread only: set in delivery order, just before each flags-loaded notification is invoked.
+    private var latestFeatureFlagsLoadFailed = false
     // In-memory and reset each launch (matching posthog-js), so a returning user still reports
     // $used_bootstrap_value true while served bootstrap values until this session's own /flags.
     private var flagsLoadedFromRemote = false
@@ -142,11 +147,10 @@ class PostHogRemoteConfig {
         // Load cached person and group properties for flags
         loadCachedPropertiesForFlags()
 
-        // Fire the flags-loaded notification as soon as bootstrap is seeded (matches posthog-js firing
+        // Seed bootstrap now; the SDK fires the flags-loaded notification for it via
+        // notifyBootstrappedFlagsIfSeeded() once its listeners are subscribed (matches posthog-js firing
         // onFeatureFlags on bootstrap) so listeners aren't blocked on the first /flags response
-        if seedBootstrapFlagsIfNeeded() {
-            notifyFeatureFlags(getFeatureFlags())
-        }
+        bootstrapNotifyPending = seedBootstrapFlagsIfNeeded()
 
         preloadSessionReplay()
         preloadErrorTrackingConfig()
@@ -779,8 +783,12 @@ class PostHogRemoteConfig {
         errorTrackingLock.withLock { autoCaptureExceptions }
     }
 
-    private func notifyFeatureFlags(_ featureFlags: [String: Any]?) {
+    /// `nil` reports a failed load. Bootstrap notifications leave the latest load outcome unchanged.
+    private func notifyFeatureFlags(_ featureFlags: [String: Any]?, isBootstrap: Bool = false) {
         DispatchQueue.main.async {
+            if !isBootstrap {
+                self.latestFeatureFlagsLoadFailed = featureFlags == nil
+            }
             self.onFeatureFlagsLoaded.invoke(featureFlags)
             NotificationCenter.default.post(name: PostHogSDK.didReceiveFeatureFlags, object: nil)
         }
@@ -841,6 +849,24 @@ class PostHogRemoteConfig {
         if let boolValue = value as? Bool { return boolValue }
         if let stringValue = value as? String { return !stringValue.isEmpty }
         return false
+    }
+
+    /// Whether the latest delivered attempt to load feature flags failed. Main thread only.
+    func didLatestFeatureFlagsLoadFail() -> Bool {
+        latestFeatureFlagsLoadFailed
+    }
+
+    /// Fires the flags-loaded notification for bootstrapped flags. Called by the SDK at the end of
+    /// `setup()`, once its own and its integrations' listeners are subscribed, so it isn't lost
+    /// when setup runs off the main thread. One-shot.
+    func notifyBootstrappedFlagsIfSeeded() {
+        let pending = featureFlagsLock.withLock { () -> Bool in
+            defer { bootstrapNotifyPending = false }
+            return bootstrapNotifyPending
+        }
+        if pending {
+            notifyFeatureFlags(getFeatureFlags(), isBootstrap: true)
+        }
     }
 
     /// Seeds `config.bootstrap` feature flags and payloads as the served snapshot before the first

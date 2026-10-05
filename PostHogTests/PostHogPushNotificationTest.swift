@@ -15,9 +15,7 @@
         let projectToken = "push_\(UUID().uuidString)"
 
         init() {
-            if #available(macOS 11.0, *) {
-                PostHogPushNotificationOpenIntegration.clearInstalls()
-            }
+            PostHogPushNotificationOpenIntegration.clearInstalls()
             #if os(iOS)
                 PostHogPushNotificationSubscriptionIntegration.clearInstalls()
             #endif
@@ -196,8 +194,6 @@
 
         @Test("getIntegrations includes the opened integration only when its flag is enabled")
         func getIntegrationsGatesOpenedIntegration() {
-            guard #available(macOS 11.0, *) else { return }
-
             let enabled = PostHogConfig(projectToken: projectToken)
             enabled.capturePushNotificationOpened = true
             #expect(enabled.getIntegrations().contains { $0 is PostHogPushNotificationOpenIntegration })
@@ -1766,9 +1762,7 @@
             let sut = getSDK(enableSwizzling: false, capturePushNotificationOpened: true)
             defer { sut.close() }
 
-            if #available(macOS 11.0, *) {
-                #expect(sut.getPushNotificationIntegration() == nil)
-            }
+            #expect(sut.getPushNotificationIntegration() == nil)
 
             sut.capturePushNotificationOpened(
                 title: "Hello",
@@ -2286,7 +2280,6 @@
             #expect(try #require(server.parseRequest(del))["distinct_id"] as? String == "user-1")
         }
 
-        @available(macOS 11.0, *)
         @Test("posthog-ios#746: opt-out during an in-flight unregister must still send the DELETE")
         func optOutDuringUnregisterStrandsDelete() async throws {
             let parked = ParkedMint()

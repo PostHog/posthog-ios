@@ -19,15 +19,8 @@
 
             for scene in windowScenes {
                 // attempt to retrieve directly from UIWindowScene
-                if #available(tvOS 15.0, *) {
-                    if let keyWindow = scene.keyWindow {
-                        return keyWindow
-                    }
-                } else {
-                    // check scene.windows.isKeyWindow
-                    for window in scene.windows where window.isKeyWindow {
-                        return window
-                    }
+                if let keyWindow = scene.keyWindow {
+                    return keyWindow
                 }
 
                 // check scene.delegate.window property

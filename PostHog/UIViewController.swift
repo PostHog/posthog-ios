@@ -90,7 +90,7 @@
         }
 
         private static func secondaryViewController(of split: UISplitViewController) -> UIViewController? {
-            if #available(tvOS 14.0, *), split.style != .unspecified {
+            if split.style != .unspecified {
                 let secondary = split.viewController(for: .secondary)
                 // Column-style splits wrap a plain column controller in a navigation
                 // controller that holds the pushed screens. `navigationController` can also

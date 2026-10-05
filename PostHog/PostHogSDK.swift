@@ -331,10 +331,8 @@ let maxRetryDelay = 30.0
             #if os(iOS) || os(macOS)
                 // Releases a prewarm this setup turns out not to want — including while opted out,
                 // where the integrations above were never installed and so could never release it.
-                if #available(macOS 11.0, *) {
-                    if !config.installsPushNotificationOpenIntegration {
-                        DI.main.pushNotificationPublisher.discardPrewarmedNotificationResponseCapture()
-                    }
+                if !config.installsPushNotificationOpenIntegration {
+                    DI.main.pushNotificationPublisher.discardPrewarmedNotificationResponseCapture()
                 }
             #endif
 
@@ -3454,7 +3452,6 @@ let maxRetryDelay = 30.0
         /// (`close()`), or at `setup()` when the config disables push-open capture or the app is
         /// opted out. If `setup()` is never called they stay for the process lifetime. The per-class
         /// delegate wrapper, as elsewhere in this SDK, stays for the process lifetime regardless.
-        @available(macOS 11.0, *)
         @objc public static func prewarmPushNotificationOpenCapture() {
             DI.main.pushNotificationPublisher.prewarmNotificationResponseCapture()
         }
@@ -3483,7 +3480,6 @@ let maxRetryDelay = 30.0
         /// `notification.request.identifier` differ are two taps, not one reported twice.
         ///
         /// - Parameter response: The `UNNotificationResponse` received from the system.
-        @available(macOS 11.0, *)
         @objc public func capturePushNotificationOpened(response: UNNotificationResponse) {
             let content = response.notification.request.content
             // Free-text content is captured only for PostHog-attributed pushes: forwarding the
@@ -3697,7 +3693,6 @@ let maxRetryDelay = 30.0
         #endif
 
         #if os(iOS) || os(macOS)
-            @available(macOS 11.0, *)
             func getPushNotificationIntegration() -> PostHogPushNotificationOpenIntegration? {
                 getIntegration()
             }

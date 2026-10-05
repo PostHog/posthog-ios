@@ -5,7 +5,6 @@
 
     @Suite("Session Replay Event Triggers", .serialized)
     class PostHogSessionReplayEventTriggersTests {
-        let testProjectToken = "test_project_token"
         let server: MockPostHogServer
 
         init() {
@@ -21,7 +20,8 @@
             eventTriggers: [String]? = nil,
             linkedFlagNotMatched: Bool = false
         ) -> PostHogSDK {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            // A token per test keeps the seeded recording config apart from other suites' SDK instances
+            let config = PostHogConfig(projectToken: "replay_triggers_\(UUID().uuidString)", host: "http://localhost:9001")
             config.sessionReplay = true
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true

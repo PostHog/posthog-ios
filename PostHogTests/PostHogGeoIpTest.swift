@@ -7,7 +7,6 @@ class PostHogGeoIpTests {
     let server: MockPostHogServer
 
     init() {
-        Self.deleteDefaults()
         server = MockPostHogServer(version: 4)
         server.start()
     }
@@ -16,25 +15,17 @@ class PostHogGeoIpTests {
         server.stop()
     }
 
-    private static func deleteDefaults() {
-        let userDefaults = UserDefaults.standard
-        userDefaults.removeObject(forKey: "PHGVersionKey")
-        userDefaults.removeObject(forKey: "PHGBuildKeyV2")
-        userDefaults.synchronize()
-
-        deleteSafely(applicationSupportDirectoryURL())
-    }
-
     func getSut(disableGeoIp: Bool = false) -> PostHogSDK {
-        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+        // A token per test keeps its storage and requests apart from other suites' SDK instances
+        let config = PostHogConfig(projectToken: "geoip_\(UUID().uuidString)", host: "http://localhost:9001")
         config.flushAt = 1
         config.captureApplicationLifecycleEvents = false
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
         config.disableGeoIp = disableGeoIp
 
-        let storage = PostHogStorage(config)
-        storage.reset()
+        server.batchProjectToken = config.projectToken
+        server.flagsProjectToken = config.projectToken
 
         return PostHogSDK.with(config)
     }

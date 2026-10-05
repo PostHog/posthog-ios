@@ -1167,7 +1167,6 @@
 
             let wireframe = createBasicWireframe(window)
             wireframe.maskableWidgets = maskableWidgets
-            wireframe.maskScale = screenshotPixelScale(window)
             wireframe.type = "screenshot"
             return wireframe
         }
@@ -2090,7 +2089,7 @@
                     _ = PostHogGPUMirrorCapture.shared
                     DispatchQueue.main.async {
                         guard let self, let window = UIApplication.getCurrentWindow() else { return }
-                        self.gpuMirror?.prewarm(size: window.bounds.size, scale: replayConfig.screenshotPixelScale(nativeScale: window.screen.scale))
+                        self.gpuMirror?.prewarm(size: window.bounds.size, scale: self.screenshotPixelScale(window))
                     }
                 }
             }
@@ -2118,7 +2117,7 @@
                     endGPUCapture(nil, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
                     return
                 }
-                let scale = postHog.config.sessionReplayConfig.screenshotPixelScale(nativeScale: window.screen.scale)
+                let scale = screenshotPixelScale(window)
                 guard mirror.needsPrewarm(for: window.bounds.size, scale: scale) else {
                     captureMirrored(window: window, screenName: screenName, postHog: postHog, mirror: mirror, scale: scale)
                     return
@@ -2157,7 +2156,6 @@
                 let wireframe = createBasicWireframe(window)
                 wireframe.type = "screenshot"
                 wireframe.maskableWidgets = regions.map(\.rect)
-                wireframe.maskScale = frame.scale
                 let capture = MirroredCapture(frame: frame, wireframe: wireframe, windowSize: window.bounds.size,
                                               screenName: screenName, timestampDate: timestampDate)
                 // Build and render each cost up to a frame on older devices; keep them in separate turns.

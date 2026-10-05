@@ -79,17 +79,13 @@
         /// Default: false
         @objc public var screenshotModeGPUCapture: Bool = false
 
-        /// Resolution of screenshot captures, as a multiplier of the device's native resolution, like
-        /// posthog-android's `screenshotScale`: 1.0 captures at full native resolution (1206×2622 pixels on a
-        /// 3x 402×874 pt screen) and 0.5 at half its width and height. Set values are clamped to 0.1...1.0;
-        /// NaN and infinite values reset it to `nil`.
-        ///
-        /// When `nil`, screenshots are captured at one pixel per point on every device (402×874 pixels on that
-        /// screen). Masked and unmasked screenshots have the same size, and the logical replay viewport is
-        /// unchanged. Does not change compression quality or enable screenshot capture.
+        /// Screenshot resolution as a multiplier of the device's native resolution, like posthog-android's
+        /// `screenshotScale`: 1.0 is full native resolution. Clamped to 0.1...1.0; NaN and infinity reset it to `nil`.
+        /// When `nil`, screenshots are one pixel per point on every device. Masked and unmasked screenshots
+        /// have the same size.
         ///
         /// Experimental.
-        /// Default: nil (one pixel per point)
+        /// Default: nil
         @objc public var screenshotScale: NSNumber? {
             didSet {
                 guard let value = screenshotScale?.doubleValue else { return }
@@ -97,7 +93,6 @@
             }
         }
 
-        /// Pixels per point of a screenshot on a screen with `nativeScale` pixels per point.
         func screenshotPixelScale(nativeScale: CGFloat) -> CGFloat {
             screenshotScale.map { nativeScale * CGFloat($0.doubleValue) } ?? 1
         }

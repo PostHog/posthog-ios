@@ -110,8 +110,8 @@
             setPostHogFlag(&AssociatedKeys.phNoRageClick, enabled: enabled, owner: owner)
         }
 
-        /// `scale` is the image's pixels per point; nil renders at the screen's native scale.
-        func toImage(afterScreenUpdates: Bool = false, preferFidelityRenderer: Bool = true, scale: CGFloat? = nil) -> UIImage? {
+        /// `scale` is the image's pixels per point.
+        func toImage(afterScreenUpdates: Bool = false, preferFidelityRenderer: Bool = true, scale: CGFloat) -> UIImage? {
             // Background capture also enters here; controller traversal belongs on main.
             let hasCamera = {
                 (self as? UIWindow ?? self.window)?.hasCameraForReplay() ?? false
@@ -127,7 +127,7 @@
                 return nil
             }
 
-            let renderer = PostHogGraphicsImageRenderer(size: size, scale: scale ?? (self as? UIWindow ?? window)?.screen.scale ?? 1)
+            let renderer = PostHogGraphicsImageRenderer(size: size, scale: scale)
 
             return autoreleasepool {
                 renderer.image { context in

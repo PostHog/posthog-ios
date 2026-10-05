@@ -15,8 +15,7 @@
         /// so every exit of a capture can simply release.
         final class Frame {
             private let target: Target
-            /// Pixels per point of the rendered image.
-            let scale: CGFloat
+            var scale: CGFloat { target.scale }
             /// The cached wrapper keeps the mirror alive until `release`; this only identifies it.
             private weak var root: CALayer?
             /// Source layers whose whole subtree the mirror left out (hidden, transparent, clipped away or far
@@ -27,7 +26,6 @@
 
             fileprivate init(target: Target, root: CALayer, culledLayers: Set<ObjectIdentifier>) {
                 self.target = target
-                scale = target.scale
                 self.root = root
                 self.culledLayers = culledLayers
             }
@@ -267,7 +265,6 @@
             let presentationSafe: Bool
         }
 
-        /// State of one `build` walk.
         private struct Walk {
             let scale: CGFloat
             var culled: Set<ObjectIdentifier> = []
@@ -485,7 +482,7 @@
             let copy = (info.copiesWithInitLayer ? initLayerCopy(source) : nil) ?? plainCopy(presentation, kind: info.kind)
             copyGeometry(from: presentation, source: source, to: copy)
             copyStyle(from: presentation, to: copy)
-            copyContents(from: presentation, source: source, info: info, to: copy)
+            copyContents(from: presentation, source: source, info: info, scale: walk.scale, to: copy)
             copyEffects(from: presentation, source: source, to: copy)
 
             if info.metal {
@@ -585,8 +582,8 @@
             if presentation.zPosition != 0 { copy.zPosition = presentation.zPosition }
             if !CATransform3DIsIdentity(presentation.transform) {
                 copy.transform = presentation.transform
-                // Rotated or scaled edges land between output pixels.
-                copy.allowsEdgeAntialiasing = true
+                // Rotated or skewed edges cross output pixels diagonally.
+                if presentation.transform.m12 != 0 || presentation.transform.m21 != 0 { copy.allowsEdgeAntialiasing = true }
             }
             if !CATransform3DIsIdentity(presentation.sublayerTransform) { copy.sublayerTransform = presentation.sublayerTransform }
             if source.masksToBounds { copy.masksToBounds = true }
@@ -614,13 +611,17 @@
             }
         }
 
-        private func copyContents(from presentation: CALayer, source: CALayer, info: ClassInfo, to copy: CALayer) {
+        private func copyContents(from presentation: CALayer, source: CALayer, info: ClassInfo, scale: CGFloat, to copy: CALayer) {
             // Also sets the rasterization scale of text and shape layers, which have no contents.
             if source.contentsScale != 1 { copy.contentsScale = source.contentsScale }
             let contents = presentation.contents ?? source.contents
-            // Pixels drawn at the screen's scale are minified several times over at screenshot scales; the default
-            // filter samples too few of them and drops thin strokes such as glyph stems, trilinear averages them.
-            if contents != nil || info.kind == .text || info.kind == .shape { copy.minificationFilter = .trilinear }
+            let drawsPixels = contents != nil || info.kind == .text || info.kind == .shape
+            if drawsPixels, source.contentsScale > scale {
+                // Minified from screen scale, the default filter drops thin strokes such as glyph stems; trilinear keeps them.
+                copy.minificationFilter = .trilinear
+            } else if source.minificationFilter != .linear {
+                copy.minificationFilter = source.minificationFilter
+            }
             guard let contents else { return }
             copy.contents = contents
             if source.contentsGravity != .resize { copy.contentsGravity = source.contentsGravity }

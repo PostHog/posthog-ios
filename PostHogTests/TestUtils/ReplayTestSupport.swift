@@ -2,6 +2,7 @@
     import Foundation
     @testable import PostHog
     import Testing
+    import UIKit
 
     /// Records the `$snapshot` data a replay SUT sends, instead of uploading it.
     final class ReplaySnapshots {
@@ -30,6 +31,14 @@
                     .flatMap { $0["wireframes"] as? [[String: Any]] ?? [] }
                     .filter { $0["type"] as? String == "screenshot" }
             }
+        }
+
+        /// The first uploaded screenshot, decoded.
+        func firstScreenshotImage() throws -> CGImage {
+            let screenshot = try #require(screenshots.first)
+            let base64 = try #require((screenshot["base64"] as? String)?.components(separatedBy: ",").last)
+            let data = try #require(Data(base64Encoded: base64))
+            return try #require(UIImage(data: data)?.cgImage)
         }
     }
 

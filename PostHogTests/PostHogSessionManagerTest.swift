@@ -301,7 +301,7 @@ enum PostHogSessionManagerTest {
             sut.close()
         }
 
-        @Test("$sdk_debug_session_* describe the rotated session on the event that rotates it")
+        @Test("$sdk_debug_session_start describes the rotated session on the event that rotates it")
         func debugSessionKeysDescribeRotatedSession() async throws {
             let sut = getSut(flushAt: 2)
             let mockNow = MockDate()
@@ -318,27 +318,51 @@ enum PostHogSessionManagerTest {
             mockAppLifecycle.simulateAppDidBecomeActive()
 
             sut.getSessionManager()?.touchSession()
-            sut.capture("event captured")
+            sut.screen("first")
 
             mockNow.date.addTimeInterval(60 * 31) // +31 mins: this capture rotates the session
-            sut.capture("event captured after 31 mins")
+            sut.screen("after 31 mins")
 
             let events = try await getServerEvents(server)
             try #require(events.count == 2)
 
             let start1 = try #require(events[0].properties["$sdk_debug_session_start"] as? Int64)
             let start2 = try #require(events[1].properties["$sdk_debug_session_start"] as? Int64)
-            let duration2 = try #require(events[1].properties["$sdk_debug_current_session_duration"] as? Int64)
 
             // Regression: the debug snapshot used to run before getSessionId(at:) rotated, so the
-            // rotating event carried the new $session_id with the previous session's start/duration.
+            // rotating event carried the new $session_id with the previous session's start.
             #expect(start2 != start1)
             #expect(start2 == Int64(mockNow.date.timeIntervalSince1970 * 1000))
-            #expect(duration2 == 0)
         }
 
-        @Test("$sdk_debug_current_session_duration is measured at the event's timestamp and never negative")
-        func debugSessionDurationUsesEventTimestamp() async throws {
+        @Test("a custom event carries the required keys but none of the optional replay debug bundle")
+        func customEventCarriesNoReplayDebugBundle() async throws {
+            let sut = getSut()
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.capture("custom event")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 1)
+
+            let properties = events[0].properties
+            #expect(properties["$recording_status"] != nil)
+            #expect(properties["$sdk_debug_pending_queue_size"] != nil)
+            #expect(properties["$sdk_debug_session_start"] == nil)
+            #expect(properties["$sdk_debug_replay_capture_mode"] == nil)
+            #expect(properties["$sdk_debug_replay_flush_hold_reason"] == nil)
+            #expect(properties["$sdk_debug_replay_pending_trigger_conditions"] == nil)
+        }
+
+        @Test("the optional replay debug bundle is attached at most once every 30 seconds; required keys stay on every event")
+        func replayDebugBundleIsThrottled() async throws {
             let sut = getSut(flushAt: 3)
             let mockNow = MockDate()
             now = { mockNow.date }
@@ -350,32 +374,409 @@ enum PostHogSessionManagerTest {
                 sut.close()
             }
 
-            mockAppLifecycle.simulateAppDidFinishLaunching()
-            mockAppLifecycle.simulateAppDidBecomeActive()
-
             sut.getSessionManager()?.touchSession()
-            sut.capture("first")
+            sut.screen("first")
 
-            // Wall clock moves on 60 mins; a capture backdated 20 mins is still 40 mins after the
-            // last activity, so it rotates the session at its own (backdated) timestamp.
-            mockNow.date.addTimeInterval(60 * 60)
-            let rotatingTime = mockNow.date.addingTimeInterval(-20 * 60)
-            sut.capture("backdated, rotates", timestamp: rotatingTime)
+            mockNow.date.addTimeInterval(29)
+            sut.screen("inside the window")
 
-            // Backdated a further 5 mins: earlier than the new session's start, and no rotation.
-            sut.capture("backdated, predates session", timestamp: rotatingTime.addingTimeInterval(-5 * 60))
+            mockNow.date.addTimeInterval(1) // 30s after the first, so the window has elapsed
+            sut.screen("at the window edge")
 
             let events = try await getServerEvents(server)
             try #require(events.count == 3)
 
-            let start1 = try #require(events[1].properties["$sdk_debug_session_start"] as? Int64)
-            let duration1 = try #require(events[1].properties["$sdk_debug_current_session_duration"] as? Int64)
-            let duration2 = try #require(events[2].properties["$sdk_debug_current_session_duration"] as? Int64)
+            for event in events {
+                #expect(event.properties["$recording_status"] != nil)
+            }
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+            #expect(events[1].properties["$sdk_debug_session_start"] == nil)
+            #expect(events[2].properties["$sdk_debug_session_start"] != nil)
+        }
 
-            // Regression: measured against now() this reported the 20-min backdate instead of 0.
-            #expect(start1 == Int64(rotatingTime.timeIntervalSince1970 * 1000))
-            #expect(duration1 == 0)
-            #expect(duration2 == 0)
+        @Test("a far-future eligible capture doesn't suppress the optional bundle once wall clock catches up")
+        func replayDebugBundleFollowsWallClockNotEventTimestamp() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.capture("$future", timestamp: mockNow.date.addingTimeInterval(60 * 60))
+
+            mockNow.date.addTimeInterval(30)
+            sut.capture("$after", timestamp: mockNow.date)
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+            #expect(events[1].properties["$sdk_debug_session_start"] != nil)
+        }
+
+        @Test("the crash-context snapshot always carries the bundle and never arms the window")
+        func readOnlyContextSnapshotBypassesGateAndThrottle() async throws {
+            let sut = getSut()
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+
+            let lock = NSLock()
+            var snapshots: [[String: Any]] = []
+            let token = sut.onEventContextChanged.subscribe { context in
+                lock.withLock { snapshots.append(context["event_properties"] as? [String: Any] ?? [:]) }
+            }
+
+            sut.register(["first": 1])
+            sut.register(["second": 2])
+
+            let captured = lock.withLock { snapshots }
+            try #require(captured.count >= 2)
+            for snapshot in captured {
+                #expect(snapshot["$recording_status"] != nil)
+                #expect(snapshot["$sdk_debug_session_start"] != nil)
+                #expect(snapshot["$sdk_debug_pending_queue_size"] == nil)
+            }
+
+            // The read-only builds never armed the window, so the first captured event still attaches.
+            sut.screen("first")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 1)
+            #expect(events[0].properties["$recording_status"] != nil)
+
+            withExtendedLifetime(token) {}
+        }
+
+        @Test("an event dropped by beforeSend does not consume the throttle window")
+        func beforeSendDroppedEventDoesNotArmWindow() async throws {
+            let sut = getSut()
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { $0.event == "$dropped" ? nil : $0 }
+            // Dropped while the window is open, which is when it could have armed it.
+            sut.capture("$dropped")
+
+            mockNow.date.addTimeInterval(1)
+            sut.capture("$after")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 1)
+
+            #expect(events[0].event == "$after")
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+        }
+
+        @Test("an event that carried no bundle does not consume the window when the interval elapses mid-capture")
+        func eventWithoutBundleDoesNotConsumeWindow() async throws {
+            let sut = getSut(flushAt: 3)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.capture("$first")
+
+            mockNow.date.addTimeInterval(29)
+            // beforeSend runs after the properties are built, so this crosses the interval boundary
+            // between the claim and the commit.
+            sut.config.setBeforeSend { event in
+                if event.event == "$inside" { mockNow.date.addTimeInterval(6) }
+                return event
+            }
+            sut.capture("$inside")
+
+            sut.config.setBeforeSend { $0 }
+            mockNow.date.addTimeInterval(1)
+            sut.capture("$after")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 3)
+
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+            #expect(events[1].properties["$sdk_debug_session_start"] == nil)
+            #expect(events[2].properties["$sdk_debug_session_start"] != nil)
+        }
+
+        @Test("a deduplicated identify() $set does not arm the throttle window")
+        func deduplicatedSetDoesNotArmWindow() async throws {
+            let sut = getSut(flushAt: 3)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+
+            sut.identify("user_dedup")
+
+            mockNow.date.addTimeInterval(31)
+            sut.identify("user_dedup", userProperties: ["name": "John"])
+
+            mockNow.date.addTimeInterval(31)
+            // Same properties again: deduplicated, never queued.
+            sut.identify("user_dedup", userProperties: ["name": "John"])
+
+            sut.capture("$after")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 3)
+
+            #expect(events[0].event == "$identify")
+            #expect(events[1].event == "$set")
+            #expect(events[2].event == "$after")
+            #expect(events[2].properties["$sdk_debug_session_start"] != nil)
+        }
+
+        @Test("a custom event captured while the window is open does not arm it")
+        func customEventDoesNotArmWindow() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.capture("custom event")
+
+            mockNow.date.addTimeInterval(1)
+            sut.capture("$eligible")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            #expect(events[1].properties["$sdk_debug_session_start"] != nil)
+        }
+
+        @Test("an eligible event captured from inside beforeSend does not also carry the optional bundle")
+        func captureInsideBeforeSendDoesNotDoubleClaim() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { event in
+                if event.event == "$outer" { sut.capture("$inner") }
+                return event
+            }
+            sut.capture("$outer")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            let carriers = events.filter { $0.properties["$sdk_debug_session_start"] != nil }
+            #expect(carriers.count == 1)
+            #expect(carriers.first?.event == "$outer")
+        }
+
+        @Test("an eligible event renamed by beforeSend still carries the bundle and consumes the window")
+        func renamedEligibleEventConsumesWindow() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { event in
+                if event.event == "$renamed" { event.event = "custom name" }
+                return event
+            }
+            sut.capture("$renamed")
+
+            mockNow.date.addTimeInterval(1)
+            sut.capture("$after")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            #expect(events[0].event == "custom name")
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+            #expect(events[1].properties["$sdk_debug_session_start"] == nil)
+        }
+
+        @Test("a custom event renamed to an eligible name by beforeSend carries no bundle and does not consume the window")
+        func customEventRenamedToEligibleDoesNotConsumeWindow() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { event in
+                if event.event == "custom name" { event.event = "$renamed" }
+                return event
+            }
+            sut.capture("custom name")
+
+            mockNow.date.addTimeInterval(1)
+            sut.capture("$after")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            #expect(events[0].event == "$renamed")
+            #expect(events[0].properties["$sdk_debug_session_start"] == nil)
+            #expect(events[1].properties["$sdk_debug_session_start"] != nil)
+        }
+
+        @Test("the window starts when the event is accepted, not while beforeSend is running")
+        func windowStartsAtAcceptance() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { event in
+                if event.event == "$slow" { mockNow.date.addTimeInterval(31) }
+                return event
+            }
+            sut.capture("$slow")
+            sut.capture("$next")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+            #expect(events[1].properties["$sdk_debug_session_start"] == nil)
+        }
+
+        @Test("a claim stays reserved while its capture is still inside beforeSend, however long that takes")
+        func outstandingClaimDoesNotExpire() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { event in
+                if event.event == "$slow" {
+                    mockNow.date.addTimeInterval(31)
+                    sut.capture("$inner")
+                }
+                return event
+            }
+            sut.capture("$slow")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            let carriers = events.filter { $0.properties["$sdk_debug_session_start"] != nil }
+            #expect(carriers.count == 1)
+            #expect(carriers.first?.event == "$slow")
+        }
+
+        @Test("a claimer dropped by beforeSend releases the claim so the next eligible event gets the bundle immediately")
+        func droppedClaimerReleasesClaim() async throws {
+            let sut = getSut()
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { $0.event == "$dropped" ? nil : $0 }
+            sut.capture("$dropped")
+            sut.capture("$after")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 1)
+
+            #expect(events[0].event == "$after")
+            #expect(events[0].properties["$sdk_debug_session_start"] != nil)
+        }
+
+        @Test("the internal claim marker never reaches a queued event")
+        func claimMarkerNeverReachesQueuedEvent() async throws {
+            let sut = getSut()
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.capture("$eligible")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 1)
+
+            #expect(events[0].properties["$__replay_debug_claim"] == nil)
         }
 
         @Test("Rotates $session_id after max session length of 24 hours")

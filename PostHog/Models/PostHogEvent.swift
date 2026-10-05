@@ -33,6 +33,9 @@ import Foundation
     // but it carries the PostHog project token and is serialized as api_key on the wire.
     var apiKey: String?
 
+    /// Set by the SDK when this event took the throttled replay debug bundle, so it survives `beforeSend` renames or replacement.
+    var carriesReplayDebugBundle = false
+
     init(event: String, distinctId: String, properties: [String: Any]? = nil, timestamp: Date = Date(), uuid: UUID = UUID.v7(), apiKey: String? = nil) {
         self.event = event
         self.distinctId = distinctId

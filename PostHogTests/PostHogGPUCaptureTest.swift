@@ -445,6 +445,36 @@
             #expect(masked.points(where: Self.isMagenta).isEmpty)
         }
 
+        @Test("Shared high-resolution contents are filtered when the mirror downscales them, not point-sampled")
+        func downscaledContentsAreFiltered() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window, scale: 0.5)
+
+            // A 1 px black column every 6 px at 3x: thin strokes, as in small glyphs, one per output pixel at 0.5x.
+            // Point or bilinear sampling lands between strokes and drops them; filtering keeps 1/6 of each.
+            let side = 120
+            let stripes = try #require(CGContext(data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0,
+                                                 space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            stripes.setFillColor(UIColor.white.cgColor)
+            stripes.fill(CGRect(x: 0, y: 0, width: side, height: side))
+            stripes.setFillColor(UIColor.black.cgColor)
+            for x in stride(from: 0, to: side, by: 6) {
+                stripes.fill(CGRect(x: x, y: 0, width: 1, height: side))
+            }
+            let view = UIView(frame: CGRect(x: 20, y: 20, width: 40, height: 40))
+            view.layer.contents = stripes.makeImage()
+            view.layer.contentsScale = 3
+            window.addSubview(view)
+
+            let pixels = try await Pixels(render(window, with: mirror, scale: 0.5).0)
+            // The view covers 20 x 20 output pixels; keep clear of its edges.
+            let greys = (12 ..< 28).flatMap { y in (12 ..< 28).map { x in Int(pixels[x, y].red) } }
+            // 5/6 white: about 212.
+            #expect(greys.allSatisfy { (190 ... 235).contains($0) }, "min \(greys.min() ?? -1) max \(greys.max() ?? -1)")
+        }
+
         @Test("screenshotScale defaults to nil, set values are clamped to 0.1...1, and NaN or infinity reset it to nil", arguments: [
             (input: -Double.greatestFiniteMagnitude, expected: 0.1), (input: -1, expected: 0.1), (input: 0, expected: 0.1),
             (input: Double.leastNonzeroMagnitude, expected: 0.1), (input: 0.05, expected: 0.1), (input: 0.1, expected: 0.1),

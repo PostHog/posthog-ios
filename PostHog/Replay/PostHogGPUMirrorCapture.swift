@@ -583,7 +583,11 @@
             copy.position = presentation.position
             if presentation.anchorPoint != Self.defaultAnchor { copy.anchorPoint = presentation.anchorPoint }
             if presentation.zPosition != 0 { copy.zPosition = presentation.zPosition }
-            if !CATransform3DIsIdentity(presentation.transform) { copy.transform = presentation.transform }
+            if !CATransform3DIsIdentity(presentation.transform) {
+                copy.transform = presentation.transform
+                // Rotated or scaled edges land between output pixels.
+                copy.allowsEdgeAntialiasing = true
+            }
             if !CATransform3DIsIdentity(presentation.sublayerTransform) { copy.sublayerTransform = presentation.sublayerTransform }
             if source.masksToBounds { copy.masksToBounds = true }
             if source.isGeometryFlipped { copy.isGeometryFlipped = true }
@@ -610,15 +614,18 @@
             }
         }
 
-        private func copyContents(from presentation: CALayer, source: CALayer, info _: ClassInfo, to copy: CALayer) {
+        private func copyContents(from presentation: CALayer, source: CALayer, info: ClassInfo, to copy: CALayer) {
             // Also sets the rasterization scale of text and shape layers, which have no contents.
             if source.contentsScale != 1 { copy.contentsScale = source.contentsScale }
-            guard let contents = presentation.contents ?? source.contents else { return }
+            let contents = presentation.contents ?? source.contents
+            // Pixels drawn at the screen's scale are minified several times over at screenshot scales; the default
+            // filter samples too few of them and drops thin strokes such as glyph stems, trilinear averages them.
+            if contents != nil || info.kind == .text || info.kind == .shape { copy.minificationFilter = .trilinear }
+            guard let contents else { return }
             copy.contents = contents
             if source.contentsGravity != .resize { copy.contentsGravity = source.contentsGravity }
             if presentation.contentsRect != Self.unitRect { copy.contentsRect = presentation.contentsRect }
             if source.contentsCenter != Self.unitRect { copy.contentsCenter = source.contentsCenter }
-            if source.minificationFilter != .linear { copy.minificationFilter = source.minificationFilter }
             if source.magnificationFilter != .linear { copy.magnificationFilter = source.magnificationFilter }
         }
 

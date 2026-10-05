@@ -2,4 +2,4 @@
 'posthog-ios': major
 ---
 
-**Breaking:** raise the minimum macOS deployment target from 10.15 to 11.0, tvOS from 13.0 to 15.0 and watchOS from 6.0 to 8.0, the lowest that Xcode 26 supports.
+**Breaking:** raise the minimum deployment targets to macOS 11.0 (from 10.15), tvOS 15.0 (from 13.0) and watchOS 10.0 (from 6.0).

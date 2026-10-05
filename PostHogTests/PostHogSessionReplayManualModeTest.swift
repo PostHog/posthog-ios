@@ -1,6 +1,6 @@
 #if os(iOS)
     import Foundation
-    @testable import PostHog
+    @_spi(PostHogInternal) @testable import PostHog
     import Testing
 
     @Suite("Session Replay Manual Mode", .serialized)

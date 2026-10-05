@@ -9,7 +9,6 @@
 
     import SwiftUI
 
-    @available(iOS 15.0, *)
     struct SurveyButtonStyle: ButtonStyle {
         @Environment(\.surveyAppearance) private var appearance
         @Environment(\.isEnabled) private var isEnabled

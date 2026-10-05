@@ -215,10 +215,8 @@ class PostHogContext {
         #if targetEnvironment(macCatalyst)
             sysctlName = "hw.model"
         #elseif os(iOS) || os(visionOS)
-            if #available(iOS 14.0, *) {
-                if ProcessInfo.processInfo.isiOSAppOnMac {
-                    sysctlName = "hw.model"
-                }
+            if ProcessInfo.processInfo.isiOSAppOnMac {
+                sysctlName = "hw.model"
             }
         #endif
 
@@ -495,7 +493,7 @@ class PostHogContext {
     }()
 
     static let isIOSAppOnMac: Bool = {
-        if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *) {
+        if #available(macOS 11.0, tvOS 14.0, watchOS 7.0, *) {
             return ProcessInfo.processInfo.isiOSAppOnMac
         }
         return false

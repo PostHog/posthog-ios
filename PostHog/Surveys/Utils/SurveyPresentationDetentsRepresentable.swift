@@ -9,7 +9,6 @@
 
     import SwiftUI
 
-    @available(iOS 15.0, *)
     struct SurveyPresentationDetentsRepresentable: UIViewControllerRepresentable {
         enum Detent: Hashable, Identifiable, Comparable {
             case medium

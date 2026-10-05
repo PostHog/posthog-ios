@@ -9,7 +9,6 @@
     import SwiftUI
     import UIKit
 
-    @available(iOS 15.0, *)
     final class SurveysWindow: PassthroughWindow {
         init(controller: SurveyDisplayController, scene: UIWindowScene) {
             super.init(windowScene: scene)

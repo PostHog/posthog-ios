@@ -29,8 +29,6 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
         onSurveyClosed: @escaping OnPostHogSurveyClosed
     ) {
         #if os(iOS)
-            guard #available(iOS 15.0, *) else { return }
-
             if displayController == nil {
                 // setup window for first-time display
                 setupWindow()
@@ -53,8 +51,6 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
 
     func updateSurvey(_ survey: PostHogDisplaySurvey) {
         #if os(iOS)
-            guard #available(iOS 15.0, *) else { return }
-
             // If the survey is still waiting out its display delay, refresh the queued copy so
             // it gets shown with the latest content.
             if pendingSurvey?.id == survey.id {
@@ -78,7 +74,6 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
     }
 
     #if os(iOS)
-        @available(iOS 15.0, *)
         private func setupWindow() {
             if let activeWindow = UIApplication.getCurrentWindow(), let activeScene = activeWindow.windowScene {
                 let controller = SurveyDisplayController()

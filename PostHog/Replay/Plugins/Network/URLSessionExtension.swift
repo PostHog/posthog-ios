@@ -116,7 +116,6 @@
         ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
         /// - Returns: The data and URL response returned by `URLSession`.
         /// - Throws: Any error thrown by `URLSession.data(for:delegate:)`.
-        @available(iOS 15.0, *)
         func postHogData(
             for request: URLRequest,
             delegate: (any URLSessionTaskDelegate)? = nil,
@@ -134,7 +133,6 @@
         ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
         /// - Returns: The data and URL response returned by `URLSession`.
         /// - Throws: Any error thrown by `URLSession.data(from:delegate:)`.
-        @available(iOS 15.0, *)
         func postHogData(
             from url: URL,
             delegate: (any URLSessionTaskDelegate)? = nil,
@@ -153,7 +151,6 @@
         ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
         /// - Returns: The data and URL response returned by `URLSession`.
         /// - Throws: Any error thrown by `URLSession.upload(for:fromFile:delegate:)`.
-        @available(iOS 15.0, *)
         func postHogUpload(
             for request: URLRequest,
             fromFile fileURL: URL,
@@ -173,7 +170,6 @@
         ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
         /// - Returns: The data and URL response returned by `URLSession`.
         /// - Throws: Any error thrown by `URLSession.upload(for:from:delegate:)`.
-        @available(iOS 15.0, *)
         func postHogUpload(
             for request: URLRequest,
             from bodyData: Data,
@@ -192,7 +188,6 @@
         ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
         /// - Returns: The downloaded file URL and URL response returned by `URLSession`.
         /// - Throws: Any error thrown by `URLSession.download(for:delegate:)`.
-        @available(iOS 15.0, *)
         func postHogDownload(
             for request: URLRequest,
             delegate: (any URLSessionTaskDelegate)? = nil,
@@ -210,7 +205,6 @@
         ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
         /// - Returns: The downloaded file URL and URL response returned by `URLSession`.
         /// - Throws: Any error thrown by `URLSession.download(from:delegate:)`.
-        @available(iOS 15.0, *)
         func postHogDownload(
             from url: URL,
             delegate: (any URLSessionTaskDelegate)? = nil,
@@ -228,7 +222,6 @@
         ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
         /// - Returns: The downloaded file URL and URL response returned by `URLSession`.
         /// - Throws: Any error thrown by `URLSession.download(resumeFrom:delegate:)`.
-        @available(iOS 15.0, *)
         func postHogDownload(
             resumeFrom resumeData: Data,
             delegate: (any URLSessionTaskDelegate)? = nil,

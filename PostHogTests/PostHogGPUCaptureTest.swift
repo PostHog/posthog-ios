@@ -72,16 +72,17 @@
             return window
         }
 
-        private func prewarm(_ mirror: PostHogGPUMirrorCapture, for window: UIWindow) async {
+        private func prewarm(_ mirror: PostHogGPUMirrorCapture, for window: UIWindow, scale: CGFloat = 1) async {
             await withCheckedContinuation { continuation in
-                mirror.prewarm(size: window.bounds.size) { continuation.resume() }
+                mirror.prewarm(size: window.bounds.size, scale: scale) { continuation.resume() }
             }
         }
 
         /// Turn 1 and turn 2 of a capture, without the replay pipeline around them: the pixels and the mask rects.
-        private func render(_ window: UIWindow, with mirror: PostHogGPUMirrorCapture) async throws -> (CGImage, [CGRect]) {
+        private func render(_ window: UIWindow, with mirror: PostHogGPUMirrorCapture, scale: CGFloat = 1) async throws -> (CGImage, [CGRect]) {
             window.layoutIfNeeded()
-            let frame = try #require(mirror.build(window: window))
+            let frame = try #require(mirror.build(window: window, scale: scale))
+            #expect(frame.scale == scale)
             let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window, culledLayers: frame.culledLayers))
             frame.freeze()
             #expect(frame.encode())
@@ -122,7 +123,7 @@
             }
             window.layoutIfNeeded()
 
-            let frame = try #require(mirror.build(window: window))
+            let frame = try #require(mirror.build(window: window, scale: 1))
             defer { frame.release() }
             let integration = PostHogReplayIntegration()
             let unculled = try #require(integration.collectMaskableRects(in: window))
@@ -141,11 +142,12 @@
 
         // MARK: - Pixels
 
-        @Test("Mask rects line up with the mirrored pixels, and masking covers them")
-        func maskRectsCoverMirroredPixels() async throws {
+        @Test("Mask rects line up with the mirrored pixels at each output scale, and masking covers them", arguments: [1, 0.5] as [CGFloat])
+        func maskRectsCoverMirroredPixels(pixelScale: CGFloat) async throws {
             let mirror = try makeMirror()
             let window = makeWindow()
-            await prewarm(mirror, for: window)
+            let scale = pixelScale
+            await prewarm(mirror, for: window, scale: scale)
 
             let marker = UIView(frame: CGRect(x: 120, y: 20, width: 30, height: 30))
             marker.backgroundColor = .blue
@@ -161,61 +163,84 @@
             window.addSubview(marker)
             window.addSubview(moved)
 
-            let (image, rects) = try await render(window, with: mirror)
+            let (image, rects) = try await render(window, with: mirror, scale: scale)
             let pixels = try Pixels(image)
+            #expect(pixels.width == Int((200 * scale).rounded(.up)))
+            #expect(pixels.height == Int((300 * scale).rounded(.up)))
             let fieldRect = field.convert(field.bounds, to: window)
             #expect(rects.contains(fieldRect))
 
+            /// The pixel holding point `x`, `y`.
+            func pixel(_ x: CGFloat, _ y: CGFloat) -> RGBA {
+                pixels[Int(x * scale), Int(y * scale)]
+            }
+
             // Upright and in place: the marker sits where UIKit lays it out.
-            #expect(pixels[135, 35] == .blue)
-            #expect(pixels[135, 265] == .white)
+            #expect(pixel(135, 35) == .blue)
+            #expect(pixel(135, 265) == .white)
 
             let magenta = pixels.points(where: Self.isMagenta)
             #expect(!magenta.isEmpty)
             let secretRect = secret.convert(secret.bounds, to: window)
-            let covering = secretRect.insetBy(dx: -1, dy: -1)
-            #expect(magenta.allSatisfy { covering.contains(CGPoint(x: $0.x + 0.5, y: $0.y + 0.5)) })
-            let inner = secretRect.insetBy(dx: 1, dy: 1)
-            #expect(Self.isMagenta(pixels[Int(inner.midX), Int(inner.midY)]))
-            #expect(Self.isMagenta(pixels[Int(inner.minX), Int(inner.minY)]))
-            #expect(Self.isMagenta(pixels[Int(inner.maxX) - 1, Int(inner.maxY) - 1]))
+            let covering = secretRect.insetBy(dx: -1 / scale, dy: -1 / scale)
+            #expect(magenta.allSatisfy { covering.contains(CGPoint(x: ($0.x + 0.5) / scale, y: ($0.y + 0.5) / scale)) })
+            let inner = secretRect.insetBy(dx: 1 / scale, dy: 1 / scale)
+            #expect(Self.isMagenta(pixel(inner.midX, inner.midY)))
+            #expect(Self.isMagenta(pixel(inner.minX, inner.minY)))
+            #expect(Self.isMagenta(pixel(inner.maxX - 1 / scale, inner.maxY - 1 / scale)))
 
-            let uiImage = UIImage(cgImage: image, scale: PostHogGPUMirrorCapture.scale, orientation: .up)
-            let masked = try #require(RRWireframe.maskImage(uiImage, maskableWidgets: rects)?.cgImage)
-            #expect(try Pixels(masked).points(where: Self.isMagenta).isEmpty)
+            let uiImage = UIImage(cgImage: image, scale: scale, orientation: .up)
+            let maskedImage = try #require(RRWireframe.maskImage(uiImage, maskableWidgets: rects, scale: scale)?.cgImage)
+            let masked = try Pixels(maskedImage)
+            #expect(masked.width == pixels.width && masked.height == pixels.height)
+            #expect(masked.points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("Renderers are cached per output scale")
+        func renderersAreKeyedByScale() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window, scale: 3)
+            #expect(!mirror.needsPrewarm(for: window.bounds.size, scale: 3))
+            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1.5))
         }
 
         @Test("An empty window size never waits for a renderer, so a capture can't keep re-waiting for one")
         func emptySizeNeedsNoPrewarm() throws {
             let mirror = try makeMirror()
-            #expect(!mirror.needsPrewarm(for: .zero))
-            #expect(!mirror.needsPrewarm(for: CGSize(width: 200, height: 0)))
-            #expect(mirror.needsPrewarm(for: CGSize(width: 200, height: 300)))
+            #expect(!mirror.needsPrewarm(for: .zero, scale: 1))
+            #expect(!mirror.needsPrewarm(for: CGSize(width: 200, height: 0), scale: 1))
+            #expect(mirror.needsPrewarm(for: CGSize(width: 200, height: 300), scale: 1))
         }
 
-        @Test("Metal layers render as the placeholder instead of their pixels or nothing")
-        func metalLayerRendersPlaceholder() async throws {
+        @Test("Metal layers render as the placeholder instead of their pixels or nothing", arguments: [1, 0.5] as [CGFloat])
+        func metalLayerRendersPlaceholder(pixelScale: CGFloat) async throws {
             let mirror = try makeMirror()
             let window = makeWindow(background: .red)
-            await prewarm(mirror, for: window)
+            let scale = pixelScale
+            await prewarm(mirror, for: window, scale: scale)
 
             let metal = MetalView(frame: CGRect(x: 20, y: 40, width: 160, height: 100))
             window.addSubview(metal)
 
-            let pixels = try await Pixels(render(window, with: mirror).0)
+            let pixels = try await Pixels(render(window, with: mirror, scale: scale).0)
 
-            #expect(pixels[10, 10] == .red)
-            var grey = 0
-            for y in 40 ..< 140 {
-                for x in 20 ..< 180 {
+            #expect(pixels[Int(10 * scale), Int(10 * scale)] == .red)
+            let region = CGRect(x: 20, y: 40, width: 160, height: 100).applying(CGAffineTransform(scaleX: scale, y: scale))
+            var grey = 0, transparent = 0
+            for y in Int(region.minY) ..< Int(region.maxY) {
+                for x in Int(region.minX) ..< Int(region.maxX) {
                     let pixel = pixels[x, y]
-                    #expect(pixel.alpha == 255)
+                    if pixel.alpha != 255 {
+                        transparent += 1
+                    }
                     if pixel.red == pixel.green, pixel.green == pixel.blue, pixel.red > 100 {
                         grey += 1
                     }
                 }
             }
-            #expect(grey > 160 * 100 * 8 / 10)
+            #expect(transparent == 0)
+            #expect(grey > Int(region.width * region.height) * 8 / 10)
         }
 
         // MARK: - Lifecycle
@@ -231,9 +256,15 @@
             await drainReplayQueue()
         }
 
+        /// A window with magenta content inset in a masked field, as text sits in a text field: masks are drawn
+        /// with rounded corners, so a fully magenta field would show at the corners.
         private func windowWithContent() -> UIWindow {
             let window = makeWindow()
-            window.addSubview(noCaptureView(CGRect(x: 10, y: 10, width: 40, height: 40)))
+            let field = noCaptureView(CGRect(x: 10, y: 10, width: 60, height: 50), color: .clear)
+            let secret = UIView(frame: field.bounds.insetBy(dx: 5, dy: 5))
+            secret.backgroundColor = .magenta
+            field.addSubview(secret)
+            window.addSubview(field)
             window.layoutIfNeeded()
             return window
         }
@@ -250,7 +281,7 @@
             let window = windowWithContent()
 
             // No renderer yet: the capture keeps the slot while one is built off-main, then resumes.
-            #expect(mirror.needsPrewarm(for: window.bounds.size))
+            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1))
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
             #expect(integration.isScreenshotRenderInFlightForTesting)
 
@@ -334,8 +365,99 @@
 
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
             await waitForCaptureToFinish(integration)
-            #expect(mirror.needsPrewarm(for: window.bounds.size))
+            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1))
             #expect(!mirror.hasAttachedFrameForTesting)
+        }
+
+        private func uploadedImage(_ snapshots: ReplaySnapshots) throws -> CGImage {
+            let screenshot = try #require(snapshots.screenshots.first)
+            let base64 = try #require((screenshot["base64"] as? String)?.components(separatedBy: ",").last)
+            let data = try #require(Data(base64Encoded: base64))
+            return try #require(UIImage(data: data)?.cgImage)
+        }
+
+        @Test("A GPU capture uploads one pixel per point by default, and screenshotScale times native when set",
+              arguments: [nil, 1, 0.5] as [NSNumber?])
+        func gpuCaptureScale(screenshotScale: NSNumber?) async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut {
+                $0.screenshotModeGPUCapture = true
+                $0.screenshotScale = screenshotScale
+            }
+            integration.gpuMirror = mirror
+            defer { sut.close() }
+            let mockLifecycle = MockApplicationLifecyclePublisher()
+            DI.main.appLifecyclePublisher = mockLifecycle
+            defer { DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared }
+            let window = windowWithContent()
+
+            #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
+            await waitForCaptureToFinish(integration)
+
+            let pixelScale = screenshotScale.map { window.screen.scale * CGFloat($0.doubleValue) } ?? 1
+            let image = try uploadedImage(snapshots)
+            #expect(image.width == Int(200 * pixelScale))
+            #expect(image.height == Int(300 * pixelScale))
+            #expect(try Pixels(image).points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("The default capture uploads one pixel per point by default, and screenshotScale times native when set",
+              arguments: [nil, 1, 0.5] as [NSNumber?])
+        func defaultCaptureScale(screenshotScale: NSNumber?) async throws {
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut { $0.screenshotScale = screenshotScale }
+            defer { sut.close() }
+            let window = windowWithContent()
+
+            #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
+            await waitForCaptureToFinish(integration)
+
+            let pixelScale = screenshotScale.map { window.screen.scale * CGFloat($0.doubleValue) } ?? 1
+            let image = try uploadedImage(snapshots)
+            #expect(image.width == Int(200 * pixelScale))
+            #expect(image.height == Int(300 * pixelScale))
+        }
+
+        @Test("screenshotScale resolves to one pixel per point by default on 3x and 2x screens, and multiplies native when set",
+              arguments: [
+                  (screenshotScale: nil, nativeScale: 3, expected: 1), (screenshotScale: nil, nativeScale: 2, expected: 1),
+                  (screenshotScale: 1, nativeScale: 3, expected: 3), (screenshotScale: 1, nativeScale: 2, expected: 2),
+                  (screenshotScale: 0.5, nativeScale: 3, expected: 1.5), (screenshotScale: 0.5, nativeScale: 2, expected: 1),
+              ] as [(screenshotScale: NSNumber?, nativeScale: CGFloat, expected: CGFloat)])
+        func screenshotPixelScale(_ scales: (screenshotScale: NSNumber?, nativeScale: CGFloat, expected: CGFloat)) {
+            let config = PostHogSessionReplayConfig()
+            config.screenshotScale = scales.screenshotScale
+            #expect(config.screenshotPixelScale(nativeScale: scales.nativeScale) == scales.expected)
+        }
+
+        @Test("Default-path masks cover the content at screenshotScale 0.5")
+        func defaultPathMasksCoverAtHalfScale() throws {
+            let window = windowWithContent()
+
+            let image = try #require(window.toImage(preferFidelityRenderer: false, scale: 0.5))
+            let raw = try Pixels(#require(image.cgImage))
+            #expect(raw.width == 100 && raw.height == 150)
+            #expect(!raw.points(where: Self.isMagenta).isEmpty)
+
+            let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window))
+            let maskedImage = try #require(RRWireframe.maskImage(image, maskableWidgets: rects, scale: 0.5)?.cgImage)
+            let masked = try Pixels(maskedImage)
+            #expect(masked.width == raw.width && masked.height == raw.height)
+            #expect(masked.points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("screenshotScale defaults to nil, set values are clamped to 0.1...1, and NaN or infinity reset it to nil", arguments: [
+            (input: -Double.greatestFiniteMagnitude, expected: 0.1), (input: -1, expected: 0.1), (input: 0, expected: 0.1),
+            (input: Double.leastNonzeroMagnitude, expected: 0.1), (input: 0.05, expected: 0.1), (input: 0.1, expected: 0.1),
+            (input: 0.333, expected: 0.333), (input: 0.5, expected: 0.5), (input: 1, expected: 1), (input: 2, expected: 1),
+            (input: Double.greatestFiniteMagnitude, expected: 1), (input: Double.nan, expected: nil),
+            (input: -Double.infinity, expected: nil), (input: Double.infinity, expected: nil),
+        ] as [(input: Double, expected: Double?)])
+        func screenshotScaleIsClamped(_ scale: (input: Double, expected: Double?)) {
+            let config = PostHogSessionReplayConfig()
+            #expect(config.screenshotScale == nil)
+            config.screenshotScale = 0.25
+            config.screenshotScale = NSNumber(value: scale.input)
+            #expect(config.screenshotScale?.doubleValue == scale.expected)
         }
 
         // MARK: - Routing

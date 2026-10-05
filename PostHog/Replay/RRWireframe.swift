@@ -31,6 +31,8 @@ class RRWireframe {
         /// be rendered. The caller must drop the frame: the wireframe carries no image, and
         /// the raw screenshot would show masked content.
         private(set) var maskRenderFailed = false
+        /// Pixels per point of the masked output: the scale the screenshot was taken at.
+        var maskScale: CGFloat = 1
     #endif
     var base64: String?
     var style: RRStyle?
@@ -54,16 +56,15 @@ class RRWireframe {
             guard hasMaskableWidgets(), let image else {
                 return nil
             }
-            return RRWireframe.maskImage(image, maskableWidgets: maskableWidgets ?? [])
+            return RRWireframe.maskImage(image, maskableWidgets: maskableWidgets ?? [], scale: maskScale)
         }
 
         // Shared so tests can redact through the exact production path instead of reimplementing it.
-        static func maskImage(_ image: UIImage, maskableWidgets: [CGRect]) -> UIImage? {
+        static func maskImage(_ image: UIImage, maskableWidgets: [CGRect], scale: CGFloat = 1) -> UIImage? {
             guard !maskableWidgets.isEmpty else { return nil }
 
             return autoreleasepool {
-                // Use scale=1 to preserve the existing masked screenshot payload size.
-                let renderer = PostHogGraphicsImageRenderer(size: image.size, scale: 1)
+                let renderer = PostHogGraphicsImageRenderer(size: image.size, scale: scale)
                 return renderer.image { context in
                     context.interpolationQuality = .none
                     image.draw(at: .zero)

@@ -79,6 +79,29 @@
         /// Default: false
         @objc public var screenshotModeGPUCapture: Bool = false
 
+        /// Resolution of screenshot captures, as a multiplier of the device's native resolution, like
+        /// posthog-android's `screenshotScale`: 1.0 captures at full native resolution (1206×2622 pixels on a
+        /// 3x 402×874 pt screen) and 0.5 at half its width and height. Set values are clamped to 0.1...1.0;
+        /// NaN and infinite values reset it to `nil`.
+        ///
+        /// When `nil`, screenshots are captured at one pixel per point on every device (402×874 pixels on that
+        /// screen). Masked and unmasked screenshots have the same size, and the logical replay viewport is
+        /// unchanged. Does not change compression quality or enable screenshot capture.
+        ///
+        /// Experimental.
+        /// Default: nil (one pixel per point)
+        @objc public var screenshotScale: NSNumber? {
+            didSet {
+                guard let value = screenshotScale?.doubleValue else { return }
+                screenshotScale = value.isFinite ? NSNumber(value: min(max(value, 0.1), 1)) : nil
+            }
+        }
+
+        /// Pixels per point of a screenshot on a screen with `nativeScale` pixels per point.
+        func screenshotPixelScale(nativeScale: CGFloat) -> CGFloat {
+            screenshotScale.map { nativeScale * CGFloat($0.doubleValue) } ?? 1
+        }
+
         /// Debouncer delay used to reduce the number of snapshots captured and reduce performance impact
         /// This is used for capturing the view as a wireframe or screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact

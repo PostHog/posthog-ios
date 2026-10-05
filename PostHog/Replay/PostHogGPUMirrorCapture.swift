@@ -15,6 +15,8 @@
         /// so every exit of a capture can simply release.
         final class Frame {
             private let target: Target
+            /// Pixels per point of the rendered image.
+            let scale: CGFloat
             /// The cached wrapper keeps the mirror alive until `release`; this only identifies it.
             private weak var root: CALayer?
             /// Source layers whose whole subtree the mirror left out (hidden, transparent, clipped away or far
@@ -25,6 +27,7 @@
 
             fileprivate init(target: Target, root: CALayer, culledLayers: Set<ObjectIdentifier>) {
                 self.target = target
+                scale = target.scale
                 self.root = root
                 self.culledLayers = culledLayers
             }
@@ -81,14 +84,16 @@
             let texture: MTLTexture
             let renderer: CARenderer
             let queue: MTLCommandQueue
+            let scale: CGFloat
             let wrapper = CALayer()
             let pixelBounds: CGRect
             /// The texture's layout, BGRA premultiplied.
             private static let bgraBitmapInfo = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
 
             /// Any thread: the layer changes commit in the calling thread's own transaction.
-            init(texture: MTLTexture, queue: MTLCommandQueue) {
+            init(texture: MTLTexture, queue: MTLCommandQueue, scale: CGFloat) {
                 self.texture = texture
+                self.scale = scale
                 self.queue = queue
                 var options: [AnyHashable: Any] = [kCARendererMetalCommandQueue: queue]
                 options[kCARendererColorSpace] = CGColorSpace(name: CGColorSpace.sRGB)
@@ -99,7 +104,7 @@
                 wrapper.anchorPoint = .zero
                 wrapper.position = .zero
                 wrapper.bounds = pixelBounds
-                wrapper.sublayerTransform = CATransform3DMakeScale(PostHogGPUMirrorCapture.scale, PostHogGPUMirrorCapture.scale, 1)
+                wrapper.sublayerTransform = CATransform3DMakeScale(scale, scale, 1)
                 // CARenderer draws drawn and image contents upside down; flipping the wrapper and then the rows on
                 // readback brings both back upright.
                 wrapper.isGeometryFlipped = true
@@ -240,10 +245,12 @@
         private struct TargetKey: Hashable {
             let width: Int
             let height: Int
+            let scale: CGFloat
 
-            init(size: CGSize) {
-                width = Int((size.width * PostHogGPUMirrorCapture.scale).rounded())
-                height = Int((size.height * PostHogGPUMirrorCapture.scale).rounded())
+            init(size: CGSize, scale: CGFloat) {
+                width = Int((size.width * scale).rounded(.up))
+                height = Int((size.height * scale).rounded(.up))
+                self.scale = scale
             }
         }
 
@@ -260,6 +267,12 @@
             let presentationSafe: Bool
         }
 
+        /// State of one `build` walk.
+        private struct Walk {
+            let scale: CGFloat
+            var culled: Set<ObjectIdentifier> = []
+        }
+
         /// Where a layer's sublayers land in the window.
         private enum Space {
             /// `toWindow` maps their positions to window coordinates, and only `visible` of the window (after
@@ -268,9 +281,6 @@
             /// Not modelled (a 3D, flipped or sublayer transform above, or inside a mask): nothing below is culled.
             case unknown
         }
-
-        /// Pixels per point. Masked screenshots are 1x already, and 0.5x saved no main-thread time.
-        static let scale: CGFloat = 1
 
         /// nil when the device has no Metal; callers keep the `drawHierarchy` path.
         static let shared = PostHogGPUMirrorCapture()
@@ -335,15 +345,15 @@
 
         /// Main thread. Whether a capture at this size would have to create its renderer first. Never for an empty
         /// size, which has no renderer to wait for.
-        func needsPrewarm(for size: CGSize) -> Bool {
-            let key = TargetKey(size: size)
+        func needsPrewarm(for size: CGSize, scale: CGFloat) -> Bool {
+            let key = TargetKey(size: size, scale: scale)
             return key.width > 0 && key.height > 0 && targets[key] == nil && !failedKeys.contains(key)
         }
 
         /// Main thread. Creates the renderer for `size` and runs a first render through it off-main, then calls `completion`
         /// on main: both cost tens of ms that would otherwise land on the first capture's main-thread turn.
-        func prewarm(size: CGSize, completion: (() -> Void)? = nil) {
-            let key = TargetKey(size: size)
+        func prewarm(size: CGSize, scale: CGFloat, completion: (() -> Void)? = nil) {
+            let key = TargetKey(size: size, scale: scale)
             guard key.width > 0, key.height > 0, targets[key] == nil, !failedKeys.contains(key) else {
                 completion?()
                 return
@@ -372,18 +382,19 @@
         /// Main thread. Mirrors the window's presentation tree and commits it to the renderer's wrapper,
         /// without rendering. The mask walk runs between this and `freeze`, against the same presentation state.
         /// nil when no renderer could be created or nothing of the window renders.
-        func build(window: UIWindow) -> Frame? {
-            let key = TargetKey(size: window.bounds.size)
+        /// `scale` is the output's pixels per point.
+        func build(window: UIWindow, scale: CGFloat) -> Frame? {
+            let key = TargetKey(size: window.bounds.size, scale: scale)
             guard key.width > 0, key.height > 0, let target = targets[key] ?? makeAndInstallTarget(key) else { return nil }
 
-            var culled: Set<ObjectIdentifier> = []
+            var walk = Walk(scale: scale)
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            let root = mirrorRoot(window.layer, culled: &culled)
+            let root = mirrorRoot(window.layer, walk: &walk)
             if target.wrapper.sublayers?.first !== root { target.wrapper.sublayers = root.map { [$0] } }
             CATransaction.commit()
             guard let root else { return nil }
-            return Frame(target: target, root: root, culledLayers: culled)
+            return Frame(target: target, root: root, culledLayers: walk.culled)
         }
 
         #if TESTING
@@ -413,23 +424,23 @@
             descriptor.storageMode = .shared
             descriptor.usage = [.renderTarget, .shaderRead]
             guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
-            return Target(texture: texture, queue: queue)
+            return Target(texture: texture, queue: queue, scale: key.scale)
         }
 
         // MARK: - Mirror
 
-        private func mirrorRoot(_ root: CALayer, culled: inout Set<ObjectIdentifier>) -> CALayer? {
+        private func mirrorRoot(_ root: CALayer, walk: inout Walk) -> CALayer? {
             let presentation = root.presentation() ?? root
             // The texture shows the root's frame; culling assumes that frame is the window's bounds.
             let isPlain = presentation.frame.origin == .zero && CATransform3DIsIdentity(presentation.transform)
             // Window coordinates are the root's bounds coordinates, the space mask rects are measured in.
             let space: Space = isPlain ? .known(toWindow: .identity, visible: presentation.bounds) : .unknown
-            return mirror(root, parent: .unknown, childSpace: space, culled: &culled)
+            return mirror(root, parent: .unknown, childSpace: space, walk: &walk)
         }
 
         /// `parent` is the space the layer's position is expressed in. The root, which isn't placed, passes its
         /// sublayers' space as `childSpace`. Returns nil when nothing of the subtree renders.
-        private func mirror(_ source: CALayer, parent: Space, childSpace rootChildSpace: Space? = nil, culled: inout Set<ObjectIdentifier>) -> CALayer? {
+        private func mirror(_ source: CALayer, parent: Space, childSpace rootChildSpace: Space? = nil, walk: inout Walk) -> CALayer? {
             let info = classInfo(type(of: source))
             if info.unmirrorable { return nil }
             // Culling reads the model layer unless it's animating: a stale model only costs fidelity (the mask walk
@@ -438,7 +449,7 @@
             let animating = info.presentationSafe && source.animationKeys() != nil
             let geometry = animating ? (source.presentation() ?? source) : source
             if source.isHidden || geometry.isHidden || geometry.opacity == 0 {
-                culled.insert(ObjectIdentifier(source))
+                walk.culled.insert(ObjectIdentifier(source))
                 return nil
             }
 
@@ -446,7 +457,7 @@
             var childSpace = rootChildSpace ?? .unknown
             if case let .known(toWindow, visible) = parent {
                 guard let placed = place(geometry, info: info, parentToWindow: toWindow, visible: visible) else {
-                    culled.insert(ObjectIdentifier(source))
+                    walk.culled.insert(ObjectIdentifier(source))
                     return nil
                 }
                 childSpace = placed.children
@@ -455,32 +466,32 @@
 
             var children: [CALayer] = []
             for child in source.sublayers ?? [] {
-                if let childCopy = mirror(child, parent: childSpace, culled: &culled) {
+                if let childCopy = mirror(child, parent: childSpace, walk: &walk) {
                     children.append(childCopy)
                 }
             }
             if !ownVisible, children.isEmpty {
-                culled.insert(ObjectIdentifier(source))
+                walk.culled.insert(ObjectIdentifier(source))
                 return nil
             }
 
             let presentation = (animating || !info.presentationSafe) ? geometry : (source.presentation() ?? source)
-            let copy = makeCopy(of: source, presentation: presentation, info: info, culled: &culled)
+            let copy = makeCopy(of: source, presentation: presentation, info: info, walk: &walk)
             if !children.isEmpty { copy.sublayers = children }
             return copy
         }
 
-        private func makeCopy(of source: CALayer, presentation: CALayer, info: ClassInfo, culled: inout Set<ObjectIdentifier>) -> CALayer {
+        private func makeCopy(of source: CALayer, presentation: CALayer, info: ClassInfo, walk: inout Walk) -> CALayer {
             let copy = (info.copiesWithInitLayer ? initLayerCopy(source) : nil) ?? plainCopy(presentation, kind: info.kind)
             copyGeometry(from: presentation, source: source, to: copy)
             copyStyle(from: presentation, to: copy)
-            copyContents(from: presentation, source: source, to: copy)
+            copyContents(from: presentation, source: source, info: info, to: copy)
             copyEffects(from: presentation, source: source, to: copy)
 
             if info.metal {
-                copy.contents = placeholder(size: presentation.bounds.size)
+                copy.contents = placeholder(size: presentation.bounds.size, scale: walk.scale)
                 copy.contentsGravity = .resize
-                copy.contentsScale = Self.scale
+                copy.contentsScale = walk.scale
                 copy.contentsRect = Self.unitRect
                 copy.contentsCenter = Self.unitRect
             } else if let contents = copy.contents, !isShareable(contents) {
@@ -489,7 +500,7 @@
 
             if let mask = source.mask {
                 // Masks are never culled: a missing mask would show more of the layer, not less.
-                copy.mask = mirror(mask, parent: .unknown, culled: &culled)
+                copy.mask = mirror(mask, parent: .unknown, walk: &walk)
             }
             return copy
         }
@@ -599,7 +610,7 @@
             }
         }
 
-        private func copyContents(from presentation: CALayer, source: CALayer, to copy: CALayer) {
+        private func copyContents(from presentation: CALayer, source: CALayer, info _: ClassInfo, to copy: CALayer) {
             // Also sets the rasterization scale of text and shape layers, which have no contents.
             if source.contentsScale != 1 { copy.contentsScale = source.contentsScale }
             guard let contents = presentation.contents ?? source.contents else { return }
@@ -725,11 +736,11 @@
         // MARK: - Metal placeholder
 
         /// Grey with stripes and a label, so it isn't mistaken for a privacy mask.
-        private func placeholder(size: CGSize) -> CGImage? {
-            let key = TargetKey(size: size)
+        private func placeholder(size: CGSize, scale: CGFloat) -> CGImage? {
+            let key = TargetKey(size: size, scale: scale)
             guard key.width > 0, key.height > 0 else { return nil }
             if let cached = placeholders[key] { return cached }
-            let image = PostHogGraphicsImageRenderer(size: size, scale: Self.scale).image { context in
+            let image = PostHogGraphicsImageRenderer(size: size, scale: scale).image { context in
                 let bounds = CGRect(origin: .zero, size: size)
                 UIColor(white: 0.62, alpha: 1).setFill()
                 context.fill(bounds)

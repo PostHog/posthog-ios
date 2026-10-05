@@ -7,6 +7,7 @@ import Foundation
 import Nimble
 @testable import PostHog
 import Quick
+import Testing
 
 class PostHogScreenNameTest: QuickSpec {
     final class CapturedEvents {
@@ -78,18 +79,6 @@ class PostHogScreenNameTest: QuickSpec {
             sut.close()
         }
 
-        it("screen() with screen_name in properties carries the override on the $screen event") {
-            let sut = self.getSut(captured: captured)
-
-            sut.screen("Home", properties: ["$screen_name": "Override"])
-
-            let event = captured.events.first { $0.event == "$screen" }!
-            expect(event.properties["$screen_name"] as? String) == "Override"
-
-            sut.reset()
-            sut.close()
-        }
-
         it("reset clears screen_name from subsequent events") {
             let sut = self.getSut(captured: captured)
 
@@ -128,5 +117,29 @@ class PostHogScreenNameTest: QuickSpec {
             sut.reset()
             sut.close()
         }
+    }
+}
+
+@Suite("Screen name precedence")
+struct PostHogScreenNamePrecedenceTest {
+    @Test("screen title wins over a $screen_name property")
+    func screenTitleWinsOverProperty() throws {
+        let captured = PostHogScreenNameTest.CapturedEvents()
+        let config = PostHogConfig(projectToken: "screen_name_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.preloadFeatureFlags = false
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.captureApplicationLifecycleEvents = false
+        config.setBeforeSend { event in
+            captured.events.append(event)
+            return nil
+        }
+        let sut = PostHogSDK.with(config)
+        defer { sut.close() }
+
+        sut.screen("Home", properties: ["$screen_name": "Override"])
+
+        let event = try #require(captured.events.first { $0.event == "$screen" })
+        #expect(event.properties["$screen_name"] as? String == "Home")
     }
 }

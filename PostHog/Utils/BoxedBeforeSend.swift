@@ -4,11 +4,7 @@
 //
 
 import Foundation
-#if compiler(>=6.0)
-    internal import PostHogObjCExceptionSupport
-#else
-    @_implementationOnly import PostHogObjCExceptionSupport
-#endif
+internal import PostHogObjCExceptionSupport
 
 /// ObjC wrappers for the Swift function-typed `beforeSend` chains: Swift
 /// function types aren't `@objc`-bridgeable, and `@objc` classes can't be

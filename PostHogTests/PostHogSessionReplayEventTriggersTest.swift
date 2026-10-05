@@ -51,9 +51,6 @@
             // Reset the static install flag a prior replay suite may have left set, so this SUT installs
             // a fresh integration rather than no-opping onto a stale one.
             PostHogReplayIntegration.clearInstalls()
-            // REPRO: another suite's SDK saves its remote config (no event triggers) under the shared test token
-            PostHogStorage(PostHogConfig(projectToken: "test_project_token"))
-                .setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
 
             return PostHogSDK.with(config)
         }

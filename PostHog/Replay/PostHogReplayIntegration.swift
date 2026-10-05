@@ -498,6 +498,8 @@
             // Always reset views on session change
             if isEnabled {
                 resetViews()
+                // An idle interval accrued in the previous session must not delay this one's first frame.
+                captureBackoff.wake()
             }
 
             // Reset minimum duration buffering state for the new session

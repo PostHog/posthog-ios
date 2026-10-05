@@ -401,6 +401,29 @@
             #expect(backoff.isInBackoffForTesting)
             #expect(backoff.shouldCapture() == false)
         }
+
+        @MainActor
+        @Test("a new session leaves the backoff accrued in the previous one")
+        func sessionChangeWakesBackoff() async throws {
+            let sut = getSut()
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+            try #require(integration.isActive())
+            await drainMain()
+
+            let backoff = integration.captureBackoffForTesting
+            for _ in 0 ..< 6 {
+                backoff.noteFrame(unchanged: true)
+            }
+            try #require(backoff.isInBackoffForTesting)
+            try #require(backoff.shouldCapture() == false)
+
+            sut.sessionManager.startSession()
+            await drainMain()
+
+            #expect(backoff.isInBackoffForTesting == false)
+            #expect(backoff.shouldCapture())
+        }
     }
 
     @Suite("Replay Capture Scheduling", .serialized)

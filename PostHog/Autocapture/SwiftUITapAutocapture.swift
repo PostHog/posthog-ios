@@ -262,16 +262,14 @@
                     }
                 }
             }
-            #if compiler(>=6.0)
-                if #available(iOS 18.0, *),
-                   let element = root.accessibilityHitTest(point, event: nil) as? NSObject,
-                   element !== root
-                {
-                    visit(element, depth: 0, path: "")
-                    // Indexed traversal must still assign a path to an unlabeled hit-test leaf.
-                    visited.removeAll(keepingCapacity: true)
-                }
-            #endif
+            if #available(iOS 18.0, *),
+               let element = root.accessibilityHitTest(point, event: nil) as? NSObject,
+               element !== root
+            {
+                visit(element, depth: 0, path: "")
+                // Indexed traversal must still assign a path to an unlabeled hit-test leaf.
+                visited.removeAll(keepingCapacity: true)
+            }
             visit(root, depth: 0, path: "")
             return AccessibilityTarget(identifier: best ?? fallback, excluded: excluded, traits: traits, developerIdentifier: best)
         }

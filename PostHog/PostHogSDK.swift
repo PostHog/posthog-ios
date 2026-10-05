@@ -133,18 +133,10 @@ let maxRetryDelay = 30.0
         private weak var surveysIntegration: PostHogSurveyIntegration?
     #endif
 
-    // nonisolated(unsafe) is introduced in Swift 5.10
-    #if swift(>=5.10)
-        /// Shared singleton SDK instance used by most applications.
-        ///
-        /// Call `setup(_:)` once with a `PostHogConfig` before using capture APIs.
-        @objc public nonisolated(unsafe) static let shared: PostHogSDK = .init(PostHogConfig(projectToken: ""))
-    #else
-        /// Shared singleton SDK instance used by most applications.
-        ///
-        /// Call `setup(_:)` once with a `PostHogConfig` before using capture APIs.
-        @objc public static let shared: PostHogSDK = .init(PostHogConfig(projectToken: ""))
-    #endif
+    /// Shared singleton SDK instance used by most applications.
+    ///
+    /// Call `setup(_:)` once with a `PostHogConfig` before using capture APIs.
+    @objc public nonisolated(unsafe) static let shared: PostHogSDK = .init(PostHogConfig(projectToken: ""))
 
     deinit {
         #if !os(watchOS)

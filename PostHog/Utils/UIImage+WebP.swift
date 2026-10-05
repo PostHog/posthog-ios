@@ -10,12 +10,7 @@
     import Accelerate
     import CoreGraphics
     import Foundation
-    #if compiler(>=6.0)
-        internal import phlibwebp
-    #else
-        // swiftlint:disable:next duplicate_imports
-        @_implementationOnly import phlibwebp
-    #endif
+    internal import phlibwebp
     import UIKit
 
     extension UIImage {

@@ -11,3 +11,9 @@
 - `PostHogSDK.getFeatureFlagPayload(_:)`: use `getFeatureFlagResult(_:)?.payload`. Pass `sendFeatureFlagEvent: false` to keep the old behavior of not capturing `$feature_flag_called`.
 - `PostHogSessionReplayConfig.debouncerDelay`: use `throttleDelay`.
 - `PostHogSessionReplayConfig.maskPhotoLibraryImages`: delete the assignment. It had no effect.
+
+In Objective-C:
+
+- `[[PostHogConfig alloc] apiKey:]` and `apiKey:host:`: use `projectToken:` and `projectToken:host:`.
+- `[sdk getFeatureFlagPayload:key]`: use `[sdk getFeatureFlagResultWithKey:key sendFeatureFlagEvent:NO].payload`.
+- `config.propertiesSanitizer`: use `[config setBeforeSend:@[...]]` with `BoxedBeforeSendBlock`s.

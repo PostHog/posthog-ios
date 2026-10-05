@@ -60,6 +60,25 @@
         /// Default: false
         @objc public var screenshotModeBackgroundCapture: Bool = false
 
+        /// Render screenshots on the GPU instead of with `drawHierarchy` when `screenshotMode` is enabled.
+        ///
+        /// Each capture copies the window's layer tree and renders the copy into a Metal texture, so
+        /// the main thread only builds the copy, and masks are measured from the same layer state the
+        /// pixels come from.
+        ///
+        /// Not captured:
+        /// - Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped
+        ///   "Metal content" placeholder.
+        /// - Video and camera previews stay blank, as they do today.
+        /// - Liquid Glass chrome is not reproduced; the labels and icons on it are.
+        ///
+        /// Captures fall back to the default path when the device has no Metal or a render fails.
+        /// Takes precedence over `screenshotModeBackgroundCapture` when both are enabled.
+        ///
+        /// Experimental. iOS only.
+        /// Default: false
+        @objc public var screenshotModeGPUCapture: Bool = false
+
         /// Debouncer delay used to reduce the number of snapshots captured and reduce performance impact
         /// This is used for capturing the view as a wireframe or screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact

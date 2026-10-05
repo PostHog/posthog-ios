@@ -703,6 +703,37 @@ enum PostHogSessionManagerTest {
             #expect(events[1].properties["$sdk_debug_session_start"] == nil)
         }
 
+        @Test("a claim stays reserved while its capture is still inside beforeSend, however long that takes")
+        func outstandingClaimDoesNotExpire() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            sut.getSessionManager()?.touchSession()
+            sut.config.setBeforeSend { event in
+                if event.event == "$slow" {
+                    mockNow.date.addTimeInterval(31)
+                    sut.capture("$inner")
+                }
+                return event
+            }
+            sut.capture("$slow")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            let carriers = events.filter { $0.properties["$sdk_debug_session_start"] != nil }
+            #expect(carriers.count == 1)
+            #expect(carriers.first?.event == "$slow")
+        }
+
         @Test("a claimer dropped by beforeSend releases the claim so the next eligible event gets the bundle immediately")
         func droppedClaimerReleasesClaim() async throws {
             let sut = getSut()

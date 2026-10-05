@@ -605,7 +605,7 @@ let maxRetryDelay = 30.0
     ]
 
     private var lastReplayDebugPropertiesAt: Date?
-    private var outstandingReplayDebugClaimAt: Date?
+    private var hasOutstandingReplayDebugClaim = false
 
     /// Internal marker on built properties, stripped in `buildEvent` and carried on the event instead.
     private static let replayDebugClaimMarkerKey = "$__replay_debug_claim"
@@ -618,24 +618,22 @@ let maxRetryDelay = 30.0
     }
 
     /// At most one claim is outstanding, so an event captured from inside `beforeSend` can't also
-    /// carry the bundle. A claim older than the interval is treated as leaked and can be replaced.
+    /// carry the bundle. It never expires by age (a slow claimer already carries the bundle), so
+    /// every path out of a claiming capture must commit or release it.
     /// The window starts when the claimer is accepted (`commitReplayDebugPropertiesWindow`), not
     /// here, so time spent in `beforeSend` doesn't shorten it. Wall clock rather than the event's
     /// timestamp, so a future-dated capture can't hold the window shut.
     private func claimReplayDebugPropertiesWindow() -> Bool {
         replayDebugPropertiesLock.withLock {
-            let currentTime = now()
+            if hasOutstandingReplayDebugClaim {
+                return false
+            }
             if let last = lastReplayDebugPropertiesAt,
-               currentTime.timeIntervalSince(last) < Self.replayDebugPropertiesInterval
+               now().timeIntervalSince(last) < Self.replayDebugPropertiesInterval
             {
                 return false
             }
-            if let outstanding = outstandingReplayDebugClaimAt,
-               currentTime.timeIntervalSince(outstanding) < Self.replayDebugPropertiesInterval
-            {
-                return false
-            }
-            outstandingReplayDebugClaimAt = currentTime
+            hasOutstandingReplayDebugClaim = true
             return true
         }
     }
@@ -644,14 +642,14 @@ let maxRetryDelay = 30.0
     private func commitReplayDebugPropertiesWindow() {
         replayDebugPropertiesLock.withLock {
             lastReplayDebugPropertiesAt = now()
-            outstandingReplayDebugClaimAt = nil
+            hasOutstandingReplayDebugClaim = false
         }
     }
 
     /// Frees the claim of an event that carried the bundle but was dropped, deduplicated, or not stored.
     private func releaseReplayDebugPropertiesClaim() {
         replayDebugPropertiesLock.withLock {
-            outstandingReplayDebugClaimAt = nil
+            hasOutstandingReplayDebugClaim = false
         }
     }
 
@@ -2760,7 +2758,7 @@ let maxRetryDelay = 30.0
             pushSubscriptionHandler = nil
             replayDebugPropertiesLock.withLock {
                 lastReplayDebugPropertiesAt = nil
-                outstandingReplayDebugClaimAt = nil
+                hasOutstandingReplayDebugClaim = false
             }
             // Closing ends the run: clear the buffer, which publishes empty steps so the integration
             // drops them from customData. Nil the reference so later adds no-op. (reset()/identify keep it.)

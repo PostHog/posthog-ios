@@ -8,7 +8,6 @@
 #if os(iOS)
     import SwiftUI
 
-    @available(iOS 15.0, *)
     struct ConfirmationMessage: View {
         @Environment(\.surveyAppearance) private var appearance
 
@@ -35,7 +34,6 @@
         }
     }
 
-    @available(iOS 15.0, *)
     #Preview {
         ConfirmationMessage {}
     }

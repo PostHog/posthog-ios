@@ -8,7 +8,6 @@
 #if os(iOS)
     import SwiftUI
 
-    @available(iOS 15.0, *)
     struct NumberRating: View {
         @Environment(\.surveyAppearance) private var appearance
 

@@ -451,7 +451,7 @@
             let split: SplitViewController
             let navigation = UINavigationController(rootViewController: OneViewController())
             var wrappedDetail: UIViewController?
-            if setup != "classic", #available(iOS 14.0, tvOS 14.0, *) {
+            if setup != "classic", #available(tvOS 14.0, *) {
                 split = SplitViewController(style: .doubleColumn)
                 split.setViewController(ThreeViewController(), for: .primary)
                 if setup == "wrapped column" {

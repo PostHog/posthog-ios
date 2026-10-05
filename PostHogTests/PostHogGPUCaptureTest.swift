@@ -21,7 +21,7 @@
             static let red = RGBA(red: 255, green: 0, blue: 0, alpha: 255)
         }
 
-        /// RGBA8 pixels of an image, one pixel per point at the GPU capture's 1x scale.
+        /// RGBA8 pixels, 1x.
         private struct Pixels {
             let width: Int
             let height: Int
@@ -39,7 +39,6 @@
                 self.bytes = bytes
             }
 
-            /// `y` counts from the top, like UIKit.
             subscript(x: Int, y: Int) -> RGBA {
                 let index = (y * width + x) * 4
                 return RGBA(red: bytes[index], green: bytes[index + 1], blue: bytes[index + 2], alpha: bytes[index + 3])
@@ -79,17 +78,18 @@
             }
         }
 
-        /// Turn 1 and turn 2 of a capture, without the replay pipeline around them.
-        private func render(_ window: UIWindow, with mirror: PostHogGPUMirrorCapture) async throws -> (CGImage, PostHogGPUMirrorCapture.Frame) {
+        /// Turn 1 and turn 2 of a capture, without the replay pipeline around them: the pixels and the mask rects.
+        private func render(_ window: UIWindow, with mirror: PostHogGPUMirrorCapture) async throws -> (CGImage, [CGRect]) {
             window.layoutIfNeeded()
             let frame = try #require(mirror.build(window: window))
+            let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window, culledLayers: frame.culledLayers))
             frame.freeze()
             #expect(frame.encode())
             let image = await withCheckedContinuation { continuation in
                 frame.readback(on: .global()) { continuation.resume(returning: $0) }
             }
             frame.release()
-            return try (#require(image), frame)
+            return try (#require(image), rects)
         }
 
         private func noCaptureView(_ frame: CGRect, color: UIColor = .magenta) -> UIView {
@@ -110,13 +110,11 @@
             let visible = noCaptureView(CGRect(x: 10, y: 10, width: 40, height: 40))
             let partlyVisible = noCaptureView(CGRect(x: 180, y: 60, width: 40, height: 40))
 
-            // Inside a clipping container, but outside its bounds: never drawn.
             let clipper = UIView(frame: CGRect(x: 10, y: 120, width: 60, height: 60))
             clipper.clipsToBounds = true
             let clippedAway = noCaptureView(CGRect(x: 100, y: 0, width: 40, height: 40))
             clipper.addSubview(clippedAway)
 
-            // Over a screen away under a non-clipping parent, like an off-screen page.
             let farAway = noCaptureView(CGRect(x: 10, y: 5000, width: 40, height: 40))
 
             for view in [visible, partlyVisible, clipper, farAway] {
@@ -163,9 +161,8 @@
             window.addSubview(marker)
             window.addSubview(moved)
 
-            let (image, frame) = try await render(window, with: mirror)
+            let (image, rects) = try await render(window, with: mirror)
             let pixels = try Pixels(image)
-            let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window, culledLayers: frame.culledLayers))
             let fieldRect = field.convert(field.bounds, to: window)
             #expect(rects.contains(fieldRect))
 
@@ -218,70 +215,18 @@
                     }
                 }
             }
-            // Mostly grey stripes and label background; the label text is dark.
             #expect(grey > 160 * 100 * 8 / 10)
         }
 
         // MARK: - Lifecycle
 
-        private final class Snapshots {
-            private let lock = NSLock()
-            private var values: [[String: Any]] = []
-
-            func record(_ event: PostHogEvent) {
-                guard event.event == "$snapshot",
-                      let data = event.properties["$snapshot_data"] as? [[String: Any]]
-                else { return }
-                lock.withLock { values.append(contentsOf: data) }
-            }
-
-            var screenshots: Int {
-                lock.withLock {
-                    values.compactMap { $0["data"] as? [String: Any] }
-                        .flatMap { $0["wireframes"] as? [[String: Any]] ?? [] }
-                        .filter { $0["type"] as? String == "screenshot" }
-                        .count
-                }
-            }
-        }
-
-        private func makeSut(gpuCapture: Bool = true) throws -> (PostHogSDK, PostHogReplayIntegration, Snapshots) {
-            let config = PostHogConfig(projectToken: UUID().uuidString)
-            config.sessionReplay = true
-            config.sessionReplayConfig.screenshotMode = true
-            config.sessionReplayConfig.screenshotModeGPUCapture = gpuCapture
-            config.sessionReplayConfig.captureNetworkTelemetry = false
-            config.disableReachabilityForTesting = true
-            config.disableQueueTimerForTesting = true
-            config.disableFlushOnBackgroundForTesting = true
-            config.disableRemoteConfigForTesting = true
-            config.preloadFeatureFlags = false
-            config.captureApplicationLifecycleEvents = false
-            config.captureScreenViews = false
-            let snapshots = Snapshots()
-            config.setBeforeSend { event in
-                snapshots.record(event)
-                return nil
-            }
-            PostHogStorage(config).setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
-            PostHogReplayIntegration.clearInstalls()
-            let sut = PostHogSDK.with(config)
-            let integration = try #require(sut.getReplayIntegration())
-            #expect(sut.isSessionReplayActive())
-            return (sut, integration, snapshots)
-        }
-
-        private func drainReplayQueue() async {
-            await withCheckedContinuation { continuation in
-                PostHogReplayIntegration.dispatchQueue.async { continuation.resume() }
-            }
+        private func makeSut(gpuCapture: Bool = true) throws -> (PostHogSDK, PostHogReplayIntegration, ReplaySnapshots) {
+            try makeScreenshotReplaySut { $0.screenshotModeGPUCapture = gpuCapture }
         }
 
         /// Waits for the capture to give the render slot back, through both turns and the readback.
-        private func waitForCaptureToFinish(_ integration: PostHogReplayIntegration) async throws {
-            for _ in 0 ..< 200 where integration.isScreenshotRenderInFlightForTesting {
-                try await Task.sleep(nanoseconds: 10_000_000)
-            }
+        private func waitForCaptureToFinish(_ integration: PostHogReplayIntegration) async {
+            await waitUntil(timeout: 2) { !integration.isScreenshotRenderInFlightForTesting }
             #expect(!integration.isScreenshotRenderInFlightForTesting)
             await drainReplayQueue()
         }
@@ -309,9 +254,9 @@
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
             #expect(integration.isScreenshotRenderInFlightForTesting)
 
-            try await waitForCaptureToFinish(integration)
+            await waitForCaptureToFinish(integration)
             #expect(!mirror.hasAttachedFrameForTesting)
-            #expect(snapshots.screenshots == 1)
+            #expect(snapshots.screenshots.count == 1)
         }
 
         @Test("Replay stopping between the two turns drops the frame and frees the slot")
@@ -326,9 +271,9 @@
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
             sut.stopSessionRecording()
 
-            try await waitForCaptureToFinish(integration)
+            await waitForCaptureToFinish(integration)
             #expect(!mirror.hasAttachedFrameForTesting)
-            #expect(snapshots.screenshots == 0)
+            #expect(snapshots.screenshots.isEmpty)
         }
 
         @Test("The window going away between the two turns drops the frame and frees the slot")
@@ -354,9 +299,9 @@
             #expect(started)
             #expect(weakWindow == nil)
 
-            try await waitForCaptureToFinish(integration)
+            await waitForCaptureToFinish(integration)
             #expect(!mirror.hasAttachedFrameForTesting)
-            #expect(snapshots.screenshots == 0)
+            #expect(snapshots.screenshots.isEmpty)
         }
 
         @Test("The app going to the background between the two turns drops the frame and frees the slot")
@@ -374,9 +319,9 @@
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
             mockLifecycle.isInBackground = true
 
-            try await waitForCaptureToFinish(integration)
+            await waitForCaptureToFinish(integration)
             #expect(!mirror.hasAttachedFrameForTesting)
-            #expect(snapshots.screenshots == 0)
+            #expect(snapshots.screenshots.isEmpty)
         }
 
         @Test("With the flag off, a capture takes the default path and never touches the GPU capture")
@@ -388,7 +333,7 @@
             let window = windowWithContent()
 
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
-            try await waitForCaptureToFinish(integration)
+            await waitForCaptureToFinish(integration)
             #expect(mirror.needsPrewarm(for: window.bounds.size))
             #expect(!mirror.hasAttachedFrameForTesting)
         }

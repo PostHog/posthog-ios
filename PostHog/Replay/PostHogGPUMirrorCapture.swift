@@ -4,13 +4,8 @@
     import QuartzCore
     import UIKit
 
-    /// Screenshots a window by rendering a shallow copy of its presentation layer tree with `CARenderer`
-    /// into a Metal texture.
-    ///
-    /// The copy shares `contents` with the live layers, so the main thread only walks the tree and encodes
-    /// the render; rasterization runs on the GPU and readback off-main. Geometry comes from the presentation
-    /// tree in the calling turn, the same source the mask rects are measured from, so masks line up with the
-    /// pixels without a settle check.
+    /// Screenshots a window by rendering a shallow copy of its presentation layer tree, sharing the live layers'
+    /// `contents`, with `CARenderer` into a Metal texture: main only walks the tree and encodes the render.
     ///
     /// Not reproduced: content hosted in another render context (`CAPortalLayer`, `CALayerHost`), image-queue
     /// contents such as video, and `CAMetalLayer` pixels, which are drawn as a labelled placeholder.
@@ -24,8 +19,8 @@
             private weak var root: CALayer?
             /// Source layers whose whole subtree the mirror left out (hidden, transparent, clipped away or far
             /// off screen). Nothing under them reaches this frame's pixels, so the mask walk can skip them.
-            let culledLayers: Set<ObjectIdentifier>
-            // Main thread only.
+            /// Emptied by `freeze`, since the walk runs before it.
+            private(set) var culledLayers: Set<ObjectIdentifier>
             private var stage = FrameStage.built
 
             fileprivate init(target: Target, root: CALayer, culledLayers: Set<ObjectIdentifier>) {
@@ -34,14 +29,13 @@
                 self.culledLayers = culledLayers
             }
 
-            /// Main thread. Commits the mirror, with whatever the host has pending. CARenderer renders only committed
-            /// state, and a commit captures each shared backing store's current buffer, so host redraws after this
-            /// point (including in place, into the same contents object) don't reach the frame. Call it after the
-            /// mask walk (the commit can move host layers, and the walk must read the state the mirror copied) and in
-            /// the same turn as `build`: a later turn would let host redraws in between reach the frame.
+            /// Main thread. Commits the mirror so CARenderer sees it; host redraws after this, even in place into shared
+            /// contents, don't reach the frame. Call after the mask walk (the commit can move host layers) and in the
+            /// same turn as `build`.
             func freeze() {
                 guard stage == .built else { return }
                 CATransaction.flush()
+                culledLayers = []
                 stage = .frozen
             }
 
@@ -89,6 +83,8 @@
             let queue: MTLCommandQueue
             let wrapper = CALayer()
             let pixelBounds: CGRect
+            /// The texture's layout, BGRA premultiplied.
+            private static let bgraBitmapInfo = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
 
             /// Any thread: the layer changes commit in the calling thread's own transaction.
             init(texture: MTLTexture, queue: MTLCommandQueue) {
@@ -169,9 +165,8 @@
 
             private func copyPixels() -> CGImage? {
                 let width = texture.width, height = texture.height
-                let bitmapInfo = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
                 guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                                              space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: bitmapInfo),
+                                              space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: Self.bgraBitmapInfo),
                     let data = context.data
                 else { return nil }
                 texture.getBytes(data, bytesPerRow: context.bytesPerRow, from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
@@ -233,9 +228,8 @@
             }
 
             private static func warmUpImage() -> CGImage? {
-                let bitmapInfo = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
                 guard let context = CGContext(data: nil, width: 8, height: 8, bitsPerComponent: 8, bytesPerRow: 0,
-                                              space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: bitmapInfo)
+                                              space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: bgraBitmapInfo)
                 else { return nil }
                 context.setFillColor(UIColor.orange.cgColor)
                 context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
@@ -253,7 +247,13 @@
             }
         }
 
+        /// The CALayer subclass a plain copy is made with.
+        private enum LayerKind {
+            case plain, gradient, text, shape
+        }
+
         private struct ClassInfo {
+            let kind: LayerKind
             let unmirrorable: Bool
             let metal: Bool
             let copiesWithInitLayer: Bool
@@ -280,9 +280,9 @@
         private static let unmirrorableClasses: Set<String> = ["CAPortalLayer", "CALayerHost"]
         /// Backdrop blur only renders through the layer's own class; every other layer is copied into a plain CALayer.
         private static let initLayerClasses: Set<String> = ["UICABackdropLayer", "CABackdropLayer"]
-        /// Contents safe to share. Image-queue contents (CAMetalLayer, video) are excluded: handing them to a
-        /// second renderer stops the on-screen layer from updating.
-        private static let shareableContentTypes: Set<String> = ["CGImage", "IOSurface", "CAIOSurface", "CABackingStore"]
+        /// Private contents types safe to share, besides CGImage and IOSurface. Image-queue contents (CAMetalLayer,
+        /// video) are excluded: handing them to a second renderer stops the on-screen layer from updating.
+        private static let shareablePrivateContentTypes: Set<String> = ["CAIOSurface", "CABackingStore"]
         private static let maxPlaceholders = 8
         /// Slack around the visible rect so antialiased edges of a layer just outside it still render.
         private static let cullMargin: CGFloat = 1
@@ -307,26 +307,28 @@
             self.queue = queue
         }
 
-        /// Main thread. Runs `block` once, on main, when the run loop next wakes from waiting: after this turn's Core
-        /// Animation commit and ahead of the next turn's timers, events and display-link callbacks. The loop is woken
-        /// so an idle app doesn't hold it back; the timer covers a turn that polls instead of waiting.
+        /// Main thread. Runs `block` once, on main, when the run loop next wakes: after this turn's Core Animation commit,
+        /// ahead of the next turn's work. The wake-up covers an idle app, the timer a turn that polls instead of waiting.
         static func onNextRunLoopTurn(_ block: @escaping () -> Void) {
-            var timer: Timer?
-            var observer: CFRunLoopObserver?
+            var fired = false
+            var cancel: () -> Void = {}
             let runOnce = {
-                guard timer != nil else { return }
-                timer?.invalidate()
-                timer = nil
-                observer.map { CFRunLoopObserverInvalidate($0) }
-                observer = nil
+                guard !fired else { return }
+                fired = true
+                cancel()
+                cancel = {}
                 block()
             }
-            timer = Timer(timeInterval: nextTurnFallbackDelay, repeats: false) { _ in runOnce() }
-            observer = CFRunLoopObserverCreateWithHandler(kCFAllocatorDefault, CFRunLoopActivity.afterWaiting.rawValue, false, 0) { _, _ in
+            let timer = Timer(timeInterval: nextTurnFallbackDelay, repeats: false) { _ in runOnce() }
+            let observer = CFRunLoopObserverCreateWithHandler(kCFAllocatorDefault, CFRunLoopActivity.afterWaiting.rawValue, false, 0) { _, _ in
                 runOnce()
             }
+            cancel = {
+                timer.invalidate()
+                observer.map { CFRunLoopObserverInvalidate($0) }
+            }
             let runLoop = CFRunLoopGetMain()
-            timer.map { RunLoop.main.add($0, forMode: .common) }
+            RunLoop.main.add(timer, forMode: .common)
             observer.map { CFRunLoopAddObserver(runLoop, $0, .commonModes) }
             CFRunLoopWakeUp(runLoop)
         }
@@ -338,9 +340,8 @@
             return key.width > 0 && key.height > 0 && targets[key] == nil && !failedKeys.contains(key)
         }
 
-        /// Main thread. Creates the renderer for `size` and runs a first render through it off-main, then calls
-        /// `completion` on main. Renderer creation and the first render's pipeline setup cost tens of ms, which
-        /// would otherwise land on the first capture's main-thread turn.
+        /// Main thread. Creates the renderer for `size` and runs a first render through it off-main, then calls `completion`
+        /// on main: both cost tens of ms that would otherwise land on the first capture's main-thread turn.
         func prewarm(size: CGSize, completion: (() -> Void)? = nil) {
             let key = TargetKey(size: size)
             guard key.width > 0, key.height > 0, targets[key] == nil, !failedKeys.contains(key) else {
@@ -434,10 +435,8 @@
             // Culling reads the model layer unless it's animating: a stale model only costs fidelity (the mask walk
             // skips exactly what the mirror culled), and presentation() allocates a copy per layer. Layers that
             // render are copied from their presentation state, the state the mask rects are measured from.
-            var geometry = source
-            if info.presentationSafe, source.animationKeys() != nil {
-                geometry = source.presentation() ?? source
-            }
+            let animating = info.presentationSafe && source.animationKeys() != nil
+            let geometry = animating ? (source.presentation() ?? source) : source
             if source.isHidden || geometry.isHidden || geometry.opacity == 0 {
                 culled.insert(ObjectIdentifier(source))
                 return nil
@@ -465,19 +464,14 @@
                 return nil
             }
 
-            var presentation = geometry
-            if geometry === source, info.presentationSafe {
-                presentation = source.presentation() ?? source
-            }
+            let presentation = (animating || !info.presentationSafe) ? geometry : (source.presentation() ?? source)
             let copy = makeCopy(of: source, presentation: presentation, info: info, culled: &culled)
-            for child in children {
-                copy.addSublayer(child)
-            }
+            if !children.isEmpty { copy.sublayers = children }
             return copy
         }
 
         private func makeCopy(of source: CALayer, presentation: CALayer, info: ClassInfo, culled: inout Set<ObjectIdentifier>) -> CALayer {
-            let copy = (info.copiesWithInitLayer ? initLayerCopy(source) : nil) ?? plainCopy(presentation)
+            let copy = (info.copiesWithInitLayer ? initLayerCopy(source) : nil) ?? plainCopy(presentation, kind: info.kind)
             copyGeometry(from: presentation, source: source, to: copy)
             copyStyle(from: presentation, to: copy)
             copyContents(from: presentation, source: source, to: copy)
@@ -538,7 +532,7 @@
         /// copy this mirror makes of it would draw them; nil when that can't be bounded (shadows, filters,
         /// shape paths, blur). Contents that don't scale to the bounds can spill past them.
         private func ownExtent(_ layer: CALayer, info: ClassInfo) -> CGRect? {
-            if info.copiesWithInitLayer || layer is CAShapeLayer || layer.filters != nil { return nil }
+            if info.copiesWithInitLayer || info.kind == .shape || layer.filters != nil { return nil }
             if layer.shadowOpacity > 0, layer.shadowColor != nil { return nil }
             let bounds = layer.bounds
             let gravity = layer.contentsGravity
@@ -625,9 +619,10 @@
             if let filter = presentation.compositingFilter { copy.compositingFilter = filter }
         }
 
-        private func plainCopy(_ presentation: CALayer) -> CALayer {
-            switch presentation {
-            case let gradient as CAGradientLayer:
+        private func plainCopy(_ presentation: CALayer, kind: LayerKind) -> CALayer {
+            switch kind {
+            case .gradient:
+                let gradient = presentation as! CAGradientLayer
                 let copy = CAGradientLayer()
                 copy.colors = gradient.colors
                 copy.locations = gradient.locations
@@ -635,7 +630,8 @@
                 copy.endPoint = gradient.endPoint
                 copy.type = gradient.type
                 return copy
-            case let text as CATextLayer:
+            case .text:
+                let text = presentation as! CATextLayer
                 let copy = CATextLayer()
                 copy.string = text.string
                 copy.font = text.font
@@ -645,7 +641,8 @@
                 copy.isWrapped = text.isWrapped
                 copy.truncationMode = text.truncationMode
                 return copy
-            case let shape as CAShapeLayer:
+            case .shape:
+                let shape = presentation as! CAShapeLayer
                 let copy = CAShapeLayer()
                 copy.path = shape.path
                 copy.fillColor = shape.fillColor
@@ -658,7 +655,7 @@
                 copy.strokeStart = shape.strokeStart
                 copy.strokeEnd = shape.strokeEnd
                 return copy
-            default:
+            case .plain:
                 return CALayer()
             }
         }
@@ -684,7 +681,18 @@
                 chain.append(NSStringFromClass(next))
                 current = class_getSuperclass(next)
             }
-            let info = ClassInfo(unmirrorable: chain.contains { Self.unmirrorableClasses.contains($0) },
+            let kind: LayerKind
+            if chain.contains("CAGradientLayer") {
+                kind = .gradient
+            } else if chain.contains("CATextLayer") {
+                kind = .text
+            } else if chain.contains("CAShapeLayer") {
+                kind = .shape
+            } else {
+                kind = .plain
+            }
+            let info = ClassInfo(kind: kind,
+                                 unmirrorable: chain.contains { Self.unmirrorableClasses.contains($0) },
                                  metal: chain.contains("CAMetalLayer"),
                                  copiesWithInitLayer: chain.contains { Self.initLayerClasses.contains($0) },
                                  presentationSafe: Self.isPresentationSafe(cls))
@@ -708,15 +716,8 @@
         private func isShareable(_ contents: Any) -> Bool {
             let typeID = CFGetTypeID(contents as AnyObject)
             if let cached = shareableTypeIDs[typeID] { return cached }
-            let name: String
-            if typeID == CGImage.typeID {
-                name = "CGImage"
-            } else if typeID == IOSurfaceGetTypeID() {
-                name = "IOSurface"
-            } else {
-                name = (CFCopyTypeIDDescription(typeID) as String?) ?? ""
-            }
-            let shareable = Self.shareableContentTypes.contains(name)
+            let shareable = typeID == CGImage.typeID || typeID == IOSurfaceGetTypeID()
+                || Self.shareablePrivateContentTypes.contains((CFCopyTypeIDDescription(typeID) as String?) ?? "")
             shareableTypeIDs[typeID] = shareable
             return shareable
         }

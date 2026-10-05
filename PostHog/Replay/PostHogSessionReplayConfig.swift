@@ -79,22 +79,20 @@
         /// Default: false
         @objc public var screenshotModeGPUCapture: Bool = false
 
-        /// Screenshot resolution as a multiplier of the device's native resolution, like posthog-android's
-        /// `screenshotScale`: 1.0 is full native resolution. Clamped to 0.1...1.0; NaN and infinity reset it to `nil`.
-        /// When `nil`, screenshots are one pixel per point on every device. Masked and unmasked screenshots
-        /// have the same size.
+        /// Pixels per point of every screenshot, like UIKit's `UIScreen.scale`: 1.0 is one pixel per point,
+        /// 0.5 half that. Clamped to 0.1 and, when capturing, to the screen's native scale; NaN and infinity
+        /// reset it to 1.0. Masked and unmasked screenshots have the same size.
         ///
         /// Experimental.
-        /// Default: nil
-        @objc public var screenshotScale: NSNumber? {
+        /// Default: 1.0
+        @objc public var screenshotScale: CGFloat = 1 {
             didSet {
-                guard let value = screenshotScale?.doubleValue else { return }
-                screenshotScale = value.isFinite ? NSNumber(value: min(max(value, 0.1), 1)) : nil
+                screenshotScale = screenshotScale.isFinite ? max(screenshotScale, 0.1) : 1
             }
         }
 
         func screenshotPixelScale(nativeScale: CGFloat) -> CGFloat {
-            screenshotScale.map { nativeScale * CGFloat($0.doubleValue) } ?? 1
+            min(screenshotScale, nativeScale)
         }
 
         /// Debouncer delay used to reduce the number of snapshots captured and reduce performance impact

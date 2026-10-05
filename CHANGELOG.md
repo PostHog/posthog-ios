@@ -1,5 +1,11 @@
 ## Next
 
+## 3.90.0
+
+### Minor Changes
+
+- 2a92154: Deprecate `PostHogDataMode.cellular`. It has always behaved the same as `.any`, so use `.any` instead. It will be removed in 4.0.
+
 ## 3.89.2
 
 ### Patch Changes

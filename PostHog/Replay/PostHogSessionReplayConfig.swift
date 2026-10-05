@@ -75,6 +75,9 @@
         /// Captures fall back to the default path when the device has no Metal or a render fails.
         /// Takes precedence over `screenshotModeBackgroundCapture` when both are enabled.
         ///
+        /// While recording, the app keeps roughly 25–30 MB more memory resident on average (GPU memory held
+        /// by Metal and Core Animation); peak memory is about the same as the default capture (iPhone 17 Pro).
+        ///
         /// Experimental. iOS only.
         /// Default: false
         @objc public var screenshotModeGPUCapture: Bool = false

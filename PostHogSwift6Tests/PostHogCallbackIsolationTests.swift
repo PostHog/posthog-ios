@@ -77,4 +77,27 @@ struct PostHogCallbackIsolationTests {
         let flags = await Task.detached { loaded?.flags ?? [] }.value
         #expect(flags == ["swift6-flag"])
     }
+
+    @Test("onFeatureFlags payload keeps its variant values when a mutable bootstrap value changes")
+    func onFeatureFlagsPayloadIsImmutable() async {
+        let source = NSMutableString(string: "original")
+        let sdk = makeSDK(bootstrapFlags: ["swift6-variant": source])
+        defer { sdk.close() }
+        let state = AppState()
+
+        var subscription: PostHogFeatureFlagsSubscription?
+        await withCheckedContinuation { continuation in
+            subscription = sdk.onFeatureFlags { loaded in
+                guard state.loaded == nil else { return }
+                state.loaded = loaded
+                continuation.resume()
+            }
+        }
+        subscription?.unsubscribe()
+
+        source.setString("changed")
+        let loaded = state.loaded
+        let variant = await Task.detached { loaded?.variants["swift6-variant"] as? String }.value
+        #expect(variant == "original")
+    }
 }

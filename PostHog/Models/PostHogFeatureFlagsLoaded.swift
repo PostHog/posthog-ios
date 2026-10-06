@@ -23,7 +23,7 @@ import Foundation
 /// ```
 @objc(PostHogFeatureFlagsLoaded)
 public final class PostHogFeatureFlagsLoaded: NSObject, @unchecked Sendable {
-    // @unchecked: every property is a `let`, and `variants` only holds `Bool` and `String` values (see init).
+    // @unchecked: every property is a `let`, and `variants` only holds Swift `Bool` and `String` values (see init).
 
     /// The keys of the enabled feature flags.
     @objc public let flags: [String]
@@ -40,11 +40,16 @@ public final class PostHogFeatureFlagsLoaded: NSObject, @unchecked Sendable {
     @objc public let errorsLoading: Bool
 
     init(featureFlags: [String: Any], errorsLoading: Bool) {
-        let enabled = featureFlags.filter { _, value in
+        // Store the bridged values, not the originals: a bootstrap `NSMutableString` would stay mutable.
+        var enabled: [String: Any] = [:]
+        for (key, value) in featureFlags {
             if let bool = value as? Bool {
-                return bool
+                if bool {
+                    enabled[key] = bool
+                }
+            } else if let string = value as? String {
+                enabled[key] = string
             }
-            return value is String
         }
         flags = Array(enabled.keys)
         variants = enabled

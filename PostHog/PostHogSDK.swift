@@ -2098,7 +2098,7 @@ let maxRetryDelay = 30.0
     ///
     /// ```swift
     /// PostHogSDK.shared.setPersonPropertiesForFlags(["plan": "premium"], reloadFeatureFlags: false)
-    /// PostHogSDK.shared.reloadFeatureFlags {
+    /// PostHogSDK.shared.reloadFeatureFlags { _ in
     ///     let flagValue = PostHogSDK.shared.isFeatureEnabled("new_feature")
     /// }
     /// ```
@@ -2107,9 +2107,10 @@ let maxRetryDelay = 30.0
     /// leaves your app in control of when flags load.
     ///
     /// - Note: `reset()` clears person properties set here, so they must be set again afterwards.
-    /// - Note: `reloadFeatureFlags(_:)` reports that the reload finished, not that it succeeded. If the
-    ///   request fails, or the project is over its feature flag quota, the handler still runs and the
-    ///   flags you read are the previously cached ones.
+    /// - Note: The `reloadFeatureFlags(_:)` handler runs whether or not the reload succeeded. If the
+    ///   request fails, `errorsLoading` is `true` and the flags you read are the previously cached ones.
+    ///   If the project is over its feature flag quota, `errorsLoading` is `false` but the flags are
+    ///   still the previously cached ones.
     ///
     /// - Parameters:
     ///   - properties: Dictionary of person properties to include in flag evaluation
@@ -2334,11 +2335,10 @@ let maxRetryDelay = 30.0
             return
         }
 
-        // nil means the request failed; report the last known flags, like onFeatureFlags.
-        remoteConfig.reloadFeatureFlags { featureFlags in
+        remoteConfig.reloadFeatureFlags { result in
             callback(PostHogFeatureFlagsLoaded(
-                featureFlags: featureFlags ?? remoteConfig.getFeatureFlags() ?? [:],
-                errorsLoading: featureFlags == nil
+                featureFlags: result.lastKnownFeatureFlags,
+                errorsLoading: result.featureFlags == nil
             ))
         }
     }

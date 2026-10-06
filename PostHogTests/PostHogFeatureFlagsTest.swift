@@ -1474,7 +1474,7 @@ enum PostHogFeatureFlagsTest {
 
             let flags = await withCheckedContinuation { (continuation: CheckedContinuation<[String: Any]?, Never>) in
                 sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: nil, groups: [:], callback: { flags in
-                    continuation.resume(returning: flags)
+                    continuation.resume(returning: flags.featureFlags)
                 })
 
                 // displaces the reload above out of the pending slot
@@ -1678,6 +1678,26 @@ enum PostHogFeatureFlagsTest {
 
             #expect(result.errorsLoading == true)
             #expect(result.variants["string-value"] as? String == "test")
+        }
+
+        @Test("coalesced reload callbacks keep the failed attempt's last known flags if one calls reset()")
+        func reloadCallbackCoalescedFailureReset() async {
+            let sut = track(PostHogSDK.with(config))
+            await reload(sut)
+
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+            }
+            // The first reload is in flight, so the next two coalesce into one pending request.
+            sut.reloadFeatureFlags { _ in }
+            sut.reloadFeatureFlags { _ in sut.reset() }
+            let (result, flagAfterReset) = await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags { continuation.resume(returning: ($0, sut.getFeatureFlag("string-value"))) }
+            }
+
+            #expect(result.errorsLoading == true)
+            #expect(result.variants["string-value"] as? String == "test")
+            #expect(flagAfterReset == nil)
         }
 
         @Test("a listener registered while a delivery is queued on main ends on the newest values")

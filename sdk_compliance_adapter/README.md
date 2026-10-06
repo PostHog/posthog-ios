@@ -113,7 +113,7 @@ Reset the SDK and adapter state.
 
 1. **macOS environment** (local Mac or GitHub Actions `macos-latest`)
 2. **Docker Desktop** installed and running
-3. **Swift 5.9+** installed
+3. **Swift 6.2+** installed
 
 ### Steps
 

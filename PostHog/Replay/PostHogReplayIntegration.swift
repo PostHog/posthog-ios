@@ -903,6 +903,8 @@
             // Checked first so an explicit unmask wins over the sensitive-type early-returns
             // below, matching the modifier's precedence.
             if view.isNoMask() {
+                // Secure-entry fields stay masked even under an explicit unmask.
+                findSecureTextEntries(view, window, &maskableWidgets)
                 return
             }
 
@@ -1080,6 +1082,17 @@
 
                     findMaskableWidgets(child, window, &maskableWidgets, maskDescendants)
                 }
+            }
+        }
+
+        private func findSecureTextEntries(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion]) {
+            if (view as? UITextInputTraits)?.isSecureTextEntry == true {
+                maskableWidgets.append(.init(view, in: window))
+                return
+            }
+
+            for child in view.subviews where child.isVisibleForMasking() {
+                findSecureTextEntries(child, window, &maskableWidgets)
             }
         }
 

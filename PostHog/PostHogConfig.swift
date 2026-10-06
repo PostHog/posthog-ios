@@ -549,17 +549,15 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         #endif
 
         #if os(iOS) || os(macOS)
-            if #available(macOS 11.0, *) {
-                // Token registration is iOS-only in v1 (the backend rejects `macos`); opened-capture
-                // works on both platforms.
-                #if os(iOS)
-                    if capturePushNotificationSubscriptions {
-                        integrations.append(PostHogPushNotificationSubscriptionIntegration())
-                    }
-                #endif
-                if installsPushNotificationOpenIntegration {
-                    integrations.append(PostHogPushNotificationOpenIntegration())
+            // Token registration is iOS-only in v1 (the backend rejects `macos`); opened-capture
+            // works on both platforms.
+            #if os(iOS)
+                if capturePushNotificationSubscriptions {
+                    integrations.append(PostHogPushNotificationSubscriptionIntegration())
                 }
+            #endif
+            if installsPushNotificationOpenIntegration {
+                integrations.append(PostHogPushNotificationOpenIntegration())
             }
         #endif
 

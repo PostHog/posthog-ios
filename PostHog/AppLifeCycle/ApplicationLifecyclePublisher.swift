@@ -109,17 +109,10 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
                                       name: NSApplication.didBecomeActiveNotification,
                                       object: nil)
         #elseif os(watchOS)
-            if #available(watchOS 7.0, *) {
-                NotificationCenter.default.addObserver(self,
-                                                       selector: #selector(appDidBecomeActive),
-                                                       name: WKApplication.didBecomeActiveNotification,
-                                                       object: nil)
-            } else {
-                NotificationCenter.default.addObserver(self,
-                                                       selector: #selector(appDidBecomeActive),
-                                                       name: .init("UIApplicationDidBecomeActiveNotification"),
-                                                       object: nil)
-            }
+            NotificationCenter.default.addObserver(self,
+                                                   selector: #selector(appDidBecomeActive),
+                                                   name: WKApplication.didBecomeActiveNotification,
+                                                   object: nil)
         #endif
     }
 

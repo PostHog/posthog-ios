@@ -62,13 +62,13 @@ import Foundation
         /// Like the old `SCNetworkReachability` initial check, the first start also reports
         /// the current connection, so subscribers flush anything queued while the app was closed.
         func startNotifier() {
-            let (started, connection) = lock.withLock { () -> (Bool, Connection?) in
+            let (started, hasPath) = lock.withLock { () -> (Bool, Bool) in
                 defer { notifierRunning = true }
-                return (!notifierRunning, latestConnection)
+                return (!notifierRunning, latestConnection != nil)
             }
             // If no path has arrived yet, `update(_:)` reports the first one.
-            if started, let connection {
-                notify(connection)
+            if started, hasPath {
+                notify()
             }
         }
 
@@ -97,14 +97,16 @@ import Foundation
                 firstPath.leave()
             }
             if shouldNotify {
-                notify(connection)
+                notify()
             }
         }
 
-        private func notify(_ connection: Connection) {
+        /// Reads the connection at delivery, not when queued, so a notification queued
+        /// before a newer path can't deliver a stale state after it.
+        private func notify() {
             let notify = { [weak self] in
                 guard let self else { return }
-                if connection != .unavailable {
+                if self.lock.withLock({ self.latestConnection }) != .unavailable {
                     self.onReachable.invoke(self)
                 } else {
                     self.onUnreachable.invoke(self)

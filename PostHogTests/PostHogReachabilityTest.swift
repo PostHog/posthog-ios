@@ -123,6 +123,31 @@ import Testing
             #expect(reachability.connection == .wifi)
         }
 
+        @Test("queued notifications report the connection at delivery, not a stale one")
+        func notificationsReportConnectionAtDelivery() {
+            let notificationQueue = DispatchQueue(label: "test.reachability.notifications")
+            let reachability = Reachability(notificationQueue: notificationQueue, monitorsPaths: false)
+            var reachable = 0
+            var unreachable = 0
+            let tokens = [
+                reachability.onReachable.subscribe { _ in reachable += 1 },
+                reachability.onUnreachable.subscribe { _ in unreachable += 1 },
+            ]
+            defer { _ = tokens }
+
+            // Offline at launch, then the network comes back before the start notification runs.
+            reachability.update(.unavailable)
+            notificationQueue.suspend()
+            reachability.startNotifier()
+            reachability.update(.wifi)
+            notificationQueue.resume()
+            notificationQueue.sync {}
+
+            // A stale `onUnreachable` would pause the queues while online.
+            #expect(unreachable == 0)
+            #expect(reachable == 2)
+        }
+
         @Test("without a path, connection is nil and only the first reads wait")
         func connectionWithoutPath() {
             let reachability = Reachability(notificationQueue: nil, monitorsPaths: false)

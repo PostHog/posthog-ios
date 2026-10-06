@@ -44,7 +44,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 // Skip some logs
                 guard !log.contains("[SKIP]") else { return nil }
                 // all logs are lowercased and info level
-                return PostHogLogEntry(level: .info, message: log.lowercased())
+                return PostHogConsoleLogEntry(level: .info, message: log.lowercased())
             }
         #endif
 

@@ -24,8 +24,8 @@
         /// - Process OSLog messages to remove metadata
         ///
         /// - Parameter output: The raw console output to process.
-        /// - Returns: A `PostHogLogEntry` to capture, or `nil` to skip the log output.
-        @objc public var logSanitizer: ((String) -> PostHogLogEntry?) = PostHogSessionReplayConsoleLogConfig.defaultLogSanitizer
+        /// - Returns: A `PostHogConsoleLogEntry` to capture, or `nil` to skip the log output.
+        @objc public var logSanitizer: ((String) -> PostHogConsoleLogEntry?) = PostHogSessionReplayConsoleLogConfig.defaultLogSanitizer
 
         /// The minimum log level to capture in session replay.
         /// Only log messages with this level or higher will be captured.
@@ -35,13 +35,13 @@
         /// - `.info` messages will be skipped
         ///
         /// Defaults to `.error` to minimize noise in session replays.
-        @objc public var minLogLevel: PostHogLogLevel = .error
+        @objc public var minLogLevel: PostHogConsoleLogLevel = .error
 
         /// Default implementation for processing console output.
-        static func defaultLogSanitizer(_ message: String) -> PostHogLogEntry? {
+        static func defaultLogSanitizer(_ message: String) -> PostHogConsoleLogEntry? {
             let message = String(message)
             // Determine console log level
-            let level: PostHogLogLevel = {
+            let level: PostHogConsoleLogLevel = {
                 if message.range(of: logMessageWarningPattern, options: .regularExpression) != nil { return .warn }
                 if message.range(of: logMessageErrorPattern, options: .regularExpression) != nil { return .error }
                 return .info
@@ -55,7 +55,7 @@
                 return message
             }() : message
 
-            return PostHogLogEntry(level: level, message: sanitizedMessage)
+            return PostHogConsoleLogEntry(level: level, message: sanitizedMessage)
         }
 
         /// Default regular expression pattern used to identify error-level log messages.

@@ -64,7 +64,7 @@
                 return
             }
 
-            // `PostHogLogLevel`` needs to be an Int enum for objc interop
+            // `PostHogConsoleLogLevel`` needs to be an Int enum for objc interop
             // So we need to convert this to a String before sending upstream
             let level = switch output.level {
             case .error: "error"

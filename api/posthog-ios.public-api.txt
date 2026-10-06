@@ -79,6 +79,15 @@ PostHog | PostHogConfig.surveys | property | @objc var surveys: Bool { get set }
 PostHog | PostHogConfig.surveysConfig | property | @objc var surveysConfig: PostHogSurveysConfig { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)surveysConfig
 PostHog | PostHogConfig.tracingHeaders | property | @objc var tracingHeaders: [String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)tracingHeaders
 PostHog | PostHogConfig.urlSessionConfiguration | property | @objc var urlSessionConfiguration: URLSessionConfiguration? | c:@M@PostHog@objc(cs)PostHogConfig(py)urlSessionConfiguration
+PostHog | PostHogConsoleLogEntry | class | @objc class PostHogConsoleLogEntry | c:@M@PostHog@objc(cs)PostHogConsoleLogEntry
+PostHog | PostHogConsoleLogEntry.init(level:message:) | init | @objc init(level: PostHogConsoleLogLevel, message: String) | c:@M@PostHog@objc(cs)PostHogConsoleLogEntry(im)initWithLevel:message:
+PostHog | PostHogConsoleLogEntry.level | property | @objc let level: PostHogConsoleLogLevel | c:@M@PostHog@objc(cs)PostHogConsoleLogEntry(py)level
+PostHog | PostHogConsoleLogEntry.message | property | @objc let message: String | c:@M@PostHog@objc(cs)PostHogConsoleLogEntry(py)message
+PostHog | PostHogConsoleLogLevel | enum | @objc enum PostHogConsoleLogLevel | c:@M@PostHog@E@PostHogConsoleLogLevel
+PostHog | PostHogConsoleLogLevel.error | enum.case | case error | c:@M@PostHog@E@PostHogConsoleLogLevel@PostHogConsoleLogLevelError
+PostHog | PostHogConsoleLogLevel.info | enum.case | case info | c:@M@PostHog@E@PostHogConsoleLogLevel@PostHogConsoleLogLevelInfo
+PostHog | PostHogConsoleLogLevel.init(rawValue:) | init | init?(rawValue: Int) | s:7PostHog0aB15ConsoleLogLevelO8rawValueACSgSi_tcfc
+PostHog | PostHogConsoleLogLevel.warn | enum.case | case warn | c:@M@PostHog@E@PostHogConsoleLogLevel@PostHogConsoleLogLevelWarn
 PostHog | PostHogDataMode | enum | @frozen enum PostHogDataMode | c:@M@PostHog@E@PostHogDataMode
 PostHog | PostHogDataMode.any | enum.case | case any | c:@M@PostHog@E@PostHogDataMode@PostHogDataModeAny
 PostHog | PostHogDataMode.init(rawValue:) | init | init?(rawValue: Int) | s:So15PostHogDataModeV8rawValueABSgSi_tcfc
@@ -176,15 +185,6 @@ PostHog | PostHogFeatureFlagsLoaded.flags | property | @objc let flags: [String]
 PostHog | PostHogFeatureFlagsLoaded.variants | property | @objc let variants: [String : Any] | c:@M@PostHog@objc(cs)PostHogFeatureFlagsLoaded(py)variants
 PostHog | PostHogFeatureFlagsSubscription | class | @objc(PostHogFeatureFlagsSubscription) final class PostHogFeatureFlagsSubscription | c:@M@PostHog@objc(cs)PostHogFeatureFlagsSubscription
 PostHog | PostHogFeatureFlagsSubscription.unsubscribe() | method | @objc func unsubscribe() | c:@M@PostHog@objc(cs)PostHogFeatureFlagsSubscription(im)unsubscribe
-PostHog | PostHogLogEntry | class | @objc class PostHogLogEntry | c:@M@PostHog@objc(cs)PostHogLogEntry
-PostHog | PostHogLogEntry.init(level:message:) | init | @objc init(level: PostHogLogLevel, message: String) | c:@M@PostHog@objc(cs)PostHogLogEntry(im)initWithLevel:message:
-PostHog | PostHogLogEntry.level | property | @objc let level: PostHogLogLevel | c:@M@PostHog@objc(cs)PostHogLogEntry(py)level
-PostHog | PostHogLogEntry.message | property | @objc let message: String | c:@M@PostHog@objc(cs)PostHogLogEntry(py)message
-PostHog | PostHogLogLevel | enum | @objc enum PostHogLogLevel | c:@M@PostHog@E@PostHogLogLevel
-PostHog | PostHogLogLevel.error | enum.case | case error | c:@M@PostHog@E@PostHogLogLevel@PostHogLogLevelError
-PostHog | PostHogLogLevel.info | enum.case | case info | c:@M@PostHog@E@PostHogLogLevel@PostHogLogLevelInfo
-PostHog | PostHogLogLevel.init(rawValue:) | init | init?(rawValue: Int) | s:7PostHog0aB8LogLevelO8rawValueACSgSi_tcfc
-PostHog | PostHogLogLevel.warn | enum.case | case warn | c:@M@PostHog@E@PostHogLogLevel@PostHogLogLevelWarn
 PostHog | PostHogLogRecord | class | @objc final class PostHogLogRecord | c:@M@PostHog@objc(cs)PostHogLogRecord
 PostHog | PostHogLogRecord.attributes | property | @objc var attributes: [String : Any] | c:@M@PostHog@objc(cs)PostHogLogRecord(py)attributes
 PostHog | PostHogLogRecord.body | property | @objc var body: String | c:@M@PostHog@objc(cs)PostHogLogRecord(py)body
@@ -347,8 +347,8 @@ PostHog | PostHogSessionReplayConfig.screenshotMode | property | @objc var scree
 PostHog | PostHogSessionReplayConfig.screenshotModeBackgroundCapture | property | @objc var screenshotModeBackgroundCapture: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)screenshotModeBackgroundCapture
 PostHog | PostHogSessionReplayConfig.throttleDelay | property | @objc var throttleDelay: TimeInterval | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)throttleDelay
 PostHog | PostHogSessionReplayConsoleLogConfig | class | @objc class PostHogSessionReplayConsoleLogConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig
-PostHog | PostHogSessionReplayConsoleLogConfig.logSanitizer | property | @objc var logSanitizer: (String) -> PostHogLogEntry? | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)logSanitizer
-PostHog | PostHogSessionReplayConsoleLogConfig.minLogLevel | property | @objc var minLogLevel: PostHogLogLevel | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)minLogLevel
+PostHog | PostHogSessionReplayConsoleLogConfig.logSanitizer | property | @objc var logSanitizer: (String) -> PostHogConsoleLogEntry? | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)logSanitizer
+PostHog | PostHogSessionReplayConsoleLogConfig.minLogLevel | property | @objc var minLogLevel: PostHogConsoleLogLevel | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)minLogLevel
 PostHog | PostHogSurveyResponse | class | @objc @objcMembers class PostHogSurveyResponse | c:@M@PostHog@objc(cs)PostHogSurveyResponse
 PostHog | PostHogSurveyResponse.link(_:) | type.method | static func link(_ clicked: Bool) -> PostHogSurveyResponse | c:@M@PostHog@objc(cs)PostHogSurveyResponse(cm)link:
 PostHog | PostHogSurveyResponse.linkClicked | property | let linkClicked: Bool? | s:7PostHog0aB14SurveyResponseC11linkClickedSbSgvp

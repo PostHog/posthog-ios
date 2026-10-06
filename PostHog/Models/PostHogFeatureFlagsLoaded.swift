@@ -22,7 +22,9 @@ import Foundation
 /// subscription.unsubscribe()
 /// ```
 @objc(PostHogFeatureFlagsLoaded)
-public final class PostHogFeatureFlagsLoaded: NSObject {
+public final class PostHogFeatureFlagsLoaded: NSObject, @unchecked Sendable {
+    // @unchecked: every property is a `let`, and `variants` only holds `Bool` and `String` values (see init).
+
     /// The keys of the enabled feature flags.
     @objc public let flags: [String]
 

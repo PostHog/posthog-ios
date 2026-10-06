@@ -77,4 +77,60 @@ import Testing
             #expect(calls == 1)
         }
     }
+
+    @Suite("Reachability notifier")
+    final class PostHogReachabilityNotifierTests {
+        @Test("the first start reports the current connection once")
+        func firstStartReportsCurrentConnection() {
+            let reachability = Reachability(notificationQueue: nil, monitorsPaths: false)
+            var reachable = 0
+            let token = reachability.onReachable.subscribe { _ in reachable += 1 }
+            defer { _ = token }
+
+            reachability.update(.wifi)
+            #expect(reachable == 0)
+
+            reachability.startNotifier()
+            #expect(reachable == 1)
+
+            reachability.startNotifier()
+            #expect(reachable == 1)
+        }
+
+        @Test("paths after start are reported, paths after stop are not")
+        func reportsPathsWhileRunning() {
+            let reachability = Reachability(notificationQueue: nil, monitorsPaths: false)
+            var reachable = 0
+            var unreachable = 0
+            let tokens = [
+                reachability.onReachable.subscribe { _ in reachable += 1 },
+                reachability.onUnreachable.subscribe { _ in unreachable += 1 },
+            ]
+            defer { _ = tokens }
+
+            // No path yet, so starting reports nothing.
+            reachability.startNotifier()
+            #expect(reachable == 0)
+
+            reachability.update(.cellular)
+            reachability.update(.unavailable)
+            #expect(reachable == 1)
+            #expect(unreachable == 1)
+
+            reachability.stopNotifier()
+            reachability.update(.wifi)
+            #expect(reachable == 1)
+            #expect(reachability.connection == .wifi)
+        }
+
+        @Test("without a path, connection is nil and only the first reads wait")
+        func connectionWithoutPath() {
+            let reachability = Reachability(notificationQueue: nil, monitorsPaths: false)
+            #expect(reachability.connection == nil)
+
+            let start = Date()
+            #expect(reachability.connection == nil)
+            #expect(Date().timeIntervalSince(start) < 0.05)
+        }
+    }
 #endif

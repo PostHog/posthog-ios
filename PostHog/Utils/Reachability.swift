@@ -10,15 +10,8 @@ import Foundation
 
     /// Tracks network connectivity with `NWPathMonitor`.
     final class Reachability {
-        enum Connection: CustomStringConvertible {
+        enum Connection {
             case unavailable, wifi, cellular
-            var description: String {
-                switch self {
-                case .cellular: return "Cellular"
-                case .wifi: return "WiFi"
-                case .unavailable: return "No Connection"
-                }
-            }
         }
 
         /// Multicast hooks: every subscriber gets called on every transition.
@@ -31,13 +24,16 @@ import Foundation
         private let monitorQueue = DispatchQueue(label: "com.posthog.Reachability")
         private let notificationQueue: DispatchQueue?
         private let firstPath = DispatchGroup()
+        private let firstPathDeadline = DispatchTime.now() + .milliseconds(100)
         private let lock = NSLock()
         private var latestConnection: Connection?
         private var notifierRunning = false
 
-        init(notificationQueue: DispatchQueue? = .main) {
+        /// - Parameter monitorsPaths: `false` skips `NWPathMonitor` so tests can drive `update(_:)`.
+        init(notificationQueue: DispatchQueue? = .main, monitorsPaths: Bool = true) {
             self.notificationQueue = notificationQueue
             firstPath.enter()
+            guard monitorsPaths else { return }
             monitor.pathUpdateHandler = { [weak self] path in
                 self?.update(Self.connection(for: path))
             }
@@ -51,13 +47,13 @@ import Foundation
         /// The current connection, or `nil` if the monitor hasn't reported a path yet.
         ///
         /// `NWPathMonitor` delivers its first path asynchronously right after it starts,
-        /// so the first read waits briefly for it. Events captured during SDK setup would
-        /// otherwise miss their network properties.
+        /// so reads wait for it, up to 100 ms after init in total. Events captured during
+        /// SDK setup would otherwise miss their network properties.
         var connection: Connection? {
             if let connection = lock.withLock({ latestConnection }) {
                 return connection
             }
-            _ = firstPath.wait(timeout: .now() + .milliseconds(100))
+            _ = firstPath.wait(timeout: firstPathDeadline)
             return lock.withLock { latestConnection }
         }
 
@@ -88,9 +84,10 @@ import Foundation
             return path.usesInterfaceType(.cellular) ? .cellular : .wifi
         }
 
-        private func update(_ connection: Connection) {
-            // `NWPathMonitor` only reports actual path changes, so notify on each one,
-            // like the old `SCNetworkReachability` callback did on each flags change.
+        func update(_ connection: Connection) {
+            // Notify on every path update, like the old `SCNetworkReachability` callback did on
+            // every flags change. Paths also update for changes that keep the same connection
+            // (e.g. DNS), which only costs a no-op flush.
             let (isFirstPath, shouldNotify) = lock.withLock { () -> (Bool, Bool) in
                 let isFirstPath = latestConnection == nil
                 latestConnection = connection

@@ -256,7 +256,7 @@ class PostHogStorageMigrationTest {
                 ],
                 timestamp: Date(timeIntervalSince1970: 1707221234000),
                 uuid: UUID(),
-                apiKey: "test_project_token"
+                projectToken: "test_project_token"
             ),
             PostHogEvent(
                 event: "$snapshot",
@@ -285,7 +285,7 @@ class PostHogStorageMigrationTest {
                 ],
                 timestamp: Date(timeIntervalSince1970: 1707221235),
                 uuid: UUID(),
-                apiKey: "test_project_token"
+                projectToken: "test_project_token"
             ),
         ]
 

@@ -425,10 +425,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     ///
     /// Note: Event triggers will only work with the instance that first enables surveys.
     /// In case of multiple instances, please make sure you are capturing events on the instance that has config.surveys = true
-    @available(watchOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @available(tvOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @available(visionOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(watchOS, unavailable, message: "Surveys are only available on iOS")
+    @available(macOS, unavailable, message: "Surveys are only available on iOS")
+    @available(tvOS, unavailable, message: "Surveys are only available on iOS")
+    @available(visionOS, unavailable, message: "Surveys are only available on iOS")
     @objc public var surveys: Bool {
         get { _surveys }
         set { _surveys = newValue }
@@ -437,10 +437,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Configuration for mobile survey presentation and localization.
     ///
     /// Mutate fields on `config.surveysConfig` or replace this object before calling setup.
-    @available(watchOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @available(tvOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @available(visionOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(watchOS, unavailable, message: "Surveys are only available on iOS")
+    @available(macOS, unavailable, message: "Surveys are only available on iOS")
+    @available(tvOS, unavailable, message: "Surveys are only available on iOS")
+    @available(visionOS, unavailable, message: "Surveys are only available on iOS")
     @objc public var surveysConfig: PostHogSurveysConfig {
         get { _surveysConfig }
         set { _surveysConfig = newValue }

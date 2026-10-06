@@ -37,6 +37,7 @@ Markdown-only changes need documentation/link checks and `git diff --check`, not
 | Replay presentation/privacy masking in an app host | `make testPresentationMasks` |
 | Masking golden-image verification | `make maskSnapshots` |
 | SDK across supported platforms, including Mac Catalyst | `make buildSdk` |
+| Code gated by the `SessionReplayWebP` or `CrashReporting` package traits | `make buildSdkSpmNoTraits`, `make testNoTraits` |
 | Example/platform integrations | `make buildExamplesPlatforms` |
 | CocoaPods integration modes | `make buildExamplePodsStaticLib`, `make buildExamplePodsStaticFramework`, `make buildExamplePodsDynamicFramework` |
 | XCFramework integration | `make buildExampleXCFramework` |

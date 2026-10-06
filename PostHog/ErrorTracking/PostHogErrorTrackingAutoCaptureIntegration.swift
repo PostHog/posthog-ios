@@ -7,7 +7,7 @@
 
 import Foundation
 
-#if os(iOS) || os(macOS) || os(tvOS)
+#if (os(iOS) || os(macOS) || os(tvOS)) && (!SWIFT_PACKAGE || CrashReporting)
     internal import PHPLCrashReporter
 
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
@@ -294,41 +294,45 @@ import Foundation
                 hedgeLog("Failed to process crash report: \(error)")
             }
         }
-
-        /// Returns `true` if any entry in `properties["$exception_list"]` has a
-        /// `type` matching one of `ignoredTypes`. Walks the exception list rather
-        /// than only the outermost entry so a wrapped exception whose underlying
-        /// cause has an ignored type is still suppressed. Match is
-        /// case-sensitive and exact. For an `NSException` the type is its `name`,
-        /// which can embed free text.
-        static func exceptionListMatchesIgnoredTypes(_ properties: [String: Any], ignoredTypes: [String]) -> Bool {
-            guard let exceptionList = properties["$exception_list"] as? [[String: Any]] else {
-                return false
-            }
-            let ignored = Set(ignoredTypes)
-            return exceptionList.contains { entry in
-                guard let exType = entry["type"] as? String else { return false }
-                return ignored.contains(exType)
-            }
-        }
     }
 
 #else
-    // watchOS/visionOS stub - crash reporting is not available on these platforms
+    // Stub for watchOS/visionOS, where crash reporting is not available, and for SPM builds
+    // with the `CrashReporting` trait disabled, where PHPLCrashReporter is not linked.
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
+        static func clearInstalls() { /* no-op */ }
+
         var requiresSwizzling: Bool { false }
 
         func install(_: PostHogSDK) -> PostHogIntegrationInstallResult {
-            .skipped(.notAvailableOnPlatform)
+            #if os(iOS) || os(macOS) || os(tvOS)
+                .skipped(.disabledByPackageTrait)
+            #else
+                .skipped(.notAvailableOnPlatform)
+            #endif
         }
 
         func uninstall(_: PostHogSDK) { /* no-op */ }
         func start() { /* no-op */ }
         func stop() { /* no-op */ }
-
-        /// Crash reporting is unavailable on this platform; always returns `false`.
-        static func exceptionListMatchesIgnoredTypes(_: [String: Any], ignoredTypes _: [String]) -> Bool {
-            false
-        }
     }
 #endif
+
+extension PostHogErrorTrackingAutoCaptureIntegration {
+    /// Returns `true` if any entry in `properties["$exception_list"]` has a
+    /// `type` matching one of `ignoredTypes`. Walks the exception list rather
+    /// than only the outermost entry so a wrapped exception whose underlying
+    /// cause has an ignored type is still suppressed. Match is
+    /// case-sensitive and exact. For an `NSException` the type is its `name`,
+    /// which can embed free text.
+    static func exceptionListMatchesIgnoredTypes(_ properties: [String: Any], ignoredTypes: [String]) -> Bool {
+        guard let exceptionList = properties["$exception_list"] as? [[String: Any]] else {
+            return false
+        }
+        let ignored = Set(ignoredTypes)
+        return exceptionList.contains { entry in
+            guard let exType = entry["type"] as? String else { return false }
+            return ignored.contains(exType)
+        }
+    }
+}

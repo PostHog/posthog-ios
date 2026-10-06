@@ -13,6 +13,17 @@ let package = Package(
             targets: ["PostHog"]
         ),
     ],
+    traits: [
+        .trait(
+            name: "SessionReplayWebP",
+            description: "Encodes session replay screenshots as WebP using the vendored libwebp. When disabled, screenshots are sent as JPEG."
+        ),
+        .trait(
+            name: "CrashReporting",
+            description: "Captures crashes and uncaught exceptions using the vendored PLCrashReporter. When disabled, only manual captures are sent."
+        ),
+        .default(enabledTraits: ["SessionReplayWebP", "CrashReporting"]),
+    ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
         .package(url: "https://github.com/AliSoftware/OHHTTPStubs.git", from: "9.0.0"),
@@ -24,8 +35,8 @@ let package = Package(
             name: "PostHog",
             dependencies: [
                 "PostHogObjCExceptionSupport",
-                "phlibwebp",
-                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .macCatalyst, .tvOS])),
+                .target(name: "phlibwebp", condition: .when(traits: ["SessionReplayWebP"])),
+                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .macCatalyst, .tvOS], traits: ["CrashReporting"])),
             ],
             path: "PostHog",
             exclude: [
@@ -95,7 +106,7 @@ let package = Package(
                 "OHHTTPStubs",
                 .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs"),
                 // The crash-report processor tests import this directly to build a PHPLCrashReport.
-                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .macCatalyst, .tvOS])),
+                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .macCatalyst, .tvOS], traits: ["CrashReporting"])),
             ],
             path: "PostHogTests",
             resources: [

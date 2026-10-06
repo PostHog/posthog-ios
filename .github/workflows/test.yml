@@ -44,6 +44,35 @@ jobs:
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make test
 
+  # Package traits off: libwebp and PLCrashReporter are not linked, so the crash-reporting stub
+  # and the trait-gated tests run.
+  test-no-traits:
+    needs: detect-markdown-only
+    runs-on: macos-15
+    steps:
+      - name: Complete markdown-only PR check
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; no additional work is required for this check."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        with:
+          xcode-version: latest-stable
+      - name: Cache SPM dependencies
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-no-traits-${{ hashFiles('Package.swift', 'Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-no-traits-
+      - name: Test SDK (package traits off)
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        run: make testNoTraits
+
   # `make test` runs `swift test` on macOS, which compiles out every `#if os(iOS)` block, so the
   # iOS-only suites (session replay, autocapture, tracing headers, crash reporting, etc.) never run
   # there. Run the iOS test target on a simulator so those suites are actually exercised in CI.

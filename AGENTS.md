@@ -9,7 +9,7 @@
 - Preserve deployment minima: iOS 15, tvOS 15, macOS 11, watchOS 10, visionOS 1. Keep platform guards and graceful degradation, especially for session replay. Availability annotations/checks do not require adding platform support or raising targets. Intentional support changes require checking `Package.swift` plus CocoaPods/Xcode packaging/build configuration.
 - Public APIs must remain thread-safe and callable from any thread. Preserve offline operation and queue-based event batching; never assume connectivity. `PostHogSDK.shared` is the default singleton; independent instances use `PostHogSDK.with(_:)` with `PostHogConfig`.
 - Preserve replay masking/privacy behavior and privacy-safe error logging; do not expose sensitive user data.
-- Prefer no new dependencies. libwebp is embedded; PHPLCrashReporter is vendored, prefixed PLCrashReporter for native crash reporting on iOS/macOS/tvOS, excluded on watchOS/visionOS.
+- Prefer no new dependencies. libwebp is embedded; PHPLCrashReporter is vendored, prefixed PLCrashReporter for native crash reporting on iOS/macOS/tvOS, excluded on watchOS/visionOS. Both are behind default-on package traits (`SessionReplayWebP`, `CrashReporting`); gate code that uses them with `#if !SWIFT_PACKAGE || <Trait>`.
 
 ## Validation selector
 - Use `make` wrappers, not direct `swift`/`xcodebuild`. Iterate with focused tests; before submitting SDK changes, run contributor checks: `make lint`, `make test`, `make buildSdk`.

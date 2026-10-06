@@ -249,7 +249,6 @@
         }
 
         @Test("the public prewarm API reaches the publisher")
-        @available(macOS 11.0, *)
         func publicPrewarmApiReachesPublisher() {
             #expect(publisher.prewarmCount == 0)
             PostHogSDK.prewarmPushNotificationOpenCapture()
@@ -257,7 +256,6 @@
         }
 
         /// Mirrors `PostHogIntegrationInstallationTest.getSut`, trimmed to what the discard gate reads.
-        @available(macOS 11.0, *)
         private func makeSut(
             optOut: Bool = false,
             capturePushNotificationOpened: Bool = true,
@@ -286,7 +284,6 @@
         }
 
         @Test("setup() releases a prewarm when push-open capture is disabled")
-        @available(macOS 11.0, *)
         func setupDiscardsPrewarmWhenCaptureDisabled() {
             let sut = makeSut(capturePushNotificationOpened: false)
             defer { sut.close() }
@@ -297,7 +294,6 @@
         /// `setup()` skips `installIntegrations()` entirely while opted out, so the discard cannot
         /// live there without leaving an opted-out app swizzled for the process lifetime.
         @Test("setup() releases a prewarm while opted out, even with push-open capture enabled")
-        @available(macOS 11.0, *)
         func setupDiscardsPrewarmWhileOptedOut() {
             let sut = makeSut(optOut: true, capturePushNotificationOpened: true)
             defer { sut.close() }
@@ -306,7 +302,6 @@
         }
 
         @Test("setup() with push-open capture enabled does not discard the prewarm")
-        @available(macOS 11.0, *)
         func setupKeepsPrewarmWhenCaptureEnabled() {
             publisher.prewarmNotificationResponseCapture()
 

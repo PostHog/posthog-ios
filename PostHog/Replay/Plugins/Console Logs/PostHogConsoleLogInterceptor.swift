@@ -14,7 +14,7 @@
         struct ConsoleOutput {
             let timestamp: Date
             let text: String
-            let level: PostHogLogLevel
+            let level: PostHogConsoleLogLevel
         }
 
         private enum Stream {
@@ -161,7 +161,7 @@
         }
 
         /// Determines if the log message should be captured, based on config
-        private func shouldCaptureLog(entry: PostHogLogEntry, config: PostHogConfig) -> Bool {
+        private func shouldCaptureLog(entry: PostHogConsoleLogEntry, config: PostHogConfig) -> Bool {
             entry.level.rawValue >= config.sessionReplayConfig.captureLogsConfig.minLogLevel.rawValue
         }
 

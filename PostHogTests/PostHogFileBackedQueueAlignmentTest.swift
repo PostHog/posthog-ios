@@ -31,6 +31,22 @@ struct PostHogFileBackedQueueAlignmentTest {
         data.map { String(data: $0, encoding: .utf8)! }
     }
 
+    @Test("deletes a v2 queue file without importing its events")
+    func deletesLegacyQueueFile() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ph-queue-align-\(UUID().uuidString)")
+        let oldQueue = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ph-queue-plist-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try Data(#"[{"event":"v2 event","distinct_id":"user","timestamp":"2023-10-25T14:14:04.407Z"}]"#.utf8)
+            .write(to: oldQueue)
+
+        let queue = PostHogFileBackedQueue(queue: dir, oldQueues: [oldQueue])
+
+        #expect(!FileManager.default.fileExists(atPath: oldQueue.path))
+        #expect(queue.depth == 0)
+    }
+
     @Test("a failed write to a full queue preserves existing entries", .enabled(if: geteuid() != 0))
     func failedWritePreservesFullQueue() throws {
         let (queue, dir) = makeQueue()

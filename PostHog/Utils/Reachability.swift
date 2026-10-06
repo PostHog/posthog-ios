@@ -62,8 +62,18 @@ import Foundation
         }
 
         /// Starts calling `onReachable` / `onUnreachable` on connectivity changes.
+        ///
+        /// Like the old `SCNetworkReachability` initial check, the first start also reports
+        /// the current connection, so subscribers flush anything queued while the app was closed.
         func startNotifier() {
-            lock.withLock { notifierRunning = true }
+            let (started, connection) = lock.withLock { () -> (Bool, Connection?) in
+                defer { notifierRunning = true }
+                return (!notifierRunning, latestConnection)
+            }
+            // If no path has arrived yet, `update(_:)` reports the first one.
+            if started, let connection {
+                notify(connection)
+            }
         }
 
         func stopNotifier() {
@@ -79,16 +89,22 @@ import Foundation
         }
 
         private func update(_ connection: Connection) {
+            // `NWPathMonitor` only reports actual path changes, so notify on each one,
+            // like the old `SCNetworkReachability` callback did on each flags change.
             let (isFirstPath, shouldNotify) = lock.withLock { () -> (Bool, Bool) in
-                let previous = latestConnection
+                let isFirstPath = latestConnection == nil
                 latestConnection = connection
-                return (previous == nil, notifierRunning && previous != connection)
+                return (isFirstPath, notifierRunning)
             }
             if isFirstPath {
                 firstPath.leave()
             }
-            guard shouldNotify else { return }
+            if shouldNotify {
+                notify(connection)
+            }
+        }
 
+        private func notify(_ connection: Connection) {
             let notify = { [weak self] in
                 guard let self else { return }
                 if connection != .unavailable {

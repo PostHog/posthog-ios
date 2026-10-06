@@ -2303,29 +2303,43 @@ let maxRetryDelay = 30.0
 
     /// Reloads feature flags for the current user and group context.
     @objc public func reloadFeatureFlags() {
-        reloadFeatureFlags {
+        reloadFeatureFlags { _ in
             // No use case
         }
     }
 
-    /// Reloads feature flags and invokes a callback when finished.
+    /// Reloads feature flags and invokes a callback with the result when finished.
     ///
-    /// - Parameter callback: Invoked when the reload finishes, or immediately if the reload
-    ///   is skipped (SDK disabled/opted-out, or no remote config available).
+    /// ```swift
+    /// PostHogSDK.shared.reloadFeatureFlags { result in
+    ///     if result.errorsLoading {
+    ///         // The reload failed. result.variants holds the last known flags.
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// - Parameter callback: Invoked when the reload finishes, possibly on a background thread.
+    ///   If the request fails, ``PostHogFeatureFlagsLoaded/errorsLoading`` is `true` and the flags are
+    ///   the last known ones. If the reload is skipped because the SDK isn't set up, it's invoked
+    ///   right away with no flags and `errorsLoading` set to `true`.
     @objc(reloadFeatureFlagsWithCallback:)
-    public func reloadFeatureFlags(_ callback: @escaping () -> Void) {
+    public func reloadFeatureFlags(_ callback: @escaping (PostHogFeatureFlagsLoaded) -> Void) {
         if !isEnabled() {
-            callback()
+            callback(PostHogFeatureFlagsLoaded(featureFlags: [:], errorsLoading: true))
             return
         }
 
         guard let remoteConfig else {
-            callback()
+            callback(PostHogFeatureFlagsLoaded(featureFlags: [:], errorsLoading: true))
             return
         }
 
-        remoteConfig.reloadFeatureFlags { _ in
-            callback()
+        // nil means the request failed; report the last known flags, like onFeatureFlags.
+        remoteConfig.reloadFeatureFlags { featureFlags in
+            callback(PostHogFeatureFlagsLoaded(
+                featureFlags: featureFlags ?? remoteConfig.getFeatureFlags() ?? [:],
+                errorsLoading: featureFlags == nil
+            ))
         }
     }
 

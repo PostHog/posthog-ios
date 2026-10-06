@@ -309,7 +309,7 @@ PostHog | PostHogSDK.register(_:) | method | @objc(registerProperties:) func reg
 PostHog | PostHogSDK.registerPushNotificationToken(_:) | method | @objc func registerPushNotificationToken(_ deviceToken: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:
 PostHog | PostHogSDK.registerPushNotificationToken(_:appId:) | method | @objc func registerPushNotificationToken(_ deviceToken: String, appId: String?) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:appId:
 PostHog | PostHogSDK.reloadFeatureFlags() | method | @objc func reloadFeatureFlags() | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlags
-PostHog | PostHogSDK.reloadFeatureFlags(_:) | method | @objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping () -> Void) | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlagsWithCallback:
+PostHog | PostHogSDK.reloadFeatureFlags(_:) | method | @objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping (PostHogFeatureFlagsLoaded) -> Void) | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlagsWithCallback:
 PostHog | PostHogSDK.reset() | method | @objc func reset() | c:@M@PostHog@objc(cs)PostHogSDK(im)reset
 PostHog | PostHogSDK.resetGroupPropertiesForFlags() | method | @objc func resetGroupPropertiesForFlags() | c:@M@PostHog@objc(cs)PostHogSDK(im)resetGroupPropertiesForFlags
 PostHog | PostHogSDK.resetGroupPropertiesForFlags(_:) | method | @objc(resetGroupPropertiesForFlagsWithGroupType:) func resetGroupPropertiesForFlags(_ groupType: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)resetGroupPropertiesForFlagsWithGroupType:

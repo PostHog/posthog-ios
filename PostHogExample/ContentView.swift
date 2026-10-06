@@ -55,7 +55,7 @@ class FeatureFlagsModel: ObservableObject {
     func reload() {
         isReloading = true
 
-        PostHogSDK.shared.reloadFeatureFlags {
+        PostHogSDK.shared.reloadFeatureFlags { _ in
             self.isReloading = false
         }
     }

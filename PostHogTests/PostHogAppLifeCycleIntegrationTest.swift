@@ -432,10 +432,10 @@ final class PostHogAppLifeCycleIntegrationTest {
         #expect(events[3].properties["from_background"] as? Bool == true)
 
         #if targetEnvironment(simulator)
-            #expect(events[1].properties["version"] == nil)
-            #expect(events[1].properties["build"] == nil)
-            #expect(events[1].properties["$app_version"] != nil)
-            #expect(events[1].properties["$app_build"] != nil)
+            #expect(events[3].properties["version"] == nil)
+            #expect(events[3].properties["build"] == nil)
+            #expect(events[3].properties["$app_version"] != nil)
+            #expect(events[3].properties["$app_build"] != nil)
         #endif
 
         sut.close()

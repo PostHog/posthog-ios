@@ -2,7 +2,7 @@
 # Do not edit manually.
 # Public API scope: public/open symbols emitted for the PostHog iOS symbol graphs.
 
-PostHog | BeforeSendBlock | typealias | typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent? | s:7PostHog15BeforeSendBlocka
+PostHog | BeforeSendBlock | typealias | typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent? | s:7PostHog15BeforeSendBlocka
 PostHog | BoxedBeforeSendBlock | class | @objc final class BoxedBeforeSendBlock | c:@M@PostHog@objc(cs)BoxedBeforeSendBlock
 PostHog | BoxedBeforeSendBlock.block | property | @objc let block: BeforeSendBlock | c:@M@PostHog@objc(cs)BoxedBeforeSendBlock(py)block
 PostHog | BoxedBeforeSendBlock.init(block:) | init | @objc(block:) init(block: @escaping BeforeSendBlock) | c:@M@PostHog@objc(cs)BoxedBeforeSendBlock(im)block:
@@ -12,7 +12,7 @@ PostHog | BoxedBeforeSendLogBlock.init(block:) | init | @objc(block:) init(block
 PostHog | OnPostHogSurveyClosed | typealias | typealias OnPostHogSurveyClosed = (PostHogDisplaySurvey) -> Void | s:7PostHog02OnaB12SurveyCloseda
 PostHog | OnPostHogSurveyResponse | typealias | typealias OnPostHogSurveyResponse = (PostHogDisplaySurvey, Int, PostHogSurveyResponse) -> PostHogNextSurveyQuestion? | s:7PostHog02OnaB14SurveyResponsea
 PostHog | OnPostHogSurveyShown | typealias | typealias OnPostHogSurveyShown = (PostHogDisplaySurvey) -> Void | s:7PostHog02OnaB11SurveyShowna
-PostHog | PostHogBeforeSendLogBlock | typealias | typealias PostHogBeforeSendLogBlock = @Sendable (PostHogLogRecord) -> PostHogLogRecord? | s:7PostHog0aB18BeforeSendLogBlocka
+PostHog | PostHogBeforeSendLogBlock | typealias | typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRecord? | s:7PostHog0aB18BeforeSendLogBlocka
 PostHog | PostHogBootstrapConfig | class | @objc(PostHogBootstrapConfig) class PostHogBootstrapConfig | c:@M@PostHog@objc(cs)PostHogBootstrapConfig
 PostHog | PostHogBootstrapConfig.distinctId | property | @objc var distinctId: String? | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(py)distinctId
 PostHog | PostHogBootstrapConfig.featureFlagPayloads | property | @objc var featureFlagPayloads: [String : Any]? | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(py)featureFlagPayloads
@@ -52,7 +52,7 @@ PostHog | PostHogConfig.evaluationContexts | property | @objc var evaluationCont
 PostHog | PostHogConfig.featureFlagRequestMaxRetries | property | @objc var featureFlagRequestMaxRetries: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)featureFlagRequestMaxRetries
 PostHog | PostHogConfig.flushAt | property | @objc var flushAt: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)flushAt
 PostHog | PostHogConfig.flushIntervalSeconds | property | @objc var flushIntervalSeconds: TimeInterval | c:@M@PostHog@objc(cs)PostHogConfig(py)flushIntervalSeconds
-PostHog | PostHogConfig.getAnonymousId | property | @objc var getAnonymousId: @Sendable (UUID) -> UUID | c:@M@PostHog@objc(cs)PostHogConfig(py)getAnonymousId
+PostHog | PostHogConfig.getAnonymousId | property | @objc var getAnonymousId: (UUID) -> UUID | c:@M@PostHog@objc(cs)PostHogConfig(py)getAnonymousId
 PostHog | PostHogConfig.host | property | @objc let host: URL | c:@M@PostHog@objc(cs)PostHogConfig(py)host
 PostHog | PostHogConfig.init(projectToken:) | init | @objc(projectToken:) init(projectToken: String) | c:@M@PostHog@objc(cs)PostHogConfig(im)projectToken:
 PostHog | PostHogConfig.init(projectToken:host:) | init | @objc(projectToken:host:) init(projectToken: String, host: String = defaultHost) | c:@M@PostHog@objc(cs)PostHogConfig(im)projectToken:host:
@@ -64,7 +64,7 @@ PostHog | PostHogConfig.optOut | property | @objc var optOut: Bool | c:@M@PostHo
 PostHog | PostHogConfig.personProfiles | property | @objc var personProfiles: PostHogPersonProfiles | c:@M@PostHog@objc(cs)PostHogConfig(py)personProfiles
 PostHog | PostHogConfig.preloadFeatureFlags | property | @objc var preloadFeatureFlags: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)preloadFeatureFlags
 PostHog | PostHogConfig.projectToken | property | @objc let projectToken: String | c:@M@PostHog@objc(cs)PostHogConfig(py)projectToken
-PostHog | PostHogConfig.pushIdentityProvider | property | @objc var pushIdentityProvider: (@Sendable (String, String, @escaping @Sendable (String?) -> Void) -> Void)? | c:@M@PostHog@objc(cs)PostHogConfig(py)pushIdentityProvider
+PostHog | PostHogConfig.pushIdentityProvider | property | @objc var pushIdentityProvider: ((String, String, @escaping (String?) -> Void) -> Void)? | c:@M@PostHog@objc(cs)PostHogConfig(py)pushIdentityProvider
 PostHog | PostHogConfig.rageClickConfig | property | @objc let rageClickConfig: PostHogRageClickConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)rageClickConfig
 PostHog | PostHogConfig.requestHeaders | property | @objc var requestHeaders: [String : String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)requestHeaders
 PostHog | PostHogConfig.reuseAnonymousId | property | @objc var reuseAnonymousId: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)reuseAnonymousId
@@ -309,7 +309,7 @@ PostHog | PostHogSDK.register(_:) | method | @objc(registerProperties:) func reg
 PostHog | PostHogSDK.registerPushNotificationToken(_:) | method | @objc func registerPushNotificationToken(_ deviceToken: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:
 PostHog | PostHogSDK.registerPushNotificationToken(_:appId:) | method | @objc func registerPushNotificationToken(_ deviceToken: String, appId: String?) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:appId:
 PostHog | PostHogSDK.reloadFeatureFlags() | method | @objc func reloadFeatureFlags() | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlags
-PostHog | PostHogSDK.reloadFeatureFlags(_:) | method | @objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping @Sendable (PostHogFeatureFlagsLoaded) -> Void) | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlagsWithCallback:
+PostHog | PostHogSDK.reloadFeatureFlags(_:) | method | @objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping (PostHogFeatureFlagsLoaded) -> Void) | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlagsWithCallback:
 PostHog | PostHogSDK.reset() | method | @objc func reset() | c:@M@PostHog@objc(cs)PostHogSDK(im)reset
 PostHog | PostHogSDK.resetGroupPropertiesForFlags() | method | @objc func resetGroupPropertiesForFlags() | c:@M@PostHog@objc(cs)PostHogSDK(im)resetGroupPropertiesForFlags
 PostHog | PostHogSDK.resetGroupPropertiesForFlags(_:) | method | @objc(resetGroupPropertiesForFlagsWithGroupType:) func resetGroupPropertiesForFlags(_ groupType: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)resetGroupPropertiesForFlagsWithGroupType:
@@ -347,7 +347,7 @@ PostHog | PostHogSessionReplayConfig.screenshotMode | property | @objc var scree
 PostHog | PostHogSessionReplayConfig.screenshotModeBackgroundCapture | property | @objc var screenshotModeBackgroundCapture: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)screenshotModeBackgroundCapture
 PostHog | PostHogSessionReplayConfig.throttleDelay | property | @objc var throttleDelay: TimeInterval | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)throttleDelay
 PostHog | PostHogSessionReplayConsoleLogConfig | class | @objc class PostHogSessionReplayConsoleLogConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig
-PostHog | PostHogSessionReplayConsoleLogConfig.logSanitizer | property | @objc var logSanitizer: @Sendable (String) -> PostHogConsoleLogEntry? | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)logSanitizer
+PostHog | PostHogSessionReplayConsoleLogConfig.logSanitizer | property | @objc var logSanitizer: (String) -> PostHogConsoleLogEntry? | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)logSanitizer
 PostHog | PostHogSessionReplayConsoleLogConfig.minLogLevel | property | @objc var minLogLevel: PostHogConsoleLogLevel | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)minLogLevel
 PostHog | PostHogSurveyResponse | class | @objc @objcMembers class PostHogSurveyResponse | c:@M@PostHog@objc(cs)PostHogSurveyResponse
 PostHog | PostHogSurveyResponse.link(_:) | type.method | static func link(_ clicked: Bool) -> PostHogSurveyResponse | c:@M@PostHog@objc(cs)PostHogSurveyResponse(cm)link:

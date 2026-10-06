@@ -55,7 +55,7 @@ iOS simulator/UI checks require Xcode with the relevant installed runtime, xcpre
 
 ### Test and style conventions
 
-Prefer Swift Testing for new tests; existing suites also use Quick/Nimble. For network mocking, use [MockPostHogServer](PostHogTests/TestUtils/MockPostHogServer.swift), backed by OHHTTPStubs.
+Write tests with Swift Testing. For network mocking, use [MockPostHogServer](PostHogTests/TestUtils/MockPostHogServer.swift), backed by OHHTTPStubs.
 
 [SwiftFormat](.swiftformat) and [SwiftLint](.swiftlint.yml) own style rules; the Makefile passes `--swiftversion 5.3` to SwiftFormat. `make lint` checks without fixing. When needed and authorized, `make format` runs both auto-fix tools, or use `make swiftLint` / `make swiftFormat` individually; review their resulting diff. These wrappers (including lint) can install missing formatters, so check tool availability before invoking them. `make api` scans for unused code with Periphery; it is not the public API snapshot check.
 

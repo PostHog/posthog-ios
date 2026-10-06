@@ -30,10 +30,10 @@
     PostHogConfig *config = [[PostHogConfig alloc] projectToken:@"_6SG-F7I1vCuZ-HdJL3VZQqjBlaSb1_20hDPwqMNnGI"];
     config.preloadFeatureFlags = YES;
     config.sessionReplayConfig.captureLogs = YES;
-    config.sessionReplayConfig.captureLogsConfig.minLogLevel = PostHogLogLevelWarn;
-    config.sessionReplayConfig.captureLogsConfig.logSanitizer = ^PostHogLogEntry * _Nullable(NSString * _Nonnull text) {
+    config.sessionReplayConfig.captureLogsConfig.minLogLevel = PostHogConsoleLogLevelWarn;
+    config.sessionReplayConfig.captureLogsConfig.logSanitizer = ^PostHogConsoleLogEntry * _Nullable(NSString * _Nonnull text) {
         // Simple implementation: just return the text as-is with info level
-        return [[PostHogLogEntry alloc] initWithLevel:PostHogLogLevelInfo message:text];
+        return [[PostHogConsoleLogEntry alloc] initWithLevel:PostHogConsoleLogLevelInfo message:text];
     };
 
     

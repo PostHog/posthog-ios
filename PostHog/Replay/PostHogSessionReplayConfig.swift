@@ -83,16 +83,18 @@
         @objc public var screenshotModeGPUCapture: Bool = false
 
         /// Pixels per point of every screenshot, like UIKit's `UIScreen.scale`: 1.0 is one pixel per point,
-        /// 0.5 half that. Clamped to 0.1 and, when capturing, to the screen's native scale; NaN and infinity
-        /// reset it to 1.0. Masked and unmasked screenshots have the same size.
+        /// 0.75 three quarters of that. Clamped to 0.1 and, when capturing, to the screen's native scale; NaN
+        /// and infinity reset it to the default. Masked and unmasked screenshots have the same size.
         ///
         /// Experimental.
-        /// Default: 1.0
-        @objc public var screenshotScale: CGFloat = 1 {
+        /// Default: 0.75
+        @objc public var screenshotScale: CGFloat = PostHogSessionReplayConfig.defaultScreenshotScale {
             didSet {
-                screenshotScale = screenshotScale.isFinite ? max(screenshotScale, 0.1) : 1
+                screenshotScale = screenshotScale.isFinite ? max(screenshotScale, 0.1) : Self.defaultScreenshotScale
             }
         }
+
+        static let defaultScreenshotScale: CGFloat = 0.75
 
         func screenshotPixelScale(nativeScale: CGFloat) -> CGFloat {
             min(screenshotScale, nativeScale)

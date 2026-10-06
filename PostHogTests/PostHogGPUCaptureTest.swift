@@ -278,7 +278,7 @@
             let window = windowWithContent()
 
             // No renderer yet: the capture keeps the slot while one is built off-main, then resumes.
-            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1))
+            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: PostHogSessionReplayConfig.defaultScreenshotScale))
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
             #expect(integration.isScreenshotRenderInFlightForTesting)
 
@@ -362,21 +362,22 @@
 
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
             await waitForCaptureToFinish(integration)
-            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1))
+            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: PostHogSessionReplayConfig.defaultScreenshotScale))
             #expect(!mirror.hasAttachedFrameForTesting)
         }
 
         @Test("Both capture paths upload screenshotScale pixels per point, up to the screen's native scale", arguments: [
+            (gpu: true, scale: nil, width: 150, height: 225), (gpu: false, scale: nil, width: 150, height: 225),
             (gpu: true, scale: 1, width: 200, height: 300), (gpu: true, scale: 0.5, width: 100, height: 150),
             (gpu: true, scale: 2, width: 400, height: 600), (gpu: true, scale: 5, width: 600, height: 900),
             (gpu: false, scale: 1, width: 200, height: 300), (gpu: false, scale: 0.5, width: 100, height: 150),
             (gpu: false, scale: 2, width: 400, height: 600), (gpu: false, scale: 5, width: 600, height: 900),
-        ] as [(gpu: Bool, scale: CGFloat, width: Int, height: Int)])
-        func uploadedScreenshotSize(_ capture: (gpu: Bool, scale: CGFloat, width: Int, height: Int)) async throws {
+        ] as [(gpu: Bool, scale: CGFloat?, width: Int, height: Int)])
+        func uploadedScreenshotSize(_ capture: (gpu: Bool, scale: CGFloat?, width: Int, height: Int)) async throws {
             let mirror = try makeMirror()
             let (sut, integration, snapshots) = try makeScreenshotReplaySut {
                 $0.screenshotModeGPUCapture = capture.gpu
-                $0.screenshotScale = capture.scale
+                if let scale = capture.scale { $0.screenshotScale = scale }
             }
             integration.gpuMirror = mirror
             defer { sut.close() }
@@ -457,15 +458,15 @@
             #expect(greys.allSatisfy { (190 ... 235).contains($0) }, "min \(greys.min() ?? -1) max \(greys.max() ?? -1)")
         }
 
-        @Test("screenshotScale defaults to 1, is clamped to at least 0.1, and NaN or infinity reset it to 1", arguments: [
+        @Test("screenshotScale defaults to 0.75, is clamped to at least 0.1, and NaN or infinity reset it to 0.75", arguments: [
             (input: -CGFloat.greatestFiniteMagnitude, expected: 0.1), (input: -1, expected: 0.1), (input: 0, expected: 0.1),
             (input: 0.05, expected: 0.1), (input: 0.1, expected: 0.1), (input: 0.5, expected: 0.5), (input: 1, expected: 1),
-            (input: 2, expected: 2), (input: 5, expected: 5), (input: CGFloat.nan, expected: 1),
-            (input: -CGFloat.infinity, expected: 1), (input: CGFloat.infinity, expected: 1),
+            (input: 2, expected: 2), (input: 5, expected: 5), (input: CGFloat.nan, expected: 0.75),
+            (input: -CGFloat.infinity, expected: 0.75), (input: CGFloat.infinity, expected: 0.75),
         ] as [(input: CGFloat, expected: CGFloat)])
         func screenshotScaleIsClamped(_ scale: (input: CGFloat, expected: CGFloat)) {
             let config = PostHogSessionReplayConfig()
-            #expect(config.screenshotScale == 1)
+            #expect(config.screenshotScale == 0.75)
             config.screenshotScale = 0.25
             config.screenshotScale = scale.input
             #expect(config.screenshotScale == scale.expected)

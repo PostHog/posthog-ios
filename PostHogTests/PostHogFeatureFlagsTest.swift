@@ -1276,6 +1276,19 @@ enum PostHogFeatureFlagsTest {
             #expect(sut.getFeatureFlagResult("beta-ui")?.payload as? String == payload)
         }
 
+        @Test("Bootstrapped string payloads survive a restart without bootstrap", arguments: ["hello", "123", "true"])
+        func bootstrappedStringPayloadSurvivesRestart(payload: String) {
+            let config = bootstrapConfig(featureFlags: ["beta-ui": "variant-a"], featureFlagPayloads: ["beta-ui": payload])
+            let storage = freshStorage(config)
+            _ = getSut(storage: storage, config: config)
+
+            // Next launch: same storage, no bootstrap, and no /flags response yet.
+            let restartConfig = bootstrapConfig(featureFlags: [:])
+            let sut = getSut(storage: PostHogStorage(restartConfig), config: restartConfig)
+
+            #expect(sut.getFeatureFlagResult("beta-ui")?.payload as? String == payload)
+        }
+
         @Test("Loaded flags override bootstrapped values")
         func loadedFlagsOverrideBootstrap() async {
             let config = bootstrapConfig(featureFlags: ["bool-value": "bootstrapped-variant"])

@@ -18,13 +18,7 @@ struct PostHogContextTest {
 
     private func getSut() -> PostHogContext {
         #if !os(watchOS)
-            var reachability: Reachability?
-            do {
-                reachability = try Reachability()
-            } catch {
-                // ignored
-            }
-            return PostHogContext(reachability)
+            return PostHogContext(Reachability())
         #else
             return PostHogContext()
         #endif

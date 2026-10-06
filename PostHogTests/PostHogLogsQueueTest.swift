@@ -674,11 +674,10 @@ final class PostHogLogsQueueTests {
     @Test("flush is suppressed while reachability reports unreachable, resumes on reconnect")
     func reachabilityPauseAndResume() async throws {
         // `notificationQueue: nil` makes reachability notify synchronously instead of dispatching to
-        // main. Otherwise the initial check inside `startNotifier()` queues an async `onReachable` on
-        // main that lands *after* our manual `onUnreachable` below, wiping the paused flag and flaking
-        // the test. With nil, that initial notification fires during `start()`, before we stop the
-        // notifier — so only the manual `invoke(...)` calls drive state from here on.
-        let reachability = try Reachability(notificationQueue: nil)
+        // main. Otherwise a path update could queue an async `onReachable` on main that lands *after*
+        // our manual `onUnreachable` below, wiping the paused flag and flaking the test. Stopping the
+        // notifier right after `start()` means only the manual `invoke(...)` calls drive state.
+        let reachability = Reachability(notificationQueue: nil)
         let (queue, _) = makeQueue(
             reachability: reachability,
             disableReachabilityForTesting: false

@@ -11,8 +11,8 @@ import Testing
     @Suite("Reachability multicast")
     final class PostHogReachabilityTests {
         @Test("multiple subscribers all fire on every transition")
-        func multicastNoStomp() throws {
-            let reachability = try Reachability()
+        func multicastNoStomp() {
+            let reachability = Reachability()
             var subscriberAReachable = 0
             var subscriberBReachable = 0
             var subscriberAUnreachable = 0
@@ -44,8 +44,8 @@ import Testing
         }
 
         @Test("releasing a reachable subscription token unregisters that subscriber")
-        func tokenDeallocUnsubscribesOnReachable() throws {
-            let reachability = try Reachability()
+        func tokenDeallocUnsubscribesOnReachable() {
+            let reachability = Reachability()
             var calls = 0
 
             do {
@@ -62,8 +62,8 @@ import Testing
         }
 
         @Test("releasing an unreachable subscription token unregisters that subscriber")
-        func tokenDeallocUnsubscribesOnUnreachable() throws {
-            let reachability = try Reachability()
+        func tokenDeallocUnsubscribesOnUnreachable() {
+            let reachability = Reachability()
             var calls = 0
 
             do {

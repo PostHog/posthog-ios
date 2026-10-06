@@ -151,7 +151,7 @@ struct PostHogReplayBatchBoundaryTest {
 
     @Test("Reachability pauses continuation between groups")
     func pauseBetweenGroups() async throws {
-        let reachability = try Reachability(notificationQueue: nil)
+        let reachability = Reachability(notificationQueue: nil)
         let sender = Sender()
         let queue = queue(config(), sender, reachability: reachability)
         queue.start(disableReachabilityForTesting: false, disableQueueTimerForTesting: true)

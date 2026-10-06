@@ -23,9 +23,7 @@ class PostHogIntegrationInstallationTest {
             PostHogAutocaptureIntegration.clearInstalls()
         #endif
         #if os(iOS) || os(macOS)
-            if #available(macOS 11.0, *) {
-                PostHogPushNotificationOpenIntegration.clearInstalls()
-            }
+            PostHogPushNotificationOpenIntegration.clearInstalls()
         #endif
         #if os(iOS)
             PostHogPushNotificationSubscriptionIntegration.clearInstalls()
@@ -357,7 +355,6 @@ class PostHogIntegrationInstallationTest {
     #if os(iOS) || os(macOS)
         @Test("push notification opened integration installed only once, on first instance")
         func pushNotificationOpenedIntegrationInstalledOnce() async {
-            guard #available(macOS 11.0, *) else { return }
             let first = getSut(projectToken: "test_project_token", capturePushNotificationOpened: true)
             let second = getSut(projectToken: "test_project_token", capturePushNotificationOpened: true)
 
@@ -370,7 +367,6 @@ class PostHogIntegrationInstallationTest {
 
         @Test("push notification opened integration not installed when the flag is disabled")
         func pushNotificationOpenedIntegrationNotInstalledWhenDisabled() async {
-            guard #available(macOS 11.0, *) else { return }
             let sut = getSut(projectToken: "test_project_token", capturePushNotificationOpened: false)
 
             #expect(sut.getPushNotificationIntegration() == nil)
@@ -380,7 +376,6 @@ class PostHogIntegrationInstallationTest {
 
         @Test("push notification opened integration skipped when swizzling is disabled")
         func pushNotificationOpenedIntegrationSkippedWithoutSwizzling() async {
-            guard #available(macOS 11.0, *) else { return }
             let sut = getSut(projectToken: "test_project_token", enableSwizzling: false, capturePushNotificationOpened: true)
 
             #expect(sut.getPushNotificationIntegration() == nil)

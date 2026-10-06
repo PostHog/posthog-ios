@@ -15,17 +15,13 @@
 
         func body(content: Content) -> some View {
             #if os(iOS) || os(tvOS) || os(macOS)
-                if #available(tvOS 14.0, macOS 11.0, *) {
-                    content
-                        .onOpenURL { url in
-                            posthog?.captureDeepLink(url: url)
-                        }
-                        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
-                            posthog?.captureDeepLink(userActivity: activity)
-                        }
-                } else {
-                    content
-                }
+                content
+                    .onOpenURL { url in
+                        posthog?.captureDeepLink(url: url)
+                    }
+                    .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                        posthog?.captureDeepLink(userActivity: activity)
+                    }
             #else
                 content
             #endif

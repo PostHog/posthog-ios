@@ -194,6 +194,89 @@
             #expect(masked.points(where: Self.isMagenta).isEmpty)
         }
 
+        @available(iOS 26.0, *)
+        @Test("Corners UIKit rounds per corner, leaving cornerRadius at 0, are rounded in the copy")
+        func perCornerRadiiAreCopied() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let card = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 80))
+            card.backgroundColor = .blue
+            card.cornerConfiguration = .corners(radius: .fixed(30))
+            window.addSubview(card)
+            #expect(card.layer.cornerRadius == 0)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[22, 22] == .white)
+            #expect(pixels[137, 97] == .white)
+            #expect(pixels[80, 60] == .blue)
+            #expect(pixels[80, 21] == .blue)
+        }
+
+        @Test("A NaN corner radius, UIKit's capsule, is drawn as a capsule")
+        func nanCornerRadiusIsCapsule() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let platter = CALayer()
+            platter.frame = CGRect(x: 20, y: 100, width: 160, height: 60)
+            platter.backgroundColor = UIColor.blue.cgColor
+            platter.cornerRadius = .nan
+            window.layer.addSublayer(platter)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[100, 130] == .blue)
+            #expect(pixels[22, 102] == .white)
+            #expect(pixels[177, 157] == .white)
+            #expect(pixels[100, 101] == .blue)
+        }
+
+        @Test("Template images keep their tint in the copy")
+        func templateImagesKeepTheirTint() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let symbol = UIImage(systemName: "square.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 40))
+            let imageView = UIImageView(image: symbol)
+            imageView.tintColor = .red
+            imageView.contentMode = .center
+            imageView.frame = CGRect(x: 20, y: 20, width: 160, height: 160)
+            window.addSubview(imageView)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[100, 100] == .red)
+            // Centred at its own size, not stretched to the view.
+            #expect(pixels[25, 25] == .white)
+            #expect(pixels[175, 175] == .white)
+        }
+
+        @Test("Tinted-image contents, which SwiftUI draws text on glass into, are shared with the copy")
+        func tintedImageContentsAreShared() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let context = try #require(CGContext(data: nil, width: 8, height: 8, bitsPerComponent: 8, bytesPerRow: 0,
+                                                 space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.setFillColor(UIColor.black.cgColor)
+            context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+            let image = try #require(context.makeImage())
+            let tintedImageClass: AnyObject = try #require(NSClassFromString("CATintedImage"))
+            let tinted = try #require(tintedImageClass.perform(NSSelectorFromString("tintedImageWithCGImage:tint:"), with: image,
+                                                               with: UIColor.red.cgColor)?.takeUnretainedValue())
+            let layer = CALayer()
+            layer.frame = CGRect(x: 20, y: 20, width: 100, height: 100)
+            layer.contents = tinted
+            window.layer.addSublayer(layer)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[70, 70] != .white)
+            #expect(pixels[150, 150] == .white)
+        }
+
         @Test("Renderers are cached per output scale")
         func renderersAreKeyedByScale() async throws {
             let mirror = try makeMirror()

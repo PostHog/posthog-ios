@@ -280,6 +280,29 @@
             let presentationSafe: Bool
         }
 
+        /// A private CALayer property newer OSes draw with. Read and written through KVC, which CALayer answers for any
+        /// key; nil where CALayer doesn't declare it, so older OSes skip it.
+        private struct PrivateLayerKey {
+            let name: String
+            private let defaultValue: NSObject?
+
+            init?(_ name: String) {
+                guard CALayer.instancesRespond(to: NSSelectorFromString(name)) else { return nil }
+                self.name = name
+                defaultValue = CALayer().value(forKey: name) as? NSObject
+            }
+
+            /// The layer's value when it differs from a fresh layer's.
+            func changedValue(in layer: CALayer) -> NSObject? {
+                guard let value = layer.value(forKey: name) as? NSObject, !value.isEqual(defaultValue) else { return nil }
+                return value
+            }
+
+            func set(_ value: NSObject, on layer: CALayer) {
+                layer.setValue(value, forKey: name)
+            }
+        }
+
         private struct Walk {
             let scale: CGFloat
             var culled: Set<ObjectIdentifier> = []
@@ -305,12 +328,21 @@
         /// Private contents types safe to share, besides CGImage and IOSurface. Image-queue contents (CAMetalLayer,
         /// video) are excluded: handing them to a second renderer stops the on-screen layer from updating.
         private static let shareablePrivateContentTypes: Set<String> = ["CAIOSurface", "CABackingStore"]
+        /// Shareable contents that are Objective-C objects, so they have no CF type of their own: SwiftUI draws text on
+        /// Liquid Glass into a tinted image.
+        private static let shareablePrivateContentClasses: Set<String> = ["CATintedImage"]
         private static let maxPlaceholders = 8
         /// Slack around the visible rect so antialiased edges of a layer just outside it still render.
         private static let cullMargin: CGFloat = 1
         private static let unitRect = CGRect(x: 0, y: 0, width: 1, height: 1)
         private static let defaultAnchor = CGPoint(x: 0.5, y: 0.5)
         private static let nextTurnFallbackDelay: TimeInterval = 0.02
+        /// iOS 26 rounds UIKit's own views (button backgrounds, `cornerConfiguration`, sheets) per corner through this,
+        /// leaving `cornerRadius` at 0.
+        private static let cornerRadiiKey = PrivateLayerKey("cornerRadii")
+        /// iOS 26 image views place, tint and recolour their image through these rather than through gravity and a
+        /// pre-tinted bitmap: without them a template symbol draws black and at the wrong size.
+        private static let contentsKeys = ["contentsTransform", "contentsMultiplyColor", "contentsSwizzle"].compactMap(PrivateLayerKey.init)
 
         private let queue: MTLCommandQueue
         private let device: MTLDevice
@@ -320,6 +352,7 @@
         private var failedKeys: Set<TargetKey> = []
         private var classInfoCache: [ObjectIdentifier: ClassInfo] = [:]
         private var shareableTypeIDs: [CFTypeID: Bool] = [:]
+        private var shareableClasses: [ObjectIdentifier: Bool] = [:]
         private var placeholders: [TargetKey: CGImage] = [:]
 
         /// nil when the device has no Metal. Production code uses `shared`; tests make their own.
@@ -616,8 +649,15 @@
         private func copyStyle(from presentation: CALayer, to copy: CALayer) {
             if presentation.opacity != 1 { copy.opacity = presentation.opacity }
             if let color = presentation.backgroundColor { copy.backgroundColor = color }
-            if presentation.cornerRadius != 0 {
-                copy.cornerRadius = presentation.cornerRadius
+            let cornerRadii = Self.cornerRadiiKey?.changedValue(in: presentation)
+            if presentation.cornerRadius != 0 || cornerRadii != nil {
+                if presentation.cornerRadius.isNaN {
+                    // UIKit's capsule radius; CARenderer draws a NaN radius square.
+                    copy.cornerRadius = min(presentation.bounds.width, presentation.bounds.height) / 2
+                } else if presentation.cornerRadius != 0 {
+                    copy.cornerRadius = presentation.cornerRadius
+                }
+                if let cornerRadii { Self.cornerRadiiKey?.set(cornerRadii, on: copy) }
                 copy.cornerCurve = presentation.cornerCurve
                 copy.maskedCorners = presentation.maskedCorners
             }
@@ -651,6 +691,9 @@
             if presentation.contentsRect != Self.unitRect { copy.contentsRect = presentation.contentsRect }
             if source.contentsCenter != Self.unitRect { copy.contentsCenter = source.contentsCenter }
             if source.magnificationFilter != .linear { copy.magnificationFilter = source.magnificationFilter }
+            for key in Self.contentsKeys {
+                if let value = key.changedValue(in: presentation) { key.set(value, on: copy) }
+            }
         }
 
         private func copyEffects(from presentation: CALayer, source: CALayer, to copy: CALayer) {
@@ -756,11 +799,20 @@
         }
 
         private func isShareable(_ contents: Any) -> Bool {
-            let typeID = CFGetTypeID(contents as AnyObject)
-            if let cached = shareableTypeIDs[typeID] { return cached }
-            let shareable = typeID == CGImage.typeID || typeID == IOSurfaceGetTypeID()
-                || Self.shareablePrivateContentTypes.contains((CFCopyTypeIDDescription(typeID) as String?) ?? "")
-            shareableTypeIDs[typeID] = shareable
+            let object = contents as AnyObject
+            let typeID = CFGetTypeID(object)
+            let shareableType = shareableTypeIDs[typeID] ?? {
+                let shareable = typeID == CGImage.typeID || typeID == IOSurfaceGetTypeID()
+                    || Self.shareablePrivateContentTypes.contains((CFCopyTypeIDDescription(typeID) as String?) ?? "")
+                shareableTypeIDs[typeID] = shareable
+                return shareable
+            }()
+            if shareableType { return true }
+            let cls: AnyClass = type(of: object)
+            let key = ObjectIdentifier(cls)
+            if let cached = shareableClasses[key] { return cached }
+            let shareable = Self.shareablePrivateContentClasses.contains(NSStringFromClass(cls))
+            shareableClasses[key] = shareable
             return shareable
         }
 

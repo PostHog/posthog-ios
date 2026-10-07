@@ -100,7 +100,7 @@ class PostHogSamplingTests {
     }
 }
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
 
     // MARK: - parseSampleRate Tests
 

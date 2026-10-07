@@ -97,19 +97,21 @@
             }
         }
 
-        /// Returns an array of plugin types based on current configuration
-        func getPluginTypes() -> [PostHogSessionReplayPlugin.Type] {
-            var types: [PostHogSessionReplayPlugin.Type] = []
+        #if !SWIFT_PACKAGE || SessionReplay
+            /// Returns an array of plugin types based on current configuration
+            func getPluginTypes() -> [PostHogSessionReplayPlugin.Type] {
+                var types: [PostHogSessionReplayPlugin.Type] = []
 
-            if captureLogs {
-                types.append(PostHogSessionReplayConsoleLogsPlugin.self)
+                if captureLogs {
+                    types.append(PostHogSessionReplayConsoleLogsPlugin.self)
+                }
+
+                if captureNetworkTelemetry {
+                    types.append(PostHogSessionReplayNetworkPlugin.self)
+                }
+
+                return types
             }
-
-            if captureNetworkTelemetry {
-                types.append(PostHogSessionReplayNetworkPlugin.self)
-            }
-
-            return types
-        }
+        #endif
     }
 #endif

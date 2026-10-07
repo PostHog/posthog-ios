@@ -17,7 +17,7 @@
         }
 
         private func toWebPBase64(_ compressionQuality: CGFloat) -> String? {
-            #if !SWIFT_PACKAGE || SessionReplayWebP
+            #if !SWIFT_PACKAGE || SessionReplay
                 toImageBase64(mimeType: "webp", data: webpData(compressionQuality: compressionQuality))
             #else
                 nil

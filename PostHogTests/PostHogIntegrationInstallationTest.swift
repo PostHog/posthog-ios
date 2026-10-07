@@ -82,7 +82,7 @@ class PostHogIntegrationInstallationTest {
         return PostHogSDK.with(config)
     }
 
-    #if os(iOS)
+    #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
         @Test("replay integration installed only once, on first instance")
         func replayIntegrationInstalledOnce() {
             let first = getSut(projectToken: "test_project_token", sessionReplay: true)

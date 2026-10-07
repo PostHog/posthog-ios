@@ -15,14 +15,14 @@ let package = Package(
     ],
     traits: [
         .trait(
-            name: "SessionReplayWebP",
-            description: "Encodes session replay screenshots as WebP using the vendored libwebp. When disabled, screenshots are sent as JPEG."
+            name: "SessionReplay",
+            description: "Session replay on iOS, including the vendored libwebp. When disabled, session replay is not available."
         ),
         .trait(
             name: "CrashReporting",
             description: "Captures crashes and uncaught exceptions using the vendored PLCrashReporter. When disabled, only manual captures are sent."
         ),
-        .default(enabledTraits: ["SessionReplayWebP", "CrashReporting"]),
+        .default(enabledTraits: ["SessionReplay", "CrashReporting"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -35,7 +35,7 @@ let package = Package(
             name: "PostHog",
             dependencies: [
                 "PostHogObjCExceptionSupport",
-                .target(name: "phlibwebp", condition: .when(traits: ["SessionReplayWebP"])),
+                .target(name: "phlibwebp", condition: .when(traits: ["SessionReplay"])),
                 .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .macCatalyst, .tvOS], traits: ["CrashReporting"])),
             ],
             path: "PostHog",

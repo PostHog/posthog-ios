@@ -19,7 +19,7 @@
                 UIColor.red.setFill()
                 context.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
             }
-            #if !SWIFT_PACKAGE || SessionReplayWebP
+            #if !SWIFT_PACKAGE || SessionReplay
                 let mimeType = "webp"
             #else
                 let mimeType = "jpeg"
@@ -32,8 +32,8 @@
     }
 #endif
 
-// Mirrors the gate on `UIImage.webpData`, which SwiftPM compiles out when the `SessionReplayWebP` trait is off.
-#if os(iOS) && (!SWIFT_PACKAGE || SessionReplayWebP)
+// Mirrors the gate on `UIImage.webpData`, which SwiftPM compiles out when the `SessionReplay` trait is off.
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import Testing

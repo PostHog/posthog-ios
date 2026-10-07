@@ -29,7 +29,7 @@ buildSdkSpmNoTraits:
 buildTestsSpmTraitsIOS:
 	set -o pipefail && xcrun swift build --build-tests --disable-default-traits --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
 	set -o pipefail && xcrun swift build --build-tests --traits CrashReporting --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
-	set -o pipefail && xcrun swift build --build-tests --traits SessionReplayWebP --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
+	set -o pipefail && xcrun swift build --build-tests --traits SessionReplay --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
 
 buildExamples: \
 	buildExamplesPlatforms \

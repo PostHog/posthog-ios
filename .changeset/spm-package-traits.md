@@ -2,4 +2,4 @@
 'posthog-ios': minor
 ---
 
-Add `SessionReplayWebP` and `CrashReporting` Swift package traits (on by default) so SwiftPM apps can leave out the vendored libwebp and PLCrashReporter with `traits: []`.
+Add `SessionReplay` and `CrashReporting` Swift package traits (on by default) so SwiftPM apps can leave out session replay with the vendored libwebp, and the vendored PLCrashReporter, with `traits: []`.

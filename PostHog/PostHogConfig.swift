@@ -401,12 +401,16 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
         /// Enable Recording of Session Replays for iOS
         ///
+        /// With Swift Package Manager, this requires the `SessionReplay` package trait, which is enabled by default.
+        ///
         /// Note: Ingestion controls (sampling, feature flags, and event triggers) are currently applied using AND logic.
         /// All configured conditions must be satisfied for recording to start.
         ///
         /// Default: false
         @objc public var sessionReplay: Bool = false
         /// Session Replay configuration
+        ///
+        /// With Swift Package Manager, this requires the `SessionReplay` package trait, which is enabled by default.
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 

@@ -24,7 +24,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     import SwiftUI
     import UIKit
 

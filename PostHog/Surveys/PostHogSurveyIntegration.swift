@@ -5,7 +5,7 @@
 //  Created by Ioannis Josephides on 20/02/2025.
 //
 
-#if os(iOS) || TESTING
+#if (os(iOS) || TESTING) && (!SWIFT_PACKAGE || Surveys)
 
     import Foundation
     #if os(iOS)
@@ -1181,4 +1181,21 @@
             }
         }
     #endif
+#elseif os(iOS)
+    // Stub for SPM builds with the `Surveys` trait disabled, where the survey engine and UI are not compiled.
+    final class PostHogSurveyIntegration: PostHogIntegration {
+        var requiresSwizzling: Bool { false }
+
+        func install(_: PostHogSDK) -> PostHogIntegrationInstallResult {
+            .skipped(.disabledByPackageTrait)
+        }
+
+        func uninstall(_: PostHogSDK) { /* no-op */ }
+        func start() { /* no-op */ }
+        func stop() { /* no-op */ }
+
+        #if TESTING
+            static func clearInstalls() { /* no-op */ }
+        #endif
+    }
 #endif

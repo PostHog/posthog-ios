@@ -362,6 +362,17 @@ class PostHogIntegrationInstallationTest {
         }
     #endif
 
+    #if os(iOS) && SWIFT_PACKAGE && !Surveys
+        @Test("surveys integration is skipped when the Surveys trait is disabled")
+        func surveysIntegrationSkippedWithoutSurveysTrait() {
+            let sut = getSut(projectToken: "test_project_token")
+
+            #expect(PostHogSurveyIntegration().install(sut) == .skipped(.disabledByPackageTrait))
+
+            sut.close()
+        }
+    #endif
+
     #if os(iOS) || os(macOS)
         @Test("push notification opened integration installed only once, on first instance")
         func pushNotificationOpenedIntegrationInstalledOnce() async {

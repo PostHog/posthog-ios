@@ -5,7 +5,7 @@
 //  Created by PostHog Code on 2026-08-06.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     import SwiftUI
 
     /// Optional intro screen shown before the first question — the leading mirror of the

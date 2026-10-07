@@ -5,7 +5,7 @@
 //  Created by Ioannis Josephides on 10/03/2025.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     import SwiftUI
 
     extension View {

@@ -425,6 +425,8 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     /// Enable mobile surveys
     ///
+    /// With Swift Package Manager, this requires the `Surveys` package trait, which is enabled by default.
+    ///
     /// Default: true
     ///
     /// Note: Event triggers will only work with the instance that first enables surveys.

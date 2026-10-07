@@ -20,7 +20,7 @@ func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = testR
     let result = XCTWaiter.wait(for: [server.batchExpectation!], timeout: timeout)
 
     if result != XCTWaiter.Result.completed, failIfNotCompleted {
-        XCTFail("The expected requests never arrived")
+        Issue.record("The expected requests never arrived")
     }
 
     var events: [PostHogEvent] = []
@@ -36,7 +36,7 @@ func waitFlagsRequest(_ server: MockPostHogServer) {
     let result = XCTWaiter.wait(for: [server.flagsExpectation!], timeout: testRequestTimeout)
 
     if result != XCTWaiter.Result.completed {
-        XCTFail("The expected requests never arrived")
+        Issue.record("The expected requests never arrived")
     }
 }
 
@@ -51,7 +51,7 @@ func waitForFeatureFlagsLoaded(_ server: MockPostHogServer, _ sut: PostHogSDK) {
     let token = sut.remoteConfig?.onFeatureFlagsLoaded.subscribe { _ in flagsLoaded.fulfill() }
     waitFlagsRequest(server)
     if XCTWaiter.wait(for: [flagsLoaded], timeout: testRequestTimeout) != .completed {
-        XCTFail("Feature flags were not loaded in time")
+        Issue.record("Feature flags were not loaded in time")
     }
     _ = token // hold the subscription for the duration of the wait
 }

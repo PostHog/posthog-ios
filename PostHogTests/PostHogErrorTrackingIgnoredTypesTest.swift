@@ -124,6 +124,9 @@ import Testing
                 config.errorTrackingConfig.ignoredExceptionTypes = ignoredExceptionTypes
             }
 
+            // `storage.reset()` keeps the event queue, and a previous test's
+            // `$exception` can still be on disk, so start from an empty directory.
+            deleteSafely(applicationSupportDirectoryURL())
             let storage = PostHogStorage(config)
             storage.reset()
 

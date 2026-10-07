@@ -1066,8 +1066,9 @@
                 let viewRect = view.toAbsoluteRect(window)
                 let windowRect = window.frame
 
-                // Check if the rectangles do not match
-                if !viewRect.equalTo(windowRect) {
+                // Check if the rectangles do not match. A full-window leaf has no descendants
+                // to carry the mask, so it is masked itself.
+                if !viewRect.equalTo(windowRect) || view.subviews.isEmpty {
                     maskableWidgets.append(.init(view, in: window))
                 } else {
                     maskDescendants = true
@@ -1825,8 +1826,10 @@
             // pixels, and the cover hides those.
             var maskChildren = false
             for ancestor in ancestors.reversed() {
-                // `ph-no-mask` drops every heuristic mask below it, the cover included.
+                // `ph-no-mask` drops every heuristic mask below it, the cover included,
+                // except for secure-entry fields.
                 if ancestor.isNoMask() {
+                    findSecureTextEntries(cover, window, &maskableWidgets)
                     return
                 }
                 guard ancestor.isNoCapture() || maskChildren else {

@@ -58,7 +58,14 @@
                 target.readback(on: queue, completion: completion)
             }
 
-            /// Main thread. Detaches the mirror from the cached renderer; the layers are freed off-main.
+            private static func tearDown(_ layer: CALayer) {
+                layer.sublayers?.forEach(tearDown)
+                layer.sublayers = nil
+                layer.mask.map(tearDown)
+                layer.mask = nil
+            }
+
+            /// Main thread. Detaches the mirror from the cached renderer; the layers are taken apart and freed off-main.
             func release() {
                 guard stage != .released else { return }
                 stage = .released
@@ -66,10 +73,18 @@
                 guard wrapper.sublayers?.first === root else { return }
                 CATransaction.begin()
                 CATransaction.setDisableActions(true)
-                let detached = wrapper.sublayers
+                let detached = wrapper.sublayers ?? []
                 wrapper.sublayers = nil
                 CATransaction.commit()
-                PostHogReplayIntegration.dispatchQueue.async { _ = detached }
+                PostHogReplayIntegration.dispatchQueue.async {
+                    // Unparented explicitly, in a transaction this thread commits: freeing a nested tree unparents
+                    // its layers in an implicit transaction instead, which a thread without a run loop never
+                    // commits, and that keeps every layer below the top level alive.
+                    CATransaction.begin()
+                    CATransaction.setDisableActions(true)
+                    detached.forEach(Self.tearDown)
+                    CATransaction.commit()
+                }
             }
         }
 
@@ -395,6 +410,10 @@
         }
 
         #if TESTING
+            /// Every mirror copy made, held weakly: what's left in it is still alive.
+            let copiesForTesting = NSHashTable<CALayer>.weakObjects()
+            private(set) var copiesMadeForTesting = 0
+
             /// Whether a frame's mirror is still attached to a renderer, i.e. built and not yet released.
             var hasAttachedFrameForTesting: Bool {
                 targets.values.contains { !($0.wrapper.sublayers ?? []).isEmpty }
@@ -480,6 +499,10 @@
 
         private func makeCopy(of source: CALayer, presentation: CALayer, info: ClassInfo, walk: inout Walk) -> CALayer {
             let copy = (info.copiesWithInitLayer ? initLayerCopy(source) : nil) ?? plainCopy(presentation, kind: info.kind)
+            #if TESTING
+                copiesForTesting.add(copy)
+                copiesMadeForTesting += 1
+            #endif
             copyGeometry(from: presentation, source: source, to: copy)
             copyStyle(from: presentation, to: copy)
             copyContents(from: presentation, source: source, info: info, scale: walk.scale, to: copy)

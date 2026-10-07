@@ -472,6 +472,38 @@
             #expect(config.screenshotScale == scale.expected)
         }
 
+        @Test("Mirrored layer trees are freed after each capture")
+        func mirroredLayersAreFreed() async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, _) = try makeScreenshotReplaySut { $0.screenshotModeGPUCapture = true }
+            integration.gpuMirror = mirror
+            defer { sut.close() }
+            let mockLifecycle = MockApplicationLifecyclePublisher()
+            DI.main.appLifecyclePublisher = mockLifecycle
+            defer { DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared }
+            let window = windowWithContent()
+            // Nested, as in real screens: only layers below the root's children were kept alive.
+            let list = UIView(frame: CGRect(x: 0, y: 70, width: 200, height: 200))
+            for row in 0 ..< 40 {
+                let label = UILabel(frame: CGRect(x: 10, y: CGFloat(row) * 5, width: 180, height: 5))
+                label.text = "Row \(row)"
+                list.addSubview(label)
+            }
+            window.addSubview(list)
+
+            let captures = 30
+            for _ in 0 ..< captures {
+                #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
+                await waitForCaptureToFinish(integration)
+            }
+            await drainReplayQueue()
+
+            let perCapture = mirror.copiesMadeForTesting / captures
+            let live = mirror.copiesForTesting.allObjects.count
+            #expect(perCapture > 40)
+            #expect(live < perCapture, "\(live) mirror layers alive after \(captures) captures of \(perCapture)")
+        }
+
         // MARK: - Routing
 
         @Test("GPU capture is used only when its flag is on, and wins over background capture", arguments: [

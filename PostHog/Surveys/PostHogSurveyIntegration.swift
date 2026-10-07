@@ -1193,9 +1193,5 @@
         func uninstall(_: PostHogSDK) { /* no-op */ }
         func start() { /* no-op */ }
         func stop() { /* no-op */ }
-
-        #if TESTING
-            static func clearInstalls() { /* no-op */ }
-        #endif
     }
 #endif

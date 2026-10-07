@@ -209,6 +209,7 @@
                 // Subscribe to event captures for trigger matching (needed before start to detect triggers)
                 eventCapturedToken = postHog.onEventCaptured.subscribe { [weak self] event in
                     self?.handleEventCaptured(event: event.event)
+                    self?.handleTriggerGroupsEventCaptured(event: event)
                 }
 
                 start()
@@ -237,6 +238,10 @@
 
             guard let currentSessionId = postHog.sessionManager.getSessionId(readOnly: true) else {
                 return false
+            }
+
+            if let remoteConfig = postHog.remoteConfig, remoteConfig.hasSessionRecordingTriggerGroups() {
+                return remoteConfig.hasPendingSessionRecordingTriggerGroups(sessionId: currentSessionId)
             }
 
             let (triggers, activatedSession) = eventTriggersLock.withLock {
@@ -298,6 +303,10 @@
 
             // Check if we should wait for event triggers before starting
             if shouldWaitForEventTriggers() {
+                if postHog.remoteConfig?.hasSessionRecordingTriggerGroups() == true {
+                    hedgeLog("[Session Replay] Trigger groups configured. Integration will not start until one activates.")
+                    return
+                }
                 let triggers = eventTriggersLock.withLock { eventTriggers } ?? []
                 hedgeLog("[Session Replay] Event triggers configured. Integration will not start until any of these events are captured: \(triggers)")
                 return
@@ -455,6 +464,10 @@
         /// Local config sample rate takes precedence over remote config.
         /// Returns `true` if no sample rate is configured (record everything).
         private func shouldRecordSession(postHog: PostHogSDK, sessionId: String) -> Bool {
+            if let remoteConfig = postHog.remoteConfig, remoteConfig.hasSessionRecordingTriggerGroups() {
+                return remoteConfig.isSessionRecordingPermittedByTriggerGroups(sessionId: sessionId)
+            }
+
             let localSampleRate = postHog.config.sessionReplayConfig.sampleRate?.doubleValue
             let remoteSampleRate = postHog.remoteConfig?.getRecordingSampleRate()
 
@@ -483,6 +496,23 @@
             }
         }
 
+        private func reevaluateTriggerGroups() {
+            guard let postHog else { return }
+            guard postHog.remoteConfig?.hasSessionRecordingTriggerGroups() == true else { return }
+
+            updateCachedMinimumDuration()
+
+            if shouldWaitForEventTriggers() {
+                if isEnabled {
+                    hedgeLog("[Session Replay] Trigger groups pending. Stopping until one activates.")
+                    stopRecording()
+                }
+                return
+            }
+
+            reevaluateSampling()
+        }
+
         /// Called when session ID changes. Handles view reset, buffer clearing,
         /// sampling re-evaluation, and trigger state management.
         private func handleSessionChanged() {
@@ -503,6 +533,16 @@
 
             // Reset minimum duration buffering state for the new session
             resetBufferingState(for: postHog)
+
+            updateCachedMinimumDuration()
+
+            if postHog.remoteConfig?.hasPendingSessionRecordingTriggerGroups(sessionId: currentSessionId) == true {
+                if isEnabled {
+                    hedgeLog("[Session Replay] New session \(currentSessionId), stopping until a trigger group matches")
+                    stopRecording()
+                }
+                return
+            }
 
             let (triggers, activatedSession) = eventTriggersLock.withLock {
                 (eventTriggers, triggerActivatedSessionId)
@@ -586,6 +626,8 @@
                 // false before `/flags` lands, and the capturer self-gates on the flag meanwhile, so
                 // recording resumes if `/flags` turns it on — a stopRecording() here would never restart.
                 stopRecording()
+            } else if postHog?.remoteConfig?.hasSessionRecordingTriggerGroups() == true {
+                reevaluateTriggerGroups()
             } else {
                 reevaluateSampling()
             }
@@ -656,6 +698,8 @@
         /// Only acts once a `/config` attempt has completed, so it never resolves from a
         /// pre-`/config` cache. The capturer self-gates on flag-off, so no stopRecording() is needed here.
         private func resolveBufferFromFeatureFlags() {
+            reevaluateTriggerGroups()
+
             // A completed `/config` attempt (success or failure) makes the cached recording config as
             // fresh as it will get; latch that locally so later reloads can still resolve.
             let configAttempted = postHog?.remoteConfig?.hasFetchedRemoteConfig == true
@@ -680,7 +724,15 @@
         }
 
         private func updateCachedMinimumDuration() {
-            let minimumDuration = postHog?.remoteConfig?.getRecordingMinimumDuration()
+            guard let postHog else { return }
+
+            let minimumDuration: TimeInterval?
+            if let remoteConfig = postHog.remoteConfig, remoteConfig.hasSessionRecordingTriggerGroups() {
+                minimumDuration = postHog.sessionManager.getSessionId(readOnly: true)
+                    .flatMap { remoteConfig.getSessionRecordingTriggerGroupsMinimumDuration(sessionId: $0) }
+            } else {
+                minimumDuration = postHog.remoteConfig?.getRecordingMinimumDuration()
+            }
             bufferingLock.withLock {
                 cachedMinimumDuration = minimumDuration
             }
@@ -1756,6 +1808,29 @@
             }
         }
 
+        private func handleTriggerGroupsEventCaptured(event: PostHogEvent) {
+            guard isNotReactNative(),
+                  let postHog,
+                  postHog.remoteConfig?.hasSessionRecordingTriggerGroups() == true,
+                  let sessionId = postHog.sessionManager.getSessionId(readOnly: true)
+            else { return }
+
+            let newlyActivated = postHog.remoteConfig?.onSessionRecordingTriggerEvent(
+                sessionId: sessionId,
+                eventName: event.event,
+                properties: event.properties
+            ) ?? false
+
+            guard newlyActivated else { return }
+
+            hedgeLog("[Session Replay] Trigger group matched for session \(sessionId). Starting replay.")
+            updateCachedMinimumDuration()
+            startRecording()
+            if !isActive() {
+                notifyRecordingStatusChanged()
+            }
+        }
+
         /// Resolves event triggers from remote config payload.
         private func updateEventTriggers(from remoteConfig: [String: Any]?) {
             // Parse event triggers from remote config
@@ -1765,6 +1840,7 @@
                 // the native capture() pipeline, so the native gate can't be satisfied. Don't store
                 // triggers for RN — the JS layer owns them (linkedFlag and sampling gates still apply).
                 guard isNotReactNative() else { return nil }
+                guard postHog?.remoteConfig?.hasSessionRecordingTriggerGroups() != true else { return nil }
                 guard let sessionRecording = remoteConfig?["sessionRecording"] as? [String: Any],
                       let triggers = sessionRecording["eventTriggers"] as? [String]
                 else {
@@ -1879,6 +1955,8 @@
                 "$sdk_debug_replay_capture_mode",
             ].map { props[$0] as? String ?? "" }
             parts.append((props["$sdk_debug_replay_pending_trigger_conditions"] as? [String] ?? []).joined(separator: ","))
+            let matchedGroups = props["$sdk_debug_replay_matched_recording_trigger_groups"] as? [[String: Any]] ?? []
+            parts.append(matchedGroups.map { "\($0["id"] ?? ""):\(($0["sampled"] as? Bool) == true)" }.joined(separator: ","))
             return parts.joined(separator: "|")
         }
 
@@ -1936,6 +2014,20 @@
             var pendingConditions: [String] = []
             if eventTriggerStatus == "trigger_pending" { pendingConditions.append("event_trigger") }
             if linkedFlagTriggerStatus == "trigger_pending" { pendingConditions.append("linked_flag") }
+
+            if let postHog,
+               let sessionId = postHog.sessionManager.getSessionId(readOnly: true),
+               let remoteConfig = postHog.remoteConfig,
+               remoteConfig.hasSessionRecordingTriggerGroups()
+            {
+                for (key, value) in remoteConfig.sessionRecordingTriggerGroupsDebugProperties(sessionId: sessionId) {
+                    props[key] = value
+                }
+                if remoteConfig.hasPendingSessionRecordingTriggerGroups(sessionId: sessionId) {
+                    pendingConditions.append("trigger_groups")
+                }
+            }
+
             if !pendingConditions.isEmpty {
                 props["$sdk_debug_replay_pending_trigger_conditions"] = pendingConditions
             }

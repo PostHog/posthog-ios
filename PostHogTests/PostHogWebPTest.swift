@@ -5,7 +5,35 @@
 //  Created by Yiannis Josephides on 09/12/2024.
 //
 
-#if canImport(UIKit) || targetEnvironment(macCatalyst)
+#if os(iOS)
+    import Foundation
+    @testable import PostHog
+    import Testing
+    import UIKit
+
+    @Suite("Replay image encoding")
+    struct PostHogReplayImageEncodingTests {
+        @Test("encodes as WebP when libwebp is linked, JPEG otherwise")
+        func encodesWithExpectedFormat() throws {
+            let image = UIGraphicsImageRenderer(size: CGSize(width: 4, height: 4)).image { context in
+                UIColor.red.setFill()
+                context.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
+            }
+            #if !SWIFT_PACKAGE || SessionReplayWebP
+                let mimeType = "webp"
+            #else
+                let mimeType = "jpeg"
+            #endif
+
+            let encoded = try #require(image.toBase64())
+
+            #expect(encoded.hasPrefix("data:image/\(mimeType);base64,"))
+        }
+    }
+#endif
+
+// Mirrors the gate on `UIImage.webpData`, which SwiftPM compiles out when the `SessionReplayWebP` trait is off.
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplayWebP)
     import Foundation
     @testable import PostHog
     import Testing

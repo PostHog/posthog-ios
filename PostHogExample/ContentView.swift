@@ -36,6 +36,7 @@ class SignInViewModel: NSObject, ObservableObject, ASWebAuthenticationPresentati
     }
 }
 
+@MainActor
 class FeatureFlagsModel: ObservableObject {
     @Published var boolValue: Bool?
     @Published var stringValue: String?
@@ -55,8 +56,11 @@ class FeatureFlagsModel: ObservableObject {
     func reload() {
         isReloading = true
 
-        PostHogSDK.shared.reloadFeatureFlags {
-            self.isReloading = false
+        PostHogSDK.shared.reloadFeatureFlags { _ in
+            // The callback can run on a background thread; @Published changes belong on main.
+            Task { @MainActor in
+                self.isReloading = false
+            }
         }
     }
 }

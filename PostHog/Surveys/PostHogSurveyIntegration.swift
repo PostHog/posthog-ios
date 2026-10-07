@@ -239,7 +239,9 @@
         ) {
             getCachedOrReload(
                 getCached: remoteConfig.getFeatureFlags,
-                reload: { remoteConfig.reloadFeatureFlags(callback: $0) },
+                reload: { callback in
+                    remoteConfig.reloadFeatureFlags(callback: callback.map { callback in { callback($0.featureFlags) } })
+                },
                 forceReload: forceReload,
                 callback: callback
             )

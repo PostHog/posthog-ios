@@ -295,9 +295,9 @@ class PostHogContext {
         properties["$timezone"] = TimeZone.current.identifier
 
         #if !os(watchOS)
-            if reachability != nil {
-                properties["$network_wifi"] = reachability?.connection == .wifi
-                properties["$network_cellular"] = reachability?.connection == .cellular
+            if let connection = reachability?.connection {
+                properties["$network_wifi"] = connection == .wifi
+                properties["$network_cellular"] = connection == .cellular
             }
         #endif
 

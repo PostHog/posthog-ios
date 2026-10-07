@@ -1,5 +1,11 @@
 ## Next
 
+## 3.90.2
+
+### Patch Changes
+
+- 9add537: Start the survey wait period when a survey shows, so a restart before close does not skip it
+
 ## 3.90.1
 
 ### Patch Changes

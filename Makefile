@@ -1,4 +1,4 @@
-.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS buildSdkSpm buildSdkSpmNoTraits testNoTraits
+.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS buildSdkSpm buildSdkSpmNoTraits buildTestsSpmTraitsIOS testNoTraits
 
 build: buildSdk buildExamples
 
@@ -23,6 +23,13 @@ buildSdkSpm:
 buildSdkSpmNoTraits:
 	set -o pipefail && xcrun swift build --target PostHog --arch arm64 --disable-default-traits #macOS
 	set -o pipefail && xcrun swift build --target PostHog --disable-default-traits --triple arm64-apple-ios15.0 --sdk "$$(xcrun --sdk iphoneos --show-sdk-path)" #iOS
+
+# Compiles the iOS test target with traits off and with each trait on its own, so trait-gated SDK code and
+# the tests that use it stay in sync. `make test` runs on macOS, which compiles out the iOS-only code.
+buildTestsSpmTraitsIOS:
+	set -o pipefail && xcrun swift build --build-tests --disable-default-traits --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
+	set -o pipefail && xcrun swift build --build-tests --traits CrashReporting --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
+	set -o pipefail && xcrun swift build --build-tests --traits SessionReplayWebP --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
 
 buildExamples: \
 	buildExamplesPlatforms \

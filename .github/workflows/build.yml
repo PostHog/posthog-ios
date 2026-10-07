@@ -30,7 +30,7 @@ jobs:
           - platform: macos-spm
             command: set -o pipefail && xcrun swift build --arch arm64
           - platform: spm-no-traits
-            command: make buildSdkSpmNoTraits
+            command: make buildSdkSpmNoTraits buildTestsSpmTraitsIOS
           - platform: macos
             command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=macos | xcpretty
           - platform: tvos

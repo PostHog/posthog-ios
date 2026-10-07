@@ -72,8 +72,8 @@ PostHog | PostHogConfig.sendFeatureFlagEvent | property | @objc var sendFeatureF
 PostHog | PostHogConfig.sessionReplay | property | @objc var sessionReplay: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)sessionReplay
 PostHog | PostHogConfig.sessionReplayConfig | property | @objc let sessionReplayConfig: PostHogSessionReplayConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)sessionReplayConfig
 PostHog | PostHogConfig.setBeforeSend(_:) | method | @objc func setBeforeSend(_ blocks: [BoxedBeforeSendBlock]) | c:@M@PostHog@objc(cs)PostHogConfig(im)setBeforeSend:
-PostHog | PostHogConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: BeforeSendBlock...) | s:7PostHog0aB6ConfigC13setBeforeSendyyAA0aB5EventCSgAFcd_tF
-PostHog | PostHogConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: [BeforeSendBlock]) | s:7PostHog0aB6ConfigC13setBeforeSendyySayAA0aB5EventCSgAFcGF
+PostHog | PostHogConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: BeforeSendBlock...) | s:7PostHog0aB6ConfigC13setBeforeSendyyAA0aB5EventCSgAFYbcd_tF
+PostHog | PostHogConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: [BeforeSendBlock]) | s:7PostHog0aB6ConfigC13setBeforeSendyySayAA0aB5EventCSgAFYbcGF
 PostHog | PostHogConfig.setDefaultPersonProperties | property | @objc var setDefaultPersonProperties: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)setDefaultPersonProperties
 PostHog | PostHogConfig.surveys | property | @objc var surveys: Bool { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)surveys
 PostHog | PostHogConfig.surveysConfig | property | @objc var surveysConfig: PostHogSurveysConfig { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)surveysConfig
@@ -230,8 +230,8 @@ PostHog | PostHogLogsConfig.resourceAttributes | property | @objc var resourceAt
 PostHog | PostHogLogsConfig.serviceName | property | @objc var serviceName: String | c:@M@PostHog@objc(cs)PostHogLogsConfig(py)serviceName
 PostHog | PostHogLogsConfig.serviceVersion | property | @objc var serviceVersion: String | c:@M@PostHog@objc(cs)PostHogLogsConfig(py)serviceVersion
 PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | @objc func setBeforeSend(_ blocks: [BoxedBeforeSendLogBlock]) | c:@M@PostHog@objc(cs)PostHogLogsConfig(im)setBeforeSend:
-PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) | s:7PostHog0aB10LogsConfigC13setBeforeSendyyAA0aB9LogRecordCSgAFcd_tF
-PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: [PostHogBeforeSendLogBlock]) | s:7PostHog0aB10LogsConfigC13setBeforeSendyySayAA0aB9LogRecordCSgAFcGF
+PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) | s:7PostHog0aB10LogsConfigC13setBeforeSendyyAA0aB9LogRecordCSgAFYbcd_tF
+PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: [PostHogBeforeSendLogBlock]) | s:7PostHog0aB10LogsConfigC13setBeforeSendyySayAA0aB9LogRecordCSgAFYbcGF
 PostHog | PostHogNextSurveyQuestion | class | @objc class PostHogNextSurveyQuestion | c:@M@PostHog@objc(cs)PostHogNextSurveyQuestion
 PostHog | PostHogNextSurveyQuestion.isSurveyCompleted | property | let isSurveyCompleted: Bool | s:7PostHog0aB18NextSurveyQuestionC02isD9CompletedSbvp
 PostHog | PostHogNextSurveyQuestion.questionIndex | property | let questionIndex: Int | s:7PostHog0aB18NextSurveyQuestionC13questionIndexSivp

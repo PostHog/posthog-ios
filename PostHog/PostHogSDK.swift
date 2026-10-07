@@ -2322,9 +2322,10 @@ let maxRetryDelay = 30.0
     /// - Parameter callback: Invoked when the reload finishes, possibly on a background thread.
     ///   If the request fails, ``PostHogFeatureFlagsLoaded/errorsLoading`` is `true` and the flags are
     ///   the last known ones. If the reload is skipped because the SDK isn't set up, it's invoked
-    ///   right away with no flags and `errorsLoading` set to `true`.
+    ///   right away with no flags and `errorsLoading` set to `true`. To update UI or other main-actor
+    ///   state, hop to the main actor, for example with `Task { @MainActor in ... }`.
     @objc(reloadFeatureFlagsWithCallback:)
-    public func reloadFeatureFlags(_ callback: @escaping (PostHogFeatureFlagsLoaded) -> Void) {
+    public func reloadFeatureFlags(_ callback: @escaping @Sendable (PostHogFeatureFlagsLoaded) -> Void) {
         if !isEnabled() {
             callback(PostHogFeatureFlagsLoaded(featureFlags: [:], errorsLoading: true))
             return

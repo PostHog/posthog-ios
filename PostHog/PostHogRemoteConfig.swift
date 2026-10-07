@@ -31,6 +31,10 @@ class PostHogRemoteConfig {
     private var sessionReplayLinkedFlagConfigured = false
     private var recordingSampleRate: Double?
     private var recordingMinimumDuration: TimeInterval?
+    #if os(iOS)
+        private var sessionRecordingTriggerGroups: PostHogTriggerGroupsConfig?
+        private let triggerGroupsEvaluator = PostHogTriggerGroupsEvaluator()
+    #endif
 
     private let errorTrackingLock = NSLock()
     private let pushLock = NSLock()
@@ -342,6 +346,7 @@ class PostHogRemoteConfig {
                 #if os(iOS)
                     recordingSampleRate = parseSampleRate(sessionReplay["sampleRate"])
                     recordingMinimumDuration = parseMinimumDuration(sessionReplay["minimumDurationMilliseconds"])
+                    applyTriggerGroupsConfigLocked(sessionReplay)
                 #endif
                 return (decision.flagKey, decision.flagValue)
             }
@@ -598,6 +603,8 @@ class PostHogRemoteConfig {
                 sessionReplayLock.withLock {
                     sessionReplayFlagActive = sessionRecording
                     sessionReplayLinkedFlagConfigured = false
+                    sessionRecordingTriggerGroups = nil
+                    triggerGroupsEvaluator.onConfig([])
                 }
             } else if let sessionRecording = sessionRecording as? [String: Any] {
                 // enabled in project settings, but only active locally when the replay integration is
@@ -623,7 +630,14 @@ class PostHogRemoteConfig {
             sessionReplayLinkedFlagConfigured = Self.hasLinkedFlag(recordingConfig)
             recordingSampleRate = parseSampleRate(recordingConfig["sampleRate"])
             recordingMinimumDuration = parseMinimumDuration(recordingConfig["minimumDurationMilliseconds"])
+            applyTriggerGroupsConfigLocked(recordingConfig)
             return (decision.flagKey, decision.flagValue)
+        }
+
+        private func applyTriggerGroupsConfigLocked(_ recordingConfig: [String: Any]) {
+            let parsed = parseTriggerGroupsConfig(recordingConfig)
+            sessionRecordingTriggerGroups = parsed
+            triggerGroupsEvaluator.onConfig(parsed?.groups ?? [])
         }
 
         /// Parses and validates a sample rate value which may come as a String (from the API JSON)
@@ -680,6 +694,70 @@ class PostHogRemoteConfig {
 
         func getRecordingMinimumDuration() -> TimeInterval? {
             sessionReplayLock.withLock { recordingMinimumDuration }
+        }
+
+        func hasSessionRecordingTriggerGroups() -> Bool {
+            sessionReplayLock.withLock { sessionRecordingTriggerGroups != nil }
+        }
+
+        func onSessionRecordingTriggerEvent(sessionId: String, eventName: String, properties: [String: Any]?) -> Bool {
+            triggerGroupsEvaluator.onEvent(
+                sessionId: sessionId,
+                eventName: eventName,
+                eventProperties: properties,
+                personProperties: getPersonPropertiesForFlags()
+            )
+        }
+
+        func isSessionRecordingPermittedByTriggerGroups(sessionId: String) -> Bool {
+            decideTriggerGroups(sessionId: sessionId)?.shouldRecord ?? false
+        }
+
+        func hasPendingSessionRecordingTriggerGroups(sessionId: String) -> Bool {
+            guard let decision = decideTriggerGroups(sessionId: sessionId) else { return false }
+            return !decision.shouldRecord && decision.hasPendingGroups
+        }
+
+        func getSessionRecordingTriggerGroupsMinimumDuration(sessionId: String) -> TimeInterval? {
+            guard let minDurationMs = decideTriggerGroups(sessionId: sessionId)?.minDurationMs else { return nil }
+            return TimeInterval(minDurationMs) / 1_000.0
+        }
+
+        func sessionRecordingTriggerGroupsDebugProperties(sessionId: String) -> [String: Any] {
+            let decision = decideTriggerGroups(sessionId: sessionId) ??
+                PostHogTriggerGroupsDecision(
+                    shouldRecord: false,
+                    hasPendingGroups: false,
+                    minDurationMs: nil,
+                    groupsCount: 0,
+                    matchedGroups: []
+                )
+            return [
+                "$sdk_debug_replay_remote_trigger_matching_config": "v2_trigger_groups",
+                "$sdk_debug_replay_trigger_groups_count": decision.groupsCount,
+                "$sdk_debug_replay_matched_recording_trigger_groups": decision.matchedGroups.map { group in
+                    [
+                        "id": group.id,
+                        "name": group.name,
+                        "matched": true,
+                        "sampled": group.sampled,
+                    ]
+                },
+            ]
+        }
+
+        private func decideTriggerGroups(sessionId: String) -> PostHogTriggerGroupsDecision? {
+            guard hasSessionRecordingTriggerGroups() else { return nil }
+            // Read flags before the evaluator lock: config is pushed under sessionReplayLock, so the reverse order deadlocks.
+            let flags = getFeatureFlags()
+            let personProperties = getPersonPropertiesForFlags()
+            return triggerGroupsEvaluator.evaluate(
+                sessionId: sessionId,
+                flags: flags,
+                personProperties: personProperties,
+                // React Native captures events in JS, so they never reach this evaluator.
+                eventLegsReliable: postHogSdkName != "posthog-react-native"
+            )
         }
     #endif
 
@@ -1252,6 +1330,10 @@ class PostHogRemoteConfig {
             sessionReplayFlagActive = false
             sessionReplayLinkedFlagConfigured = false
             recordingSampleRate = nil
+            #if os(iOS)
+                sessionRecordingTriggerGroups = nil
+                triggerGroupsEvaluator.onConfig([])
+            #endif
         }
 
         errorTrackingLock.withLock {

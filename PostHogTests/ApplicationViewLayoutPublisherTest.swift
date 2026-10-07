@@ -480,8 +480,9 @@
         }
 
         // invoke() hops to a background throttle queue then back to main, so effects are async.
+        // Returns as soon as the condition holds; the long ceiling only matters on a slow CI runner.
         @MainActor
-        private func waitUntil(timeoutNanoseconds: UInt64 = 1_000_000_000,
+        private func waitUntil(timeoutNanoseconds: UInt64 = 5_000_000_000,
                                pollNanoseconds: UInt64 = 5_000_000,
                                _ condition: () -> Bool) async
         {

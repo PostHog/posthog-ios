@@ -32,9 +32,9 @@
             defer { window.isHidden = true }
             #expect(window.hasCameraForReplay())
             #expect(PostHogReplayIntegration().collectMaskableRects(in: window) == nil)
-            #expect(window.toImage(preferFidelityRenderer: false, scale: 1) == nil)
-            #expect(window.toImage(preferFidelityRenderer: true, scale: 1) == nil)
-            #expect(window.toImage(afterScreenUpdates: true, scale: 1) == nil)
+            #expect(window.toImage(preferFidelityRenderer: false) == nil)
+            #expect(window.toImage(preferFidelityRenderer: true) == nil)
+            #expect(window.toImage(afterScreenUpdates: true) == nil)
         }
 
         @Test("Nested attached cameras block capture until removed, without affecting another window")
@@ -61,7 +61,7 @@
             picker.removeFromParent()
             #expect(!window.hasCameraForReplay())
             #expect(PostHogReplayIntegration().collectMaskableRects(in: window) != nil)
-            #expect(window.toImage(preferFidelityRenderer: false, scale: 1) != nil)
+            #expect(window.toImage(preferFidelityRenderer: false) != nil)
         }
 
         @Test("A skipped bridge frame leaves recording active and releases the next capture")
@@ -110,7 +110,7 @@
             defer { window.isHidden = true }
             let discarded = await withCheckedContinuation { continuation in
                 DispatchQueue.global().async {
-                    continuation.resume(returning: window.toImage(scale: 1) == nil)
+                    continuation.resume(returning: window.toImage() == nil)
                 }
             }
             #expect(discarded)
@@ -152,15 +152,15 @@
                 picker.cameraFlashMode = step.isMultiple(of: 2) ? .on : .off
                 try await Task.sleep(nanoseconds: 50_000_000)
                 #expect(integration.collectMaskableRects(in: window) == nil)
-                #expect(window.toImage(preferFidelityRenderer: false, scale: 1) == nil)
-                #expect(window.toImage(preferFidelityRenderer: true, scale: 1) == nil)
-                #expect(window.toImage(afterScreenUpdates: true, scale: 1) == nil)
+                #expect(window.toImage(preferFidelityRenderer: false) == nil)
+                #expect(window.toImage(preferFidelityRenderer: true) == nil)
+                #expect(window.toImage(afterScreenUpdates: true) == nil)
             }
             root.dismiss(animated: false)
             try await waitUntil { picker.viewIfLoaded?.window == nil }
             try #require(picker.viewIfLoaded?.window == nil)
             #expect(integration.collectMaskableRects(in: window) != nil)
-            #expect(window.toImage(preferFidelityRenderer: false, scale: 1) != nil)
+            #expect(window.toImage(preferFidelityRenderer: false) != nil)
         }
     }
 #endif

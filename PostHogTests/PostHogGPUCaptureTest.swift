@@ -188,7 +188,7 @@
             #expect(Self.isMagenta(pixel(inner.maxX - 1 / scale, inner.maxY - 1 / scale)))
 
             let uiImage = UIImage(cgImage: image, scale: scale, orientation: .up)
-            let maskedImage = try #require(RRWireframe.maskImage(uiImage, maskableWidgets: rects)?.cgImage)
+            let maskedImage = try #require(RRWireframe.maskImage(uiImage, maskableWidgets: rects, scale: scale)?.cgImage)
             let masked = try Pixels(maskedImage)
             #expect(masked.width == pixels.width && masked.height == pixels.height)
             #expect(masked.points(where: Self.isMagenta).isEmpty)
@@ -366,12 +366,13 @@
             #expect(!mirror.hasAttachedFrameForTesting)
         }
 
-        @Test("Both capture paths upload screenshotScale pixels per point, up to the screen's native scale", arguments: [
-            (gpu: true, scale: nil, width: 150, height: 225), (gpu: false, scale: nil, width: 150, height: 225),
-            (gpu: true, scale: 1, width: 200, height: 300), (gpu: true, scale: 0.5, width: 100, height: 150),
-            (gpu: true, scale: 2, width: 400, height: 600), (gpu: true, scale: 5, width: 600, height: 900),
-            (gpu: false, scale: 1, width: 200, height: 300), (gpu: false, scale: 0.5, width: 100, height: 150),
-            (gpu: false, scale: 2, width: 400, height: 600), (gpu: false, scale: 5, width: 600, height: 900),
+        @Test("GPU capture uploads screenshotScale pixels per point up to native; the default path ignores it", arguments: [
+            (gpu: true, scale: nil, width: 200, height: 300), (gpu: true, scale: 1, width: 200, height: 300),
+            (gpu: true, scale: 0.5, width: 100, height: 150), (gpu: true, scale: 2, width: 400, height: 600),
+            (gpu: true, scale: 5, width: 600, height: 900),
+            // Masked default-path frames are redrawn at one pixel per point, as before screenshotScale existed.
+            (gpu: false, scale: nil, width: 200, height: 300), (gpu: false, scale: 0.5, width: 200, height: 300),
+            (gpu: false, scale: 2, width: 200, height: 300),
         ] as [(gpu: Bool, scale: CGFloat?, width: Int, height: Int)])
         func uploadedScreenshotSize(_ capture: (gpu: Bool, scale: CGFloat?, width: Int, height: Int)) async throws {
             let mirror = try makeMirror()
@@ -412,22 +413,6 @@
             #expect(config.screenshotPixelScale(nativeScale: scales.nativeScale) == scales.expected)
         }
 
-        @Test("Default-path masks cover the content at screenshotScale 0.5")
-        func defaultPathMasksCoverAtHalfScale() throws {
-            let window = windowWithContent()
-
-            let image = try #require(window.toImage(preferFidelityRenderer: false, scale: 0.5))
-            let raw = try Pixels(#require(image.cgImage))
-            #expect(raw.width == 100 && raw.height == 150)
-            #expect(!raw.points(where: Self.isMagenta).isEmpty)
-
-            let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window))
-            let maskedImage = try #require(RRWireframe.maskImage(image, maskableWidgets: rects)?.cgImage)
-            let masked = try Pixels(maskedImage)
-            #expect(masked.width == raw.width && masked.height == raw.height)
-            #expect(masked.points(where: Self.isMagenta).isEmpty)
-        }
-
         @Test("Shared high-resolution contents are filtered when the mirror downscales them, not point-sampled")
         func downscaledContentsAreFiltered() async throws {
             let mirror = try makeMirror()
@@ -458,15 +443,15 @@
             #expect(greys.allSatisfy { (190 ... 235).contains($0) }, "min \(greys.min() ?? -1) max \(greys.max() ?? -1)")
         }
 
-        @Test("screenshotScale defaults to 0.75, is clamped to at least 0.1, and NaN or infinity reset it to 0.75", arguments: [
+        @Test("screenshotScale defaults to 1, is clamped to at least 0.1, and NaN or infinity reset it to 1", arguments: [
             (input: -CGFloat.greatestFiniteMagnitude, expected: 0.1), (input: -1, expected: 0.1), (input: 0, expected: 0.1),
             (input: 0.05, expected: 0.1), (input: 0.1, expected: 0.1), (input: 0.5, expected: 0.5), (input: 1, expected: 1),
-            (input: 2, expected: 2), (input: 5, expected: 5), (input: CGFloat.nan, expected: 0.75),
-            (input: -CGFloat.infinity, expected: 0.75), (input: CGFloat.infinity, expected: 0.75),
+            (input: 2, expected: 2), (input: 5, expected: 5), (input: CGFloat.nan, expected: 1),
+            (input: -CGFloat.infinity, expected: 1), (input: CGFloat.infinity, expected: 1),
         ] as [(input: CGFloat, expected: CGFloat)])
         func screenshotScaleIsClamped(_ scale: (input: CGFloat, expected: CGFloat)) {
             let config = PostHogSessionReplayConfig()
-            #expect(config.screenshotScale == 0.75)
+            #expect(config.screenshotScale == 1)
             config.screenshotScale = 0.25
             config.screenshotScale = scale.input
             #expect(config.screenshotScale == scale.expected)

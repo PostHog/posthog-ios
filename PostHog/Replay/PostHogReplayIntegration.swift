@@ -1225,7 +1225,7 @@
             // The settled path renders here so the pixels come from the same main-thread tick that
             // measured the mask rects — any later and the presentation tree has moved on. Callers
             // that render themselves (background capture, the bridge's first frame) pass false.
-            let image = renderImage ? window.toImage(preferFidelityRenderer: preferFidelityRenderer, scale: screenshotPixelScale(window)) : nil
+            let image = renderImage ? window.toImage(preferFidelityRenderer: preferFidelityRenderer) : nil
 
             return ScreenshotCapture(wireframe: wireframe, windowSize: window.bounds.size, timestampDate: Date(), image: image)
         }
@@ -1245,8 +1245,7 @@
                 // Only the settle-checked path picks a renderer by band; every other path keeps
                 // drawHierarchy. The bridge's first frame needs afterScreenUpdates: true on top —
                 // a freshly-presented native VC renders black otherwise.
-                let image = collectedImage
-                    ?? window.toImage(afterScreenUpdates: episodeFirstFrame, preferFidelityRenderer: true, scale: screenshotPixelScale(window))
+                let image = collectedImage ?? window.toImage(afterScreenUpdates: episodeFirstFrame, preferFidelityRenderer: true)
                 guard let image, image.size.hasSize() else {
                     return false
                 }
@@ -1611,7 +1610,7 @@
             // slow to keep up. UIKit documents it as main-thread-only, so it stays experimental
             // behind `screenshotModeBackgroundCapture` — the bracketing above is what keeps masks
             // aligned with pixels despite the render happening on this thread.
-            let image = window.toImage(preferFidelityRenderer: true, scale: screenshotPixelScale(window))
+            let image = window.toImage(preferFidelityRenderer: true)
             let capture = DispatchQueue.main.sync { () -> ScreenshotCapture? in
                 let after = self.collectMaskedRegions(in: window)
                 guard let rects = Self.sweptRects(before: before, after: after) else {
@@ -2043,11 +2042,6 @@
             case gpu, background, settled
         }
 
-        /// Pixels per point of every screenshot of `window`, masked or not (see `PostHogSessionReplayConfig.screenshotScale`).
-        func screenshotPixelScale(_ window: UIWindow) -> CGFloat {
-            config?.sessionReplayConfig.screenshotPixelScale(nativeScale: window.screen.scale) ?? 1
-        }
-
         /// Which path screenshot mode captures with. GPU capture takes precedence over background capture.
         static func screenshotCapturePath(_ config: PostHogSessionReplayConfig) -> ScreenshotCapturePath {
             if config.screenshotModeGPUCapture {
@@ -2080,6 +2074,11 @@
 
     #if canImport(Metal)
         extension PostHogReplayIntegration {
+            /// Pixels per point of a GPU capture of `window`, masked or not (see `PostHogSessionReplayConfig.screenshotScale`).
+            func gpuPixelScale(_ window: UIWindow) -> CGFloat {
+                config?.sessionReplayConfig.screenshotPixelScale(nativeScale: window.screen.scale) ?? 1
+            }
+
             /// Any thread. Gets the GPU capture's renderer ready before the first capture asks for it.
             func prewarmGPUCapture(_ postHog: PostHogSDK) {
                 let replayConfig = postHog.config.sessionReplayConfig
@@ -2089,7 +2088,7 @@
                     _ = PostHogGPUMirrorCapture.shared
                     DispatchQueue.main.async {
                         guard let self, let window = UIApplication.getCurrentWindow() else { return }
-                        self.gpuMirror?.prewarm(size: window.bounds.size, scale: self.screenshotPixelScale(window))
+                        self.gpuMirror?.prewarm(size: window.bounds.size, scale: self.gpuPixelScale(window))
                     }
                 }
             }
@@ -2117,7 +2116,7 @@
                     endGPUCapture(nil, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
                     return
                 }
-                let scale = screenshotPixelScale(window)
+                let scale = gpuPixelScale(window)
                 guard mirror.needsPrewarm(for: window.bounds.size, scale: scale) else {
                     captureMirrored(window: window, screenName: screenName, postHog: postHog, mirror: mirror, scale: scale)
                     return
@@ -2156,6 +2155,7 @@
                 let wireframe = createBasicWireframe(window)
                 wireframe.type = "screenshot"
                 wireframe.maskableWidgets = regions.map(\.rect)
+                wireframe.maskScale = frame.scale
                 let capture = MirroredCapture(frame: frame, wireframe: wireframe, windowSize: window.bounds.size,
                                               screenName: screenName, timestampDate: timestampDate)
                 // Build and render each cost up to a frame on older devices; keep them in separate turns.

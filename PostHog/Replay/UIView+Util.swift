@@ -110,8 +110,7 @@
             setPostHogFlag(&AssociatedKeys.phNoRageClick, enabled: enabled, owner: owner)
         }
 
-        /// `scale` is the image's pixels per point.
-        func toImage(afterScreenUpdates: Bool = false, preferFidelityRenderer: Bool = true, scale: CGFloat) -> UIImage? {
+        func toImage(afterScreenUpdates: Bool = false, preferFidelityRenderer: Bool = true) -> UIImage? {
             // Background capture also enters here; controller traversal belongs on main.
             let hasCamera = {
                 (self as? UIWindow ?? self.window)?.hasCameraForReplay() ?? false
@@ -127,7 +126,10 @@
                 return nil
             }
 
-            let renderer = PostHogGraphicsImageRenderer(size: size, scale: scale)
+            // Use native screen scale for best drawHierarchy performance.
+            // Using a non-native scale can trigger internal rescaling overhead.
+            let nativeScale = (self as? UIWindow ?? window)?.screen.scale ?? 1
+            let renderer = PostHogGraphicsImageRenderer(size: size, scale: nativeScale)
 
             return autoreleasepool {
                 renderer.image { context in

@@ -1685,16 +1685,32 @@ enum PostHogFeatureFlagsTest {
             let sut = track(PostHogSDK.with(config))
             await reload(sut)
 
+            // Hold the first failed response so the next two reloads coalesce into one pending request
+            let firstResponseGate = DispatchSemaphore(value: 0)
+            let lock = NSLock()
+            var failedRequests = 0
             server.flagsResponseHandler = { _ in
-                HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+                let count = lock.withLock {
+                    failedRequests += 1
+                    return failedRequests
+                }
+                if count == 1 {
+                    _ = firstResponseGate.wait(timeout: .now() + 5)
+                }
+                return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
             }
-            // The first reload is in flight, so the next two coalesce into one pending request.
             sut.reloadFeatureFlags { _ in }
-            sut.reloadFeatureFlags { _ in sut.reset() }
+            var requestsBeforeReset = 0
+            sut.reloadFeatureFlags { _ in
+                requestsBeforeReset = lock.withLock { failedRequests }
+                sut.reset()
+            }
             let (result, flagAfterReset) = await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags { continuation.resume(returning: ($0, sut.getFeatureFlag("string-value"))) }
+                firstResponseGate.signal()
             }
 
+            #expect(requestsBeforeReset == 2)
             #expect(result.errorsLoading == true)
             #expect(result.variants["string-value"] as? String == "test")
             #expect(flagAfterReset == nil)

@@ -206,11 +206,7 @@ let maxRetryDelay = 30.0
             })
 
             #if !os(watchOS)
-                do {
-                    reachability = try Reachability()
-                } catch {
-                    // ignored
-                }
+                reachability = Reachability()
                 context = PostHogContext(reachability)
             #else
                 context = PostHogContext()
@@ -1246,10 +1242,7 @@ let maxRetryDelay = 30.0
                 return true
             }
             guard let reachability else { return true }
-            if case .unavailable = reachability.connection {
-                return false
-            }
-            return true
+            return reachability.connection != .unavailable
         #else
             return true
         #endif

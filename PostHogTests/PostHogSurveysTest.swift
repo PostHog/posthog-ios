@@ -621,6 +621,7 @@ enum PostHogSurveysTest {
         }
 
         deinit {
+            integration.uninstall(postHog)
             server.stop()
             postHog.close()
             postHog.reset()
@@ -841,6 +842,7 @@ enum PostHogSurveysTest {
     class TestGetActiveSurveys {
         let server: MockPostHogServer
         let postHog: PostHogSDK
+        let integrations = TestIntegrationLifetime()
 
         #if os(iOS)
             final class SpySurveysDelegate: NSObject, PostHogSurveysDelegate {
@@ -886,6 +888,7 @@ enum PostHogSurveysTest {
         }
 
         deinit {
+            integrations.stopAll()
             let storage = PostHogStorage(postHog.config)
             postHog.close()
             deleteSafely(storage.appFolderUrl)
@@ -1201,7 +1204,7 @@ enum PostHogSurveysTest {
             PostHogSurveyIntegration.clearInstalls()
             let installOutcome = sut.install(postHog)
             #expect(installOutcome == .installed)
-            return sut
+            return integrations.track(sut)
         }
 
         private func parseSurveys(_ surveys: String) throws -> [[String: Any]] {
@@ -1461,6 +1464,9 @@ enum PostHogSurveysTest {
                 let delegate = SpySurveysDelegate()
                 postHog.config._surveysConfig.surveysDelegate = delegate
                 let sut = getSut(surveys: [])
+                // Start from a known-empty cache: a nil cache would make the first opportunity
+                // cold-load remote config, racing the config this test injects below.
+                sut.setSurveys([])
                 sut.hasActiveSurveyWindow = { true }
 
                 server.flagsResponseHandler = { _ in
@@ -1745,6 +1751,7 @@ enum PostHogSurveysTest {
         let server: MockPostHogServer
         let postHog: PostHogSDK
         let storage: PostHogStorage
+        let integrations = TestIntegrationLifetime()
 
         init() {
             let config = PostHogConfig(projectToken: "test_survey_wait_period", host: "http://localhost:9090")
@@ -1762,6 +1769,7 @@ enum PostHogSurveysTest {
         }
 
         deinit {
+            integrations.stopAll()
             server.stop()
             postHog.close()
             postHog.reset()
@@ -1812,7 +1820,7 @@ enum PostHogSurveysTest {
             PostHogSurveyIntegration.clearInstalls()
             let installOutcome = sut.install(postHog)
             #expect(installOutcome == .installed)
-            return sut
+            return integrations.track(sut)
         }
 
         @Test("survey without wait period is not filtered")

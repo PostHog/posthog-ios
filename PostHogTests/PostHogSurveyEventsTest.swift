@@ -192,6 +192,31 @@ class PostHogSurveyEventsTest {
         resumed.uninstall(postHog)
     }
 
+    @Test("a survey shown before a restart starts the wait period without marking it seen")
+    func shownSurveyStartsWaitPeriod() throws {
+        let postHog = getSut()
+        defer { postHog.reset()
+            postHog.close()
+        }
+        let storage = try #require(postHog.storage)
+        postHog.config.setBeforeSend { _ in nil }
+        let survey = try partialResponseSurvey(enabled: false, properties: ["start_date": 0])
+        let first = try getSurveyIntegration(postHog)
+        first.setShownSurvey(survey)
+        first.testHandleSurveyShown(survey: survey.toDisplaySurvey())
+        #expect(storage.getDictionary(forKey: .surveySeen)?["seenSurvey_partial-survey"] == nil)
+        first.uninstall(postHog)
+        let waiting = try partialResponseSurvey(enabled: false, properties: [
+            "id": "waiting-survey", "start_date": 0, "conditions": ["seenSurveyWaitPeriodInDays": 7],
+        ])
+        let relaunched = try getSurveyIntegration(postHog)
+        relaunched.setSurveys([waiting])
+        var matching: [PostHogSurvey] = []
+        relaunched.getActiveMatchingSurveys { matching = $0 }
+        #expect(matching.isEmpty)
+        relaunched.uninstall(postHog)
+    }
+
     @Test("reset invalidates an attempt before its first answer", arguments: [false, true])
     func resetBeforeFirstAnswer(keepAnonymousId: Bool) throws {
         let postHog = getSut()

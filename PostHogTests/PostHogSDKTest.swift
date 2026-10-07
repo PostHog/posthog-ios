@@ -495,7 +495,8 @@ final class PostHogSDKTests {
             let events = getBatchedEvents(server)
             let props = try #require(events.first).properties
             #expect(props["$recording_status"] as? String == "disabled")
-            #expect(props["$sdk_debug_pending_queue_size"] as? Int != -1)
+            let pendingQueueSize = try #require(props["$sdk_debug_pending_queue_size"] as? Int)
+            #expect(pendingQueueSize != -1)
 
             sut.reset()
             sut.close()

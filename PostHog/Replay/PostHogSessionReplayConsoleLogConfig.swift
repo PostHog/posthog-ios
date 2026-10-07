@@ -23,9 +23,11 @@
         /// - Detect log level (best effort)
         /// - Process OSLog messages to remove metadata
         ///
+        /// The block runs on a background thread, so it must not read main-actor state.
+        ///
         /// - Parameter output: The raw console output to process.
         /// - Returns: A `PostHogConsoleLogEntry` to capture, or `nil` to skip the log output.
-        @objc public var logSanitizer: ((String) -> PostHogConsoleLogEntry?) = PostHogSessionReplayConsoleLogConfig.defaultLogSanitizer
+        @objc public var logSanitizer: (@Sendable (String) -> PostHogConsoleLogEntry?) = PostHogSessionReplayConsoleLogConfig.defaultLogSanitizer
 
         /// The minimum log level to capture in session replay.
         /// Only log messages with this level or higher will be captured.
@@ -38,7 +40,7 @@
         @objc public var minLogLevel: PostHogConsoleLogLevel = .error
 
         /// Default implementation for processing console output.
-        static func defaultLogSanitizer(_ message: String) -> PostHogConsoleLogEntry? {
+        @Sendable static func defaultLogSanitizer(_ message: String) -> PostHogConsoleLogEntry? {
             let message = String(message)
             // Determine console log level
             let level: PostHogConsoleLogLevel = {

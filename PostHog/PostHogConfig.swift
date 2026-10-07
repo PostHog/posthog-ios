@@ -13,7 +13,7 @@ import Foundation
 ///
 /// - Parameter event: The event about to be queued.
 /// - Returns: The event to queue, or `nil` to drop it.
-public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
+public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
 
 /// Runtime configuration for a `PostHogSDK` instance.
 ///
@@ -205,7 +205,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// here stalls the SDK's push retry/offline-resume flow (though not your app's main thread).
     ///
     /// Default: `nil` (requests carry no identity token).
-    @objc public var pushIdentityProvider: ((_ distinctId: String, _ appId: String, _ completion: @escaping (String?) -> Void) -> Void)?
+    @objc public var pushIdentityProvider: (@Sendable (_ distinctId: String, _ appId: String, _ completion: @escaping @Sendable (String?) -> Void) -> Void)?
 
     #if os(iOS) || targetEnvironment(macCatalyst)
         /// Enables UIKit element interaction autocapture on iOS and Mac Catalyst.
@@ -282,11 +282,12 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Hook used to customize newly generated anonymous IDs.
     ///
     /// The SDK passes its generated UUID v7 and stores the UUID returned by this closure.
-    /// Existing stored anonymous IDs are not regenerated.
+    /// Existing stored anonymous IDs are not regenerated. The closure can be called on any thread,
+    /// so it must not read main-actor state.
     ///
     /// - Parameter uuid: The SDK-generated anonymous UUID.
     /// - Returns: The UUID to persist as the anonymous ID.
-    @objc public var getAnonymousId: ((UUID) -> UUID) = { uuid in uuid }
+    @objc public var getAnonymousId: (@Sendable (UUID) -> UUID) = { uuid in uuid }
 
     /// Pre-seeded identity and feature-flag state applied during setup, before any
     /// network request completes.
@@ -604,7 +605,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     @available(swift, obsoleted: 1.0, message: "Use setBeforeSend(_ blocks: BeforeSendBlock...) instead")
     @objc public func setBeforeSend(_ blocks: [BoxedBeforeSendBlock]) {
         setBeforeSend(blocks.map { box in
-            { event in box.invokeSafely(with: event) }
+            { @Sendable event in box.invokeSafely(with: event) }
         })
     }
 

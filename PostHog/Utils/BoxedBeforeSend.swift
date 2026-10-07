@@ -13,7 +13,7 @@ internal import PostHogObjCExceptionSupport
 
 /// ObjC wrapper for the events `beforeSend` block. Use with
 /// `PostHogConfig.setBeforeSend(_:)`.
-@objc public final class BoxedBeforeSendBlock: NSObject {
+@objc public final class BoxedBeforeSendBlock: NSObject, Sendable {
     /// Wrapped event callback.
     @objc public let block: BeforeSendBlock
 
@@ -35,7 +35,7 @@ internal import PostHogObjCExceptionSupport
 
 /// ObjC wrapper for the logs `beforeSend` block. Use with
 /// `PostHogLogsConfig.setBeforeSend(_:)`.
-@objc public final class BoxedBeforeSendLogBlock: NSObject {
+@objc public final class BoxedBeforeSendLogBlock: NSObject, Sendable {
     /// Wrapped log callback.
     @objc public let block: PostHogBeforeSendLogBlock
 

@@ -69,7 +69,7 @@ class PostHogGeoIpTests {
         let sut = getSut()
 
         await withCheckedContinuation { continuation in
-            sut.reloadFeatureFlags {
+            sut.reloadFeatureFlags { _ in
                 continuation.resume()
             }
         }
@@ -87,7 +87,7 @@ class PostHogGeoIpTests {
         let sut = getSut(disableGeoIp: true)
 
         await withCheckedContinuation { continuation in
-            sut.reloadFeatureFlags {
+            sut.reloadFeatureFlags { _ in
                 continuation.resume()
             }
         }

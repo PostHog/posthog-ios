@@ -94,7 +94,7 @@
     NSLog(@"getFeatureFlagResult payload: %@", [[PostHogSDK shared] getFeatureFlagResult:@"myFlag"].payload);
     
     [[PostHogSDK shared] reloadFeatureFlags];
-    [[PostHogSDK shared] reloadFeatureFlagsWithCallback:^(){
+    [[PostHogSDK shared] reloadFeatureFlagsWithCallback:^(PostHogFeatureFlagsLoaded *result){
         NSLog(@"called");
     }];
     

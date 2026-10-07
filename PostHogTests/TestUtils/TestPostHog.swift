@@ -6,41 +6,21 @@
 //
 
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
 import Testing
 import XCTest
 
-final class TestPollingConfiguration: QuickConfiguration {
-    override class func configure(_ configuration: QCKConfiguration) {
-        // Shared CI runners run several times slower than local (one job was ~6x), so Nimble's
-        // default 1s poll timeout makes async assertions flake when background work is starved.
-        // Raise the ceiling generously — toEventually still returns as soon as it passes.
-        PollingDefaults.timeout = .seconds(30)
-        configuration.beforeEach {
-            // Some suites mock the global `now` clock and don't restore it; a leaked fixed clock
-            // makes the timestamp-keyed queue collide events (lost batches). Reset before each test.
-            now = { Date() }
-            // storage.reset() deliberately keeps the on-disk event queue, so a prior test's unsent
-            // event can leak into the next test's batch and inflate counts. Wipe persisted state so
-            // every Quick test starts from a clean slate.
-            deleteSafely(applicationSupportDirectoryURL())
-        }
-    }
-}
-
-// Shared CI runners run several times slower than local, so the request-arrival waits below need the
-// same generous ceiling we give Nimble's PollingDefaults above — otherwise a starved background flush
-// makes "the expected requests never arrived" flake. The fast path still returns as soon as the
-// request lands; the ceiling only matters when the runner is contended.
+// Shared CI runners run several times slower than local (one job was ~6x), so the request-arrival waits
+// below need a generous ceiling — otherwise a starved background flush makes "the expected requests
+// never arrived" flake. The fast path still returns as soon as the request lands; the ceiling only
+// matters when the runner is contended.
 let testRequestTimeout: TimeInterval = 30.0
 
 func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = testRequestTimeout, failIfNotCompleted: Bool = true) -> [PostHogEvent] {
     let result = XCTWaiter.wait(for: [server.batchExpectation!], timeout: timeout)
 
     if result != XCTWaiter.Result.completed, failIfNotCompleted {
-        XCTFail("The expected requests never arrived")
+        Issue.record("The expected requests never arrived")
     }
 
     var events: [PostHogEvent] = []
@@ -56,7 +36,7 @@ func waitFlagsRequest(_ server: MockPostHogServer) {
     let result = XCTWaiter.wait(for: [server.flagsExpectation!], timeout: testRequestTimeout)
 
     if result != XCTWaiter.Result.completed {
-        XCTFail("The expected requests never arrived")
+        Issue.record("The expected requests never arrived")
     }
 }
 
@@ -71,7 +51,7 @@ func waitForFeatureFlagsLoaded(_ server: MockPostHogServer, _ sut: PostHogSDK) {
     let token = sut.remoteConfig?.onFeatureFlagsLoaded.subscribe { _ in flagsLoaded.fulfill() }
     waitFlagsRequest(server)
     if XCTWaiter.wait(for: [flagsLoaded], timeout: testRequestTimeout) != .completed {
-        XCTFail("Feature flags were not loaded in time")
+        Issue.record("Feature flags were not loaded in time")
     }
     _ = token // hold the subscription for the duration of the wait
 }
@@ -133,9 +113,9 @@ final class MockDate {
 // MARK: - Global state isolation
 
 /// Resets the process-global state that tests mutate, so a value one test leaves behind can't bleed
-/// into the next. Swift Testing has no global `beforeEach` (unlike the Quick `TestPollingConfiguration`
-/// above), so suites that touch these globals carry `.resetsGlobalState`; new code should prefer the
-/// scoped `withMockedNow`/`withMockedClock` helpers, which can't forget to restore.
+/// into the next. Swift Testing has no global `beforeEach`, so suites that touch these globals carry
+/// `.resetsGlobalState`; new code should prefer the scoped `withMockedNow`/`withMockedClock` helpers,
+/// which can't forget to restore.
 func resetPostHogTestGlobals() {
     now = { Date() }
     postHogSdkName = postHogiOSSdkName
@@ -157,9 +137,8 @@ func withMockedClock<T>(perform body: (MockDate) async throws -> T) async rethro
     return try await withMockedNow({ clock.date }) { try await body(clock) }
 }
 
-/// Swift Testing trait that runs `resetPostHogTestGlobals()` before and after every test in the suite —
-/// the equivalent of the Quick `beforeEach` reset the XCTest side already has. Attach to any suite that
-/// mutates a shared global: `@Suite(..., .resetsGlobalState)`.
+/// Swift Testing trait that runs `resetPostHogTestGlobals()` before and after every test in the suite.
+/// Attach to any suite that mutates a shared global: `@Suite(..., .resetsGlobalState)`.
 struct ResetGlobalStateTrait: TestTrait, SuiteTrait, TestScoping {
     var isRecursive: Bool { true }
 

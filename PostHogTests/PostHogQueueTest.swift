@@ -6,13 +6,10 @@
 //
 
 import Foundation
-import Nimble
 import OHHTTPStubs
 import OHHTTPStubsSwift
 @testable import PostHog
-import Quick
 import Testing
-import XCTest
 
 private final class ControlledBatchSender {
     private let lock = NSLock()
@@ -40,8 +37,40 @@ private final class ControlledBatchSender {
     }
 }
 
-class PostHogQueueTest: QuickSpec {
+@Suite("PostHog queue", .serialized, .resetsGlobalState)
+final class PostHogQueueTest {
     private var cleanupJobs = [() -> Void]()
+    private let server: MockPostHogServer
+
+    init() {
+        deleteSafely(applicationSupportDirectoryURL())
+        server = MockPostHogServer()
+        server.start()
+    }
+
+    deinit {
+        cleanupJobs.forEach { $0() }
+        cleanupJobs.removeAll()
+        server.stop()
+    }
+
+    /// Polls until `value` equals `expected` (up to 30s, the old polling ceiling), then asserts it.
+    private func expectEventually<T: Equatable>(
+        _ value: () -> T,
+        _ expected: T,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) async {
+        await waitUntil(timeout: 30) { value() == expected }
+        let actual = value()
+        #expect(actual == expected, sourceLocation: sourceLocation)
+    }
+
+    /// Waits for an upload-processed latch (formerly an `XCTestExpectation` + `XCTWaiter.wait`) and
+    /// asserts it was signaled before the timeout.
+    private func expectSignaled(_ latch: AsyncLatch, sourceLocation: SourceLocation = #_sourceLocation) async {
+        await latch.wait(timeout: testRequestTimeout)
+        #expect(latch.isSignaled, sourceLocation: sourceLocation)
+    }
 
     private func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3, sender: ControlledBatchSender? = nil, afterUpload: (() -> Void)? = nil) -> PostHogQueue<PostHogEvent> {
         let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
@@ -84,490 +113,495 @@ class PostHogQueueTest: QuickSpec {
         return sut
     }
 
-    override func spec() {
-        var server: MockPostHogServer!
-
-        beforeEach {
-            server = MockPostHogServer()
-            server.start()
-        }
-        afterEach {
-            self.cleanupJobs.forEach { $0() }
-            self.cleanupJobs.removeAll()
-            server.stop()
-        }
-
-        it("isolates storage between queue fixtures") {
-            let first = self.getSut(flushAt: 100)
-            let second = self.getSut(flushAt: 100)
-            defer {
-                first.clear()
-                second.clear()
-            }
-            second.add(PostHogEvent(event: "retained", distinctId: "id"))
+    @Test("isolates storage between queue fixtures")
+    func isolatesStorageBetweenQueueFixtures() {
+        let first = getSut(flushAt: 100)
+        let second = getSut(flushAt: 100)
+        defer {
             first.clear()
-            expect(second.fileQueue.peek(10).count) == 1
+            second.clear()
+        }
+        second.add(PostHogEvent(event: "retained", distinctId: "id"))
+        first.clear()
+        #expect(second.fileQueue.peek(10).count == 1)
+    }
+
+    @Test("add item to queue")
+    func addItemToQueue() async {
+        let sut = getSut()
+
+        let event = PostHogEvent(event: "event", distinctId: "distinctId")
+        sut.add(event)
+
+        #expect(sut.depth == 1)
+
+        let events = getBatchedEvents(server)
+        #expect(events.count == 1)
+
+        // getBatchedEvents only waits for the request to arrive; the queue pops the batch after
+        // the response is processed, so poll rather than assert synchronously.
+        await expectEventually({ sut.depth }, 0)
+
+        sut.clear()
+    }
+
+    @Test("add item to queue and flush respecting flushAt")
+    func addItemToQueueAndFlushRespectingFlushAt() async {
+        let sender = ControlledBatchSender()
+        let sut = getSut(flushAt: 2, sender: sender)
+
+        let event = PostHogEvent(event: "event", distinctId: "distinctId")
+        let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
+        let event3 = PostHogEvent(event: "event3", distinctId: "distinctId3")
+
+        sut.add(event)
+        #expect(sut.depth == 1)
+
+        #expect(sender.requestCount == 0)
+        sut.add(event2)
+        await expectEventually({ sender.requestCount }, 1)
+        #expect(sender.batches.first?.map(\.event) == ["event", "event2"])
+        #expect(sut.depth == 2)
+        sender.completeRequest(at: 0, with: PostHogUploadInfo(statusCode: 200, error: nil))
+        #expect(sut.depth == 0)
+
+        sut.add(event3)
+        #expect(sut.depth == 1)
+        #expect(sender.requestCount == 1)
+
+        sut.clear()
+    }
+
+    @Test("add item to queue and rotate queue")
+    func addItemToQueueAndRotateQueue() throws {
+        let sut = getSut(flushAt: 3, maxQueueSize: 2)
+
+        let event = PostHogEvent(event: "event", distinctId: "distinctId")
+        let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
+        let event3 = PostHogEvent(event: "event3", distinctId: "distinctId3")
+        sut.add(event)
+        sut.add(event2)
+        sut.add(event3)
+
+        #expect(sut.depth == 2)
+
+        sut.flush()
+
+        let events = getBatchedEvents(server)
+
+        #expect(events.count == 2)
+
+        let first = try #require(events.first)
+        let last = try #require(events.last)
+        #expect(first.event == "event2")
+        #expect(last.event == "event3")
+
+        sut.clear()
+    }
+
+    @Test("halves both batch cap and flush threshold and retains batch on HTTP 413 when cap > 1")
+    func halvesBatchCapAndFlushAtOn413WhenCapAboveOne() async {
+        let sut = getSut(flushAt: 4, maxBatchSize: 4)
+        server.batchResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
         }
 
-        it("add item to queue") {
-            let sut = self.getSut()
-
-            let event = PostHogEvent(event: "event", distinctId: "distinctId")
-            sut.add(event)
-
-            expect(sut.depth) == 1
-
-            let events = getBatchedEvents(server)
-            expect(events.count) == 1
-
-            // getBatchedEvents only waits for the request to arrive; the queue pops the batch after
-            // the response is processed, so poll rather than assert synchronously.
-            expect(sut.depth).toEventually(equal(0))
-
-            sut.clear()
+        for i in 0 ..< 4 {
+            sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
         }
 
-        it("add item to queue and flush respecting flushAt") {
-            let sender = ControlledBatchSender()
-            let sut = self.getSut(flushAt: 2, sender: sender)
+        _ = getBatchedEvents(server)
 
-            let event = PostHogEvent(event: "event", distinctId: "distinctId")
-            let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
-            let event3 = PostHogEvent(event: "event3", distinctId: "distinctId3")
+        await expectEventually({ sut.currentBatchCapForTesting }, 2)
+        await expectEventually({ sut.currentFlushAtForTesting }, 2)
+        await expectEventually({ sut.depth }, 4)
 
-            sut.add(event)
-            expect(sut.depth) == 1
+        sut.clear()
+    }
 
-            expect(sender.requestCount) == 0
-            sut.add(event2)
-            expect(sender.requestCount).toEventually(equal(1))
-            expect(sender.batches.first?.map(\.event)) == ["event", "event2"]
-            expect(sut.depth) == 2
-            sender.completeRequest(at: 0, with: PostHogUploadInfo(statusCode: 200, error: nil))
-            expect(sut.depth) == 0
-
-            sut.add(event3)
-            expect(sut.depth) == 1
-            expect(sender.requestCount) == 1
-
-            sut.clear()
+    @Test("halves cap based on actual batch size when queue depth was below cap")
+    func halvesCapBasedOnActualBatchSizeWhenQueueDepthWasBelowCap() async {
+        // cap=10, but only 4 events were sent (queue depth was below cap).
+        // Halve from `min(cap, batchSize)` = 4 → cap = 2, not 5. Avoids
+        // wasted halvings on a cap that wasn't reached anyway.
+        let sut = getSut(flushAt: 4, maxBatchSize: 10)
+        server.batchResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
         }
 
-        it("add item to queue and rotate queue") {
-            let sut = self.getSut(flushAt: 3, maxQueueSize: 2)
+        for i in 0 ..< 4 {
+            sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
+        }
 
-            let event = PostHogEvent(event: "event", distinctId: "distinctId")
-            let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
-            let event3 = PostHogEvent(event: "event3", distinctId: "distinctId3")
-            sut.add(event)
-            sut.add(event2)
-            sut.add(event3)
+        _ = getBatchedEvents(server)
 
-            expect(sut.depth) == 2
+        await expectEventually({ sut.currentBatchCapForTesting }, 2)
+        await expectEventually({ sut.depth }, 4)
 
+        sut.clear()
+    }
+
+    @Test("clamps flushAt to cap on halve so we don't buffer more than a batch")
+    func clampsFlushAtToCapOnHalve() async {
+        // cap=20, flushAt=10. A 413 fires on a partial batch of 2 events.
+        // Cap halves aggressively (min(20, 2) / 2 = 1) while flushAt would
+        // halve to 5 — leaving flushAt > cap and piling 5 events to send
+        // 1 at a time. Clamping flushAt to cap keeps them in step.
+        let sut = getSut(flushAt: 10, maxBatchSize: 20)
+        server.batchResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
+        }
+
+        for i in 0 ..< 2 {
+            sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
+        }
+        sut.flush()
+
+        _ = getBatchedEvents(server)
+
+        await expectEventually({ sut.currentBatchCapForTesting }, 1)
+        await expectEventually({ sut.currentFlushAtForTesting }, 1)
+
+        sut.clear()
+    }
+
+    @Test("drops batch on HTTP 413 when cap is already 1")
+    func dropsBatchOn413WhenCapIsAlreadyOne() async {
+        let sut = getSut(flushAt: 1, maxBatchSize: 1)
+        server.batchResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
+        }
+
+        sut.add(PostHogEvent(event: "oversized", distinctId: "id"))
+
+        _ = getBatchedEvents(server)
+
+        await expectEventually({ sut.depth }, 0)
+        // Cap stays at 1 — no reset to maxBatchSize, matching Android.
+        #expect(sut.currentBatchCapForTesting == 1)
+
+        sut.clear()
+    }
+
+    @Test("retains batch on retriable 5xx and does not change cap")
+    func retainsBatchOnRetriable5xxAndDoesNotChangeCap() async {
+        let sut = getSut(flushAt: 2, maxBatchSize: 4)
+        server.batchResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+        }
+
+        sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
+        sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
+
+        _ = getBatchedEvents(server)
+
+        await expectEventually({ sut.depth }, 2)
+        await expectEventually({ sut.currentBatchCapForTesting }, 4)
+
+        sut.clear()
+    }
+
+    @Test("retains batch on HTTP 429 and does not change cap")
+    func retainsBatchOnHTTP429AndDoesNotChangeCap() async {
+        let sut = getSut(flushAt: 2, maxBatchSize: 4)
+        server.batchResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 429, headers: nil)
+        }
+
+        sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
+        sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
+
+        _ = getBatchedEvents(server)
+
+        await expectEventually({ sut.depth }, 2)
+        await expectEventually({ sut.currentBatchCapForTesting }, 4)
+
+        sut.clear()
+    }
+
+    @Test("retains batch on HTTP 408 (request timeout is retriable) and does not change cap")
+    func retainsBatchOnHTTP408AndDoesNotChangeCap() async {
+        let sut = getSut(flushAt: 2, maxBatchSize: 4)
+        server.batchResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 408, headers: nil)
+        }
+
+        sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
+        sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
+
+        _ = getBatchedEvents(server)
+
+        await expectEventually({ sut.depth }, 2)
+        await expectEventually({ sut.currentBatchCapForTesting }, 4)
+
+        sut.clear()
+    }
+
+    @Test("retains retryable HTTP failures past maxRetries and drains after recovery")
+    func retainsRetryableHTTPFailuresPastMaxRetriesAndDrainsAfterRecovery() async {
+        let mockNow = MockDate()
+        now = { mockNow.date }
+        defer { now = { Date() } }
+
+        let uploads = (1 ... 6).map { _ in AsyncLatch() }
+        var uploadIndex = 0
+        let sut = getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 1) {
+            let upload = uploads[uploadIndex]
+            uploadIndex += 1
+            upload.signal()
+        }
+        server.start(batchCount: 6)
+        server.batchResponseHandler = { _, requestNumber in
+            requestNumber <= 3 || requestNumber == 5
+                ? HTTPStubsResponse(jsonObject: [], statusCode: 503, headers: nil)
+                : HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+        }
+
+        sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
+        sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
+
+        for expectedAttempt in 1 ... 3 {
             sut.flush()
-
-            let events = getBatchedEvents(server)
-
-            expect(events.count) == 2
-
-            let first = events.first!
-            let last = events.last!
-            expect(first.event) == "event2"
-            expect(last.event) == "event3"
-
-            sut.clear()
+            await expectEventually({ server.batchRequests.count }, expectedAttempt)
+            await expectSignaled(uploads[expectedAttempt - 1])
+            #expect(sut.currentRetryCountForTesting == expectedAttempt)
+            #expect(sut.depth == 2)
+            mockNow.date.addTimeInterval(60)
         }
 
-        it("halves both batch cap and flush threshold and retains batch on HTTP 413 when cap > 1") {
-            let sut = self.getSut(flushAt: 4, maxBatchSize: 4)
-            server.batchResponseHandler = { _, _ in
-                HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
-            }
+        sut.flush()
+        await expectSignaled(uploads[3])
+        #expect(server.batchRequests.count == 4)
+        #expect(sut.depth == 0)
+        #expect(sut.currentRetryCountForTesting == 0)
 
-            for i in 0 ..< 4 {
-                sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
-            }
+        sut.add(PostHogEvent(event: "fresh", distinctId: "id3"))
+        sut.flush()
+        await expectSignaled(uploads[4])
+        #expect(server.batchRequests.count == 5)
+        #expect(sut.currentRetryCountForTesting == 1)
+        #expect(sut.depth == 1)
+        sut.flush()
+        #expect(server.batchRequests.count == 5)
+        mockNow.date.addTimeInterval(1)
+        sut.flush()
+        await expectSignaled(uploads[5])
+        #expect(server.batchRequests.count == 6)
+        await expectEventually({ sut.depth }, 0)
+        await expectEventually({ sut.currentRetryCountForTesting }, 0)
 
-            _ = getBatchedEvents(server)
+        sut.clear()
+    }
 
-            expect(sut.currentBatchCapForTesting).toEventually(equal(2))
-            expect(sut.currentFlushAtForTesting).toEventually(equal(2))
-            expect(sut.depth).toEventually(equal(4))
+    @Test("retains transport failures past maxRetries and drains after recovery")
+    func retainsTransportFailuresPastMaxRetriesAndDrainsAfterRecovery() async {
+        let mockNow = MockDate()
+        now = { mockNow.date }
+        defer { now = { Date() } }
 
-            sut.clear()
+        let uploads = (1 ... 4).map { _ in AsyncLatch() }
+        var uploadIndex = 0
+        let sut = getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 0) {
+            let upload = uploads[uploadIndex]
+            uploadIndex += 1
+            upload.signal()
+        }
+        let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost, userInfo: nil)
+        server.start(batchCount: 4)
+        server.batchResponseHandler = { _, requestNumber in
+            requestNumber <= 3
+                ? HTTPStubsResponse(error: networkError)
+                : HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
         }
 
-        it("halves cap based on actual batch size when queue depth was below cap") {
-            // cap=10, but only 4 events were sent (queue depth was below cap).
-            // Halve from `min(cap, batchSize)` = 4 → cap = 2, not 5. Avoids
-            // wasted halvings on a cap that wasn't reached anyway.
-            let sut = self.getSut(flushAt: 4, maxBatchSize: 10)
-            server.batchResponseHandler = { _, _ in
-                HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
-            }
+        sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
+        sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
 
-            for i in 0 ..< 4 {
-                sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
-            }
-
-            _ = getBatchedEvents(server)
-
-            expect(sut.currentBatchCapForTesting).toEventually(equal(2))
-            expect(sut.depth).toEventually(equal(4))
-
-            sut.clear()
-        }
-
-        it("clamps flushAt to cap on halve so we don't buffer more than a batch") {
-            // cap=20, flushAt=10. A 413 fires on a partial batch of 2 events.
-            // Cap halves aggressively (min(20, 2) / 2 = 1) while flushAt would
-            // halve to 5 — leaving flushAt > cap and piling 5 events to send
-            // 1 at a time. Clamping flushAt to cap keeps them in step.
-            let sut = self.getSut(flushAt: 10, maxBatchSize: 20)
-            server.batchResponseHandler = { _, _ in
-                HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
-            }
-
-            for i in 0 ..< 2 {
-                sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
-            }
+        for expectedAttempt in 1 ... 3 {
             sut.flush()
-
-            _ = getBatchedEvents(server)
-
-            expect(sut.currentBatchCapForTesting).toEventually(equal(1))
-            expect(sut.currentFlushAtForTesting).toEventually(equal(1))
-
-            sut.clear()
+            await expectEventually({ server.batchRequests.count }, expectedAttempt)
+            await expectSignaled(uploads[expectedAttempt - 1])
+            #expect(sut.currentRetryCountForTesting == expectedAttempt)
+            #expect(sut.depth == 2)
+            mockNow.date.addTimeInterval(60)
         }
 
-        it("drops batch on HTTP 413 when cap is already 1") {
-            let sut = self.getSut(flushAt: 1, maxBatchSize: 1)
-            server.batchResponseHandler = { _, _ in
-                HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
-            }
+        sut.flush()
+        await expectSignaled(uploads[3])
+        #expect(server.batchRequests.count == 4)
+        await expectEventually({ sut.depth }, 0)
 
-            sut.add(PostHogEvent(event: "oversized", distinctId: "id"))
+        sut.clear()
+    }
 
-            _ = getBatchedEvents(server)
+    @Test("late success removes exact in-flight identities after full-capacity replacement")
+    func lateSuccessRemovesExactInFlightIdentitiesAfterFullCapacityReplacement() async {
+        let config = PostHogConfig(projectToken: "queue_identity_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.flushAt = 100
+        config.maxQueueSize = 2
+        config.maxBatchSize = 2
+        let storage = PostHogStorage(config)
+        let sender = ControlledBatchSender()
+        let endpoint = QueueEndpoint<PostHogEvent>(
+            storageKey: .queue,
+            oldStorageKeys: [],
+            dispatchQueueLabel: "com.posthog.Queue.IdentityTest",
+            initialCap: { $0.maxBatchSize },
+            initialFlushAt: { $0.flushAt },
+            maxQueueSize: { $0.maxQueueSize },
+            flushIntervalSeconds: { $0.flushIntervalSeconds },
+            rateCapMax: { _ in 0 },
+            rateCapWindowSeconds: { _ in 0 },
+            encode: { toJSONData($0.toJSON()) },
+            decode: { PostHogEvent.fromJSON($0) },
+            describe: { $0.event },
+            send: sender.send,
+            isRetriableStatusCode: { _ in false }
+        )
+        let sut = PostHogQueue(config, storage, endpoint, nil)
+        defer { sut.clear() }
+        let identicalEvent = PostHogEvent(event: "identical", distinctId: "same-id")
 
-            expect(sut.depth).toEventually(equal(0))
-            // Cap stays at 1 — no reset to maxBatchSize, matching Android.
-            expect(sut.currentBatchCapForTesting) == 1
+        sut.add(identicalEvent)
+        sut.add(identicalEvent)
+        let inFlightIds = sut.fileQueue.peekEntries(2).map(\.id)
 
-            sut.clear()
+        sut.flush()
+        await expectEventually({ sender.requestCount }, 1)
+
+        // Replace the entire in-flight batch with byte-identical payloads.
+        sut.add(identicalEvent)
+        sut.add(identicalEvent)
+        let replacementIds = sut.fileQueue.peekEntries(2).map(\.id)
+        #expect(Set(inFlightIds).isDisjoint(with: replacementIds))
+
+        sender.completeRequest(at: 0, with: PostHogUploadInfo(statusCode: 200, error: nil))
+
+        await expectEventually({ sut.depth }, 2)
+        #expect(sut.fileQueue.peekEntries(2).map(\.id) == replacementIds)
+
+        sut.flush()
+        await expectEventually({ sender.requestCount }, 2)
+        sender.completeRequest(at: 1, with: PostHogUploadInfo(statusCode: 200, error: nil))
+        await expectEventually({ sut.depth }, 0)
+    }
+
+    @Test("halves cap repeatedly across multiple 413s and drops once cap reaches 1")
+    func halvesCapRepeatedlyAcrossMultiple413sAndDropsAtOne() async {
+        // flushAt is high so add() doesn't trigger an auto-flush — we drive
+        // each flush manually to observe the multi-step halving sequence.
+        let uploads = (1 ... 3).map { _ in AsyncLatch() }
+        var uploadIndex = 0
+        let sut = getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 0) {
+            let upload = uploads[uploadIndex]
+            uploadIndex += 1
+            upload.signal()
+        }
+        server.start(batchCount: 3)
+        server.batchResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
         }
 
-        it("retains batch on retriable 5xx and does not change cap") {
-            let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
-            server.batchResponseHandler = { _, _ in
-                HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
-            }
-
-            sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
-            sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
-
-            _ = getBatchedEvents(server)
-
-            expect(sut.depth).toEventually(equal(2))
-            expect(sut.currentBatchCapForTesting).toEventually(equal(4))
-
-            sut.clear()
+        for i in 0 ..< 4 {
+            sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
         }
 
-        it("retains batch on HTTP 429 and does not change cap") {
-            let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
-            server.batchResponseHandler = { _, _ in
-                HTTPStubsResponse(jsonObject: [], statusCode: 429, headers: nil)
-            }
+        // First flush: batch=4 → 413 → cap halves to 2, batch retained.
+        sut.flush()
+        await expectSignaled(uploads[0])
+        #expect(sut.currentBatchCapForTesting == 2)
+        #expect(sut.depth == 4)
 
-            sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
-            sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
+        // Second flush: batch=2 → 413 → cap halves to 1, batch retained.
+        sut.flush()
+        await expectSignaled(uploads[1])
+        #expect(sut.currentBatchCapForTesting == 1)
+        #expect(sut.depth == 4)
 
-            _ = getBatchedEvents(server)
+        // Third flush: batch=1, cap already at 1 → drop one record. Cap
+        // stays at 1 (no reset, matching Android).
+        sut.flush()
+        await expectSignaled(uploads[2])
+        #expect(sut.depth == 3)
+        #expect(sut.currentBatchCapForTesting == 1)
 
-            expect(sut.depth).toEventually(equal(2))
-            expect(sut.currentBatchCapForTesting).toEventually(equal(4))
+        sut.clear()
+    }
 
-            sut.clear()
+    @Test("pops batch on 5xx codes outside the narrow retriable set")
+    func popsBatchOn5xxCodesOutsideTheNarrowRetriableSet() async {
+        // 501/505/etc. are NOT in the narrow 5xx retriable set
+        // {500, 502, 503, 504}. Treat as non-retriable so a poison
+        // record can't block the queue.
+        let upload = AsyncLatch()
+        let sut = getSut(flushAt: 2, maxBatchSize: 4) { upload.signal() }
+        server.batchResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 501, headers: nil)
         }
 
-        it("retains batch on HTTP 408 (request timeout is retriable) and does not change cap") {
-            let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
-            server.batchResponseHandler = { _, _ in
-                HTTPStubsResponse(jsonObject: [], statusCode: 408, headers: nil)
-            }
+        sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
+        sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
 
-            sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
-            sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
+        _ = getBatchedEvents(server)
+        await expectSignaled(upload)
 
-            _ = getBatchedEvents(server)
+        #expect(sut.depth == 0)
+        #expect(sut.currentBatchCapForTesting == 4)
 
-            expect(sut.depth).toEventually(equal(2))
-            expect(sut.currentBatchCapForTesting).toEventually(equal(4))
+        sut.clear()
+    }
 
-            sut.clear()
+    @Test("retains batch on a network error")
+    func retainsBatchOnANetworkError() async {
+        let sut = getSut(flushAt: 2, maxBatchSize: 4)
+        let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+        server.batchResponseHandler = { _, _ in
+            HTTPStubsResponse(error: networkError)
         }
 
-        it("retains retryable HTTP failures past maxRetries and drains after recovery") {
-            let mockNow = MockDate()
-            now = { mockNow.date }
-            defer { now = { Date() } }
+        sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
+        sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
 
-            let uploads = (1 ... 6).map { XCTestExpectation(description: "upload \($0) processed") }
-            var uploadIndex = 0
-            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 1) {
-                let upload = uploads[uploadIndex]
-                uploadIndex += 1
-                upload.fulfill()
-            }
-            server.start(batchCount: 6)
-            server.batchResponseHandler = { _, requestNumber in
-                requestNumber <= 3 || requestNumber == 5
-                    ? HTTPStubsResponse(jsonObject: [], statusCode: 503, headers: nil)
-                    : HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
-            }
+        _ = getBatchedEvents(server)
 
-            sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
-            sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
+        await expectEventually({ sut.depth }, 2)
+        await expectEventually({ sut.currentBatchCapForTesting }, 4)
 
-            for expectedAttempt in 1 ... 3 {
-                sut.flush()
-                expect(server.batchRequests.count).toEventually(equal(expectedAttempt))
-                expect(XCTWaiter.wait(for: [uploads[expectedAttempt - 1]], timeout: testRequestTimeout)) == .completed
-                expect(sut.currentRetryCountForTesting) == expectedAttempt
-                expect(sut.depth) == 2
-                mockNow.date.addTimeInterval(60)
-            }
+        sut.clear()
+    }
 
-            sut.flush()
-            expect(XCTWaiter.wait(for: [uploads[3]], timeout: testRequestTimeout)) == .completed
-            expect(server.batchRequests.count) == 4
-            expect(sut.depth) == 0
-            expect(sut.currentRetryCountForTesting) == 0
-
-            sut.add(PostHogEvent(event: "fresh", distinctId: "id3"))
-            sut.flush()
-            expect(XCTWaiter.wait(for: [uploads[4]], timeout: testRequestTimeout)) == .completed
-            expect(server.batchRequests.count) == 5
-            expect(sut.currentRetryCountForTesting) == 1
-            expect(sut.depth) == 1
-            sut.flush()
-            expect(server.batchRequests.count) == 5
-            mockNow.date.addTimeInterval(1)
-            sut.flush()
-            expect(XCTWaiter.wait(for: [uploads[5]], timeout: testRequestTimeout)) == .completed
-            expect(server.batchRequests.count) == 6
-            expect(sut.depth).toEventually(equal(0))
-            expect(sut.currentRetryCountForTesting).toEventually(equal(0))
-
-            sut.clear()
+    @Test("pops batch on non-retriable 4xx so a poison record cannot block the queue")
+    func popsBatchOnNonRetriable4xx() async {
+        let sut = getSut(flushAt: 2, maxBatchSize: 4)
+        server.batchResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 401, headers: nil)
         }
 
-        it("retains transport failures past maxRetries and drains after recovery") {
-            let mockNow = MockDate()
-            now = { mockNow.date }
-            defer { now = { Date() } }
+        sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
+        sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
 
-            let uploads = (1 ... 4).map { XCTestExpectation(description: "upload \($0) processed") }
-            var uploadIndex = 0
-            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 0) {
-                let upload = uploads[uploadIndex]
-                uploadIndex += 1
-                upload.fulfill()
-            }
-            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost, userInfo: nil)
-            server.start(batchCount: 4)
-            server.batchResponseHandler = { _, requestNumber in
-                requestNumber <= 3
-                    ? HTTPStubsResponse(error: networkError)
-                    : HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
-            }
+        _ = getBatchedEvents(server)
 
-            sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
-            sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
+        await expectEventually({ sut.depth }, 0)
+        await expectEventually({ sut.currentBatchCapForTesting }, 4)
 
-            for expectedAttempt in 1 ... 3 {
-                sut.flush()
-                expect(server.batchRequests.count).toEventually(equal(expectedAttempt))
-                expect(XCTWaiter.wait(for: [uploads[expectedAttempt - 1]], timeout: testRequestTimeout)) == .completed
-                expect(sut.currentRetryCountForTesting) == expectedAttempt
-                expect(sut.depth) == 2
-                mockNow.date.addTimeInterval(60)
-            }
+        sut.clear()
+    }
 
-            sut.flush()
-            expect(XCTWaiter.wait(for: [uploads[3]], timeout: testRequestTimeout)) == .completed
-            expect(server.batchRequests.count) == 4
-            expect(sut.depth).toEventually(equal(0))
+    @Test("pops batch on 2xx and leaves cap unchanged (no ramp-up)")
+    func popsBatchOn2xxAndLeavesCapUnchangedNoRampUp() async {
+        let sut = getSut(flushAt: 2, maxBatchSize: 4)
 
-            sut.clear()
-        }
+        sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
+        sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
 
-        it("late success removes exact in-flight identities after full-capacity replacement") {
-            let config = PostHogConfig(projectToken: "queue_identity_\(UUID().uuidString)", host: "http://localhost:9001")
-            config.flushAt = 100
-            config.maxQueueSize = 2
-            config.maxBatchSize = 2
-            let storage = PostHogStorage(config)
-            let sender = ControlledBatchSender()
-            let endpoint = QueueEndpoint<PostHogEvent>(
-                storageKey: .queue,
-                oldStorageKeys: [],
-                dispatchQueueLabel: "com.posthog.Queue.IdentityTest",
-                initialCap: { $0.maxBatchSize },
-                initialFlushAt: { $0.flushAt },
-                maxQueueSize: { $0.maxQueueSize },
-                flushIntervalSeconds: { $0.flushIntervalSeconds },
-                rateCapMax: { _ in 0 },
-                rateCapWindowSeconds: { _ in 0 },
-                encode: { toJSONData($0.toJSON()) },
-                decode: { PostHogEvent.fromJSON($0) },
-                describe: { $0.event },
-                send: sender.send,
-                isRetriableStatusCode: { _ in false }
-            )
-            let sut = PostHogQueue(config, storage, endpoint, nil)
-            defer { sut.clear() }
-            let identicalEvent = PostHogEvent(event: "identical", distinctId: "same-id")
+        _ = getBatchedEvents(server)
 
-            sut.add(identicalEvent)
-            sut.add(identicalEvent)
-            let inFlightIds = sut.fileQueue.peekEntries(2).map(\.id)
+        await expectEventually({ sut.depth }, 0)
+        // Cap was never reduced, so it should still be at maxBatchSize.
+        #expect(sut.currentBatchCapForTesting == 4)
 
-            sut.flush()
-            expect(sender.requestCount).toEventually(equal(1))
-
-            // Replace the entire in-flight batch with byte-identical payloads.
-            sut.add(identicalEvent)
-            sut.add(identicalEvent)
-            let replacementIds = sut.fileQueue.peekEntries(2).map(\.id)
-            expect(Set(inFlightIds).isDisjoint(with: replacementIds)) == true
-
-            sender.completeRequest(at: 0, with: PostHogUploadInfo(statusCode: 200, error: nil))
-
-            expect(sut.depth).toEventually(equal(2))
-            expect(sut.fileQueue.peekEntries(2).map(\.id)) == replacementIds
-
-            sut.flush()
-            expect(sender.requestCount).toEventually(equal(2))
-            sender.completeRequest(at: 1, with: PostHogUploadInfo(statusCode: 200, error: nil))
-            expect(sut.depth).toEventually(equal(0))
-        }
-
-        it("halves cap repeatedly across multiple 413s and drops once cap reaches 1") {
-            // flushAt is high so add() doesn't trigger an auto-flush — we drive
-            // each flush manually to observe the multi-step halving sequence.
-            let uploads = (1 ... 3).map { XCTestExpectation(description: "413 upload \($0) processed") }
-            var uploadIndex = 0
-            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 0) {
-                let upload = uploads[uploadIndex]
-                uploadIndex += 1
-                upload.fulfill()
-            }
-            server.start(batchCount: 3)
-            server.batchResponseHandler = { _, _ in
-                HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
-            }
-
-            for i in 0 ..< 4 {
-                sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
-            }
-
-            // First flush: batch=4 → 413 → cap halves to 2, batch retained.
-            sut.flush()
-            expect(XCTWaiter.wait(for: [uploads[0]], timeout: testRequestTimeout)) == .completed
-            expect(sut.currentBatchCapForTesting) == 2
-            expect(sut.depth) == 4
-
-            // Second flush: batch=2 → 413 → cap halves to 1, batch retained.
-            sut.flush()
-            expect(XCTWaiter.wait(for: [uploads[1]], timeout: testRequestTimeout)) == .completed
-            expect(sut.currentBatchCapForTesting) == 1
-            expect(sut.depth) == 4
-
-            // Third flush: batch=1, cap already at 1 → drop one record. Cap
-            // stays at 1 (no reset, matching Android).
-            sut.flush()
-            expect(XCTWaiter.wait(for: [uploads[2]], timeout: testRequestTimeout)) == .completed
-            expect(sut.depth) == 3
-            expect(sut.currentBatchCapForTesting) == 1
-
-            sut.clear()
-        }
-
-        it("pops batch on 5xx codes outside the narrow retriable set") {
-            // 501/505/etc. are NOT in the narrow 5xx retriable set
-            // {500, 502, 503, 504}. Treat as non-retriable so a poison
-            // record can't block the queue.
-            let upload = XCTestExpectation(description: "terminal response processed")
-            let sut = self.getSut(flushAt: 2, maxBatchSize: 4) { upload.fulfill() }
-            server.batchResponseHandler = { _, _ in
-                HTTPStubsResponse(jsonObject: [], statusCode: 501, headers: nil)
-            }
-
-            sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
-            sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
-
-            _ = getBatchedEvents(server)
-            expect(XCTWaiter.wait(for: [upload], timeout: testRequestTimeout)) == .completed
-
-            expect(sut.depth) == 0
-            expect(sut.currentBatchCapForTesting) == 4
-
-            sut.clear()
-        }
-
-        it("retains batch on a network error") {
-            let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
-            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
-            server.batchResponseHandler = { _, _ in
-                HTTPStubsResponse(error: networkError)
-            }
-
-            sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
-            sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
-
-            _ = getBatchedEvents(server)
-
-            expect(sut.depth).toEventually(equal(2))
-            expect(sut.currentBatchCapForTesting).toEventually(equal(4))
-
-            sut.clear()
-        }
-
-        it("pops batch on non-retriable 4xx so a poison record cannot block the queue") {
-            let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
-            server.batchResponseHandler = { _, _ in
-                HTTPStubsResponse(jsonObject: [], statusCode: 401, headers: nil)
-            }
-
-            sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
-            sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
-
-            _ = getBatchedEvents(server)
-
-            expect(sut.depth).toEventually(equal(0))
-            expect(sut.currentBatchCapForTesting).toEventually(equal(4))
-
-            sut.clear()
-        }
-
-        it("pops batch on 2xx and leaves cap unchanged (no ramp-up)") {
-            let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
-
-            sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
-            sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
-
-            _ = getBatchedEvents(server)
-
-            expect(sut.depth).toEventually(equal(0))
-            // Cap was never reduced, so it should still be at maxBatchSize.
-            expect(sut.currentBatchCapForTesting) == 4
-
-            sut.clear()
-        }
+        sut.clear()
     }
 }
 

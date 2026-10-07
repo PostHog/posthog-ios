@@ -4,14 +4,20 @@
 //
 
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
 import Testing
 
-class PostHogScreenNameTest: QuickSpec {
+@Suite("Screen name", .serialized, .resetsGlobalState)
+final class PostHogScreenNameTest {
     final class CapturedEvents {
         var events: [PostHogEvent] = []
+    }
+
+    private let captured: CapturedEvents
+
+    init() {
+        deleteSafely(applicationSupportDirectoryURL())
+        captured = CapturedEvents()
     }
 
     func getSut(captured: CapturedEvents) -> PostHogSDK {
@@ -34,89 +40,87 @@ class PostHogScreenNameTest: QuickSpec {
         return PostHogSDK.with(config)
     }
 
-    override func spec() {
-        var captured: CapturedEvents!
+    @Test("event captured before screen has no screen_name")
+    func eventBeforeScreenHasNoScreenName() throws {
+        let sut = getSut(captured: captured)
 
-        beforeEach {
-            captured = CapturedEvents()
-        }
+        sut.capture("event")
 
-        it("event captured before screen has no screen_name") {
-            let sut = self.getSut(captured: captured)
+        let event = try #require(captured.events.first { $0.event == "event" })
+        #expect(event.properties["$screen_name"] == nil)
 
-            sut.capture("event")
+        sut.reset()
+        sut.close()
+    }
 
-            let event = captured.events.first { $0.event == "event" }!
-            expect(event.properties["$screen_name"]).to(beNil())
+    @Test("event captured after screen carries screen_name")
+    func eventAfterScreenCarriesScreenName() throws {
+        let sut = getSut(captured: captured)
 
-            sut.reset()
-            sut.close()
-        }
+        sut.screen("Home")
+        sut.capture("event")
 
-        it("event captured after screen carries screen_name") {
-            let sut = self.getSut(captured: captured)
+        let event = try #require(captured.events.first { $0.event == "event" })
+        #expect(event.properties["$screen_name"] as? String == "Home")
 
-            sut.screen("Home")
-            sut.capture("event")
+        sut.reset()
+        sut.close()
+    }
 
-            let event = captured.events.first { $0.event == "event" }!
-            expect(event.properties["$screen_name"] as? String) == "Home"
+    @Test("caller-supplied screen_name overrides cached value")
+    func callerSuppliedScreenNameOverridesCachedValue() throws {
+        let sut = getSut(captured: captured)
 
-            sut.reset()
-            sut.close()
-        }
+        sut.screen("Home")
+        sut.capture("event", properties: ["$screen_name": "Override"])
 
-        it("caller-supplied screen_name overrides cached value") {
-            let sut = self.getSut(captured: captured)
+        let event = try #require(captured.events.first { $0.event == "event" })
+        #expect(event.properties["$screen_name"] as? String == "Override")
 
-            sut.screen("Home")
-            sut.capture("event", properties: ["$screen_name": "Override"])
+        sut.reset()
+        sut.close()
+    }
 
-            let event = captured.events.first { $0.event == "event" }!
-            expect(event.properties["$screen_name"] as? String) == "Override"
+    @Test("reset clears screen_name from subsequent events")
+    func resetClearsScreenName() throws {
+        let sut = getSut(captured: captured)
 
-            sut.reset()
-            sut.close()
-        }
+        sut.screen("Home")
+        sut.reset()
+        sut.capture("event")
 
-        it("reset clears screen_name from subsequent events") {
-            let sut = self.getSut(captured: captured)
+        let event = try #require(captured.events.first { $0.event == "event" })
+        #expect(event.properties["$screen_name"] == nil)
 
-            sut.screen("Home")
-            sut.reset()
-            sut.capture("event")
+        sut.close()
+    }
 
-            let event = captured.events.first { $0.event == "event" }!
-            expect(event.properties["$screen_name"]).to(beNil())
+    @Test("exception event carries screen_name")
+    func exceptionEventCarriesScreenName() throws {
+        let sut = getSut(captured: captured)
 
-            sut.close()
-        }
+        sut.screen("Home")
+        sut.captureException(NSError(domain: "test", code: 1))
 
-        it("exception event carries screen_name") {
-            let sut = self.getSut(captured: captured)
+        let event = try #require(captured.events.first { $0.event == "$exception" })
+        #expect(event.properties["$screen_name"] as? String == "Home")
 
-            sut.screen("Home")
-            sut.captureException(NSError(domain: "test", code: 1))
+        sut.reset()
+        sut.close()
+    }
 
-            let event = captured.events.first { $0.event == "$exception" }!
-            expect(event.properties["$screen_name"] as? String) == "Home"
+    @Test("snapshot event does not carry screen_name")
+    func snapshotEventDoesNotCarryScreenName() throws {
+        let sut = getSut(captured: captured)
 
-            sut.reset()
-            sut.close()
-        }
+        sut.screen("Home")
+        sut.capture("$snapshot", properties: ["$session_id": "test-session-id"])
 
-        it("snapshot event does not carry screen_name") {
-            let sut = self.getSut(captured: captured)
+        let event = try #require(captured.events.first { $0.event == "$snapshot" })
+        #expect(event.properties["$screen_name"] == nil)
 
-            sut.screen("Home")
-            sut.capture("$snapshot", properties: ["$session_id": "test-session-id"])
-
-            let event = captured.events.first { $0.event == "$snapshot" }!
-            expect(event.properties["$screen_name"]).to(beNil())
-
-            sut.reset()
-            sut.close()
-        }
+        sut.reset()
+        sut.close()
     }
 }
 

@@ -18,7 +18,7 @@ struct PostHogContextTest {
 
     private func getSut() -> PostHogContext {
         #if !os(watchOS)
-            return PostHogContext(Reachability())
+            return PostHogContext(Reachability(notificationQueue: nil, monitorsPaths: false))
         #else
             return PostHogContext()
         #endif
@@ -56,9 +56,35 @@ struct PostHogContextTest {
 
         #expect(context["$locale"] as? String != nil)
         #expect(context["$timezone"] as? String != nil)
-        #expect(context["$network_wifi"] as? Bool != nil)
-        #expect(context["$network_cellular"] as? Bool != nil)
     }
+
+    #if !os(watchOS)
+        @Test("omits network properties until a path arrives")
+        func omitsNetworkPropertiesWhileConnectionUnknown() {
+            let sut = PostHogContext(Reachability(notificationQueue: nil, monitorsPaths: false))
+
+            let context = sut.dynamicContext()
+
+            #expect(context["$network_wifi"] == nil)
+            #expect(context["$network_cellular"] == nil)
+        }
+
+        @Test("reports network properties from the current connection")
+        func reportsNetworkPropertiesFromConnection() {
+            let reachability = Reachability(notificationQueue: nil, monitorsPaths: false)
+            let sut = PostHogContext(reachability)
+
+            reachability.update(.wifi)
+            var context = sut.dynamicContext()
+            #expect(context["$network_wifi"] as? Bool == true)
+            #expect(context["$network_cellular"] as? Bool == false)
+
+            reachability.update(.cellular)
+            context = sut.dynamicContext()
+            #expect(context["$network_wifi"] as? Bool == false)
+            #expect(context["$network_cellular"] as? Bool == true)
+        }
+    #endif
 
     @Test("returns sdk info")
     func returnsSdkInfo() {

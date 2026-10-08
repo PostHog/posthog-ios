@@ -83,7 +83,8 @@
             window.layoutIfNeeded()
             let frame = try #require(mirror.build(window: window, scale: scale))
             #expect(frame.scale == scale)
-            let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window, culledLayers: frame.culledLayers))
+            let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window, culledLayers: frame.culledLayers,
+                                                                                     portalSources: frame.portalSources))
             frame.freeze()
             #expect(frame.encode())
             let image = await withCheckedContinuation { continuation in
@@ -275,6 +276,222 @@
             let pixels = try await Pixels(render(window, with: mirror).0)
             #expect(pixels[70, 70] != .white)
             #expect(pixels[150, 150] == .white)
+        }
+
+        // MARK: - Portals
+
+        private func makePortal(showing source: CALayer, frame: CGRect, matchesPosition: Bool = true, matchesTransform: Bool = true,
+                                sourceContextId: UInt32 = 0, hidesSource: Bool = true) throws -> CALayer
+        {
+            let portalClass = try #require(NSClassFromString("CAPortalLayer") as? CALayer.Type)
+            let portal = portalClass.init()
+            portal.frame = frame
+            portal.masksToBounds = true
+            portal.setValue(source, forKey: "sourceLayer")
+            portal.setValue(hidesSource, forKey: "hidesSourceLayer")
+            portal.setValue(matchesPosition, forKey: "matchesPosition")
+            portal.setValue(matchesTransform, forKey: "matchesTransform")
+            portal.setValue(sourceContextId, forKey: "sourceContextId")
+            return portal
+        }
+
+        private func count(_ pixels: Pixels, in rect: CGRect, where predicate: (RGBA) -> Bool) -> Int {
+            var count = 0
+            for y in Int(rect.minY) ..< Int(rect.maxY) {
+                for x in Int(rect.minX) ..< Int(rect.maxX) where predicate(pixels[x, y]) {
+                    count += 1
+                }
+            }
+            return count
+        }
+
+        @Test("A matched portal draws a source clipped away where it sits, and the source stays masked")
+        func matchedPortalContentStaysMasked() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            // The secret sits outside its clipping parent, so nothing of it shows where it sits.
+            let clipper = UIView(frame: CGRect(x: 10, y: 200, width: 40, height: 40))
+            clipper.clipsToBounds = true
+            // Inset inside its masked field, as text is: masks are drawn with rounded corners.
+            let field = noCaptureView(CGRect(x: 10, y: -150, width: 120, height: 60), color: .clear)
+            let secret = UIView(frame: field.bounds.insetBy(dx: 5, dy: 5))
+            secret.backgroundColor = .magenta
+            field.addSubview(secret)
+            clipper.addSubview(field)
+            window.addSubview(clipper)
+            let fieldRect = field.convert(field.bounds, to: window)
+            let secretRect = secret.convert(secret.bounds, to: window)
+            window.layer.addSublayer(try makePortal(showing: field.layer, frame: fieldRect))
+            window.layoutIfNeeded()
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            #expect(frame.culledLayers.contains(ObjectIdentifier(field.layer)))
+            #expect(frame.portalSources.contains { $0.view === field && $0.elsewhere == nil })
+            frame.release()
+
+            let (image, rects) = try await render(window, with: mirror)
+            let pixels = try Pixels(image)
+            #expect(count(pixels, in: secretRect, where: Self.isMagenta) > Int(secretRect.width * secretRect.height) * 9 / 10)
+            #expect(rects.contains(fieldRect))
+
+            let masked = try Pixels(#require(RRWireframe.maskImage(UIImage(cgImage: image), maskableWidgets: rects, scale: 1)?.cgImage))
+            #expect(masked.points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("A matched portal that hides its source leaves the source out where the portal doesn't show it")
+        func hidingPortalLeavesSourceOut() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 100, width: 120, height: 60))
+            source.backgroundColor = .blue
+            window.addSubview(source)
+            // Over the left half only.
+            window.layer.addSublayer(try makePortal(showing: source.layer, frame: CGRect(x: 20, y: 100, width: 60, height: 60)))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[50, 130] == .blue)
+            #expect(pixels[110, 130] == .white)
+        }
+
+        @Test("A source shown by two matched portals is drawn by each")
+        func sourceSharedByTwoPortals() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 100, width: 120, height: 60))
+            source.backgroundColor = .blue
+            window.addSubview(source)
+            window.layer.addSublayer(try makePortal(showing: source.layer, frame: CGRect(x: 20, y: 100, width: 40, height: 60)))
+            window.layer.addSublayer(try makePortal(showing: source.layer, frame: CGRect(x: 100, y: 100, width: 40, height: 60)))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[40, 130] == .blue)
+            #expect(pixels[120, 130] == .blue)
+            #expect(pixels[80, 130] == .white)
+        }
+
+        @Test("Portals that don't show their source in place, or show another context's, stay out of the frame",
+              arguments: [(false, true, 0), (true, false, 0), (true, true, 7), (false, false, 7)] as [(Bool, Bool, UInt32)])
+        func unmatchedPortalsStayOut(matchesPosition: Bool, matchesTransform: Bool, sourceContextId: UInt32) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let secret = noCaptureView(CGRect(x: 20, y: 20, width: 60, height: 40))
+            window.addSubview(secret)
+            let portalRect = CGRect(x: 100, y: 200, width: 60, height: 40)
+            let portal = try makePortal(showing: secret.layer, frame: portalRect, matchesPosition: matchesPosition,
+                                        matchesTransform: matchesTransform, sourceContextId: sourceContextId, hidesSource: false)
+            #expect((portal.value(forKey: "sourceContextId") as? NSNumber)?.uint32Value == sourceContextId)
+            window.layer.addSublayer(portal)
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            #expect(frame.portalSources.isEmpty)
+            frame.release()
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(count(pixels, in: portalRect, where: Self.isMagenta) == 0)
+            #expect(Self.isMagenta(pixels[50, 40]))
+        }
+
+        /// A portal that shows its source at its own position, as SwiftUI's glass shows its text: the source's bounds
+        /// land on the portal's.
+        private func makeLensPortal(showing source: UIView, frame: CGRect) throws -> CALayer {
+            try makePortal(showing: source.layer, frame: frame, matchesPosition: false, matchesTransform: false)
+        }
+
+        private func maskedPixels(_ image: CGImage, _ rects: [CGRect]) throws -> Pixels {
+            try Pixels(#require(RRWireframe.maskImage(UIImage(cgImage: image), maskableWidgets: rects, scale: 1)?.cgImage))
+        }
+
+        @Test("A lens portal draws its source on the portal, and masked text in it is masked there and where it sits")
+        func lensPortalMovesItsMasks() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let field = noCaptureView(CGRect(x: 10, y: 10, width: 100, height: 40), color: .clear)
+            let secret = UIView(frame: field.bounds.insetBy(dx: 5, dy: 5))
+            secret.backgroundColor = .magenta
+            field.addSubview(secret)
+            source.addSubview(field)
+            window.addSubview(source)
+            let portalRect = CGRect(x: 40, y: 180, width: 120, height: 60)
+            window.layer.addSublayer(try makeLensPortal(showing: source, frame: portalRect))
+
+            let (image, rects) = try await render(window, with: mirror)
+            let pixels = try Pixels(image)
+            // Hidden where it sits, drawn on the portal at the field's offset in the source.
+            #expect(count(pixels, in: CGRect(x: 35, y: 35, width: 90, height: 30), where: Self.isMagenta) == 0)
+            #expect(count(pixels, in: CGRect(x: 55, y: 195, width: 90, height: 30), where: Self.isMagenta) > 90 * 30 * 9 / 10)
+            #expect(rects.contains(CGRect(x: 50, y: 190, width: 100, height: 40)))
+
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("A lens portal over a source with no masked views draws it on the portal, unmasked")
+        func lensPortalDrawsUnmaskedContent() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let label = UIView(frame: CGRect(x: 10, y: 10, width: 100, height: 40))
+            label.backgroundColor = .blue
+            source.addSubview(label)
+            window.addSubview(source)
+            window.layer.addSublayer(try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 180, width: 120, height: 60)))
+
+            let (image, rects) = try await render(window, with: mirror)
+            #expect(rects.isEmpty)
+            let pixels = try Pixels(image)
+            #expect(pixels[100, 210] == .blue)
+            #expect(pixels[60, 50] == .white)
+        }
+
+        @Test("A postHogMask reporter under a lens portal's source masks the whole portal")
+        func lensPortalWithReporterMasksWholePortal() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 10, width: 30, height: 20))
+            source.addSubview(reporter)
+            window.addSubview(source)
+            defer { reporter.removeFromSuperview() }
+            let portal = try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 180, width: 120, height: 60))
+            window.layer.addSublayer(portal)
+
+            let (_, rects) = try await render(window, with: mirror)
+            #expect(rects.contains(window.layer.convert(portal.bounds, from: portal)))
+        }
+
+        @Test("A lens portal whose placement isn't affine masks the whole portal when its source has masks")
+        func lensPortalWithoutExactMapMasksWholePortal() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let field = noCaptureView(CGRect(x: 10, y: 10, width: 100, height: 40))
+            source.addSubview(field)
+            window.addSubview(source)
+            let portal = try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 180, width: 120, height: 60))
+            var perspective = CATransform3DIdentity
+            perspective.m34 = -1 / 200
+            portal.transform = CATransform3DRotate(perspective, 0.4, 0, 1, 0)
+            window.layer.addSublayer(portal)
+
+            let (image, rects) = try await render(window, with: mirror)
+            #expect(rects.contains(window.layer.convert(portal.bounds, from: portal)))
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
         }
 
         @Test("Renderers are cached per output scale")

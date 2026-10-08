@@ -7,8 +7,9 @@
     /// Screenshots a window by rendering a shallow copy of its presentation layer tree, sharing the live layers'
     /// `contents`, with `CARenderer` into a Metal texture: main only walks the tree and encodes the render.
     ///
-    /// Not reproduced: content hosted in another render context (`CAPortalLayer`, `CALayerHost`), image-queue
-    /// contents such as video, and `CAMetalLayer` pixels, which are drawn as a labelled placeholder.
+    /// Not reproduced: content hosted in another render context (`CALayerHost`), portals that don't show a source from
+    /// this window either in place or on themselves, image-queue contents such as video, and `CAMetalLayer` pixels,
+    /// which are drawn as a labelled placeholder.
     final class PostHogGPUMirrorCapture {
         /// One mirrored tree, taken through `freeze`, `encode` and `readback` in that order on main. Each step is
         /// a no-op (or reports failure) out of order or after `release`, and `release` is safe to call more than once,
@@ -22,12 +23,17 @@
             /// off screen). Nothing under them reaches this frame's pixels, so the mask walk can skip them.
             /// Emptied by `freeze`, since the walk runs before it.
             private(set) var culledLayers: Set<ObjectIdentifier>
+            /// Views whose layers this frame also draws through a portal. The mask walk visits each again, ignoring
+            /// `culledLayers`: culling describes where the source sits, not where the portal shows it.
+            /// Emptied by `freeze`.
+            private(set) var portalSources: [PostHogPortalSource]
             private var stage = FrameStage.built
 
-            fileprivate init(target: Target, root: CALayer, culledLayers: Set<ObjectIdentifier>) {
+            fileprivate init(target: Target, root: CALayer, culledLayers: Set<ObjectIdentifier>, portalSources: [PostHogPortalSource]) {
                 self.target = target
                 self.root = root
                 self.culledLayers = culledLayers
+                self.portalSources = portalSources
             }
 
             /// Main thread. Commits the mirror so CARenderer sees it; host redraws after this, even in place into shared
@@ -37,6 +43,7 @@
                 guard stage == .built else { return }
                 CATransaction.flush()
                 culledLayers = []
+                portalSources = []
                 stage = .frozen
             }
 
@@ -275,6 +282,7 @@
         private struct ClassInfo {
             let kind: LayerKind
             let unmirrorable: Bool
+            let portal: Bool
             let metal: Bool
             let copiesWithInitLayer: Bool
             let presentationSafe: Bool
@@ -305,7 +313,14 @@
 
         private struct Walk {
             let scale: CGFloat
+            let root: CALayer
             var culled: Set<ObjectIdentifier> = []
+            var portalSources: [PostHogPortalSource] = []
+            /// Sources a portal draws in place of themselves: left out where they sit, without being culled.
+            var hiddenSources: Set<ObjectIdentifier> = []
+            /// Copies of view-backed layers outside any portal, for hiding a source mirrored before its portal.
+            var viewCopies: [ObjectIdentifier: CALayer] = [:]
+            var portalsInProgress: Set<ObjectIdentifier> = []
         }
 
         /// Where a layer's sublayers land in the window.
@@ -322,7 +337,9 @@
 
         // Matched by name: these are private Core Animation / UIKit classes with no public symbol to compare against.
         /// Contexts hosting another process's or context's pixels: nothing in-process to share.
-        private static let unmirrorableClasses: Set<String> = ["CAPortalLayer", "CALayerHost"]
+        private static let unmirrorableClasses: Set<String> = ["CALayerHost"]
+        /// Shows another layer's subtree; mirrored only when it shows it in place (see `portalContent`).
+        private static let portalClass = "CAPortalLayer"
         /// Backdrop blur only renders through the layer's own class; every other layer is copied into a plain CALayer.
         private static let initLayerClasses: Set<String> = ["UICABackdropLayer", "CABackdropLayer"]
         /// Private contents types safe to share, besides CGImage and IOSurface. Image-queue contents (CAMetalLayer,
@@ -432,14 +449,14 @@
             let key = TargetKey(size: window.bounds.size, scale: scale)
             guard key.width > 0, key.height > 0, let target = targets[key] ?? makeAndInstallTarget(key) else { return nil }
 
-            var walk = Walk(scale: scale)
+            var walk = Walk(scale: scale, root: window.layer)
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             let root = mirrorRoot(window.layer, walk: &walk)
             if target.wrapper.sublayers?.first !== root { target.wrapper.sublayers = root.map { [$0] } }
             CATransaction.commit()
             guard let root else { return nil }
-            return Frame(target: target, root: root, culledLayers: walk.culled)
+            return Frame(target: target, root: root, culledLayers: walk.culled, portalSources: walk.portalSources)
         }
 
         #if TESTING
@@ -489,9 +506,12 @@
 
         /// `parent` is the space the layer's position is expressed in. The root, which isn't placed, passes its
         /// sublayers' space as `childSpace`. Returns nil when nothing of the subtree renders.
-        private func mirror(_ source: CALayer, parent: Space, childSpace rootChildSpace: Space? = nil, walk: inout Walk) -> CALayer? {
+        private func mirror(_ source: CALayer, parent: Space, childSpace rootChildSpace: Space? = nil, throughPortal: Bool = false,
+                            walk: inout Walk) -> CALayer?
+        {
             let info = classInfo(type(of: source))
             if info.unmirrorable { return nil }
+            if !throughPortal, walk.hiddenSources.contains(ObjectIdentifier(source)) { return nil }
             // Culling reads the model layer unless it's animating: a stale model only costs fidelity (the mask walk
             // skips exactly what the mirror culled), and presentation() allocates a copy per layer. Layers that
             // render are copied from their presentation state, the state the mask rects are measured from.
@@ -513,6 +533,11 @@
                 ownVisible = placed.ownVisible
             }
 
+            if info.portal {
+                let presentation = (animating || !info.presentationSafe) ? geometry : (source.presentation() ?? source)
+                return mirrorPortal(source, presentation: presentation, info: info, walk: &walk)
+            }
+
             var children: [CALayer] = []
             for child in source.sublayers ?? [] {
                 if let childCopy = mirror(child, parent: childSpace, walk: &walk) {
@@ -530,12 +555,73 @@
             return copy
         }
 
+        private func mirrorPortal(_ portal: CALayer, presentation: CALayer, info: ClassInfo, walk: inout Walk) -> CALayer? {
+            guard let content = portalContent(portal, walk: &walk) else { return nil }
+            let copy = makeCopy(of: portal, presentation: presentation, info: info, walk: &walk)
+            copy.sublayers = [content]
+            return copy
+        }
+
+        /// The subtree a portal shows, mirrored again under the portal's copy; nil leaves the portal out of the frame.
+        ///
+        /// Only a portal that shows a view's layer from this window, from that layer's own render context, is drawn
+        /// (`PostHogPortalSource.placement`). Its pixels land either where the source sits, where the mask walk
+        /// measures the source's views, or on the portal, where `Frame.portalSources` has the walk move the source's
+        /// masks with the same map. The walk visits each source again without culling, since a source can be clipped
+        /// or culled where it sits yet still show through the portal. Any other portal stays out.
+        private func portalContent(_ portal: CALayer, walk: inout Walk) -> CALayer? {
+            guard let source = portal.value(forKey: "sourceLayer") as? CALayer,
+                  let view = source.delegate as? UIView,
+                  !walk.portalsInProgress.contains(ObjectIdentifier(source)),
+                  isLayer(source, inside: walk.root),
+                  let placement = PostHogPortalSource.placement(of: portal, source: source, root: walk.root)
+            else { return nil }
+
+            let id = ObjectIdentifier(source)
+            walk.portalsInProgress.insert(id)
+            let content = mirror(source, parent: .unknown, throughPortal: true, walk: &walk)
+            walk.portalsInProgress.remove(id)
+            guard let content else { return nil }
+
+            if portal.value(forKey: "hidesSourceLayer") as? Bool == true {
+                walk.hiddenSources.insert(id)
+                walk.viewCopies[id]?.isHidden = true
+            }
+            switch placement {
+            case let .inPlace(toPortal):
+                walk.portalSources.append(PostHogPortalSource(view: view, elsewhere: nil))
+                // Puts the source's copy, positioned in its superlayer's space, where that space sits in the portal.
+                let space = CALayer()
+                space.anchorPoint = .zero
+                space.transform = CATransform3DMakeAffineTransform(toPortal)
+                space.sublayers = [content]
+                return space
+            case .atPortal:
+                let elsewhere = PostHogPortalSource.elsewhere(source: source, portal: portal, root: walk.root)
+                walk.portalSources.append(PostHogPortalSource(view: view, elsewhere: elsewhere))
+                content.anchorPoint = .zero
+                content.position = portal.bounds.origin
+                content.transform = CATransform3DIdentity
+                return content
+            }
+        }
+
+        private func isLayer(_ layer: CALayer, inside root: CALayer) -> Bool {
+            var current: CALayer? = layer
+            while let ancestor = current {
+                if ancestor === root { return true }
+                current = ancestor.superlayer
+            }
+            return false
+        }
+
         private func makeCopy(of source: CALayer, presentation: CALayer, info: ClassInfo, walk: inout Walk) -> CALayer {
             let copy = (info.copiesWithInitLayer ? initLayerCopy(source) : nil) ?? plainCopy(presentation, kind: info.kind)
             #if TESTING
                 copiesForTesting.add(copy)
                 copiesMadeForTesting += 1
             #endif
+            if walk.portalsInProgress.isEmpty, source.delegate is UIView { walk.viewCopies[ObjectIdentifier(source)] = copy }
             copyGeometry(from: presentation, source: source, to: copy)
             copyStyle(from: presentation, to: copy)
             copyContents(from: presentation, source: source, info: info, scale: walk.scale, to: copy)
@@ -778,6 +864,7 @@
             }
             let info = ClassInfo(kind: kind,
                                  unmirrorable: chain.contains { Self.unmirrorableClasses.contains($0) },
+                                 portal: chain.contains(Self.portalClass),
                                  metal: chain.contains("CAMetalLayer"),
                                  copiesWithInitLayer: chain.contains { Self.initLayerClasses.contains($0) },
                                  presentationSafe: Self.isPresentationSafe(cls))

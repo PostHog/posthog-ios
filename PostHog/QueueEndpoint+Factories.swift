@@ -12,6 +12,11 @@ private func isEventsRetriableStatusCode(_ code: Int) -> Bool {
         || (300 ... 399).contains(code)
 }
 
+/// Documented maximum for honoring `Retry-After` on `/i/v1/logs`. A larger
+/// header (e.g. from a misconfigured proxy) is clamped to this before it
+/// floors the backoff, so it can't strand the logs queue. Matches posthog-js.
+let logsMaxRetryAfterSeconds: TimeInterval = 5 * 60
+
 extension QueueEndpoint where Record == PostHogEvent {
     /// `/batch` endpoint for analytics events.
     static func batch(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
@@ -107,7 +112,8 @@ extension QueueEndpoint where Record == PostHogLogRecord {
             },
             isRetriableStatusCode: { code in
                 code == 408 || code == 429 || (500 ... 599).contains(code)
-            }
+            },
+            maxRetryAfterSeconds: logsMaxRetryAfterSeconds
         )
     }
 }

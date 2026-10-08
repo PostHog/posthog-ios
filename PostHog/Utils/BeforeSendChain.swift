@@ -5,11 +5,13 @@
 
 import Foundation
 
-/// Composable `(T) -> T?` pipeline shared by the events and logs configs.
+/// Composable `@Sendable (T) -> T?` pipeline shared by the events and logs configs.
 /// Blocks run in registration order; the first `nil` drops the value.
 /// Reference type so concurrent `set` / `run` see a coherent block snapshot.
 final class BeforeSendChain<T> {
-    typealias Block = (T) -> T?
+    // @Sendable to match the public block types: converting their arrays to a
+    // non-Sendable element type fails at runtime (`_arrayForceCast`).
+    typealias Block = @Sendable (T) -> T?
 
     private let lock = NSLock()
     private var block: Block = { $0 }

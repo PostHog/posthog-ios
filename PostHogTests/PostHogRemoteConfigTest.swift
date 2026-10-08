@@ -430,11 +430,11 @@ enum PostHogRemoteConfigTest {
             let bothResults = AsyncLatch(count: 2)
 
             sut.loadFeatureFlags(distinctId: "user1", anonymousId: nil, groups: [:]) { flags in
-                firstResult = flags
+                firstResult = flags.featureFlags
                 bothResults.signal()
             }
             sut.loadFeatureFlags(distinctId: "user2", anonymousId: nil, groups: [:]) { flags in
-                secondResult = flags
+                secondResult = flags.featureFlags
                 bothResults.signal()
             }
 
@@ -456,7 +456,7 @@ enum PostHogRemoteConfigTest {
 
             await withCheckedContinuation { continuation in
                 sut.loadFeatureFlags(distinctId: "single_user", anonymousId: nil, groups: [:]) { flags in
-                    result = flags
+                    result = flags.featureFlags
                     continuation.resume()
                 }
             }

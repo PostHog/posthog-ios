@@ -202,11 +202,7 @@ let maxRetryDelay = 30.0
             })
 
             #if !os(watchOS)
-                do {
-                    reachability = try Reachability()
-                } catch {
-                    // ignored
-                }
+                reachability = Reachability()
                 context = PostHogContext(reachability)
             #else
                 context = PostHogContext()
@@ -1222,10 +1218,7 @@ let maxRetryDelay = 30.0
                 return true
             }
             guard let reachability else { return true }
-            if case .unavailable = reachability.connection {
-                return false
-            }
-            return true
+            return reachability.connection != .unavailable
         #else
             return true
         #endif
@@ -2098,7 +2091,7 @@ let maxRetryDelay = 30.0
     ///
     /// ```swift
     /// PostHogSDK.shared.setPersonPropertiesForFlags(["plan": "premium"], reloadFeatureFlags: false)
-    /// PostHogSDK.shared.reloadFeatureFlags {
+    /// PostHogSDK.shared.reloadFeatureFlags { _ in
     ///     let flagValue = PostHogSDK.shared.isFeatureEnabled("new_feature")
     /// }
     /// ```
@@ -2107,9 +2100,10 @@ let maxRetryDelay = 30.0
     /// leaves your app in control of when flags load.
     ///
     /// - Note: `reset()` clears person properties set here, so they must be set again afterwards.
-    /// - Note: `reloadFeatureFlags(_:)` reports that the reload finished, not that it succeeded. If the
-    ///   request fails, or the project is over its feature flag quota, the handler still runs and the
-    ///   flags you read are the previously cached ones.
+    /// - Note: The `reloadFeatureFlags(_:)` handler runs whether or not the reload succeeded. If the
+    ///   request fails, `errorsLoading` is `true` and the flags you read are the previously cached ones.
+    ///   If the project is over its feature flag quota, `errorsLoading` is `false` but the flags are
+    ///   still the previously cached ones.
     ///
     /// - Parameters:
     ///   - properties: Dictionary of person properties to include in flag evaluation
@@ -2303,29 +2297,43 @@ let maxRetryDelay = 30.0
 
     /// Reloads feature flags for the current user and group context.
     @objc public func reloadFeatureFlags() {
-        reloadFeatureFlags {
+        reloadFeatureFlags { _ in
             // No use case
         }
     }
 
-    /// Reloads feature flags and invokes a callback when finished.
+    /// Reloads feature flags and invokes a callback with the result when finished.
     ///
-    /// - Parameter callback: Invoked when the reload finishes, or immediately if the reload
-    ///   is skipped (SDK disabled/opted-out, or no remote config available).
+    /// ```swift
+    /// PostHogSDK.shared.reloadFeatureFlags { result in
+    ///     if result.errorsLoading {
+    ///         // The reload failed. result.variants holds the last known flags.
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// - Parameter callback: Invoked when the reload finishes, possibly on a background thread.
+    ///   If the request fails, ``PostHogFeatureFlagsLoaded/errorsLoading`` is `true` and the flags are
+    ///   the last known ones. If the reload is skipped because the SDK isn't set up, it's invoked
+    ///   right away with no flags and `errorsLoading` set to `true`. To update UI or other main-actor
+    ///   state, hop to the main actor, for example with `Task { @MainActor in ... }`.
     @objc(reloadFeatureFlagsWithCallback:)
-    public func reloadFeatureFlags(_ callback: @escaping () -> Void) {
+    public func reloadFeatureFlags(_ callback: @escaping @Sendable (PostHogFeatureFlagsLoaded) -> Void) {
         if !isEnabled() {
-            callback()
+            callback(PostHogFeatureFlagsLoaded(featureFlags: [:], errorsLoading: true))
             return
         }
 
         guard let remoteConfig else {
-            callback()
+            callback(PostHogFeatureFlagsLoaded(featureFlags: [:], errorsLoading: true))
             return
         }
 
-        remoteConfig.reloadFeatureFlags { _ in
-            callback()
+        remoteConfig.reloadFeatureFlags { result in
+            callback(PostHogFeatureFlagsLoaded(
+                featureFlags: result.lastKnownFeatureFlags,
+                errorsLoading: result.featureFlags == nil
+            ))
         }
     }
 

@@ -159,6 +159,8 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
         if let versionCode {
             props["build"] = parseBundleVersion(versionCode)
         }
+        // Toolchain only changes with a new build, so it rides on install/update instead of every event.
+        props.merge(appBuildToolchainProperties(bundle.infoDictionary)) { current, _ in current }
 
         // Keep the launch comparison for the first capture-enabled client in this process.
         pendingInstallOrUpdate = (event, props)

@@ -54,16 +54,6 @@ struct PostHogContextTest {
         #endif
     }
 
-    @Test("static context carries the host app's build toolchain when its Info.plist has it")
-    func staticContextIncludesBuildToolchain() {
-        let context = getSut().staticContext()
-        let expected = appBuildToolchainProperties(Bundle.main.infoDictionary)
-
-        for key in ["$app_build_xcode", "$app_build_sdk"] {
-            #expect(context[key] as? String == expected[key] as? String)
-        }
-    }
-
     @Test("returns dynamic context")
     func returnsDynamicContext() {
         let sut = getSut()

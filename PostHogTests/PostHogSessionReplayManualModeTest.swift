@@ -138,6 +138,40 @@
             #expect(integration.isActive() == false)
         }
 
+        @Test("Explicit stop sends replay snapshots recorded before the stop")
+        func explicitStopSendsPendingSnapshots() async throws {
+            server.reset(batchCount: 0, snapshotCount: 1)
+            let sut = getSut(sessionReplay: false)
+            defer { sut.close() }
+
+            sut.startSessionRecording()
+            let integration = try #require(sut.getReplayIntegration())
+            // Resolve the first remote config so snapshots go to the persisted queue, not the hold buffer.
+            integration.applyRemoteConfig(remoteConfig: ["sessionRecording": ["endpoint": "/s/"]])
+            #expect(integration.isActive() == true)
+            #expect(integration.isBuffering == false)
+
+            let sessionId = try #require(sut.sessionManager.getSessionId())
+            sut.capture("$snapshot", properties: [
+                "$session_id": sessionId,
+                "$snapshot_source": "mobile",
+                "$snapshot_data": ["type": 4, "data": ["width": 1, "height": 1], "timestamp": 0] as [String: Any],
+            ])
+            await waitUntil { sut.replayQueue?.depth == 1 }
+            #expect(sut.replayQueue?.depth == 1)
+
+            sut.stopSessionRecording()
+            #expect(integration.isActive() == false)
+
+            try await waitForSnapshotRequest(server)
+            let request = try #require(server.snapshotRequests.first)
+            let data = try #require(request.body()).gunzipped()
+            let events = try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+            #expect(events.count == 1)
+            let props = try #require(events.first?["properties"] as? [String: Any])
+            #expect(props["$session_id"] as? String == sessionId)
+        }
+
         @Test("Explicit start then session change keeps recording")
         func explicitStartThenSessionChangeKeepsRecording() async throws {
             let sut = getSut(sessionReplay: false)

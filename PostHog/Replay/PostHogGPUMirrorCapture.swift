@@ -283,6 +283,8 @@
             let kind: LayerKind
             let unmirrorable: Bool
             let portal: Bool
+            let glassShape: Bool
+            let signedDistanceField: Bool
             let metal: Bool
             let copiesWithInitLayer: Bool
             let presentationSafe: Bool
@@ -321,6 +323,8 @@
             /// Copies of view-backed layers outside any portal, for hiding a source mirrored before its portal.
             var viewCopies: [ObjectIdentifier: CALayer] = [:]
             var portalsInProgress: Set<ObjectIdentifier> = []
+            /// The Liquid Glass background the walk is inside, if any.
+            var glass: PostHogGlassStandIn.Kind?
         }
 
         /// Where a layer's sublayers land in the window.
@@ -340,6 +344,9 @@
         private static let unmirrorableClasses: Set<String> = ["CALayerHost"]
         /// Shows another layer's subtree; mirrored only when it shows it in place (see `portalContent`).
         private static let portalClass = "CAPortalLayer"
+        /// A Liquid Glass shape, drawn as a flat stand-in under a backdrop with the glass background filter.
+        private static let glassShapeClass = "CASDFElementLayer"
+        private static let signedDistanceFieldPrefix = "CASDF"
         /// Backdrop blur only renders through the layer's own class; every other layer is copied into a plain CALayer.
         private static let initLayerClasses: Set<String> = ["UICABackdropLayer", "CABackdropLayer"]
         /// Private contents types safe to share, besides CGImage and IOSurface. Image-queue contents (CAMetalLayer,
@@ -538,12 +545,7 @@
                 return mirrorPortal(source, presentation: presentation, info: info, walk: &walk)
             }
 
-            var children: [CALayer] = []
-            for child in source.sublayers ?? [] {
-                if let childCopy = mirror(child, parent: childSpace, walk: &walk) {
-                    children.append(childCopy)
-                }
-            }
+            let children = mirrorChildren(of: source, info: info, space: childSpace, walk: &walk)
             if !ownVisible, children.isEmpty {
                 walk.culled.insert(ObjectIdentifier(source))
                 return nil
@@ -553,6 +555,19 @@
             let copy = makeCopy(of: source, presentation: presentation, info: info, walk: &walk)
             if !children.isEmpty { copy.sublayers = children }
             return copy
+        }
+
+        private func mirrorChildren(of source: CALayer, info: ClassInfo, space: Space, walk: inout Walk) -> [CALayer] {
+            let enclosingGlass = walk.glass
+            if info.copiesWithInitLayer, PostHogGlassStandIn.isGlassBackground(source) { walk.glass = PostHogGlassStandIn.kind(of: source) }
+            defer { walk.glass = enclosingGlass }
+            var children: [CALayer] = []
+            for child in source.sublayers ?? [] {
+                if let childCopy = mirror(child, parent: space, walk: &walk) {
+                    children.append(childCopy)
+                }
+            }
+            return children
         }
 
         private func mirrorPortal(_ portal: CALayer, presentation: CALayer, info: ClassInfo, walk: inout Walk) -> CALayer? {
@@ -616,7 +631,9 @@
         }
 
         private func makeCopy(of source: CALayer, presentation: CALayer, info: ClassInfo, walk: inout Walk) -> CALayer {
-            let copy = (info.copiesWithInitLayer ? initLayerCopy(source) : nil) ?? plainCopy(presentation, kind: info.kind)
+            // CARenderer drops a glass background's whole subtree, so it's copied as a plain layer without its filters.
+            let glassBackground = info.copiesWithInitLayer && PostHogGlassStandIn.isGlassBackground(source)
+            let copy = (info.copiesWithInitLayer && !glassBackground ? initLayerCopy(source) : nil) ?? plainCopy(presentation, kind: info.kind)
             #if TESTING
                 copiesForTesting.add(copy)
                 copiesMadeForTesting += 1
@@ -625,7 +642,11 @@
             copyGeometry(from: presentation, source: source, to: copy)
             copyStyle(from: presentation, to: copy)
             copyContents(from: presentation, source: source, info: info, scale: walk.scale, to: copy)
-            copyEffects(from: presentation, source: source, to: copy)
+            if !glassBackground { copyEffects(from: presentation, source: source, to: copy) }
+            // CARenderer draws nothing for a signed-distance-field layer, so a `destIn` meant to shape glass with it
+            // would erase everything under it instead.
+            if info.signedDistanceField { copy.compositingFilter = nil }
+            if info.glassShape, let glass = walk.glass { PostHogGlassStandIn.fill(copy, source: source, kind: glass) }
 
             if info.metal {
                 copy.contents = placeholder(size: presentation.bounds.size, scale: walk.scale)
@@ -865,6 +886,8 @@
             let info = ClassInfo(kind: kind,
                                  unmirrorable: chain.contains { Self.unmirrorableClasses.contains($0) },
                                  portal: chain.contains(Self.portalClass),
+                                 glassShape: chain.contains(Self.glassShapeClass),
+                                 signedDistanceField: chain.contains { $0.hasPrefix(Self.signedDistanceFieldPrefix) },
                                  metal: chain.contains("CAMetalLayer"),
                                  copiesWithInitLayer: chain.contains { Self.initLayerClasses.contains($0) },
                                  presentationSafe: Self.isPresentationSafe(cls))

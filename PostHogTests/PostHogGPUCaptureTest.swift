@@ -5,6 +5,18 @@
     import Testing
     import UIKit
 
+    private final class GlassBackdropView: UIView {
+        override class var layerClass: AnyClass { NSClassFromString("CABackdropLayer") ?? CALayer.self }
+    }
+
+    private final class GlassSDFView: UIView {
+        override class var layerClass: AnyClass { NSClassFromString("CASDFLayer") ?? CALayer.self }
+    }
+
+    private final class GlassShapeView: UIView {
+        override class var layerClass: AnyClass { NSClassFromString("CASDFElementLayer") ?? CALayer.self }
+    }
+
     private final class MetalView: UIView {
         override class var layerClass: AnyClass { CAMetalLayer.self }
     }
@@ -252,6 +264,272 @@
             // Centred at its own size, not stretched to the view.
             #expect(pixels[25, 25] == .white)
             #expect(pixels[175, 175] == .white)
+        }
+
+        /// The shape Liquid Glass builds: a backdrop with the glass background filter over a signed-distance-field shape.
+        /// Built from the private classes because UIKit only builds real glass in a window with a scene.
+        private func makeGlass(frame: CGRect, cornerRadius: CGFloat, filter: String) throws -> CALayer {
+            let backdropClass = try #require(NSClassFromString("CABackdropLayer") as? CALayer.Type)
+            let shapeClass = try #require(NSClassFromString("CASDFElementLayer") as? CALayer.Type)
+            let filterClass: AnyObject = try #require(NSClassFromString("CAFilter"))
+            let glassFilter = try #require(filterClass.perform(NSSelectorFromString("filterWithType:"), with: filter)?.takeUnretainedValue())
+            let backdrop = backdropClass.init()
+            backdrop.frame = frame
+            backdrop.filters = [glassFilter]
+            backdrop.setValue(true, forKey: "tracksLuma")
+            backdrop.setValue(6, forKey: "marginWidth")
+            let shape = shapeClass.init()
+            shape.frame = backdrop.bounds
+            shape.cornerRadius = cornerRadius
+            backdrop.addSublayer(shape)
+            return backdrop
+        }
+
+        /// Glass without luminance tracking or a sampling margin, over a shape whose output range ends at
+        /// `outputMaximum`: a sheet's when that's tens of points, clear glass's when it's 1.
+        private func makeUntrackedGlass(frame: CGRect, outputMaximum: Double) throws -> CALayer {
+            let backdrop = try makeGlass(frame: frame, cornerRadius: 20, filter: "glassBackground")
+            backdrop.setValue(false, forKey: "tracksLuma")
+            backdrop.setValue(0, forKey: "marginWidth")
+            let sdfClass = try #require(NSClassFromString("CASDFLayer") as? CALayer.Type)
+            let outputClass = try #require(NSClassFromString("CASDFOutputEffect") as? NSObject.Type)
+            let output = outputClass.init()
+            output.setValue(outputMaximum, forKey: "maximum")
+            let sdf = sdfClass.init()
+            sdf.frame = backdrop.bounds
+            sdf.setValue(output, forKey: "effect")
+            sdf.sublayers = backdrop.sublayers
+            backdrop.sublayers = [sdf]
+            return backdrop
+        }
+
+        @Test("A sheet's glass, which shares clear glass's zero margin, fills like regular glass, not clear")
+        func sheetGlassIsNotClear() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .red)
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeUntrackedGlass(frame: CGRect(x: 20, y: 40, width: 160, height: 80), outputMaximum: 34))
+            window.layer.addSublayer(try makeUntrackedGlass(frame: CGRect(x: 20, y: 160, width: 160, height: 80), outputMaximum: 1))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[100, 80].green > 200)
+            #expect(pixels[100, 200].green < 120)
+        }
+
+        @Test("Untinted glass controls in dark mode read as dark grey over black, not black")
+        func darkGlassControlIsDarkGrey() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .black)
+            window.overrideUserInterfaceStyle = .dark
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 20, y: 100, width: 160, height: 60), cornerRadius: 30, filter: "glassBackground"))
+
+            // iOS 26 draws regular glass over black at about (19, 19, 19) to (25, 25, 25).
+            let pixel = try await Pixels(render(window, with: mirror).0)[100, 130]
+            #expect((15 ... 30).contains(pixel.red) && pixel.red == pixel.green && pixel.green == pixel.blue, "\(pixel)")
+        }
+
+        @Test("Untinted dark glass in a bar reads lighter than on a button, as iOS 26 draws it")
+        func darkGlassInBarIsLighterThanButton() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .black)
+            window.overrideUserInterfaceStyle = .dark
+            await prewarm(mirror, for: window)
+
+            final class FloatingBarContainer: UIView {}
+            let bar = FloatingBarContainer(frame: CGRect(x: 20, y: 200, width: 160, height: 60))
+            bar.addSubview(try makeGlassGroup(frame: bar.bounds, tinted: false))
+            window.addSubview(bar)
+            window.addSubview(try makeGlassGroup(frame: CGRect(x: 20, y: 100, width: 160, height: 60), tinted: false))
+
+            // iOS 26 over black: about 25 for a tab bar platter or bar item, 19 for a glass button.
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            let barPixel = pixels[100, 230], buttonPixel = pixels[100, 130]
+            #expect((24 ... 30).contains(barPixel.red), "\(barPixel)")
+            #expect((18 ... 23).contains(buttonPixel.red), "\(buttonPixel)")
+        }
+
+        @Test("Liquid Glass draws as a flat translucent fill in its shape instead of nothing")
+        func liquidGlassDrawsAsFlatFill() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .red)
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 20, y: 100, width: 160, height: 60), cornerRadius: 30,
+                                                   filter: "glassBackground"))
+            // Other backdrops keep their own rendering and get no fill.
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 20, y: 200, width: 160, height: 60), cornerRadius: 30,
+                                                   filter: "gaussianBlur"))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            let inside = pixels[100, 130]
+            #expect(inside.red > 200 && inside.green > 150 && inside.blue > 150)
+            // Rounded like the shape: the frame's corner stays outside it.
+            #expect(pixels[21, 101] == .red)
+            #expect(pixels[10, 130] == .red)
+            #expect(pixels[100, 230].green < 60)
+        }
+
+        /// UIKit's glass built from views, so the shape can find the control that owns it: a group holding a material
+        /// with the glass background over the shape and, for tinted glass, a sibling layer composited `destIn`.
+        /// `untintedShapes` share the group, as a toolbar's plain buttons share it with a tinted one: the tint layer keeps
+        /// their outlines hidden.
+        private func makeGlassGroup(frame: CGRect, tinted: Bool, tintMatrix: [Float]? = nil, tintedShape: CGRect? = nil,
+                                    untintedShapes: [CGRect] = []) throws -> UIView
+        {
+            let filterClass: AnyObject = try #require(NSClassFromString("CAFilter"))
+            let glassFilter = try #require(filterClass.perform(NSSelectorFromString("filterWithType:"), with: "glassBackground")?.takeUnretainedValue())
+            let group = UIView(frame: frame)
+            let material = UIView(frame: group.bounds)
+            let backdrop = GlassBackdropView(frame: group.bounds)
+            backdrop.layer.filters = [glassFilter]
+            backdrop.layer.setValue(true, forKey: "tracksLuma")
+            backdrop.layer.setValue(6, forKey: "marginWidth")
+            let tintedFrame = tintedShape ?? group.bounds
+            for shapeFrame in [tintedFrame] + untintedShapes {
+                let shape = GlassShapeView(frame: shapeFrame)
+                shape.layer.cornerRadius = shapeFrame.height / 2
+                backdrop.addSubview(shape)
+            }
+            material.addSubview(backdrop)
+            group.addSubview(material)
+            if tinted {
+                // The tint is a gradient shape drawn through the colour matrix; the shape it's cut to is composited `destIn`.
+                let tintMaterial = GlassSDFView(frame: group.bounds)
+                let gradientClass = try #require(NSClassFromString("CASDFGradientEffect") as? NSObject.Type)
+                tintMaterial.layer.setValue(gradientClass.init(), forKey: "effect")
+                let tintCutout = UIView(frame: group.bounds)
+                tintCutout.layer.compositingFilter = "destIn"
+                for shapeFrame in [tintedFrame] + untintedShapes {
+                    let outline = GlassShapeView(frame: shapeFrame)
+                    outline.isHidden = shapeFrame != tintedFrame
+                    tintCutout.addSubview(outline)
+                }
+                tintMaterial.addSubview(tintCutout)
+                if var tintMatrix {
+                    let matrixFilter = try #require(filterClass.perform(NSSelectorFromString("filterWithType:"), with: "vibrantColorMatrix")?
+                        .takeUnretainedValue() as? NSObject)
+                    let value = NSValue(bytes: &tintMatrix, objCType: "{CAColorMatrix=ffffffffffffffffffff}")
+                    matrixFilter.setValue(value, forKey: "inputColorMatrix")
+                    tintMaterial.layer.filters = [matrixFilter]
+                }
+                group.addSubview(tintMaterial)
+            }
+            return group
+        }
+
+        @Test("Tinted glass takes the tint its material's colour matrix gives the light background, before any owner's tint")
+        func tintedGlassTakesMaterialTint() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            // Luminance weights scaled per channel plus offsets, as SwiftUI builds `.glassEffect(.regular.tint(.orange))`:
+            // white maps to (1, 0.5, 0).
+            let orange: [Float] = [0.06, 0.2, 0.02, 0, 0.72,
+                                   0.05, 0.15, 0.0, 0, 0.3,
+                                   0, 0, 0, 0, 0,
+                                   0, 0, 0, 1, 0]
+            let button = UIButton(type: .custom)
+            button.frame = CGRect(x: 20, y: 100, width: 160, height: 60)
+            button.tintColor = .blue
+            button.addSubview(try makeGlassGroup(frame: button.bounds, tinted: true, tintMatrix: orange))
+            window.addSubview(button)
+
+            let pixel = try await Pixels(render(window, with: mirror).0)[100, 130]
+            #expect(pixel.red > 245 && (118 ... 137).contains(pixel.green) && pixel.blue < 10)
+        }
+
+        @Test("In dark mode the tint is what the colour matrix gives the dark background, not white")
+        func darkTintedGlassAppliesMatrixToDarkBackground() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            window.overrideUserInterfaceStyle = .dark
+            await prewarm(mirror, for: window)
+
+            // iOS 26's dark prominent-glass blue: black maps to (0, 0.559, 1), white to a lighter (0.17, 0.63, 0.97).
+            let blue: [Float] = [0.043, 0.146, 0.015, 0, -0.031,
+                                 0.014, 0.048, 0.005, 0, 0.559,
+                                 -0.008, -0.027, -0.003, 0, 1.006,
+                                 0, 0, 0, 1, 0]
+            let button = UIButton(type: .custom)
+            button.frame = CGRect(x: 20, y: 100, width: 160, height: 60)
+            button.addSubview(try makeGlassGroup(frame: button.bounds, tinted: true, tintMatrix: blue))
+            window.addSubview(button)
+
+            let pixel = try await Pixels(render(window, with: mirror).0)[100, 130]
+            #expect(pixel.red < 10 && (135 ... 150).contains(pixel.green) && pixel.blue > 245)
+        }
+
+        @Test("Only the glass shapes the tint layer outlines are tinted, when one group holds several")
+        func sharedGlassGroupTintsOnlyItsTintedShape() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .red)
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            let blue: [Float] = [0, 0, 0, 0, 0,
+                                 0, 0, 0, 0, 0,
+                                 0, 0, 0, 0, 1,
+                                 0, 0, 0, 1, 0]
+            let group = try makeGlassGroup(frame: CGRect(x: 10, y: 100, width: 180, height: 60), tinted: true, tintMatrix: blue,
+                                           tintedShape: CGRect(x: 100, y: 0, width: 80, height: 60),
+                                           untintedShapes: [CGRect(x: 0, y: 0, width: 60, height: 60)])
+            window.addSubview(group)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            let plain = pixels[40, 130], tinted = pixels[150, 130]
+            #expect(plain.red > 230 && plain.green > 190 && plain.blue > 190)
+            #expect(tinted.red < 20 && tinted.green < 20 && tinted.blue > 230)
+        }
+
+        private static func isGrey(_ pixel: RGBA) -> Bool {
+            max(pixel.red, pixel.green, pixel.blue) - min(pixel.red, pixel.green, pixel.blue) < 20 && (90 ... 200).contains(pixel.red)
+        }
+
+        @Test("Tinted glass takes the tint of the button it belongs to")
+        func tintedGlassTakesButtonTint() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            let button = UIButton(type: .custom)
+            button.frame = CGRect(x: 20, y: 100, width: 160, height: 60)
+            button.tintColor = .red
+            button.addSubview(try makeGlassGroup(frame: button.bounds, tinted: true))
+            window.addSubview(button)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[100, 130] == .red)
+        }
+
+        @Test("Glass with a white label, or tinted with no tint to read, is grey so its label still reads")
+        func untintableGlassContrastsWithItsLabel() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            window.addSubview(try makeGlassGroup(frame: CGRect(x: 20, y: 20, width: 160, height: 60), tinted: true))
+            var configuration = UIButton.Configuration.plain()
+            configuration.baseForegroundColor = .white
+            let button = UIButton(configuration: configuration)
+            button.frame = CGRect(x: 20, y: 100, width: 160, height: 60)
+            button.addSubview(try makeGlassGroup(frame: button.bounds, tinted: false))
+            window.addSubview(button)
+            // Plain glass with a dark label keeps the light fill.
+            window.addSubview(try makeGlassGroup(frame: CGRect(x: 20, y: 200, width: 160, height: 60), tinted: false))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(Self.isGrey(pixels[100, 50]))
+            #expect(Self.isGrey(pixels[100, 130]))
+            #expect(pixels[100, 230].red > 230 && pixels[100, 230].green > 230)
         }
 
         @Test("Tinted-image contents, which SwiftUI draws text on glass into, are shared with the copy")

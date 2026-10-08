@@ -66,11 +66,12 @@
         /// the main thread only builds the copy, and masks are measured from the same layer state the
         /// pixels come from.
         ///
-        /// Not captured:
+        /// Not captured exactly:
         /// - Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped
         ///   "Metal content" placeholder.
         /// - Video and camera previews stay blank, as they do today.
-        /// - Liquid Glass chrome is not reproduced; the labels and icons on it are.
+        /// - Liquid Glass draws as a flat fill in its shape, without blur or refraction; tinted glass keeps its
+        ///   tint. The labels and icons on it are reproduced.
         ///
         /// Captures fall back to the default path when the device has no Metal or a render fails.
         /// Takes precedence over `screenshotModeBackgroundCapture` when both are enabled.

@@ -113,6 +113,15 @@ let package = Package(
                 .process("Resources"),
             ]
         ),
+        // Compiles in Swift 6 language mode to check the public API the way a Swift 6 app sees it.
+        .testTarget(
+            name: "PostHogSwift6Tests",
+            dependencies: ["PostHog"],
+            path: "PostHogSwift6Tests",
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ]
+        ),
     ],
     swiftLanguageModes: [.v5]
 )

@@ -102,7 +102,7 @@ class PostHogDeviceBucketingTests {
         let deviceId = sut.getDeviceId()
 
         await withCheckedContinuation { continuation in
-            sut.reloadFeatureFlags {
+            sut.reloadFeatureFlags { _ in
                 continuation.resume()
             }
         }
@@ -120,7 +120,7 @@ class PostHogDeviceBucketingTests {
         sut.identify("user-123")
 
         await withCheckedContinuation { continuation in
-            sut.reloadFeatureFlags {
+            sut.reloadFeatureFlags { _ in
                 continuation.resume()
             }
         }

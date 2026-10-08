@@ -280,7 +280,7 @@ class PostHogRemoteConfig {
     }
 
     func reloadFeatureFlags(
-        callback: (([String: Any]?) -> Void)? = nil
+        callback: ((FeatureFlagsLoadResult) -> Void)? = nil
     ) {
         reloadFeatureFlags(callback: callback, surveyCompletion: nil)
     }
@@ -290,7 +290,7 @@ class PostHogRemoteConfig {
     }
 
     private func reloadFeatureFlags(
-        callback: (([String: Any]?) -> Void)?,
+        callback: ((FeatureFlagsLoadResult) -> Void)?,
         surveyCompletion: (([String: Any]?) -> Void)?
     ) {
         guard canReloadFlagsForTesting else {
@@ -300,7 +300,7 @@ class PostHogRemoteConfig {
 
         guard let storageManager = config.storageManager else {
             hedgeLog("No PostHogStorageManager found in config, skipping loading feature flags")
-            callback?(nil)
+            callback?(failedLoadResult())
             surveyCompletion?(nil)
             return
         }
@@ -422,7 +422,7 @@ class PostHogRemoteConfig {
         anonymousId: String?,
         deviceId: String? = nil,
         groups: [String: String],
-        callback: (([String: Any]?) -> Void)? = nil,
+        callback: ((FeatureFlagsLoadResult) -> Void)? = nil,
         surveyCompletion: (([String: Any]?) -> Void)? = nil,
         coalesceWithCurrentRequest: Bool = false
     ) {
@@ -492,15 +492,16 @@ class PostHogRemoteConfig {
                     self.processErrorTrackingConfig(nil)
 
                     self.notifyFeatureFlagsAndRelease(cachedFeatureFlags)
-                    callback?(cachedFeatureFlags)
+                    callback?(FeatureFlagsLoadResult(featureFlags: cachedFeatureFlags, lastKnownFeatureFlags: cachedFeatureFlags))
                     return
                 }
 
                 // Safely handle optional data
                 guard var data = data else {
                     hedgeLog("Error: Flags response data is nil")
+                    let result = self.failedLoadResult()
                     self.notifyFeatureFlagsAndRelease(nil)
-                    callback?(nil)
+                    callback?(result)
                     return
                 }
 
@@ -512,8 +513,9 @@ class PostHogRemoteConfig {
                       let featureFlagPayloads = data["featureFlagPayloads"] as? [String: Any]
                 else {
                     hedgeLog("Error: Flags response missing correct featureFlags format")
+                    let result = self.failedLoadResult()
                     self.notifyFeatureFlagsAndRelease(nil)
-                    callback?(nil)
+                    callback?(result)
                     return
                 }
 
@@ -576,7 +578,7 @@ class PostHogRemoteConfig {
                 }
 
                 self.notifyFeatureFlagsAndRelease(loadedFeatureFlags)
-                callback?(loadedFeatureFlags)
+                callback?(FeatureFlagsLoadResult(featureFlags: loadedFeatureFlags, lastKnownFeatureFlags: loadedFeatureFlags ?? [:]))
             }
         }
     }
@@ -794,6 +796,12 @@ class PostHogRemoteConfig {
         }
     }
 
+    /// Snapshots the cached flags for a failed load. Taken before listeners and callbacks run.
+    private func failedLoadResult() -> FeatureFlagsLoadResult {
+        let cached = featureFlagsLock.withLock { getCachedFeatureFlags() ?? [:] }
+        return FeatureFlagsLoadResult(featureFlags: nil, lastKnownFeatureFlags: cached)
+    }
+
     private func notifyFeatureFlagsAndRelease(_ featureFlags: [String: Any]?) {
         let (pending, surveyWaiters): (PendingFeatureFlagsRequest?, [([String: Any]?) -> Void]) = loadingFeatureFlagsLock.withLock {
             self.loadingFeatureFlags = false
@@ -812,7 +820,7 @@ class PostHogRemoteConfig {
                 anonymousId: pending.anonymousId,
                 deviceId: pending.deviceId,
                 groups: pending.groups,
-                callback: { flags in pending.callbacks.forEach { $0(flags) } }
+                callback: { result in pending.callbacks.forEach { $0(result) } }
             )
         } else {
             for waiter in surveyWaiters {
@@ -878,7 +886,12 @@ class PostHogRemoteConfig {
         featureFlagsLock.withLock {
             guard !bootstrappedFlags.isEmpty else { return false }
             setCachedFeatureFlags(bootstrappedFlags)
-            setCachedFeatureFlagPayload(bootstrappedPayloads)
+            // Bootstrap payloads are already decoded; serialize them like /flags payloads so reads
+            // decode every cached payload exactly once (a bootstrapped "123" stays a String).
+            setCachedFeatureFlagPayload(bootstrappedPayloads.compactMapValues { payload in
+                (try? JSONSerialization.data(withJSONObject: payload, options: .fragmentsAllowed))
+                    .flatMap { String(data: $0, encoding: .utf8) }
+            })
             return true
         }
     }
@@ -1055,22 +1068,19 @@ class PostHogRemoteConfig {
             flags = getCachedFeatureFlagPayload()
         }
 
-        let value = flags?[key]
+        return Self.decodePayload(flags?[key], key: key)
+    }
 
-        guard let stringValue = value as? String else {
-            return value
-        }
-
+    /// Decodes a cached payload, which is stored as serialized JSON (mimicking posthog-js's `JSON.parse`).
+    /// Malformed, empty, or whitespace-only input returns `nil`, never the raw string.
+    private static func decodePayload(_ value: Any?, key: String) -> Any? {
+        guard let serialized = value as? String else { return value }
         do {
-            // The payload value is stored as a string and is not pre-parsed...
-            // We need to mimic the JSON.parse of JS which is what posthog-js uses
-            return try JSONSerialization.jsonObject(with: stringValue.data(using: .utf8)!, options: .fragmentsAllowed)
+            return try JSONSerialization.jsonObject(with: Data(serialized.utf8), options: .fragmentsAllowed)
         } catch {
-            hedgeLog("Error parsing the object \(String(describing: value)): \(error)")
+            hedgeLog("Ignoring malformed payload for feature flag \(key): \(error)")
+            return nil
         }
-
-        // fallback to original value if not possible to serialize
-        return value
     }
 
     func getFeatureFlagResult(_ key: String) -> PostHogFeatureFlagResult? {
@@ -1104,17 +1114,7 @@ class PostHogRemoteConfig {
     }
 
     private func makeFeatureFlagResult(key: String, flagValue: Any?, payloadValue: Any?) -> PostHogFeatureFlagResult {
-        let payload: Any?
-        if let stringValue = payloadValue as? String {
-            do {
-                payload = try JSONSerialization.jsonObject(with: stringValue.data(using: .utf8)!, options: .fragmentsAllowed)
-            } catch {
-                hedgeLog("Error parsing the object \(String(describing: payloadValue)): \(error)")
-                payload = payloadValue
-            }
-        } else {
-            payload = payloadValue
-        }
+        let payload = Self.decodePayload(payloadValue, key: key)
 
         let isEnabled: Bool
         let variant: String?
@@ -1324,7 +1324,16 @@ private struct PendingFeatureFlagsRequest {
     let anonymousId: String?
     let deviceId: String?
     let groups: [String: String]
-    let callbacks: [([String: Any]?) -> Void]
+    let callbacks: [(FeatureFlagsLoadResult) -> Void]
+}
+
+/// The outcome of one feature flags load, captured once when it completes so every coalesced
+/// callback sees the same values even if the cache changes while they run (for example a `reset()`).
+struct FeatureFlagsLoadResult {
+    /// The loaded flags, or `nil` if the load failed.
+    let featureFlags: [String: Any]?
+    /// The loaded flags, or the cached flags when the load failed.
+    let lastKnownFeatureFlags: [String: Any]
 }
 
 #if TESTING

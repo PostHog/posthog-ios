@@ -47,6 +47,9 @@ struct PostHogExceptionProcessorTest {
             #expect(mechHandled == true)
             let mechSynthetic = mechanism?["synthetic"] as? Bool
             #expect(mechSynthetic == true)
+            #expect(mechanism?["exception_id"] as? Int == 0)
+            #expect(mechanism?["parent_id"] == nil)
+            #expect(mechanism?["source"] == nil)
 
             let stacktrace = exception?["stacktrace"] as? [String: Any]
             #expect(stacktrace != nil)
@@ -110,6 +113,36 @@ struct PostHogExceptionProcessorTest {
             #expect(type0 == "WrapperDomain")
             let type1 = exceptionList?[1]["type"] as? String
             #expect(type1 == "RootDomain")
+
+            // The outermost entry keeps the capture metadata; the underlying error is a
+            // chained cause of it and doesn't copy its handled state
+            let outer = exceptionList?[0]["mechanism"] as? NSDictionary
+            #expect(outer == ["type": "generic", "handled": true, "synthetic": true, "exception_id": 0])
+            let nested = exceptionList?[1]["mechanism"] as? NSDictionary
+            #expect(nested == ["type": "chained", "source": "cause", "synthetic": true, "exception_id": 1, "parent_id": 0])
+        }
+
+        @Test("caps the error chain at 50 entries")
+        func capsErrorChain() {
+            var error = NSError(domain: "Domain0", code: 0)
+            for index in 1 ..< 60 {
+                error = NSError(domain: "Domain\(index)", code: index, userInfo: [NSUnderlyingErrorKey: error])
+            }
+
+            let properties = PostHogExceptionProcessor.errorToProperties(
+                error,
+                handled: true,
+                config: config
+            )
+
+            let exceptionList = properties["$exception_list"] as? [[String: Any]] ?? []
+            #expect(exceptionList.count == 50)
+            // Outermost first, so the 50 kept are the outermost and its first 49 causes
+            #expect(exceptionList.first?["type"] as? String == "Domain59")
+            #expect(exceptionList.last?["type"] as? String == "Domain10")
+            let lastMechanism = exceptionList.last?["mechanism"] as? [String: Any]
+            #expect(lastMechanism?["exception_id"] as? Int == 49)
+            #expect(lastMechanism?["parent_id"] as? Int == 48)
         }
 
         @Test("handles circular error references")
@@ -212,7 +245,7 @@ struct PostHogExceptionProcessorTest {
             let exc = exceptionList?.first
             let excType = exc?["type"] as? String
             #expect(excType == "NoReasonException")
-            #expect(exc?["value"] == nil)
+            #expect(exc?["value"] as? String == "")
         }
 
         @Test("marks exception as unhandled")

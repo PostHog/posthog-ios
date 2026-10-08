@@ -788,6 +788,50 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("keeps session-attribution super properties but not $referrer on minimal feature flag events")
+    func keepsSessionAttributionOnMinimalFeatureFlagEvents() throws {
+        server.minimalFlagCalledEvents = true
+        let sut = getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+
+        waitForFeatureFlagsLoaded(server, sut)
+
+        // Web-analytics reads session-initial attribution from the first event in a session, which
+        // can be a minimized $feature_flag_called, so these keys must survive minimization.
+        let attribution = [
+            "$referring_domain": "google.com",
+            "utm_source": "google",
+            "utm_medium": "cpc",
+            "utm_campaign": "launch",
+            "utm_content": "banner",
+            "utm_term": "posthog",
+            "gad_source": "1",
+            "mc_cid": "mc-123",
+            "gclid": "gclid-123",
+            "fbclid": "fbclid-123",
+        ]
+        sut.register(attribution.merging([
+            "$referrer": "https://google.com/search?q=posthog",
+            "team": "growth",
+        ]) { current, _ in current })
+
+        #expect(sut.isFeatureEnabled("string-value") == true)
+
+        let events = getBatchedEvents(server)
+
+        #expect(events.count == 1)
+
+        let event = try #require(events.first)
+        #expect(event.event == "$feature_flag_called")
+        for (key, value) in attribution {
+            #expect(event.properties[key] as? String == value, "\(key) should survive minimization")
+        }
+        #expect(event.properties["$referrer"] == nil)
+        #expect(event.properties["team"] == nil)
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("keeps $groups on minimal feature flag events")
     func keepsGroupsOnMinimalFeatureFlagEvents() throws {
         server.minimalFlagCalledEvents = true

@@ -1005,6 +1005,24 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("group drops an empty type or key", arguments: [("", "some-key"), ("some-type", "")])
+    func groupDropsEmptyTypeOrKey(type: String, key: String) throws {
+        let sut = getSut()
+
+        sut.group(type: type, key: key, groupProperties: ["name": "some-company-name"])
+        sut.capture("event")
+
+        let events = getBatchedEvents(server)
+
+        #expect(events.count == 1)
+        let event = try #require(events.first)
+        #expect(event.event == "event")
+        #expect(event.properties["$groups"] == nil)
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("register and unregister properties")
     func registerAndUnregisterProperties() throws {
         let sut = getSut(flushAt: 1)

@@ -209,6 +209,7 @@ final class PostHogAppLifeCycleIntegrationTest {
             #expect(events.first?.properties["$app_version"] != nil)
             #expect(events.first?.properties["$app_build"] != nil)
             #expect(events.first?.properties["build"] != nil)
+            #expect(events.first?.properties["$app_build_xcode"] as? String == Bundle.main.infoDictionary?["DTXcode"] as? String)
 
             #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)
             #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") != nil)
@@ -244,6 +245,7 @@ final class PostHogAppLifeCycleIntegrationTest {
             #expect(events.first?.properties["$app_build"] != nil)
             #expect(events.first?.properties["build"] != nil)
             #expect(events.first?.properties["previous_build"] != nil)
+            #expect(events.first?.properties["$app_build_xcode"] as? String == Bundle.main.infoDictionary?["DTXcode"] as? String)
 
             #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)
             #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") != nil)

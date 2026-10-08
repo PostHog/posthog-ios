@@ -366,7 +366,7 @@ final class PostHogSDKTests {
         #expect(config.storageManager?.isIdentified() == true)
     }
 
-    @Test("captureException properties can't override SDK-owned exception keys")
+    @Test("captureException properties can't override the exception list or debug images")
     func captureExceptionKeepsSDKOwnedKeys() throws {
         let sut = getSut()
 
@@ -385,8 +385,9 @@ final class PostHogSDKTests {
         #expect(event.event == "$exception")
         let exceptionList = event.properties["$exception_list"] as? [[String: Any]]
         #expect(exceptionList?.first?["type"] as? String == "TestDomain")
-        #expect(event.properties["$exception_level"] as? String == "error")
-        #expect(event.properties["$exception_source"] == nil)
+        // the level and source stay caller-overridable, since there's no other way to set the level
+        #expect(event.properties["$exception_level"] as? String == "debug")
+        #expect(event.properties["$exception_source"] as? String == "fake.source")
         let debugImages = event.properties["$debug_images"] as? [[String: Any]] ?? []
         #expect(!debugImages.contains { $0["debug_id"] as? String == "fake" })
         #expect(event.properties["foo"] as? String == "bar")

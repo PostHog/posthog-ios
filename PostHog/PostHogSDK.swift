@@ -3236,10 +3236,10 @@ let maxRetryDelay = 30.0
         return steps.isEmpty ? nil : steps
     }
 
+    // $exception_level and $exception_source stay overridable: captureException has no other way to set
+    // the level, and posthog-android and posthog-js also let caller properties win for these keys
     private static let reservedExceptionPropertyKeys: Set<String> = [
         "$exception_list",
-        "$exception_level",
-        "$exception_source",
         "$debug_images",
     ]
 

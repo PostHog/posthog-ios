@@ -9,27 +9,6 @@ PostHog | BoxedBeforeSendBlock.init(block:) | init | @objc(block:) init(block: @
 PostHog | BoxedBeforeSendLogBlock | class | @objc final class BoxedBeforeSendLogBlock | c:@M@PostHog@objc(cs)BoxedBeforeSendLogBlock
 PostHog | BoxedBeforeSendLogBlock.block | property | @objc let block: PostHogBeforeSendLogBlock | c:@M@PostHog@objc(cs)BoxedBeforeSendLogBlock(py)block
 PostHog | BoxedBeforeSendLogBlock.init(block:) | init | @objc(block:) init(block: @escaping PostHogBeforeSendLogBlock) | c:@M@PostHog@objc(cs)BoxedBeforeSendLogBlock(im)block:
-PostHog | CompressionLevel | struct | struct CompressionLevel | s:7PostHog16CompressionLevelV
-PostHog | CompressionLevel.bestCompression | type.property | static let bestCompression: CompressionLevel | s:7PostHog16CompressionLevelV04bestC0ACvpZ
-PostHog | CompressionLevel.bestSpeed | type.property | static let bestSpeed: CompressionLevel | s:7PostHog16CompressionLevelV9bestSpeedACvpZ
-PostHog | CompressionLevel.defaultCompression | type.property | static let defaultCompression: CompressionLevel | s:7PostHog16CompressionLevelV07defaultC0ACvpZ
-PostHog | CompressionLevel.init(_:) | init | init(_ rawValue: Int32) | s:7PostHog16CompressionLevelVyACs5Int32Vcfc
-PostHog | CompressionLevel.init(rawValue:) | init | init(rawValue: Int32) | s:7PostHog16CompressionLevelV8rawValueACs5Int32V_tcfc
-PostHog | CompressionLevel.noCompression | type.property | static let noCompression: CompressionLevel | s:7PostHog16CompressionLevelV02noC0ACvpZ
-PostHog | CompressionLevel.rawValue | property | let rawValue: Int32 | s:7PostHog16CompressionLevelV8rawValues5Int32Vvp
-PostHog | Gzip | enum | enum Gzip | s:7PostHog4GzipO
-PostHog | Gzip.maxWindowBits | type.property | static let maxWindowBits: Int32 | s:7PostHog4GzipO13maxWindowBitss5Int32VvpZ
-PostHog | GzipError | struct | struct GzipError | s:7PostHog9GzipErrorV
-PostHog | GzipError.Kind | enum | enum Kind | s:7PostHog9GzipErrorV4KindO
-PostHog | GzipError.Kind.buffer | enum.case | case buffer | s:7PostHog9GzipErrorV4KindO6bufferyA2EmF
-PostHog | GzipError.Kind.data | enum.case | case data | s:7PostHog9GzipErrorV4KindO4datayA2EmF
-PostHog | GzipError.Kind.memory | enum.case | case memory | s:7PostHog9GzipErrorV4KindO6memoryyA2EmF
-PostHog | GzipError.Kind.stream | enum.case | case stream | s:7PostHog9GzipErrorV4KindO6streamyA2EmF
-PostHog | GzipError.Kind.unknown(code:) | enum.case | case unknown(code: Int) | s:7PostHog9GzipErrorV4KindO7unknownyAESi_tcAEmF
-PostHog | GzipError.Kind.version | enum.case | case version | s:7PostHog9GzipErrorV4KindO7versionyA2EmF
-PostHog | GzipError.kind | property | let kind: GzipError.Kind | s:7PostHog9GzipErrorV4kindAC4KindOvp
-PostHog | GzipError.localizedDescription | property | var localizedDescription: String { get } | s:7PostHog9GzipErrorV20localizedDescriptionSSvp
-PostHog | GzipError.message | property | let message: String | s:7PostHog9GzipErrorV7messageSSvp
 PostHog | OnPostHogSurveyClosed | typealias | typealias OnPostHogSurveyClosed = (PostHogDisplaySurvey) -> Void | s:7PostHog02OnaB12SurveyCloseda
 PostHog | OnPostHogSurveyResponse | typealias | typealias OnPostHogSurveyResponse = (PostHogDisplaySurvey, Int, PostHogSurveyResponse) -> PostHogNextSurveyQuestion? | s:7PostHog02OnaB14SurveyResponsea
 PostHog | OnPostHogSurveyShown | typealias | typealias OnPostHogSurveyShown = (PostHogDisplaySurvey) -> Void | s:7PostHog02OnaB11SurveyShowna
@@ -51,10 +30,8 @@ PostHog | PostHogCompression.none | enum.case | case none | c:@M@PostHog@E@PostH
 PostHog | PostHogConfig | class | @objc(PostHogConfig) class PostHogConfig | c:@M@PostHog@objc(cs)PostHogConfig
 PostHog | PostHogConfig.PostHogDataMode | enum | @frozen @objc(PostHogDataMode) enum PostHogDataMode | s:7PostHog0aB6ConfigC0aB8DataModeO
 PostHog | PostHogConfig.PostHogDataMode.any | enum.case | case any | s:7PostHog0aB6ConfigC0aB8DataModeO3anyyA2EmF
-PostHog | PostHogConfig.PostHogDataMode.cellular | enum.case | case cellular | s:7PostHog0aB6ConfigC0aB8DataModeO8cellularyA2EmF
 PostHog | PostHogConfig.PostHogDataMode.init(rawValue:) | init | init?(rawValue: Int) | s:7PostHog0aB6ConfigC0aB8DataModeO8rawValueAESgSi_tcfc
 PostHog | PostHogConfig.PostHogDataMode.wifi | enum.case | case wifi | s:7PostHog0aB6ConfigC0aB8DataModeO4wifiyA2EmF
-PostHog | PostHogConfig.apiKey | property | @objc var apiKey: String { get } | c:@M@PostHog@objc(cs)PostHogConfig(py)apiKey
 PostHog | PostHogConfig.appGroupIdentifier | property | @objc var appGroupIdentifier: String? | c:@M@PostHog@objc(cs)PostHogConfig(py)appGroupIdentifier
 PostHog | PostHogConfig.bootstrap | property | @objc var bootstrap: PostHogBootstrapConfig? | c:@M@PostHog@objc(cs)PostHogConfig(py)bootstrap
 PostHog | PostHogConfig.captureApplicationLifecycleEvents | property | @objc var captureApplicationLifecycleEvents: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureApplicationLifecycleEvents
@@ -72,14 +49,11 @@ PostHog | PostHogConfig.disableGeoIp | property | @objc var disableGeoIp: Bool |
 PostHog | PostHogConfig.enableSwizzling | property | @objc var enableSwizzling: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)enableSwizzling
 PostHog | PostHogConfig.errorTrackingConfig | property | @objc let errorTrackingConfig: PostHogErrorTrackingConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)errorTrackingConfig
 PostHog | PostHogConfig.evaluationContexts | property | @objc var evaluationContexts: [String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)evaluationContexts
-PostHog | PostHogConfig.evaluationEnvironments | property | @objc var evaluationEnvironments: [String]? { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)evaluationEnvironments
 PostHog | PostHogConfig.featureFlagRequestMaxRetries | property | @objc var featureFlagRequestMaxRetries: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)featureFlagRequestMaxRetries
 PostHog | PostHogConfig.flushAt | property | @objc var flushAt: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)flushAt
 PostHog | PostHogConfig.flushIntervalSeconds | property | @objc var flushIntervalSeconds: TimeInterval | c:@M@PostHog@objc(cs)PostHogConfig(py)flushIntervalSeconds
 PostHog | PostHogConfig.getAnonymousId | property | @objc var getAnonymousId: (UUID) -> UUID | c:@M@PostHog@objc(cs)PostHogConfig(py)getAnonymousId
 PostHog | PostHogConfig.host | property | @objc let host: URL | c:@M@PostHog@objc(cs)PostHogConfig(py)host
-PostHog | PostHogConfig.init(apiKey:) | init | @objc(apiKey:) convenience init(apiKey: String) | c:@M@PostHog@objc(cs)PostHogConfig(im)apiKey:
-PostHog | PostHogConfig.init(apiKey:host:) | init | @objc(apiKey:host:) convenience init(apiKey: String, host: String = defaultHost) | c:@M@PostHog@objc(cs)PostHogConfig(im)apiKey:host:
 PostHog | PostHogConfig.init(projectToken:) | init | @objc(projectToken:) init(projectToken: String) | c:@M@PostHog@objc(cs)PostHogConfig(im)projectToken:
 PostHog | PostHogConfig.init(projectToken:host:) | init | @objc(projectToken:host:) init(projectToken: String, host: String = defaultHost) | c:@M@PostHog@objc(cs)PostHogConfig(im)projectToken:host:
 PostHog | PostHogConfig.logs | property | @objc let logs: PostHogLogsConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)logs
@@ -90,28 +64,32 @@ PostHog | PostHogConfig.optOut | property | @objc var optOut: Bool | c:@M@PostHo
 PostHog | PostHogConfig.personProfiles | property | @objc var personProfiles: PostHogPersonProfiles | c:@M@PostHog@objc(cs)PostHogConfig(py)personProfiles
 PostHog | PostHogConfig.preloadFeatureFlags | property | @objc var preloadFeatureFlags: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)preloadFeatureFlags
 PostHog | PostHogConfig.projectToken | property | @objc let projectToken: String | c:@M@PostHog@objc(cs)PostHogConfig(py)projectToken
-PostHog | PostHogConfig.propertiesSanitizer | property | @objc var propertiesSanitizer: (any PostHogPropertiesSanitizer)? { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)propertiesSanitizer
 PostHog | PostHogConfig.pushIdentityProvider | property | @objc var pushIdentityProvider: ((String, String, @escaping (String?) -> Void) -> Void)? | c:@M@PostHog@objc(cs)PostHogConfig(py)pushIdentityProvider
 PostHog | PostHogConfig.rageClickConfig | property | @objc let rageClickConfig: PostHogRageClickConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)rageClickConfig
-PostHog | PostHogConfig.remoteConfig | property | @objc var remoteConfig: Bool { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)remoteConfig
 PostHog | PostHogConfig.requestHeaders | property | @objc var requestHeaders: [String : String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)requestHeaders
 PostHog | PostHogConfig.reuseAnonymousId | property | @objc var reuseAnonymousId: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)reuseAnonymousId
 PostHog | PostHogConfig.sendFeatureFlagEvent | property | @objc var sendFeatureFlagEvent: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)sendFeatureFlagEvent
 PostHog | PostHogConfig.sessionReplay | property | @objc var sessionReplay: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)sessionReplay
 PostHog | PostHogConfig.sessionReplayConfig | property | @objc let sessionReplayConfig: PostHogSessionReplayConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)sessionReplayConfig
 PostHog | PostHogConfig.setBeforeSend(_:) | method | @objc func setBeforeSend(_ blocks: [BoxedBeforeSendBlock]) | c:@M@PostHog@objc(cs)PostHogConfig(im)setBeforeSend:
-PostHog | PostHogConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: BeforeSendBlock...) | s:7PostHog0aB6ConfigC13setBeforeSendyyAA0aB5EventCSgAFcd_tF
-PostHog | PostHogConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: [BeforeSendBlock]) | s:7PostHog0aB6ConfigC13setBeforeSendyySayAA0aB5EventCSgAFcGF
+PostHog | PostHogConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: BeforeSendBlock...) | s:7PostHog0aB6ConfigC13setBeforeSendyyAA0aB5EventCSgAFYbcd_tF
+PostHog | PostHogConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: [BeforeSendBlock]) | s:7PostHog0aB6ConfigC13setBeforeSendyySayAA0aB5EventCSgAFYbcGF
 PostHog | PostHogConfig.setDefaultPersonProperties | property | @objc var setDefaultPersonProperties: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)setDefaultPersonProperties
-PostHog | PostHogConfig.snapshotEndpoint | property | @objc var snapshotEndpoint: String | c:@M@PostHog@objc(cs)PostHogConfig(py)snapshotEndpoint
-PostHog | PostHogConfig.storageManager | property | var storageManager: PostHogStorageManager? | s:7PostHog0aB6ConfigC14storageManagerAA0ab7StorageE0CSgvp
 PostHog | PostHogConfig.surveys | property | @objc var surveys: Bool { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)surveys
 PostHog | PostHogConfig.surveysConfig | property | @objc var surveysConfig: PostHogSurveysConfig { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)surveysConfig
 PostHog | PostHogConfig.tracingHeaders | property | @objc var tracingHeaders: [String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)tracingHeaders
 PostHog | PostHogConfig.urlSessionConfiguration | property | @objc var urlSessionConfiguration: URLSessionConfiguration? | c:@M@PostHog@objc(cs)PostHogConfig(py)urlSessionConfiguration
+PostHog | PostHogConsoleLogEntry | class | @objc class PostHogConsoleLogEntry | c:@M@PostHog@objc(cs)PostHogConsoleLogEntry
+PostHog | PostHogConsoleLogEntry.init(level:message:) | init | @objc init(level: PostHogConsoleLogLevel, message: String) | c:@M@PostHog@objc(cs)PostHogConsoleLogEntry(im)initWithLevel:message:
+PostHog | PostHogConsoleLogEntry.level | property | @objc let level: PostHogConsoleLogLevel | c:@M@PostHog@objc(cs)PostHogConsoleLogEntry(py)level
+PostHog | PostHogConsoleLogEntry.message | property | @objc let message: String | c:@M@PostHog@objc(cs)PostHogConsoleLogEntry(py)message
+PostHog | PostHogConsoleLogLevel | enum | @objc enum PostHogConsoleLogLevel | c:@M@PostHog@E@PostHogConsoleLogLevel
+PostHog | PostHogConsoleLogLevel.error | enum.case | case error | c:@M@PostHog@E@PostHogConsoleLogLevel@PostHogConsoleLogLevelError
+PostHog | PostHogConsoleLogLevel.info | enum.case | case info | c:@M@PostHog@E@PostHogConsoleLogLevel@PostHogConsoleLogLevelInfo
+PostHog | PostHogConsoleLogLevel.init(rawValue:) | init | init?(rawValue: Int) | s:7PostHog0aB15ConsoleLogLevelO8rawValueACSgSi_tcfc
+PostHog | PostHogConsoleLogLevel.warn | enum.case | case warn | c:@M@PostHog@E@PostHogConsoleLogLevel@PostHogConsoleLogLevelWarn
 PostHog | PostHogDataMode | enum | @frozen enum PostHogDataMode | c:@M@PostHog@E@PostHogDataMode
 PostHog | PostHogDataMode.any | enum.case | case any | c:@M@PostHog@E@PostHogDataMode@PostHogDataModeAny
-PostHog | PostHogDataMode.cellular | enum.case | case cellular | c:@M@PostHog@E@PostHogDataMode@PostHogDataModeCellular
 PostHog | PostHogDataMode.init(rawValue:) | init | init?(rawValue: Int) | s:So15PostHogDataModeV8rawValueABSgSi_tcfc
 PostHog | PostHogDataMode.wifi | enum.case | case wifi | c:@M@PostHog@E@PostHogDataMode@PostHogDataModeWifi
 PostHog | PostHogDisplayChoiceQuestion | class | @objc class PostHogDisplayChoiceQuestion | c:@M@PostHog@objc(cs)PostHogDisplayChoiceQuestion
@@ -207,15 +185,6 @@ PostHog | PostHogFeatureFlagsLoaded.flags | property | @objc let flags: [String]
 PostHog | PostHogFeatureFlagsLoaded.variants | property | @objc let variants: [String : Any] | c:@M@PostHog@objc(cs)PostHogFeatureFlagsLoaded(py)variants
 PostHog | PostHogFeatureFlagsSubscription | class | @objc(PostHogFeatureFlagsSubscription) final class PostHogFeatureFlagsSubscription | c:@M@PostHog@objc(cs)PostHogFeatureFlagsSubscription
 PostHog | PostHogFeatureFlagsSubscription.unsubscribe() | method | @objc func unsubscribe() | c:@M@PostHog@objc(cs)PostHogFeatureFlagsSubscription(im)unsubscribe
-PostHog | PostHogLogEntry | class | @objc class PostHogLogEntry | c:@M@PostHog@objc(cs)PostHogLogEntry
-PostHog | PostHogLogEntry.init(level:message:) | init | @objc init(level: PostHogLogLevel, message: String) | c:@M@PostHog@objc(cs)PostHogLogEntry(im)initWithLevel:message:
-PostHog | PostHogLogEntry.level | property | @objc let level: PostHogLogLevel | c:@M@PostHog@objc(cs)PostHogLogEntry(py)level
-PostHog | PostHogLogEntry.message | property | @objc let message: String | c:@M@PostHog@objc(cs)PostHogLogEntry(py)message
-PostHog | PostHogLogLevel | enum | @objc enum PostHogLogLevel | c:@M@PostHog@E@PostHogLogLevel
-PostHog | PostHogLogLevel.error | enum.case | case error | c:@M@PostHog@E@PostHogLogLevel@PostHogLogLevelError
-PostHog | PostHogLogLevel.info | enum.case | case info | c:@M@PostHog@E@PostHogLogLevel@PostHogLogLevelInfo
-PostHog | PostHogLogLevel.init(rawValue:) | init | init?(rawValue: Int) | s:7PostHog0aB8LogLevelO8rawValueACSgSi_tcfc
-PostHog | PostHogLogLevel.warn | enum.case | case warn | c:@M@PostHog@E@PostHogLogLevel@PostHogLogLevelWarn
 PostHog | PostHogLogRecord | class | @objc final class PostHogLogRecord | c:@M@PostHog@objc(cs)PostHogLogRecord
 PostHog | PostHogLogRecord.attributes | property | @objc var attributes: [String : Any] | c:@M@PostHog@objc(cs)PostHogLogRecord(py)attributes
 PostHog | PostHogLogRecord.body | property | @objc var body: String | c:@M@PostHog@objc(cs)PostHogLogRecord(py)body
@@ -261,8 +230,8 @@ PostHog | PostHogLogsConfig.resourceAttributes | property | @objc var resourceAt
 PostHog | PostHogLogsConfig.serviceName | property | @objc var serviceName: String | c:@M@PostHog@objc(cs)PostHogLogsConfig(py)serviceName
 PostHog | PostHogLogsConfig.serviceVersion | property | @objc var serviceVersion: String | c:@M@PostHog@objc(cs)PostHogLogsConfig(py)serviceVersion
 PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | @objc func setBeforeSend(_ blocks: [BoxedBeforeSendLogBlock]) | c:@M@PostHog@objc(cs)PostHogLogsConfig(im)setBeforeSend:
-PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) | s:7PostHog0aB10LogsConfigC13setBeforeSendyyAA0aB9LogRecordCSgAFcd_tF
-PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: [PostHogBeforeSendLogBlock]) | s:7PostHog0aB10LogsConfigC13setBeforeSendyySayAA0aB9LogRecordCSgAFcGF
+PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) | s:7PostHog0aB10LogsConfigC13setBeforeSendyyAA0aB9LogRecordCSgAFYbcd_tF
+PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: [PostHogBeforeSendLogBlock]) | s:7PostHog0aB10LogsConfigC13setBeforeSendyySayAA0aB9LogRecordCSgAFYbcGF
 PostHog | PostHogNextSurveyQuestion | class | @objc class PostHogNextSurveyQuestion | c:@M@PostHog@objc(cs)PostHogNextSurveyQuestion
 PostHog | PostHogNextSurveyQuestion.isSurveyCompleted | property | let isSurveyCompleted: Bool | s:7PostHog0aB18NextSurveyQuestionC02isD9CompletedSbvp
 PostHog | PostHogNextSurveyQuestion.questionIndex | property | let questionIndex: Int | s:7PostHog0aB18NextSurveyQuestionC13questionIndexSivp
@@ -271,8 +240,6 @@ PostHog | PostHogPersonProfiles.always | enum.case | case always | c:@M@PostHog@
 PostHog | PostHogPersonProfiles.identifiedOnly | enum.case | case identifiedOnly | c:@M@PostHog@E@PostHogPersonProfiles@PostHogPersonProfilesIdentifiedOnly
 PostHog | PostHogPersonProfiles.init(rawValue:) | init | init?(rawValue: Int) | s:7PostHog0aB14PersonProfilesO8rawValueACSgSi_tcfc
 PostHog | PostHogPersonProfiles.never | enum.case | case never | c:@M@PostHog@E@PostHogPersonProfiles@PostHogPersonProfilesNever
-PostHog | PostHogPropertiesSanitizer | protocol | @objc(PostHogPropertiesSanitizer) protocol PostHogPropertiesSanitizer | c:@M@PostHog@objc(pl)PostHogPropertiesSanitizer
-PostHog | PostHogPropertiesSanitizer.sanitize(_:) | method | @objc func sanitize(_ properties: [String : Any]) -> [String : Any] | c:@M@PostHog@objc(pl)PostHogPropertiesSanitizer(im)sanitize:
 PostHog | PostHogRageClickConfig | class | @objc(PostHogRageClickConfig) class PostHogRageClickConfig | c:@M@PostHog@objc(cs)PostHogRageClickConfig
 PostHog | PostHogRageClickConfig.enabled | property | @objc var enabled: Bool | c:@M@PostHog@objc(cs)PostHogRageClickConfig(py)enabled
 PostHog | PostHogRageClickConfig.minimumTapCount | property | @objc var minimumTapCount: Int | c:@M@PostHog@objc(cs)PostHogRageClickConfig(py)minimumTapCount
@@ -319,7 +286,6 @@ PostHog | PostHogSDK.getDeviceId() | method | @objc func getDeviceId() -> String
 PostHog | PostHogSDK.getDistinctId() | method | @objc func getDistinctId() -> String | c:@M@PostHog@objc(cs)PostHogSDK(im)getDistinctId
 PostHog | PostHogSDK.getFeatureFlag(_:) | method | @objc func getFeatureFlag(_ key: String) -> Any? | c:@M@PostHog@objc(cs)PostHogSDK(im)getFeatureFlag:
 PostHog | PostHogSDK.getFeatureFlag(_:sendFeatureFlagEvent:) | method | @objc(getFeatureFlagWithKey:sendFeatureFlagEvent:) func getFeatureFlag(_ key: String, sendFeatureFlagEvent: Bool) -> Any? | c:@M@PostHog@objc(cs)PostHogSDK(im)getFeatureFlagWithKey:sendFeatureFlagEvent:
-PostHog | PostHogSDK.getFeatureFlagPayload(_:) | method | @objc func getFeatureFlagPayload(_ key: String) -> Any? | c:@M@PostHog@objc(cs)PostHogSDK(im)getFeatureFlagPayload:
 PostHog | PostHogSDK.getFeatureFlagResult(_:) | method | @objc func getFeatureFlagResult(_ key: String) -> PostHogFeatureFlagResult? | c:@M@PostHog@objc(cs)PostHogSDK(im)getFeatureFlagResult:
 PostHog | PostHogSDK.getFeatureFlagResult(_:sendFeatureFlagEvent:) | method | @objc(getFeatureFlagResultWithKey:sendFeatureFlagEvent:) func getFeatureFlagResult(_ key: String, sendFeatureFlagEvent: Bool) -> PostHogFeatureFlagResult? | c:@M@PostHog@objc(cs)PostHogSDK(im)getFeatureFlagResultWithKey:sendFeatureFlagEvent:
 PostHog | PostHogSDK.getSessionId() | method | @objc func getSessionId() -> String? | c:@M@PostHog@objc(cs)PostHogSDK(im)getSessionId
@@ -343,7 +309,7 @@ PostHog | PostHogSDK.register(_:) | method | @objc(registerProperties:) func reg
 PostHog | PostHogSDK.registerPushNotificationToken(_:) | method | @objc func registerPushNotificationToken(_ deviceToken: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:
 PostHog | PostHogSDK.registerPushNotificationToken(_:appId:) | method | @objc func registerPushNotificationToken(_ deviceToken: String, appId: String?) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:appId:
 PostHog | PostHogSDK.reloadFeatureFlags() | method | @objc func reloadFeatureFlags() | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlags
-PostHog | PostHogSDK.reloadFeatureFlags(_:) | method | @objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping () -> Void) | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlagsWithCallback:
+PostHog | PostHogSDK.reloadFeatureFlags(_:) | method | @objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping (PostHogFeatureFlagsLoaded) -> Void) | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlagsWithCallback:
 PostHog | PostHogSDK.reset() | method | @objc func reset() | c:@M@PostHog@objc(cs)PostHogSDK(im)reset
 PostHog | PostHogSDK.resetGroupPropertiesForFlags() | method | @objc func resetGroupPropertiesForFlags() | c:@M@PostHog@objc(cs)PostHogSDK(im)resetGroupPropertiesForFlags
 PostHog | PostHogSDK.resetGroupPropertiesForFlags(_:) | method | @objc(resetGroupPropertiesForFlagsWithGroupType:) func resetGroupPropertiesForFlags(_ groupType: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)resetGroupPropertiesForFlagsWithGroupType:
@@ -368,37 +334,21 @@ PostHog | PostHogSDK.stopSessionRecording() | method | @objc func stopSessionRec
 PostHog | PostHogSDK.unregister(_:) | method | @objc(unregisterProperties:) func unregister(_ key: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)unregisterProperties:
 PostHog | PostHogSDK.unregisterPushNotificationToken() | method | @objc func unregisterPushNotificationToken() | c:@M@PostHog@objc(cs)PostHogSDK(im)unregisterPushNotificationToken
 PostHog | PostHogSDK.with(_:) | type.method | @objc static func with(_ config: PostHogConfig) -> PostHogSDK | c:@M@PostHog@objc(cs)PostHogSDK(cm)with:
-PostHog | PostHogSessionManager | class | @objc class PostHogSessionManager | c:@M@PostHog@objc(cs)PostHogSessionManager
-PostHog | PostHogSessionManager.setSessionId(_:) | method | @objc func setSessionId(_ sessionId: String) | c:@M@PostHog@objc(cs)PostHogSessionManager(im)setSessionId:
-PostHog | PostHogSessionManager.shared | type.property | @objc static var shared: PostHogSessionManager { get } | c:@M@PostHog@objc(cs)PostHogSessionManager(cpy)shared
 PostHog | PostHogSessionReplayConfig | class | @objc(PostHogSessionReplayConfig) class PostHogSessionReplayConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig
 PostHog | PostHogSessionReplayConfig.captureLogs | property | @objc var captureLogs: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureLogs
 PostHog | PostHogSessionReplayConfig.captureLogsConfig | property | @objc var captureLogsConfig: PostHogSessionReplayConsoleLogConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureLogsConfig
 PostHog | PostHogSessionReplayConfig.captureNetworkTelemetry | property | @objc var captureNetworkTelemetry: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureNetworkTelemetry
 PostHog | PostHogSessionReplayConfig.captureTouches | property | @objc var captureTouches: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureTouches
-PostHog | PostHogSessionReplayConfig.debouncerDelay | property | @objc var debouncerDelay: TimeInterval { get set } | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)debouncerDelay
 PostHog | PostHogSessionReplayConfig.maskAllImages | property | @objc var maskAllImages: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllImages
 PostHog | PostHogSessionReplayConfig.maskAllSandboxedViews | property | @objc var maskAllSandboxedViews: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllSandboxedViews
 PostHog | PostHogSessionReplayConfig.maskAllTextInputs | property | @objc var maskAllTextInputs: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllTextInputs
-PostHog | PostHogSessionReplayConfig.maskPhotoLibraryImages | property | @objc var maskPhotoLibraryImages: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskPhotoLibraryImages
 PostHog | PostHogSessionReplayConfig.sampleRate | property | @objc var sampleRate: NSNumber? { get set } | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)sampleRate
 PostHog | PostHogSessionReplayConfig.screenshotMode | property | @objc var screenshotMode: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)screenshotMode
 PostHog | PostHogSessionReplayConfig.screenshotModeBackgroundCapture | property | @objc var screenshotModeBackgroundCapture: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)screenshotModeBackgroundCapture
 PostHog | PostHogSessionReplayConfig.throttleDelay | property | @objc var throttleDelay: TimeInterval | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)throttleDelay
 PostHog | PostHogSessionReplayConsoleLogConfig | class | @objc class PostHogSessionReplayConsoleLogConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig
-PostHog | PostHogSessionReplayConsoleLogConfig.logSanitizer | property | @objc var logSanitizer: (String) -> PostHogLogEntry? | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)logSanitizer
-PostHog | PostHogSessionReplayConsoleLogConfig.minLogLevel | property | @objc var minLogLevel: PostHogLogLevel | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)minLogLevel
-PostHog | PostHogStorageManager | class | class PostHogStorageManager | s:7PostHog0aB14StorageManagerC
-PostHog | PostHogStorageManager.getAnonymousId() | method | func getAnonymousId() -> String | s:7PostHog0aB14StorageManagerC14getAnonymousIdSSyF
-PostHog | PostHogStorageManager.getDeviceId() | method | func getDeviceId() -> String | s:7PostHog0aB14StorageManagerC11getDeviceIdSSyF
-PostHog | PostHogStorageManager.getDistinctId() | method | func getDistinctId() -> String | s:7PostHog0aB14StorageManagerC13getDistinctIdSSyF
-PostHog | PostHogStorageManager.isIdentified() | method | func isIdentified() -> Bool | s:7PostHog0aB14StorageManagerC12isIdentifiedSbyF
-PostHog | PostHogStorageManager.isPersonProcessing() | method | func isPersonProcessing() -> Bool | s:7PostHog0aB14StorageManagerC18isPersonProcessingSbyF
-PostHog | PostHogStorageManager.reset(keepAnonymousId:_:) | method | func reset(keepAnonymousId: Bool = false, _ resetStorage: Bool = false) | s:7PostHog0aB14StorageManagerC5reset15keepAnonymousId_ySb_SbtF
-PostHog | PostHogStorageManager.setAnonymousId(_:) | method | func setAnonymousId(_ id: String) | s:7PostHog0aB14StorageManagerC14setAnonymousIdyySSF
-PostHog | PostHogStorageManager.setDistinctId(_:) | method | func setDistinctId(_ id: String) | s:7PostHog0aB14StorageManagerC13setDistinctIdyySSF
-PostHog | PostHogStorageManager.setIdentified(_:) | method | func setIdentified(_ isIdentified: Bool) | s:7PostHog0aB14StorageManagerC13setIdentifiedyySbF
-PostHog | PostHogStorageManager.setPersonProcessing(_:) | method | func setPersonProcessing(_ enable: Bool) | s:7PostHog0aB14StorageManagerC19setPersonProcessingyySbF
+PostHog | PostHogSessionReplayConsoleLogConfig.logSanitizer | property | @objc var logSanitizer: (String) -> PostHogConsoleLogEntry? | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)logSanitizer
+PostHog | PostHogSessionReplayConsoleLogConfig.minLogLevel | property | @objc var minLogLevel: PostHogConsoleLogLevel | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)minLogLevel
 PostHog | PostHogSurveyResponse | class | @objc @objcMembers class PostHogSurveyResponse | c:@M@PostHog@objc(cs)PostHogSurveyResponse
 PostHog | PostHogSurveyResponse.link(_:) | type.method | static func link(_ clicked: Bool) -> PostHogSurveyResponse | c:@M@PostHog@objc(cs)PostHogSurveyResponse(cm)link:
 PostHog | PostHogSurveyResponse.linkClicked | property | let linkClicked: Bool? | s:7PostHog0aB14SurveyResponseC11linkClickedSbSgvp
@@ -425,14 +375,6 @@ PostHog | PostHogSurveysDelegate.cleanupSurveys() | method | @objc func cleanupS
 PostHog | PostHogSurveysDelegate.renderSurvey(_:onSurveyShown:onSurveyResponse:onSurveyClosed:) | method | @objc func renderSurvey(_ survey: PostHogDisplaySurvey, onSurveyShown: @escaping OnPostHogSurveyShown, onSurveyResponse: @escaping OnPostHogSurveyResponse, onSurveyClosed: @escaping OnPostHogSurveyClosed) | c:@M@PostHog@objc(pl)PostHogSurveysDelegate(im)renderSurvey:onSurveyShown:onSurveyResponse:onSurveyClosed:
 PostHog | PostHogSurveysDelegate.supportsSurveyResume | property | @objc optional var supportsSurveyResume: Bool { get } | c:@M@PostHog@objc(pl)PostHogSurveysDelegate(py)supportsSurveyResume
 PostHog | PostHogSurveysDelegate.updateSurvey(_:) | method | @objc optional func updateSurvey(_ survey: PostHogDisplaySurvey) | c:@M@PostHog@objc(pl)PostHogSurveysDelegate(im)updateSurvey:
-PostHog | ReachabilityError | enum | enum ReachabilityError | s:7PostHog17ReachabilityErrorO
-PostHog | ReachabilityError.failedToCreateWithAddress(_:_:) | enum.case | case failedToCreateWithAddress(sockaddr, Int32) | s:7PostHog17ReachabilityErrorO25failedToCreateWithAddressyACSo8sockaddrV_s5Int32VtcACmF
-PostHog | ReachabilityError.failedToCreateWithHostname(_:_:) | enum.case | case failedToCreateWithHostname(String, Int32) | s:7PostHog17ReachabilityErrorO26failedToCreateWithHostnameyACSS_s5Int32VtcACmF
-PostHog | ReachabilityError.unableToGetFlags(_:) | enum.case | case unableToGetFlags(Int32) | s:7PostHog17ReachabilityErrorO16unableToGetFlagsyACs5Int32VcACmF
-PostHog | ReachabilityError.unableToSetCallback(_:) | enum.case | case unableToSetCallback(Int32) | s:7PostHog17ReachabilityErrorO19unableToSetCallbackyACs5Int32VcACmF
-PostHog | ReachabilityError.unableToSetDispatchQueue(_:) | enum.case | case unableToSetDispatchQueue(Int32) | s:7PostHog17ReachabilityErrorO24unableToSetDispatchQueueyACs5Int32VcACmF
-PostHog | UIColor.hexDescription(_:) | method | func hexDescription(_ includeAlpha: Bool = false) -> String | s:So7UIColorC7PostHogE14hexDescriptionySSSbF
-PostHog | UIColor.init(hex:) | init | convenience init(hex: String?) | s:So7UIColorC7PostHogE3hexABSSSg_tcfc
 PostHog | UIView.postHogLabel | property | @MainActor var postHogLabel: String? { get set } | s:So6UIViewC7PostHogE04postC5LabelSSSgvp
 PostHog | URLSession.postHogData(for:delegate:postHog:) | method | func postHogData(for request: URLRequest, delegate: (any URLSessionTaskDelegate)? = nil, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) | s:So12NSURLSessionC7PostHogE04postC4Data3for8delegate0dC010Foundation0E0V_So13NSURLResponseCtAH10URLRequestV_So0A12TaskDelegate_pSgAC0bC3SDKCSgtYaKF
 PostHog | URLSession.postHogData(for:postHog:) | method | func postHogData(for request: URLRequest, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) | s:So12NSURLSessionC7PostHogE04postC4Data3for0dC010Foundation0E0V_So13NSURLResponseCtAG10URLRequestV_AC0bC3SDKCSgtYaKF
@@ -459,12 +401,3 @@ PostHog | View.postHogScreenView(_:_:postHog:) | method | @MainActor func postHo
  | s:7SwiftUI4ViewP7PostHogE04poste6ScreenC0__0fE0QrSSSg_SDySSypGSgAD0dE3SDKCSgtF
 PostHog | View.postHogViewSeen(_:_:postHog:) | method | @MainActor func postHogViewSeen(_ event: String, _ properties: [String : Any]? = nil, postHog: PostHogSDK? = nil) -> some View
  | s:7SwiftUI4ViewP7PostHogE04posteC4Seen__0fE0QrSS_SDySSypGSgAD0dE3SDKCSgtF
-PostHog | dateToMillis(_:) | func | func dateToMillis(_ date: Date) -> Int64 | s:7PostHog12dateToMillisys5Int64V10Foundation4DateVF
-PostHog | deleteSafely(_:) | func | func deleteSafely(_ file: URL) | s:7PostHog12deleteSafelyyy10Foundation3URLVF
-PostHog | imageToBase64(_:_:) | func | func imageToBase64(_ image: UIImage, _ compressionQuality: CGFloat = 0.3) -> String? | s:7PostHog13imageToBase64ySSSgSo7UIImageC_14CoreFoundation7CGFloatVtF
-PostHog | postHogSdkName | var | var postHogSdkName: String | s:7PostHog04postB7SdkNameSSvp
-PostHog | postHogVersion | var | var postHogVersion: String | s:7PostHog04postB7VersionSSvp
-PostHog | postHogiOSSdkName | var | let postHogiOSSdkName: String | s:7PostHog17postHogiOSSdkNameSSvp
-PostHog | sanitizeDictionary(_:) | func | func sanitizeDictionary(_ dict: [String : Any]?) -> [String : Any]? | s:7PostHog18sanitizeDictionaryySDySSypGSgADF
-PostHog | toISO8601Date(_:) | func | func toISO8601Date(_ date: String) -> Date? | s:7PostHog13toISO8601Datey10Foundation0E0VSgSSF
-PostHog | toISO8601String(_:) | func | func toISO8601String(_ date: Date) -> String | s:7PostHog15toISO8601StringySS10Foundation4DateVF

@@ -9,7 +9,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-#if os(iOS) || os(macOS) || os(tvOS)
+#if (os(iOS) || os(macOS) || os(tvOS)) && (!SWIFT_PACKAGE || CrashReporting)
     import PHPLCrashReporter
 
     /// A live report snapshots every thread while the process keeps running, so a thread starting or

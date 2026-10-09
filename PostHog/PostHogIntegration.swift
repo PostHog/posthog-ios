@@ -12,6 +12,7 @@ enum PostHogIntegrationInstallSkipReason: String, CustomStringConvertible {
     case alreadyInstalled = "Already installed to another PostHogSDK instance"
     case disabledByRemoteConfig = "Disabled in remote config"
     case notAvailableOnPlatform = "Not available on this platform"
+    case disabledByPackageTrait = "Disabled by a package trait"
 }
 
 enum PostHogIntegrationInstallResult: Equatable {

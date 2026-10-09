@@ -5,7 +5,7 @@
 //  Created by Ioannis Josephides on 07/03/2025.
 //
 
-#if os(iOS) || Testing
+#if (os(iOS) || Testing) && (!SWIFT_PACKAGE || Surveys)
     import SwiftUI
 
     final class SurveyDisplayController: ObservableObject {

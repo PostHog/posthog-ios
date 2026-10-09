@@ -697,7 +697,8 @@ final class PostHogPushSubscriptionHandler {
             return completion(cached)
         }
 
-        var completed = false
+        // Guarded by stateLock.
+        nonisolated(unsafe) var completed = false
         // A provider that never calls its completion would hold isSending for the whole process and
         // wedge every later send. Bound the wait: if the mint doesn't land in time, fall back to a
         // token-less send. A late real completion doesn't deliver (via `completed`) but still

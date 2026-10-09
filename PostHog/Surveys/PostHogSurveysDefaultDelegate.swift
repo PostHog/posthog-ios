@@ -5,7 +5,7 @@
 //  Created by Ioannis Josephides on 18/06/2025.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     import UIKit
 #else
     import Foundation
@@ -14,7 +14,7 @@
 final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
     var supportsSurveyResume: Bool { true }
 
-    #if os(iOS)
+    #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
         private var surveysWindow: UIWindow?
         private var displayController: SurveyDisplayController?
         private var pendingDisplayWorkItem: DispatchWorkItem?
@@ -28,9 +28,7 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
         onSurveyResponse: @escaping OnPostHogSurveyResponse,
         onSurveyClosed: @escaping OnPostHogSurveyClosed
     ) {
-        #if os(iOS)
-            guard #available(iOS 15.0, *) else { return }
-
+        #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
             if displayController == nil {
                 // setup window for first-time display
                 setupWindow()
@@ -52,9 +50,7 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
     }
 
     func updateSurvey(_ survey: PostHogDisplaySurvey) {
-        #if os(iOS)
-            guard #available(iOS 15.0, *) else { return }
-
+        #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
             // If the survey is still waiting out its display delay, refresh the queued copy so
             // it gets shown with the latest content.
             if pendingSurvey?.id == survey.id {
@@ -66,7 +62,7 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
     }
 
     func cleanupSurveys() {
-        #if os(iOS)
+        #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
             dismissPendingSurveyIfNeeded()
             displayController?.dismissSurvey() // dismiss any active surveys
             surveysWindow?.rootViewController?.dismiss(animated: true) {
@@ -77,8 +73,7 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
         #endif
     }
 
-    #if os(iOS)
-        @available(iOS 15.0, *)
+    #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
         private func setupWindow() {
             if let activeWindow = UIApplication.getCurrentWindow(), let activeScene = activeWindow.windowScene {
                 let controller = SurveyDisplayController()
@@ -146,7 +141,7 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
     #endif
 }
 
-#if os(iOS) && TESTING
+#if os(iOS) && TESTING && (!SWIFT_PACKAGE || Surveys)
     extension PostHogSurveysDefaultDelegate {
         /// Injects a display controller so tests can drive rendering without a `UIWindowScene`
         func setDisplayControllerForTesting(_ controller: SurveyDisplayController) {

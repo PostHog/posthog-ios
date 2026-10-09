@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 import XCTest
 
@@ -28,7 +28,6 @@ class PostHogDeviceBucketingTests {
         config.maxBatchSize = flushAt
         config.disableFlushOnBackgroundForTesting = true
         config.disableQueueTimerForTesting = true
-        config.remoteConfig = false
         config.preloadFeatureFlags = false
         let sut = PostHogSDK.with(config)
         cleanupJobs.append {
@@ -103,7 +102,7 @@ class PostHogDeviceBucketingTests {
         let deviceId = sut.getDeviceId()
 
         await withCheckedContinuation { continuation in
-            sut.reloadFeatureFlags {
+            sut.reloadFeatureFlags { _ in
                 continuation.resume()
             }
         }
@@ -121,7 +120,7 @@ class PostHogDeviceBucketingTests {
         sut.identify("user-123")
 
         await withCheckedContinuation { continuation in
-            sut.reloadFeatureFlags {
+            sut.reloadFeatureFlags { _ in
                 continuation.resume()
             }
         }

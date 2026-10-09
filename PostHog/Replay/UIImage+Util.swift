@@ -17,7 +17,11 @@
         }
 
         private func toWebPBase64(_ compressionQuality: CGFloat) -> String? {
-            toImageBase64(mimeType: "webp", data: webpData(compressionQuality: compressionQuality))
+            #if !SWIFT_PACKAGE || SessionReplay
+                toImageBase64(mimeType: "webp", data: webpData(compressionQuality: compressionQuality))
+            #else
+                nil
+            #endif
         }
 
         private func toJpegBase64(_ compressionQuality: CGFloat) -> String? {
@@ -37,8 +41,7 @@
     ///   - image: Image to encode.
     ///   - compressionQuality: Compression quality from `0.0` to `1.0`. Defaults to `0.3`.
     /// - Returns: A `data:image/...;base64` string, or `nil` if encoding fails.
-    @available(*, deprecated, message: "imageToBase64(_:_:) becomes SDK-internal in PostHog 4.0. From 4.0, wrapper SDKs must import PostHog with @_spi(PostHogInternal) to use it.")
-    public func imageToBase64(_ image: UIImage, _ compressionQuality: CGFloat = 0.3) -> String? {
+    @_spi(PostHogInternal) public func imageToBase64(_ image: UIImage, _ compressionQuality: CGFloat = 0.3) -> String? {
         image.toBase64(compressionQuality)
     }
 #endif

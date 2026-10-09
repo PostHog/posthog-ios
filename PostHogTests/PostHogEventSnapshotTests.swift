@@ -1,5 +1,5 @@
 import Foundation
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 import XCTest
 
@@ -118,7 +118,7 @@ final class PostHogEventSnapshotTests {
         )
 
         let loaded = AsyncLatch()
-        sut.reloadFeatureFlags { loaded.signal() }
+        sut.reloadFeatureFlags { _ in loaded.signal() }
         await loaded.wait()
 
         let request = try #require(server.flagsRequests.first)

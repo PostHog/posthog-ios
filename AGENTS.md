@@ -5,11 +5,11 @@
 - SDK entry point: [PostHog/PostHogSDK.swift](PostHog/PostHogSDK.swift); tests: `PostHogTests/`; replay/privacy: `PostHog/Replay/` and `PostHog/Resources/`.
 
 ## Repository invariants
-- Maintain Swift 5 SDK language compatibility. Tests require Swift 6+ with Swift Testing (Xcode 16+); prefer Swift Testing for new tests. Use `PostHogTests/TestUtils/MockPostHogServer.swift` for HTTP stubbing.
-- Preserve deployment minima: iOS/tvOS 13, macOS 10.15, watchOS 6, visionOS 1. Keep platform guards and graceful degradation, especially for session replay. Availability annotations/checks do not require adding platform support or raising targets. Intentional support changes require checking both `Package.swift` and `Package@swift-5.9.swift`, plus CocoaPods/Xcode packaging/build configuration; visionOS declarations belong in the Swift 5.9 manifest.
+- Maintain Swift 5 SDK language mode. The package needs swift-tools-version 6.2 (Xcode 26+); prefer Swift Testing for new tests. Use `PostHogTests/TestUtils/MockPostHogServer.swift` for HTTP stubbing.
+- Preserve deployment minima: iOS 15, tvOS 15, macOS 11, watchOS 10, visionOS 1. Keep platform guards and graceful degradation, especially for session replay. Availability annotations/checks do not require adding platform support or raising targets. Intentional support changes require checking `Package.swift` plus CocoaPods/Xcode packaging/build configuration.
 - Public APIs must remain thread-safe and callable from any thread. Preserve offline operation and queue-based event batching; never assume connectivity. `PostHogSDK.shared` is the default singleton; independent instances use `PostHogSDK.with(_:)` with `PostHogConfig`.
 - Preserve replay masking/privacy behavior and privacy-safe error logging; do not expose sensitive user data.
-- Prefer no new dependencies. libwebp is embedded; PHPLCrashReporter is vendored, prefixed PLCrashReporter for native crash reporting on iOS/macOS/tvOS, excluded on watchOS/visionOS.
+- Prefer no new dependencies. libwebp is embedded; PHPLCrashReporter is vendored, prefixed PLCrashReporter for native crash reporting on iOS/macOS/tvOS, excluded on watchOS/visionOS. Both are behind default-on package traits (`SessionReplay`, which also gates the replay engine, and `CrashReporting`); gate code that uses them with `#if !SWIFT_PACKAGE || <Trait>`. The survey engine and UI are behind the default-on `Surveys` trait the same way. Once released, never add a new default-on trait on its own: apps that list traits would silently lose the feature. Split an existing trait instead, keeping it as an umbrella that enables the new ones.
 
 ## Validation selector
 - Use `make` wrappers, not direct `swift`/`xcodebuild`. Iterate with focused tests; before submitting SDK changes, run contributor checks: `make lint`, `make test`, `make buildSdk`.

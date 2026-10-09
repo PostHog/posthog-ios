@@ -16,10 +16,10 @@ Pod::Spec.new do |s|
   s.readme           = "https://raw.githubusercontent.com/PostHog/posthog-ios/#{s.version.to_s}/README.md"
   s.changelog        = "https://raw.githubusercontent.com/PostHog/posthog-ios/#{s.version.to_s}/CHANGELOG.md"
 
-  s.ios.deployment_target = '13.0'
-  s.tvos.deployment_target = '13.0'
-  s.osx.deployment_target = "10.15"
-  s.watchos.deployment_target = "6.0"
+  s.ios.deployment_target = '15.0'
+  s.tvos.deployment_target = '15.0'
+  s.osx.deployment_target = "11.0"
+  s.watchos.deployment_target = "10.0"
   s.visionos.deployment_target = "1.0"
   s.swift_versions = "5.3"
 

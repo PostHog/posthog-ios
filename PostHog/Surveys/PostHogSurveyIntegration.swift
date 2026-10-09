@@ -5,7 +5,7 @@
 //  Created by Ioannis Josephides on 20/02/2025.
 //
 
-#if os(iOS) || TESTING
+#if (os(iOS) || TESTING) && (!SWIFT_PACKAGE || Surveys)
 
     import Foundation
     #if os(iOS)
@@ -119,9 +119,7 @@
             clearActiveSurvey()
             unsubscribeFromRemoteConfigUpdates()
             #if os(iOS)
-                if #available(iOS 15.0, *) {
-                    config?.surveysConfig.surveysDelegate.cleanupSurveys()
-                }
+                config?.surveysConfig.surveysDelegate.cleanupSurveys()
             #endif
         }
 
@@ -241,7 +239,9 @@
         ) {
             getCachedOrReload(
                 getCached: remoteConfig.getFeatureFlags,
-                reload: { remoteConfig.reloadFeatureFlags(callback: $0) },
+                reload: { callback in
+                    remoteConfig.reloadFeatureFlags(callback: callback.map { callback in { callback($0.featureFlags) } })
+                },
                 forceReload: forceReload,
                 callback: callback
             )
@@ -291,11 +291,6 @@
         /// Shows next survey in queue. No-op if a survey is already being shown
         func showNextSurvey() {
             #if os(iOS)
-                guard #available(iOS 15.0, *) else {
-                    hedgeLog("[Surveys] Surveys can be rendered only on iOS 15+")
-                    return
-                }
-
                 guard Thread.isMainThread else {
                     DispatchQueue.main.async { [weak self] in self?.showNextSurvey() }
                     return
@@ -340,8 +335,7 @@
         private func refreshActiveSurveyTranslations() {
             // `updateSurvey` is optional; without it, skip so the tracked language never advances past
             // what's actually on screen.
-            guard #available(iOS 15.0, *),
-                  let updateSurvey = postHog?.config._surveysConfig.surveysDelegate.updateSurvey
+            guard let updateSurvey = postHog?.config._surveysConfig.surveysDelegate.updateSurvey
             else { return }
 
             // Enqueue the update inside `activeSurveyLock` so main-queue order matches commit order:
@@ -551,8 +545,7 @@
         /// but before the survey was on screen — a window where `updateSurvey` is dropped and later
         /// refreshes no-op. Pushes one update to catch up.
         private func reconcileRenderedTranslationOnShow(activeSurvey: PostHogSurvey, attemptId: UUID?) {
-            guard #available(iOS 15.0, *),
-                  let updateSurvey = postHog?.config._surveysConfig.surveysDelegate.updateSurvey
+            guard let updateSurvey = postHog?.config._surveysConfig.surveysDelegate.updateSurvey
             else { return }
 
             activeSurveyLock.withLock {
@@ -1190,4 +1183,17 @@
             }
         }
     #endif
+#elseif os(iOS)
+    // Stub for SPM builds with the `Surveys` trait disabled, where the survey engine and UI are not compiled.
+    final class PostHogSurveyIntegration: PostHogIntegration {
+        var requiresSwizzling: Bool { false }
+
+        func install(_: PostHogSDK) -> PostHogIntegrationInstallResult {
+            .skipped(.disabledByPackageTrait)
+        }
+
+        func uninstall(_: PostHogSDK) { /* no-op */ }
+        func start() { /* no-op */ }
+        func stop() { /* no-op */ }
+    }
 #endif

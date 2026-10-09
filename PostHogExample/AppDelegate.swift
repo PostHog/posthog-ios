@@ -31,11 +31,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         #endif
 
         #if os(iOS)
-            if #available(iOS 15.0, *) {
-                config.surveys = true
-                // Uncomment to force-render any matching survey in a specific language regardless of device locale.
-                // config.surveysConfig.overrideDisplayLanguage = "fr"
-            }
+            config.surveys = true
+            // Uncomment to force-render any matching survey in a specific language regardless of device locale.
+            // config.surveysConfig.overrideDisplayLanguage = "fr"
             config.sessionReplay = false
             config.sessionReplayConfig.screenshotMode = true
             config.sessionReplayConfig.maskAllTextInputs = true
@@ -46,7 +44,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 // Skip some logs
                 guard !log.contains("[SKIP]") else { return nil }
                 // all logs are lowercased and info level
-                return PostHogLogEntry(level: .info, message: log.lowercased())
+                return PostHogConsoleLogEntry(level: .info, message: log.lowercased())
             }
         #endif
 

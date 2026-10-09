@@ -133,18 +133,10 @@ let maxRetryDelay = 30.0
         private weak var surveysIntegration: PostHogSurveyIntegration?
     #endif
 
-    // nonisolated(unsafe) is introduced in Swift 5.10
-    #if swift(>=5.10)
-        /// Shared singleton SDK instance used by most applications.
-        ///
-        /// Call `setup(_:)` once with a `PostHogConfig` before using capture APIs.
-        @objc public nonisolated(unsafe) static let shared: PostHogSDK = .init(PostHogConfig(projectToken: ""))
-    #else
-        /// Shared singleton SDK instance used by most applications.
-        ///
-        /// Call `setup(_:)` once with a `PostHogConfig` before using capture APIs.
-        @objc public static let shared: PostHogSDK = .init(PostHogConfig(projectToken: ""))
-    #endif
+    /// Shared singleton SDK instance used by most applications.
+    ///
+    /// Call `setup(_:)` once with a `PostHogConfig` before using capture APIs.
+    @objc public nonisolated(unsafe) static let shared: PostHogSDK = .init(PostHogConfig(projectToken: ""))
 
     deinit {
         #if !os(watchOS)
@@ -181,7 +173,7 @@ let maxRetryDelay = 30.0
             }
 
             if config.projectToken.isEmpty {
-                hedgeLog("PostHog SDK will be disabled because projectToken or apiKey is empty.")
+                hedgeLog("PostHog SDK will be disabled because projectToken is empty.")
                 return
             }
 
@@ -210,11 +202,7 @@ let maxRetryDelay = 30.0
             })
 
             #if !os(watchOS)
-                do {
-                    reachability = try Reachability()
-                } catch {
-                    // ignored
-                }
+                reachability = Reachability()
                 context = PostHogContext(reachability)
             #else
                 context = PostHogContext()
@@ -339,10 +327,8 @@ let maxRetryDelay = 30.0
             #if os(iOS) || os(macOS)
                 // Releases a prewarm this setup turns out not to want — including while opted out,
                 // where the integrations above were never installed and so could never release it.
-                if #available(iOS 14.0, macOS 11.0, *) {
-                    if !config.installsPushNotificationOpenIntegration {
-                        DI.main.pushNotificationPublisher.discardPrewarmedNotificationResponseCapture()
-                    }
+                if !config.installsPushNotificationOpenIntegration {
+                    DI.main.pushNotificationPublisher.discardPrewarmedNotificationResponseCapture()
                 }
             #endif
 
@@ -554,7 +540,6 @@ let maxRetryDelay = 30.0
         /// Only the first URL context is captured.
         ///
         /// - Parameter openURLContexts: The set of URL contexts from the scene delegate.
-        @available(iOS 13.0, tvOS 13.0, *)
         @objc public func captureDeepLink(openURLContexts: Set<UIOpenURLContext>) {
             if let context = openURLContexts.first {
                 captureDeepLink(url: context.url, referrer: context.options.sourceApplication)
@@ -744,7 +729,7 @@ let maxRetryDelay = 30.0
 
             // SDK-computed debug keys overwrite a same-named registered super property (js: `extend`
             // after super properties), so a stale `register()` can't shadow the live status.
-            #if os(iOS)
+            #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 var replayDebugProperties = replayIntegration?.debugProperties() ?? [
                     "$recording_status": "disabled",
                     "$sdk_debug_replay_capture_mode": PostHogReplayIntegration.captureMode(config: config),
@@ -1233,10 +1218,7 @@ let maxRetryDelay = 30.0
                 return true
             }
             guard let reachability else { return true }
-            if case .unavailable = reachability.connection {
-                return false
-            }
-            return true
+            return reachability.connection != .unavailable
         #else
             return true
         #endif
@@ -1618,9 +1600,9 @@ let maxRetryDelay = 30.0
         }
 
         // Filtering after the full build stays robust as new context properties are added later:
-        // anything not explicitly allowlisted is stripped. beforeSend hooks and the legacy
-        // propertiesSanitizer run later (in buildEvent) and may re-add keys — an accepted
-        // escape hatch, codified in the minimal-event contract.
+        // anything not explicitly allowlisted is stripped. beforeSend hooks run later (in
+        // buildEvent) and may re-add keys — an accepted escape hatch, codified in the
+        // minimal-event contract.
         if let propertyAllowlist {
             finalProperties = finalProperties.filter {
                 propertyAllowlist.contains($0.key) || $0.key == Self.replayDebugClaimMarkerKey
@@ -1814,13 +1796,6 @@ let maxRetryDelay = 30.0
         queueEvent(event, queue: queue)
     }
 
-    private func sanitizeProperties(_ properties: [String: Any]) -> [String: Any] {
-        if let sanitizer = config.legacyPropertiesSanitizer {
-            return sanitizer.sanitize(properties)
-        }
-        return properties
-    }
-
     /// Assigns an additional distinct ID to the current user.
     ///
     /// Use alias when a user should be connected to another identifier that was previously used
@@ -1933,12 +1908,11 @@ let maxRetryDelay = 30.0
     func buildEvent(event eventName: String, distinctId: String, properties: [String: Any], timestamp: Date = Date()) -> PostHogEvent? {
         var properties = properties
         let carriesReplayDebugBundle = properties.removeValue(forKey: Self.replayDebugClaimMarkerKey) != nil
-        let sanitizedProperties = sanitizeProperties(properties)
 
         let event = PostHogEvent(
             event: eventName,
             distinctId: distinctId,
-            properties: sanitizedProperties,
+            properties: properties,
             timestamp: timestamp
         )
 
@@ -2117,7 +2091,7 @@ let maxRetryDelay = 30.0
     ///
     /// ```swift
     /// PostHogSDK.shared.setPersonPropertiesForFlags(["plan": "premium"], reloadFeatureFlags: false)
-    /// PostHogSDK.shared.reloadFeatureFlags {
+    /// PostHogSDK.shared.reloadFeatureFlags { _ in
     ///     let flagValue = PostHogSDK.shared.isFeatureEnabled("new_feature")
     /// }
     /// ```
@@ -2126,9 +2100,10 @@ let maxRetryDelay = 30.0
     /// leaves your app in control of when flags load.
     ///
     /// - Note: `reset()` clears person properties set here, so they must be set again afterwards.
-    /// - Note: `reloadFeatureFlags(_:)` reports that the reload finished, not that it succeeded. If the
-    ///   request fails, or the project is over its feature flag quota, the handler still runs and the
-    ///   flags you read are the previously cached ones.
+    /// - Note: The `reloadFeatureFlags(_:)` handler runs whether or not the reload succeeded. If the
+    ///   request fails, `errorsLoading` is `true` and the flags you read are the previously cached ones.
+    ///   If the project is over its feature flag quota, `errorsLoading` is `false` but the flags are
+    ///   still the previously cached ones.
     ///
     /// - Parameters:
     ///   - properties: Dictionary of person properties to include in flag evaluation
@@ -2322,29 +2297,43 @@ let maxRetryDelay = 30.0
 
     /// Reloads feature flags for the current user and group context.
     @objc public func reloadFeatureFlags() {
-        reloadFeatureFlags {
+        reloadFeatureFlags { _ in
             // No use case
         }
     }
 
-    /// Reloads feature flags and invokes a callback when finished.
+    /// Reloads feature flags and invokes a callback with the result when finished.
     ///
-    /// - Parameter callback: Invoked when the reload finishes, or immediately if the reload
-    ///   is skipped (SDK disabled/opted-out, or no remote config available).
+    /// ```swift
+    /// PostHogSDK.shared.reloadFeatureFlags { result in
+    ///     if result.errorsLoading {
+    ///         // The reload failed. result.variants holds the last known flags.
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// - Parameter callback: Invoked when the reload finishes, possibly on a background thread.
+    ///   If the request fails, ``PostHogFeatureFlagsLoaded/errorsLoading`` is `true` and the flags are
+    ///   the last known ones. If the reload is skipped because the SDK isn't set up, it's invoked
+    ///   right away with no flags and `errorsLoading` set to `true`. To update UI or other main-actor
+    ///   state, hop to the main actor, for example with `Task { @MainActor in ... }`.
     @objc(reloadFeatureFlagsWithCallback:)
-    public func reloadFeatureFlags(_ callback: @escaping () -> Void) {
+    public func reloadFeatureFlags(_ callback: @escaping @Sendable (PostHogFeatureFlagsLoaded) -> Void) {
         if !isEnabled() {
-            callback()
+            callback(PostHogFeatureFlagsLoaded(featureFlags: [:], errorsLoading: true))
             return
         }
 
         guard let remoteConfig else {
-            callback()
+            callback(PostHogFeatureFlagsLoaded(featureFlags: [:], errorsLoading: true))
             return
         }
 
-        remoteConfig.reloadFeatureFlags { _ in
-            callback()
+        remoteConfig.reloadFeatureFlags { result in
+            callback(PostHogFeatureFlagsLoaded(
+                featureFlags: result.lastKnownFeatureFlags,
+                errorsLoading: result.featureFlags == nil
+            ))
         }
     }
 
@@ -2582,19 +2571,6 @@ let maxRetryDelay = 30.0
         return remoteConfig?.getAllFeatureFlagResults()
     }
 
-    /// Returns the payload for a feature flag.
-    ///
-    /// - Parameter key: The feature flag key.
-    /// - Returns: The flag payload, or `nil` if the flag or payload is unavailable.
-    /// - Warning: This method does not send the `$feature_flag_called` event.
-    ///   Use `getFeatureFlagResult(_:)` instead for proper analytics tracking.
-    @available(*, deprecated, message: "Use getFeatureFlagResult(_:) instead which properly tracks feature flag usage")
-    @objc public func getFeatureFlagPayload(_ key: String) -> Any? {
-        // Don't send event to maintain backwards compatibility
-        let result = getFeatureFlagResult(key, sendEvent: false)
-        return result?.payload
-    }
-
     private func flagValuesEqual(_ lhs: Any?, _ rhs: Any?) -> Bool {
         switch (lhs, rhs) {
         case (nil, nil):
@@ -2765,7 +2741,7 @@ let maxRetryDelay = 30.0
             // Gate on the same conditions that install the subscription integration: auto-capture and
             // swizzling. Without swizzling the integration is skipped, so refetching would fire the host's
             // APNs lifecycle with no observer to forward the token.
-            if #available(iOS 14.0, *), config.capturePushNotificationSubscriptions, config.enableSwizzling {
+            if config.capturePushNotificationSubscriptions, config.enableSwizzling {
                 PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh()
             }
         #endif
@@ -3496,7 +3472,6 @@ let maxRetryDelay = 30.0
         /// (`close()`), or at `setup()` when the config disables push-open capture or the app is
         /// opted out. If `setup()` is never called they stay for the process lifetime. The per-class
         /// delegate wrapper, as elsewhere in this SDK, stays for the process lifetime regardless.
-        @available(iOS 14.0, macOS 11.0, *)
         @objc public static func prewarmPushNotificationOpenCapture() {
             DI.main.pushNotificationPublisher.prewarmNotificationResponseCapture()
         }
@@ -3525,7 +3500,6 @@ let maxRetryDelay = 30.0
         /// `notification.request.identifier` differ are two taps, not one reported twice.
         ///
         /// - Parameter response: The `UNNotificationResponse` received from the system.
-        @available(iOS 14.0, macOS 11.0, *)
         @objc public func capturePushNotificationOpened(response: UNNotificationResponse) {
             let content = response.notification.request.content
             // Free-text content is captured only for PostHog-attributed pushes: forwarding the
@@ -3739,7 +3713,6 @@ let maxRetryDelay = 30.0
         #endif
 
         #if os(iOS) || os(macOS)
-            @available(iOS 14.0, macOS 11.0, *)
             func getPushNotificationIntegration() -> PostHogPushNotificationOpenIntegration? {
                 getIntegration()
             }
@@ -3747,7 +3720,6 @@ let maxRetryDelay = 30.0
         #endif
 
         #if os(iOS)
-            @available(iOS 14.0, *)
             func getPushNotificationSubscriptionIntegration() -> PostHogPushNotificationSubscriptionIntegration? {
                 getIntegration()
             }

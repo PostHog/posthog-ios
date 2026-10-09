@@ -7,13 +7,8 @@
 
 import Foundation
 
-#if os(iOS) || os(macOS) || os(tvOS)
-    #if compiler(>=6.0)
-        internal import PHPLCrashReporter
-    #else
-        // swiftlint:disable:next duplicate_imports
-        @_implementationOnly import PHPLCrashReporter
-    #endif
+#if (os(iOS) || os(macOS) || os(tvOS)) && (!SWIFT_PACKAGE || CrashReporting)
+    internal import PHPLCrashReporter
 
     enum PostHogCrashReportProcessor {
         /// Process a PHPLCrashReport and convert it to PostHog $exception event properties

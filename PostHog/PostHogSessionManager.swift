@@ -9,10 +9,10 @@ import Foundation
 
 /// Manages the active PostHog session ID and session rotation state.
 ///
-/// - Warning: This class is public for backwards compatibility, but is intended for
-///   SDK-internal use only. Application code should use `PostHogSDK.getSessionId()`,
+/// - Warning: For PostHog's wrapper SDKs only, which import it with
+///   `@_spi(PostHogInternal)`. Application code should use `PostHogSDK.getSessionId()`,
 ///   `startSession()`, and `endSession()` instead of interacting with this manager directly.
-@objc public class PostHogSessionManager: NSObject {
+@_spi(PostHogInternal) @objc public class PostHogSessionManager: NSObject {
     enum SessionIDChangeReason: String {
         case sessionIdEmpty = "Session id was empty"
         case sessionStart = "Session started"
@@ -24,8 +24,7 @@ import Foundation
     }
 
     /// Session manager used by `PostHogSDK.shared`.
-    @available(*, deprecated, message: "PostHogSessionManager becomes SDK-internal in PostHog 4.0. Use PostHogSDK.shared.getSessionId(), startSession() and endSession() instead. From 4.0, wrapper SDKs must import PostHog with @_spi(PostHogInternal) to use it.")
-    @objc public static var shared: PostHogSessionManager {
+    public static var shared: PostHogSessionManager {
         PostHogSDK.shared.sessionManager
     }
 
@@ -75,8 +74,7 @@ import Foundation
     /// Use with care: changing the session ID affects analytics session attribution and session replay.
     ///
     /// - Parameter sessionId: Session ID to use for subsequent events.
-    @available(*, deprecated, message: "PostHogSessionManager becomes SDK-internal in PostHog 4.0. Use PostHogSDK.shared.getSessionId(), startSession() and endSession() instead. From 4.0, wrapper SDKs must import PostHog with @_spi(PostHogInternal) to use it.")
-    @objc public func setSessionId(_ sessionId: String) {
+    public func setSessionId(_ sessionId: String) {
         setSessionIdInternal(sessionId, at: now(), reason: .customSessionId)
     }
 

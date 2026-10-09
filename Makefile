@@ -1,4 +1,4 @@
-.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
+.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS buildSdkSpm buildSdkSpmNoTraits buildTestsSpmTraitsIOS testNoTraits
 
 build: buildSdk buildExamples
 
@@ -7,12 +7,30 @@ buildIOS:
 
 buildSdk:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=ios | xcpretty #ios
-	set -o pipefail && xcrun swift build --arch arm64 #macOS
+	$(MAKE) buildSdkSpm #macOS
+	$(MAKE) buildSdkSpmNoTraits #macOS + iOS, package traits off
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=macos | xcpretty #macOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination 'platform=macOS,variant=Mac Catalyst' | xcpretty #Mac Catalyst
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=tvos | xcpretty #tvOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=watchos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=xros | xcpretty #visionOS
+
+buildSdkSpm:
+	set -o pipefail && xcrun swift build --arch arm64
+
+# Builds with every package trait off, so libwebp and PLCrashReporter are not compiled or linked.
+# The iOS build covers the WebP gate, which macOS compiles out.
+buildSdkSpmNoTraits:
+	set -o pipefail && xcrun swift build --target PostHog --arch arm64 --disable-default-traits #macOS
+	set -o pipefail && xcrun swift build --target PostHog --disable-default-traits --triple arm64-apple-ios15.0 --sdk "$$(xcrun --sdk iphoneos --show-sdk-path)" #iOS
+
+# Compiles the iOS test target with traits off and with each trait on its own, so trait-gated SDK code and
+# the tests that use it stay in sync. `make test` runs on macOS, which compiles out the iOS-only code.
+buildTestsSpmTraitsIOS:
+	set -o pipefail && xcrun swift build --build-tests --disable-default-traits --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
+	set -o pipefail && xcrun swift build --build-tests --traits CrashReporting --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
+	set -o pipefail && xcrun swift build --build-tests --traits SessionReplay --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
+	set -o pipefail && xcrun swift build --build-tests --traits Surveys --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
 
 buildExamples: \
 	buildExamplesPlatforms \
@@ -199,6 +217,9 @@ testIOSResultParser:
 
 test: testUploadSymbols testIOSResultParser
 	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING $(if $(filter),--filter $(filter))
+
+testNoTraits:
+	set -o pipefail && swift test --no-parallel --disable-default-traits -Xswiftc -DTESTING $(if $(filter),--filter $(filter))
 
 recordEventShapeSnapshots:
 	UPDATE_EVENT_SHAPE_SNAPSHOTS=1 $(MAKE) test filter=PostHogEventSnapshotTests

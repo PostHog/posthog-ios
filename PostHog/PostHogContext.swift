@@ -138,22 +138,12 @@ class PostHogContext {
         }
     #else
         init() {
-            if #available(watchOS 7.0, *) {
-                registerNotifications()
-            } else {
-                onShouldUpdateScreenSize()
-            }
+            registerNotifications()
         }
     #endif
 
     deinit {
-        #if !os(watchOS)
-            unregisterNotifications()
-        #else
-            if #available(watchOS 7.0, *) {
-                unregisterNotifications()
-            }
-        #endif
+        unregisterNotifications()
     }
 
     private lazy var theSdkInfo: [String: Any] = {
@@ -215,10 +205,8 @@ class PostHogContext {
         #if targetEnvironment(macCatalyst)
             sysctlName = "hw.model"
         #elseif os(iOS) || os(visionOS)
-            if #available(iOS 14.0, *) {
-                if ProcessInfo.processInfo.isiOSAppOnMac {
-                    sysctlName = "hw.model"
-                }
+            if ProcessInfo.processInfo.isiOSAppOnMac {
+                sysctlName = "hw.model"
             }
         #endif
 
@@ -307,9 +295,9 @@ class PostHogContext {
         properties["$timezone"] = TimeZone.current.identifier
 
         #if !os(watchOS)
-            if reachability != nil {
-                properties["$network_wifi"] = reachability?.connection == .wifi
-                properties["$network_cellular"] = reachability?.connection == .cellular
+            if let connection = reachability?.connection {
+                properties["$network_wifi"] = connection == .wifi
+                properties["$network_cellular"] = connection == .cellular
             }
         #endif
 
@@ -348,12 +336,10 @@ class PostHogContext {
                                                    name: NSApplication.didBecomeActiveNotification,
                                                    object: nil)
         #elseif os(watchOS)
-            if #available(watchOS 7.0, *) {
-                NotificationCenter.default.addObserver(self,
-                                                       selector: #selector(onShouldUpdateScreenSize),
-                                                       name: WKApplication.didBecomeActiveNotification,
-                                                       object: nil)
-            }
+            NotificationCenter.default.addObserver(self,
+                                                   selector: #selector(onShouldUpdateScreenSize),
+                                                   name: WKApplication.didBecomeActiveNotification,
+                                                   object: nil)
         #endif
     }
 
@@ -379,11 +365,9 @@ class PostHogContext {
                                                       name: NSApplication.didBecomeActiveNotification,
                                                       object: nil)
         #elseif os(watchOS)
-            if #available(watchOS 7.0, *) {
-                NotificationCenter.default.removeObserver(self,
-                                                          name: WKApplication.didBecomeActiveNotification,
-                                                          object: nil)
-            }
+            NotificationCenter.default.removeObserver(self,
+                                                      name: WKApplication.didBecomeActiveNotification,
+                                                      object: nil)
         #endif
     }
 
@@ -494,12 +478,7 @@ class PostHogContext {
         #endif
     }()
 
-    static let isIOSAppOnMac: Bool = {
-        if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *) {
-            return ProcessInfo.processInfo.isiOSAppOnMac
-        }
-        return false
-    }()
+    static let isIOSAppOnMac: Bool = ProcessInfo.processInfo.isiOSAppOnMac
 
     static let isMacCatalystApp: Bool = {
         #if targetEnvironment(macCatalyst)

@@ -124,6 +124,28 @@ class PostHogStorageTest {
         sut.reset()
     }
 
+    @Test("deletes a v2 queue file left in the legacy base folder without importing it")
+    func deletesLegacyV2QueueFileFromBaseFolder() throws {
+        let fileManager = FileManager.default
+        let baseUrl = applicationSupportDirectoryURL()
+        try fileManager.createDirectory(at: baseUrl, withIntermediateDirectories: true)
+        let legacyPlist = baseUrl.appendingPathComponent(PostHogStorage.StorageKey.oldQueuePlist.rawValue)
+        try Data(#"[{"event":"v2 event","distinct_id":"user","timestamp":"2023-10-25T14:14:04.407Z"}]"#.utf8)
+            .write(to: legacyPlist)
+
+        let storage = PostHogStorage(PostHogConfig(projectToken: "v2_queue_\(UUID().uuidString)"))
+        defer { try? fileManager.removeItem(at: storage.appFolderUrl) }
+        // Same keys as the `/batch` endpoint.
+        let queue = PostHogFileBackedQueue(
+            queue: storage.url(forKey: .queue),
+            oldQueues: [.oldQueueFolder, .oldQueuePlist].map { storage.url(forKey: $0) }
+        )
+
+        #expect(!fileManager.fileExists(atPath: legacyPlist.path))
+        #expect(!fileManager.fileExists(atPath: storage.url(forKey: .oldQueuePlist).path))
+        #expect(queue.depth == 0)
+    }
+
     @Test("writes to disk in a project token folder under application support directory")
     func writesToDiskInAProjectTokenFolderUnderApplicationSupportDirectory() {
         let config = PostHogConfig(projectToken: "test_project_token")

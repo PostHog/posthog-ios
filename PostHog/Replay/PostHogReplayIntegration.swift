@@ -6,7 +6,7 @@
 //
 //  Created by Manoel Aranda Neto on 19.03.24.
 //
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     import PhotosUI
     import SwiftUI
@@ -1376,12 +1376,7 @@
         }
 
         private func isSwitchSensitive(_ view: UISwitch) -> Bool {
-            var containsText = true
-            if #available(iOS 14.0, *) {
-                containsText = hasText(view.title)
-            }
-
-            return isTextInputSensitive(view) && containsText
+            isTextInputSensitive(view) && hasText(view.title)
         }
 
         private func isTextFieldSensitive(_ view: UITextField) -> Bool {
@@ -1481,10 +1476,8 @@
                 wireframe.type = "input"
                 wireframe.inputType = "toggle"
                 wireframe.checked = theSwitch.isOn
-                if #available(iOS 14.0, *) {
-                    if let text = theSwitch.title {
-                        wireframe.label = isSwitchSensitive(theSwitch) ? text.mask() : text
-                    }
+                if let text = theSwitch.title {
+                    wireframe.label = isSwitchSensitive(theSwitch) ? text.mask() : text
                 }
             }
 
@@ -2041,6 +2034,35 @@
         }
     #endif
 
+#elseif os(iOS)
+    import UIKit
+
+    // Stub for SPM builds with the `SessionReplay` trait disabled, where the replay engine and libwebp
+    // are not compiled. It is never installed, so the SDK's replay calls see no integration.
+    final class PostHogReplayIntegration: PostHogIntegration {
+        var requiresSwizzling: Bool { false }
+
+        func install(_: PostHogSDK) -> PostHogIntegrationInstallResult {
+            .skipped(.disabledByPackageTrait)
+        }
+
+        func uninstall(_: PostHogSDK) { /* no-op */ }
+        func start() { /* no-op */ }
+        func stop() { /* no-op */ }
+        func isActive() -> Bool {
+            false
+        }
+        func captureBridgeSnapshot(episodeFirstFrame _: Bool, window _: UIWindow? = nil) -> Bool {
+            false
+        }
+        func debugProperties() -> [String: Any] {
+            [:]
+        }
+
+        #if TESTING
+            static func clearInstalls() { /* no-op */ }
+        #endif
+    }
 #endif
 
 // swiftlint:enable cyclomatic_complexity file_length

@@ -7,7 +7,7 @@
 //  while it fades out.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import CoreGraphics
     import Foundation
     @testable import PostHog

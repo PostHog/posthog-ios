@@ -24,15 +24,6 @@
         /// Default: true
         @objc public var maskAllSandboxedViews: Bool = true
 
-        /// Deprecated placeholder for photo-library image masking.
-        ///
-        /// This property has no effect. To manually mask user photos, see the privacy controls
-        /// documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS
-        ///
-        /// Default: `false`.
-        @available(*, deprecated, message: "This property has no effect and will be removed in the next major release. To learn how to manually mask user photos please see our Privacy controls documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS")
-        @objc public var maskPhotoLibraryImages: Bool = false
-
         /// Enable recording touch coordinates in session replay. Screenshot capture is unaffected.
         /// Set before SDK setup. Runtime changes are not supported.
         /// Default: true
@@ -41,7 +32,7 @@
         /// Enable capturing network telemetry
         /// Default: true
         ///
-        /// Note: When enabled, can be disabled remotely via project settings (requires `PostHogConfig.remoteConfig` to be enabled)
+        /// Note: When enabled, can be disabled remotely via project settings
         @objc public var captureNetworkTelemetry: Bool = true
 
         /// By default Session replay will capture all the views on the screen as a wireframe,
@@ -60,22 +51,10 @@
         /// Default: false
         @objc public var screenshotModeBackgroundCapture: Bool = false
 
-        /// Debouncer delay used to reduce the number of snapshots captured and reduce performance impact
-        /// This is used for capturing the view as a wireframe or screenshot
-        /// The lower the number more snapshots will be captured but higher the performance impact
-        /// Defaults to 1s
-        @available(*, deprecated, message: "Deprecated in favor of 'throttleDelay' which provides identical functionality. Will be removed in the next major release.")
-        @objc public var debouncerDelay: TimeInterval {
-            get { throttleDelay }
-            set { throttleDelay = newValue }
-        }
-
         /// Throttle delay used to reduce the number of snapshots captured and reduce performance impact
         /// This is used for capturing the view as a wireframe or screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact
         /// Defaults to 1s
-        ///
-        /// Note: Previously `debouncerDelay`
         @objc public var throttleDelay: TimeInterval = 1
 
         /// Enable capturing console output for session replay.
@@ -91,7 +70,7 @@
         ///
         /// Defaults to `false`
         ///
-        /// Note: When enabled, can be disabled remotely via project settings (requires `PostHogConfig.remoteConfig` to be enabled)
+        /// Note: When enabled, can be disabled remotely via project settings
         @objc public var captureLogs: Bool = false
 
         /// Further configuration for capturing console output
@@ -118,19 +97,21 @@
             }
         }
 
-        /// Returns an array of plugin types based on current configuration
-        func getPluginTypes() -> [PostHogSessionReplayPlugin.Type] {
-            var types: [PostHogSessionReplayPlugin.Type] = []
+        #if !SWIFT_PACKAGE || SessionReplay
+            /// Returns an array of plugin types based on current configuration
+            func getPluginTypes() -> [PostHogSessionReplayPlugin.Type] {
+                var types: [PostHogSessionReplayPlugin.Type] = []
 
-            if captureLogs {
-                types.append(PostHogSessionReplayConsoleLogsPlugin.self)
+                if captureLogs {
+                    types.append(PostHogSessionReplayConsoleLogsPlugin.self)
+                }
+
+                if captureNetworkTelemetry {
+                    types.append(PostHogSessionReplayNetworkPlugin.self)
+                }
+
+                return types
             }
-
-            if captureNetworkTelemetry {
-                types.append(PostHogSessionReplayNetworkPlugin.self)
-            }
-
-            return types
-        }
+        #endif
     }
 #endif

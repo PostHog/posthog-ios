@@ -460,7 +460,10 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     @objc public var urlSessionConfiguration: URLSessionConfiguration?
 
     /// Custom headers to send with every request to the PostHog API.
-    /// Useful for reverse-proxy setups that require authentication, e.g. an `Authorization` header.
+    /// Useful for reverse-proxy setups that require authentication, e.g. an `X-Proxy-Token` header.
+    ///
+    /// Event capture requests always send `Authorization: Bearer <projectToken>`, which replaces any
+    /// `Authorization` header set here, so authenticate your proxy with a different header.
     /// Read once when the SDK is set up; changes after setup are ignored.
     @objc public var requestHeaders: [String: String]?
 

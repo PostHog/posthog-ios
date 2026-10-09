@@ -22,6 +22,15 @@ import Foundation
     /// Event properties that will be serialized with the event.
     @objc public var properties: [String: Any]
 
+    /// Options that tell PostHog how to process this event, separate from its properties.
+    ///
+    /// Holds the options passed to `capture(..., options:)`. Known keys are `process_person_profile`,
+    /// `cookieless_mode`, `disable_skew_correction` and `product_tour_id`; unknown keys are sent
+    /// unchanged. When the event is sent, the legacy `$process_person_profile`, `$cookieless_mode`,
+    /// `$ignore_sent_at` and `$product_tour_id` properties are removed from `properties` and used
+    /// for their options, unless that option is set here.
+    @objc public var options: [String: Any]
+
     /// Event timestamp. The absolute instant is serialized in UTC, regardless of the calendar or
     /// time zone used to create it.
     @objc public var timestamp: Date
@@ -35,10 +44,19 @@ import Foundation
     /// Set by the SDK when this event took the throttled replay debug bundle, so it survives `beforeSend` renames or replacement.
     var carriesReplayDebugBundle = false
 
-    init(event: String, distinctId: String, properties: [String: Any]? = nil, timestamp: Date = Date(), uuid: UUID = UUID.v7(), projectToken: String? = nil) {
+    init(
+        event: String,
+        distinctId: String,
+        properties: [String: Any]? = nil,
+        options: [String: Any]? = nil,
+        timestamp: Date = Date(),
+        uuid: UUID = UUID.v7(),
+        projectToken: String? = nil
+    ) {
         self.event = event
         self.distinctId = distinctId
         self.properties = properties ?? [:]
+        self.options = options ?? [:]
         self.timestamp = timestamp
         self.uuid = uuid
         self.projectToken = projectToken
@@ -75,6 +93,8 @@ import Foundation
             event: event,
             distinctId: distinctId,
             properties: properties,
+            // Events queued by older versions have no options.
+            options: json["options"] as? [String: Any],
             timestamp: timestampDate,
             uuid: uuidObj,
             projectToken: projectToken
@@ -89,6 +109,11 @@ import Foundation
             "timestamp": toISO8601String(timestamp),
             "uuid": uuid.postHogUuidString,
         ]
+
+        // Stored for the queue only: each endpoint shapes its own wire format.
+        if !options.isEmpty {
+            json["options"] = options
+        }
 
         if let projectToken {
             // Wire field name remains api_key, but it carries the PostHog project token.

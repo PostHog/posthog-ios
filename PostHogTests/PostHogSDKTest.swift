@@ -1191,11 +1191,11 @@ final class PostHogSDKTests {
     func callerPropertiesWinOverSdkContext() throws {
         let sut = getSut()
 
-        sut.capture("event", properties: ["$os_name": "caller-os", "$lib": "caller-lib"])
+        sut.capture("event", properties: ["$os_name": "caller-os", "$app_version": "caller-version"])
 
         let event = try #require(getBatchedEvents(server).first)
         #expect(event.properties["$os_name"] as? String == "caller-os")
-        #expect(event.properties["$lib"] as? String == "caller-lib")
+        #expect(event.properties["$app_version"] as? String == "caller-version")
 
         sut.reset()
         sut.close()

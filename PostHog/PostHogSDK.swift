@@ -3236,12 +3236,23 @@ let maxRetryDelay = 30.0
         return steps.isEmpty ? nil : steps
     }
 
+    // $exception_level and $exception_source stay overridable: captureException has no other way to set
+    // the level, and posthog-android and posthog-js also let caller properties win for these keys
+    private static let reservedExceptionPropertyKeys: Set<String> = [
+        "$exception_list",
+        "$debug_images",
+    ]
+
     private func captureExceptionEvent(
         _ exceptionProperties: [String: Any],
         additionalProperties: [String: Any]?
     ) {
         var mergedProperties = exceptionProperties
-        additionalProperties?.forEach { mergedProperties[$0.key] = $0.value }
+        additionalProperties?.forEach { key, value in
+            // These describe the captured exception itself, so caller properties can't override them
+            guard !PostHogSDK.reservedExceptionPropertyKeys.contains(key) else { return }
+            mergedProperties[key] = value
+        }
 
         // ignoredExceptionTypes is enforced in captureInternal, the chokepoint for every $exception path
         capture("$exception", properties: mergedProperties)

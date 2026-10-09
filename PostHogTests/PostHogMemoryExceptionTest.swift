@@ -27,10 +27,12 @@ struct PostHogMemoryExceptionTest {
         let properties = PostHogMemoryExceptionProcessor.processFrames([], config: makeConfig())
 
         #expect(properties["$exception_level"] as? String == "fatal")
+        #expect(properties["$exception_source"] as? String == "ios.metrickit_memory_exception")
         #expect(exception(properties)["type"] as? String == "OutOfMemory")
         let mechanism = exception(properties)["mechanism"] as? [String: Any]
         #expect(mechanism?["type"] as? String == "memory_exception")
         #expect(mechanism?["handled"] as? Bool == false)
+        #expect(mechanism?["exception_id"] as? Int == 0)
         #expect(exception(properties)["stacktrace"] == nil)
         #expect(properties["$debug_images"] == nil)
     }

@@ -366,6 +366,36 @@ final class PostHogSDKTests {
         #expect(config.storageManager?.isIdentified() == true)
     }
 
+    @Test("captureException properties can't override the exception list or debug images")
+    func captureExceptionKeepsSDKOwnedKeys() throws {
+        let sut = getSut()
+
+        sut.captureException(
+            NSError(domain: "TestDomain", code: 1),
+            properties: [
+                "$exception_list": [["type": "Fake", "value": "fake"]],
+                "$exception_level": "debug",
+                "$exception_source": "fake.source",
+                "$debug_images": [["debug_id": "fake"]],
+                "foo": "bar",
+            ]
+        )
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.event == "$exception")
+        let exceptionList = event.properties["$exception_list"] as? [[String: Any]]
+        #expect(exceptionList?.first?["type"] as? String == "TestDomain")
+        // the level and source stay caller-overridable, since there's no other way to set the level
+        #expect(event.properties["$exception_level"] as? String == "debug")
+        #expect(event.properties["$exception_source"] as? String == "fake.source")
+        let debugImages = event.properties["$debug_images"] as? [[String: Any]] ?? []
+        #expect(!debugImages.contains { $0["debug_id"] as? String == "fake" })
+        #expect(event.properties["foo"] as? String == "bar")
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("captures the capture event")
     func capturesTheCaptureEvent() throws {
         let sut = getSut()

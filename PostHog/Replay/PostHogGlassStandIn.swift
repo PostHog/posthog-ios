@@ -47,10 +47,29 @@
         private static let shapeClass = "CASDFElementLayer"
         /// `CAColorMatrix`: four rows (red, green, blue, alpha) of five floats.
         private static let colorMatrixSize = 20 * MemoryLayout<Float>.size
+        private static let colorMatrixType = "{CAColorMatrix=ffffffffffffffffffff}"
         private static let ownerSearchDepth = 12
         private static let tintSearchDepth = 6
         private static let clearOutputMaximum = 1.0
         private static let barClassFragments = ["BarButton", "TabBar", "FloatingBar"]
+        /// Sheets, alerts and dialogs let much more of what's behind them through than controls do. They draw as a
+        /// blurred backdrop through a colour matrix; this flat fill is the fallback when that can't be built.
+        private static let panelAlpha: CGFloat = 0.6
+        /// Empirical: least-squares fits of backdrop pixels to iOS 26 `drawHierarchy` output under sheets, alerts and
+        /// dialogs, over colours and greys, in each appearance.
+        private static let lightPanelMatrix: [Float] = [0.554, -0.167, -0.004, 0, 0.630,
+                                                        -0.091, 0.397, -0.036, 0, 0.713,
+                                                        -0.058, -0.170, 0.561, 0, 0.669,
+                                                        0, 0, 0, 1, 0]
+        private static let darkPanelMatrix: [Float] = [0.598, -0.208, 0.085, 0, 0.059,
+                                                       -0.094, 0.399, -0.068, 0, 0.099,
+                                                       -0.087, -0.290, 0.607, 0, 0.103,
+                                                       0, 0, 0, 1, 0]
+        private static let panelBlurRadius: CGFloat = 12
+        /// Lets the blur sample past the panel's edge instead of pulling in transparency there.
+        private static let panelBackdropMargin = panelBlurRadius * 3
+        /// A glass shape this size on both sides is a panel rather than a control or bar.
+        private static let panelMinimumSide: CGFloat = 100
 
         static func isGlassBackground(_ backdrop: CALayer) -> Bool {
             backdrop.filters?.contains { ($0 as? NSObject)?.value(forKey: "name") as? String == glassBackgroundFilter } == true
@@ -86,6 +105,13 @@
                 }
             } else if hasLightLabel(owner, traits: traits) {
                 fill = UIColor.systemGray.withAlphaComponent(0.85)
+            } else if !kind.clear, isPanel(copy) {
+                if let material = panelMaterial(for: copy, style: traits.userInterfaceStyle) {
+                    copy.sublayers = [material]
+                    fill = .clear
+                } else {
+                    fill = UIColor.systemBackground.withAlphaComponent(panelAlpha)
+                }
             } else if traits.userInterfaceStyle == .dark {
                 // Dark glass lightens even black: on iOS 26 it reads as 8% white there on buttons and 10% on bars, not
                 // systemBackground's black.
@@ -97,6 +123,45 @@
             copy.backgroundColor = fill.resolvedColor(with: traits).cgColor
             copy.borderColor = UIColor.separator.resolvedColor(with: traits).cgColor
             copy.borderWidth = 0.5
+        }
+
+        /// A blurred, colour-matrixed backdrop clipped to the panel's shape, or nil when the shape's corners or the
+        /// private classes aren't available. The clip is a separate layer because a backdrop's margin
+        /// defeats its own corner clipping.
+        private static func panelMaterial(for shape: CALayer, style: UIUserInterfaceStyle) -> CALayer? {
+            let cornerRadiiKey = PostHogGPUMirrorCapture.cornerRadiiKey
+            let cornerRadii = cornerRadiiKey?.changedValue(in: shape)
+            var matrix = style == .dark ? darkPanelMatrix : lightPanelMatrix
+            guard shape.cornerRadius > 0 || cornerRadii != nil,
+                  let backdropClass = NSClassFromString("CABackdropLayer") as? CALayer.Type,
+                  let blur = makeFilter("gaussianBlur"), let colorMatrix = makeFilter("colorMatrix")
+            else { return nil }
+            blur.setValue(panelBlurRadius, forKey: "inputRadius")
+            blur.setValue(true, forKey: "inputNormalizeEdges")
+            colorMatrix.setValue(NSValue(bytes: &matrix, objCType: colorMatrixType), forKey: "inputColorMatrix")
+            let backdrop = backdropClass.init()
+            backdrop.frame = shape.bounds
+            backdrop.filters = [blur, colorMatrix]
+            backdrop.setValue(panelBackdropMargin, forKey: "marginWidth")
+            let clip = CALayer()
+            clip.frame = shape.bounds
+            clip.cornerRadius = shape.cornerRadius
+            clip.cornerCurve = shape.cornerCurve
+            if let cornerRadii { cornerRadiiKey?.set(cornerRadii, on: clip) }
+            clip.masksToBounds = true
+            clip.sublayers = [backdrop]
+            return clip
+        }
+
+        private static func makeFilter(_ type: String) -> NSObject? {
+            (NSClassFromString("CAFilter") as AnyObject?)?.perform(NSSelectorFromString("filterWithType:"), with: type)?
+                .takeUnretainedValue() as? NSObject
+        }
+
+        /// Takes the copy, whose bounds come from the presentation layer: UIKit sizes these shapes with a
+        /// match-bounds animation, so the model layer's bounds are empty.
+        private static func isPanel(_ shape: CALayer) -> Bool {
+            min(shape.bounds.width, shape.bounds.height) >= panelMinimumSide
         }
 
         /// The far end of the output range of the shape layer under `backdrop`.

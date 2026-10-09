@@ -292,7 +292,7 @@
 
         /// A private CALayer property newer OSes draw with. Read and written through KVC, which CALayer answers for any
         /// key; nil where CALayer doesn't declare it, so older OSes skip it.
-        private struct PrivateLayerKey {
+        struct PrivateLayerKey {
             let name: String
             private let defaultValue: NSObject?
 
@@ -363,7 +363,7 @@
         private static let nextTurnFallbackDelay: TimeInterval = 0.02
         /// iOS 26 rounds UIKit's own views (button backgrounds, `cornerConfiguration`, sheets) per corner through this,
         /// leaving `cornerRadius` at 0.
-        private static let cornerRadiiKey = PrivateLayerKey("cornerRadii")
+        static let cornerRadiiKey = PrivateLayerKey("cornerRadii")
         /// iOS 26 image views place, tint and recolour their image through these rather than through gravity and a
         /// pre-tinted bitmap: without them a template symbol draws black and at the wrong size.
         private static let contentsKeys = ["contentsTransform", "contentsMultiplyColor", "contentsSwizzle"].compactMap(PrivateLayerKey.init)

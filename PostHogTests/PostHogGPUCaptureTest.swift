@@ -318,6 +318,58 @@
             #expect(pixels[100, 200].green < 120)
         }
 
+        @Test("Panel-sized glass (sheets, alerts) draws as a blurred, colour-matrixed backdrop; control-sized keeps the flat fill")
+        func panelGlassDrawsAsBackdropMaterial() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .green)
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 10, y: 10, width: 180, height: 150), cornerRadius: 20, filter: "glassBackground"))
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 20, y: 200, width: 160, height: 60), cornerRadius: 30, filter: "glassBackground"))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            // The material maps green to about (118, 255, 127); 0.6 white over green would be (153, 255, 153).
+            let panel = pixels[100, 85]
+            #expect((100 ... 135).contains(panel.red) && panel.green > 235 && (110 ... 140).contains(panel.blue), "\(panel)")
+            // Rounded like the shape.
+            #expect(pixels[11, 11] == RGBA(red: 0, green: 255, blue: 0, alpha: 255))
+            // 0.85 white over green.
+            let control = pixels[100, 230]
+            #expect(control.red > 200 && control.blue > 200)
+        }
+
+        @Test("Light panel glass over a light grey comes out a lighter grey, as on screen, not white")
+        func lightPanelGlassOverGreyIsNotWhite() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: UIColor(white: 0.8, alpha: 1))
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 10, y: 10, width: 180, height: 150), cornerRadius: 20, filter: "glassBackground"))
+
+            // iOS 26 draws a sheet over a dimmed white page (204) at about 236.
+            let panel = try await Pixels(render(window, with: mirror).0)[100, 85]
+            #expect([panel.red, panel.green, panel.blue].allSatisfy { (226 ... 246).contains($0) }, "\(panel)")
+        }
+
+        @Test("Panel glass at the edge of the window keeps its colour up to the edge instead of fading")
+        func panelGlassAtWindowEdgeDoesNotFade() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .green)
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 0, y: 10, width: 180, height: 150), cornerRadius: 20, filter: "glassBackground"))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            let interior = pixels[100, 85]
+            let edge = pixels[1, 85]
+            let difference = [(edge.red, interior.red), (edge.green, interior.green), (edge.blue, interior.blue)]
+                .map { abs(Int($0.0) - Int($0.1)) }.max() ?? 0
+            #expect(difference <= 4, "edge \(edge) vs interior \(interior)")
+        }
+
         @Test("Untinted glass controls in dark mode read as dark grey over black, not black")
         func darkGlassControlIsDarkGrey() async throws {
             let mirror = try makeMirror()
@@ -350,6 +402,20 @@
             let barPixel = pixels[100, 230], buttonPixel = pixels[100, 130]
             #expect((24 ... 30).contains(barPixel.red), "\(barPixel)")
             #expect((18 ... 23).contains(buttonPixel.red), "\(buttonPixel)")
+        }
+
+        @Test("Glass without a view of its own (SwiftUI) takes dark mode from the nearest view above it")
+        func darkPanelGlassUsesDarkMaterial() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .green)
+            window.overrideUserInterfaceStyle = .dark
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 10, y: 10, width: 180, height: 150), cornerRadius: 20, filter: "glassBackground"))
+
+            // The dark material maps green to about (0, 127, 0); the light one would brighten it.
+            let panel = try await Pixels(render(window, with: mirror).0)[100, 85]
+            #expect(panel.red < 20 && (115 ... 140).contains(panel.green) && panel.blue < 20)
         }
 
         @Test("Liquid Glass draws as a flat translucent fill in its shape instead of nothing")

@@ -94,13 +94,10 @@ class PostHogApi {
         headers["User-Agent"] = "\(postHogSdkName)/\(postHogVersion)"
         headers["Accept-Encoding"] = "gzip"
         sessionConfig.httpAdditionalHeaders = headers
-        // Strip custom headers on cross-host redirects so they don't leak to another origin.
-        if customRequestHeaders.isEmpty {
-            session = URLSession(configuration: sessionConfig)
-        } else {
-            let stripper = PostHogRedirectHeaderStripper(allowedHost: config.host.host, headerKeys: Array(customRequestHeaders.keys))
-            session = URLSession(configuration: sessionConfig, delegate: stripper, delegateQueue: nil)
-        }
+        // Decides each redirect: capture V1 follows only the configured origin, and other
+        // endpoints strip custom headers on cross-host redirects so they don't leak.
+        let redirectHandler = PostHogRedirectHandler(host: config.host, headerKeys: Array(customRequestHeaders.keys))
+        session = URLSession(configuration: sessionConfig, delegate: redirectHandler, delegateQueue: nil)
     }
 
     /// `gzipped: true` adds `Content-Encoding: gzip` for upload endpoints
@@ -234,9 +231,6 @@ class PostHogApi {
         // The server rejects the whole batch with 400 when a UUID repeats.
         var seenUuids = Set<String>()
         let uniqueEvents = events.filter { seenUuids.insert($0.uuid.postHogUuidString).inserted }
-        if uniqueEvents.count < events.count {
-            hedgeLog("Dropping \(events.count - uniqueEvents.count) event(s) with a duplicate UUID from the capture batch.")
-        }
         let uuids = uniqueEvents.map(\.uuid.postHogUuidString)
         let identity = nextCaptureV1Identity(uuids: Set(uuids))
 
@@ -275,7 +269,9 @@ class PostHogApi {
                     return self.batch(events: events, completion: completion)
                 }
 
-                completion(self.captureV1Result(info, data: data, uuids: uuids, identity: identity))
+                completion(self.captureV1Result(
+                    info, data: data, uuids: uuids, identity: identity, duplicates: events.count - uniqueEvents.count
+                ))
             }
         }.resume()
     }
@@ -302,9 +298,12 @@ class PostHogApi {
         _ info: PostHogUploadInfo,
         data: Data?,
         uuids: [String],
-        identity: CaptureV1RequestIdentity
+        identity: CaptureV1RequestIdentity,
+        duplicates: Int
     ) -> PostHogUploadInfo {
         var retryUuids: Set<String> = []
+        // Duplicate UUIDs are dropped before sending.
+        var dropped = duplicates
 
         if let statusCode = info.statusCode, 200 ... 299 ~= statusCode {
             // A body without a readable results map counts as delivered, so a
@@ -320,8 +319,7 @@ class PostHogApi {
                 case "retry":
                     retryUuids.insert(uuid)
                 case "drop":
-                    let details = entry["details"] as? String ?? "no details"
-                    hedgeLog("Capture dropped event \(uuid): \(details).")
+                    dropped += 1
                 default:
                     break
                 }
@@ -329,6 +327,11 @@ class PostHogApi {
         } else if info.statusCode.map(isCaptureV1RetriableStatusCode) ?? true {
             // No response or a retriable status: the whole batch is resent.
             retryUuids = Set(uuids)
+        }
+
+        // Counts only: event UUIDs and server details can identify users.
+        if dropped > 0 || !retryUuids.isEmpty {
+            hedgeLog("Capture: \(dropped) dropped, \(retryUuids.count) to retry.")
         }
 
         captureV1Lock.withLock {
@@ -359,11 +362,11 @@ class PostHogApi {
             "distinct_id": event.distinctId,
             "timestamp": toISO8601String(event.timestamp),
         ]
-        // Always removed from properties; only a string is valid at the root.
-        if let sessionId = properties.removeValue(forKey: "$session_id") as? String {
+        // Always removed from properties; only a non-empty string is sent at the root.
+        if let sessionId = properties.removeValue(forKey: "$session_id") as? String, !sessionId.isEmpty {
             json["session_id"] = sessionId
         }
-        if let windowId = properties.removeValue(forKey: "$window_id") as? String {
+        if let windowId = properties.removeValue(forKey: "$window_id") as? String, !windowId.isEmpty {
             json["window_id"] = windowId
         }
         json["properties"] = properties
@@ -724,24 +727,47 @@ extension PostHogApi {
     }()
 }
 
-/// Strips custom headers on redirects that leave the configured host.
-private final class PostHogRedirectHeaderStripper: NSObject, URLSessionTaskDelegate {
-    private let allowedHost: String?
-    private let headerKeys: [String]
+/// Session delegate that decides every redirect.
+///
+/// Capture V1 requests follow only a 307 or 308 to the origin of `config.host`, at most
+/// `maxCaptureV1Redirects` times, with the original headers re-set. URLSession would otherwise
+/// drop `Authorization`, resend the batch to another host, or turn a 302 into a body-less GET.
+/// Any other redirect is not followed, so its 3xx is the response. Other requests follow
+/// redirects but lose the custom headers when they leave the configured host.
+final class PostHogRedirectHandler: NSObject, URLSessionTaskDelegate {
+    static let maxCaptureV1Redirects = 5
 
-    init(allowedHost: String?, headerKeys: [String]) {
-        self.allowedHost = allowedHost
+    private let host: URL
+    private let headerKeys: [String]
+    private let lock = NSLock()
+    // Redirects followed per capture task. Weak keys drop finished tasks.
+    private let captureV1Hops = NSMapTable<URLSessionTask, NSNumber>.weakToStrongObjects()
+
+    init(host: URL, headerKeys: [String]) {
+        self.host = host
         self.headerKeys = headerKeys
     }
 
     func urlSession(
         _: URLSession,
-        task _: URLSessionTask,
-        willPerformHTTPRedirection _: HTTPURLResponse,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
         newRequest request: URLRequest,
         completionHandler: @escaping (URLRequest?) -> Void
     ) {
-        guard request.url?.host != allowedHost else {
+        if let original = task.originalRequest, Self.isCaptureV1(original) {
+            let hop = lock.withLock { () -> Int in
+                let hop = (captureV1Hops.object(forKey: task)?.intValue ?? 0) + 1
+                captureV1Hops.setObject(NSNumber(value: hop), forKey: task)
+                return hop
+            }
+            completionHandler(Self.captureV1Redirect(
+                original: original, statusCode: response.statusCode, newRequest: request, host: host, hop: hop
+            ))
+            return
+        }
+
+        guard request.url?.host != host.host else {
             completionHandler(request)
             return
         }
@@ -750,6 +776,45 @@ private final class PostHogRedirectHeaderStripper: NSObject, URLSessionTaskDeleg
             redirected.setValue(nil, forHTTPHeaderField: key)
         }
         completionHandler(redirected)
+    }
+
+    /// Capture V1 requests are the only ones that carry `PostHog-Request-Id`,
+    /// which custom headers can't set.
+    static func isCaptureV1(_ request: URLRequest) -> Bool {
+        request.value(forHTTPHeaderField: "PostHog-Request-Id") != nil
+    }
+
+    /// The request to follow for the `hop`th redirect of a capture V1 request, or `nil` to stop
+    /// and return the 3xx.
+    static func captureV1Redirect(
+        original: URLRequest,
+        statusCode: Int,
+        newRequest: URLRequest,
+        host: URL,
+        hop: Int
+    ) -> URLRequest? {
+        guard [307, 308].contains(statusCode),
+              hop <= maxCaptureV1Redirects,
+              let target = newRequest.url,
+              let targetOrigin = origin(target),
+              targetOrigin == origin(host)
+        else {
+            hedgeLog("Capture did not follow a \(statusCode) redirect.")
+            return nil
+        }
+        var redirected = newRequest
+        redirected.httpMethod = original.httpMethod
+        // Same origin, so every original header is safe to resend.
+        for (key, value) in original.allHTTPHeaderFields ?? [:] {
+            redirected.setValue(value, forHTTPHeaderField: key)
+        }
+        return redirected
+    }
+
+    private static func origin(_ url: URL) -> String? {
+        guard let scheme = url.scheme?.lowercased(), let host = url.host?.lowercased() else { return nil }
+        let port = url.port ?? (scheme == "https" ? 443 : 80)
+        return "\(scheme)://\(host):\(port)"
     }
 }
 

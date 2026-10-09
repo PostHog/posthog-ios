@@ -1357,7 +1357,7 @@ let maxRetryDelay = 30.0
                 timestamp: nil)
     }
 
-    /// Captures a custom event for an explicit distinct ID and timestamp.
+    /// Captures a custom event for an explicit distinct ID, timestamp and options.
     ///
     /// - Parameters:
     ///   - event: Event name to capture.
@@ -1368,14 +1368,29 @@ let maxRetryDelay = 30.0
     ///   - groups: Group type/key pairs to attach to this event.
     ///   - timestamp: Optional event timestamp. Defaults to the current time. The absolute instant
     ///     is serialized in UTC, regardless of the calendar or time zone used to create it.
-    @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:)
+    ///   - options: Optional settings that tell PostHog how to process this event, sent apart from
+    ///     its properties. Known keys:
+    ///     - `process_person_profile` (`Bool`): whether the event creates or updates a person profile.
+    ///       Defaults to the SDK's `personProfiles` setting.
+    ///     - `cookieless_mode` (`Bool`): process the event in cookieless mode.
+    ///     - `disable_skew_correction` (`Bool`): keep `timestamp` as sent, without correcting for
+    ///       device clock skew.
+    ///     - `product_tour_id` (`String`): the product tour the event belongs to.
+    ///
+    ///     These replace the `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and
+    ///     `$product_tour_id` properties. Those properties still work: they are removed from the
+    ///     event's properties and used as the option, unless you set that option here. Other keys
+    ///     are sent unchanged. PostHog drops an event whose option value it can't read.
+    ///     `beforeSend` can change them through `PostHogEvent.options`.
+    @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)
     public func capture(_ event: String,
                         distinctId: String? = nil,
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil,
                         userPropertiesSetOnce: [String: Any]? = nil,
                         groups: [String: String]? = nil,
-                        timestamp: Date? = nil)
+                        timestamp: Date? = nil,
+                        options: [String: Any]? = nil)
     {
         captureInternal(
             event,
@@ -1385,8 +1400,40 @@ let maxRetryDelay = 30.0
             userPropertiesSetOnce: userPropertiesSetOnce,
             groups: groups,
             timestamp: timestamp,
+            options: options,
             skipBuildProperties: false
         )
+    }
+
+    /// Captures a custom event for an explicit distinct ID and timestamp from Objective-C.
+    ///
+    /// - Parameters:
+    ///   - event: Event name to capture.
+    ///   - distinctId: Optional distinct ID override. Defaults to the current SDK distinct ID.
+    ///   - properties: Event properties attached only to this event.
+    ///   - userProperties: Person properties to set. Existing values are overwritten.
+    ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
+    ///   - groups: Group type/key pairs to attach to this event.
+    ///   - timestamp: Optional event timestamp. Defaults to the current time.
+    // A separate Swift name keeps this out of Swift overload resolution.
+    @available(swift, obsoleted: 1.0, message: "Use capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:) instead")
+    @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:)
+    public func captureObjC(_ event: String, // swiftlint:disable:this function_parameter_count
+                            distinctId: String?,
+                            properties: [String: Any]?,
+                            userProperties: [String: Any]?,
+                            userPropertiesSetOnce: [String: Any]?,
+                            groups: [String: String]?,
+                            timestamp: Date?)
+    {
+        capture(event,
+                distinctId: distinctId,
+                properties: properties,
+                userProperties: userProperties,
+                userPropertiesSetOnce: userPropertiesSetOnce,
+                groups: groups,
+                timestamp: timestamp,
+                options: nil)
     }
 
     // MARK: - Logs capture
@@ -1541,6 +1588,7 @@ let maxRetryDelay = 30.0
         userPropertiesSetOnce: [String: Any]? = nil,
         groups: [String: String]? = nil,
         timestamp: Date? = nil,
+        options: [String: Any]? = nil,
         skipBuildProperties: Bool = false,
         propertyAllowlist: Set<String>? = nil,
         deduplicatePersonProperties: Bool = false
@@ -1624,6 +1672,7 @@ let maxRetryDelay = 30.0
             event: event,
             distinctId: eventDistinctId,
             properties: finalProperties,
+            options: sanitizeDictionary(options),
             timestamp: eventTimestamp
         )
 
@@ -1905,7 +1954,13 @@ let maxRetryDelay = 30.0
         }
     }
 
-    func buildEvent(event eventName: String, distinctId: String, properties: [String: Any], timestamp: Date = Date()) -> PostHogEvent? {
+    func buildEvent(
+        event eventName: String,
+        distinctId: String,
+        properties: [String: Any],
+        options: [String: Any]? = nil,
+        timestamp: Date = Date()
+    ) -> PostHogEvent? {
         var properties = properties
         let carriesReplayDebugBundle = properties.removeValue(forKey: Self.replayDebugClaimMarkerKey) != nil
 
@@ -1913,6 +1968,7 @@ let maxRetryDelay = 30.0
             event: eventName,
             distinctId: distinctId,
             properties: properties,
+            options: options,
             timestamp: timestamp
         )
 
@@ -2599,6 +2655,10 @@ let maxRetryDelay = 30.0
         "$feature_flag_evaluated_at",
         "$groups",
         "$process_person_profile",
+        // Legacy option properties, e.g. registered as super properties, so they still become options.
+        "$cookieless_mode",
+        "$ignore_sent_at",
+        "$product_tour_id",
         "$session_id",
         "$lib",
         "$lib_version",

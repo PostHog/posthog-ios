@@ -56,7 +56,7 @@ app.get("health") { req async throws -> Response in
         // Declares which test suites apply. The iOS SDK posts events to
         // /i/v1/analytics/events (capture_v1) with gzip. Without this, the
         // harness skips the capability-gated capture suites entirely.
-        "capabilities": ["capture_v1", "encoding_gzip"],
+        "capabilities": ["capture_v1", "encoding_gzip", "event_options"],
     ]
 
     print("[ADAPTER] GET /health")
@@ -162,11 +162,13 @@ app.post("capture") { req async throws -> Response in
         let event: String
         let distinctId: String?
         let properties: [String: AnyCodable]?
+        let options: [String: AnyCodable]?
 
         enum CodingKeys: String, CodingKey {
             case event
             case distinctId = "distinct_id"
             case properties
+            case options
         }
     }
 
@@ -187,7 +189,12 @@ app.post("capture") { req async throws -> Response in
 
     // Capture the event with distinct_id parameter (don't use identify())
     // This ensures the distinct_id is set for THIS event, not globally
-    sdk.capture(captureReq.event, distinctId: captureReq.distinctId, properties: props)
+    sdk.capture(
+        captureReq.event,
+        distinctId: captureReq.distinctId,
+        properties: props,
+        options: captureReq.options?.mapValues(\.value)
+    )
 
     print("[ADAPTER] Event captured: \(captureReq.event)")
 

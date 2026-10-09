@@ -756,6 +756,28 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("keeps legacy option properties on minimal feature flag events")
+    func keepsLegacyOptionPropertiesOnMinimalFeatureFlagEvents() throws {
+        server.minimalFlagCalledEvents = true
+        let sut = getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+        sut.register(["$cookieless_mode": true, "$ignore_sent_at": true, "$product_tour_id": "tour"])
+
+        waitForFeatureFlagsLoaded(server, sut)
+        #expect(sut.isFeatureEnabled("string-value") == true)
+
+        let events = getBatchedEvents(server)
+
+        let event = try #require(events.first)
+        #expect(event.event == "$feature_flag_called")
+        // They reach capture V1 as options.
+        #expect(event.options["cookieless_mode"] as? Bool == true)
+        #expect(event.options["disable_skew_correction"] as? Bool == true)
+        #expect(event.options["product_tour_id"] as? String == "tour")
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("keeps $groups on minimal feature flag events")
     func keepsGroupsOnMinimalFeatureFlagEvents() throws {
         server.minimalFlagCalledEvents = true

@@ -91,14 +91,12 @@ final class PostHogCaptureV1Test {
         #expect(sent["timestamp"] as? String == toISO8601String(event.timestamp))
         #expect(sent["session_id"] as? String == "session-1")
         #expect(sent["window_id"] as? String == "window-1")
-        #expect(sent["options"] == nil)
+        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
 
         let properties = try #require(sent["properties"] as? [String: Any])
-        for key in ["$session_id", "$window_id", "$lib", "$lib_version"] {
+        for key in ["$session_id", "$window_id", "$lib", "$lib_version", "$process_person_profile"] {
             #expect(properties[key] == nil, "\(key) should not be in properties")
         }
-        // Options hoisting is not part of this transport change.
-        #expect(properties["$process_person_profile"] as? Bool == false)
         #expect(properties["custom"] as? String == "value")
 
         // The stored event is not reshaped.
@@ -343,6 +341,190 @@ final class PostHogCaptureV1Test {
     func statusCodeClassification(statusCode: Int, retriable: Bool) {
         let endpoint = QueueEndpoint<PostHogEvent>.batch(api: makeApi())
         #expect(endpoint.isRetriableStatusCode(statusCode) == retriable)
+    }
+}
+
+@Suite("Capture V1 event options", .serialized, .resetsGlobalState)
+final class PostHogCaptureV1OptionsTest {
+    private let server: MockPostHogServer
+
+    init() {
+        deleteSafely(applicationSupportDirectoryURL())
+        server = MockPostHogServer()
+        server.start(batchCount: 0)
+    }
+
+    deinit {
+        server.stop()
+    }
+
+    private func makeApi() -> PostHogApi {
+        PostHogApi(PostHogConfig(projectToken: "phc_options", host: "http://localhost:9001"))
+    }
+
+    /// Sends `event` through capture V1 and returns its wire JSON.
+    private func sentEvent(_ event: PostHogEvent, api: PostHogApi? = nil) async throws -> [String: Any] {
+        let api = api ?? makeApi()
+        await withCheckedContinuation { continuation in
+            api.captureV1(events: [event]) { _ in continuation.resume() }
+        }
+        let request = try #require(server.batchRequests.last)
+        return try #require((server.parseRequest(request)?["batch"] as? [[String: Any]])?.first)
+    }
+
+    @Test("hoists each legacy property into its option", arguments: [
+        ("$cookieless_mode", "cookieless_mode"),
+        ("$ignore_sent_at", "disable_skew_correction"),
+        ("$product_tour_id", "product_tour_id"),
+        ("$process_person_profile", "process_person_profile"),
+    ])
+    func hoistsLegacyProperty(property: String, option: String) async throws {
+        let sent = try await sentEvent(PostHogEvent(event: "test", distinctId: "user", properties: [property: "value"]))
+
+        #expect(sent["options"] as? [String: String] == [option: "value"])
+        #expect((sent["properties"] as? [String: Any])?[property] == nil)
+    }
+
+    @Test("an option wins over its legacy property, which is still removed; a null option is filled")
+    func optionWinsOverLegacyProperty() async throws {
+        let event = PostHogEvent(
+            event: "test",
+            distinctId: "user",
+            properties: ["$cookieless_mode": false, "$product_tour_id": "legacy-tour", "custom": 1],
+            options: ["cookieless_mode": true, "product_tour_id": NSNull(), "future_option": "kept"]
+        )
+
+        let sent = try await sentEvent(event)
+
+        let options = try #require(sent["options"] as? [String: Any])
+        #expect(options["cookieless_mode"] as? Bool == true)
+        #expect(options["product_tour_id"] as? String == "legacy-tour")
+        #expect(options["future_option"] as? String == "kept")
+        #expect(options.count == 3)
+        let properties = try #require(sent["properties"] as? [String: Any])
+        #expect(Set(properties.keys) == ["custom"])
+        // The stored event is not reshaped.
+        #expect(event.properties["$cookieless_mode"] as? Bool == false)
+    }
+
+    @Test("sends empty options as {}")
+    func sendsEmptyOptions() async throws {
+        let sent = try await sentEvent(PostHogEvent(event: "test", distinctId: "user"))
+
+        #expect((sent["options"] as? [String: Any])?.isEmpty == true)
+    }
+
+    @Test("the /batch fallback folds options into their legacy properties and sends no options")
+    func batchFallbackFoldsOptions() async throws {
+        server.captureV1ResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 404, headers: nil)
+        }
+        let api = makeApi()
+        let event = PostHogEvent(
+            event: "test",
+            distinctId: "user",
+            properties: ["$process_person_profile": false, "$ignore_sent_at": true, "$product_tour_id": "tour"],
+            options: ["process_person_profile": true, "cookieless_mode": true, "product_tour_id": NSNull(), "future_option": 1]
+        )
+        await withCheckedContinuation { continuation in
+            api.captureV1(events: [event]) { _ in continuation.resume() }
+        }
+
+        let request = try #require(server.batchRequests.last)
+        #expect(request.url?.path == "/batch")
+        let sent = try #require((server.parseRequest(request)?["batch"] as? [[String: Any]])?.first)
+        #expect(sent["options"] == nil)
+        let properties = try #require(sent["properties"] as? [String: Any])
+        #expect(properties["$process_person_profile"] as? Bool == true)
+        #expect(properties["$cookieless_mode"] as? Bool == true)
+        #expect(properties["$ignore_sent_at"] as? Bool == true)
+        #expect(properties["$product_tour_id"] as? String == "tour")
+        #expect(properties["future_option"] == nil)
+    }
+
+    @Test("replay snapshots don't send options")
+    func snapshotsOmitOptions() async throws {
+        let event = PostHogEvent(event: "$snapshot", distinctId: "user", properties: ["$session_id": "s"], options: ["cookieless_mode": true])
+        await withCheckedContinuation { continuation in
+            makeApi().snapshot(events: [event]) { _ in continuation.resume() }
+        }
+
+        let request = try #require(server.snapshotRequests.last)
+        let body = try #require(request.body().flatMap { try? $0.gunzipped() })
+        let sent = try #require((try JSONSerialization.jsonObject(with: body) as? [[String: Any]])?.first)
+        #expect(sent["options"] == nil)
+        #expect(sent["properties"] != nil)
+    }
+
+    @Test("options survive the queue's disk format, and events stored without options still decode")
+    func persistsOptions() throws {
+        let event = PostHogEvent(event: "test", distinctId: "user", options: ["cookieless_mode": true])
+        let data = try #require(toJSONData(event.toJSON()))
+        let decoded = try #require(PostHogEvent.fromJSON(data))
+        #expect(decoded.options as? [String: Bool] == ["cookieless_mode": true])
+
+        var legacy = PostHogEvent(event: "old", distinctId: "user", properties: ["$cookieless_mode": true]).toJSON()
+        #expect(legacy["options"] == nil)
+        legacy.removeValue(forKey: "options")
+        let old = try #require(PostHogEvent.fromJSON(legacy))
+        #expect(old.options.isEmpty)
+        #expect(old.properties["$cookieless_mode"] as? Bool == true)
+    }
+
+    private func makeSDK(personProfiles: PostHogPersonProfiles = .identifiedOnly, beforeSend: BeforeSendBlock? = nil) -> PostHogSDK {
+        let config = PostHogConfig(projectToken: "phc_options_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.flushAt = 1
+        config.preloadFeatureFlags = false
+        config.sendFeatureFlagEvent = false
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
+        config.captureApplicationLifecycleEvents = false
+        config.personProfiles = personProfiles
+        if let beforeSend {
+            config.setBeforeSend(beforeSend)
+        }
+        server.batchProjectToken = config.projectToken
+        return PostHogSDK.with(config)
+    }
+
+    /// Captures one event and returns its wire JSON.
+    private func captureAndSend(_ sut: PostHogSDK, _ capture: (PostHogSDK) -> Void) async throws -> [String: Any] {
+        server.reset(batchCount: 1)
+        capture(sut)
+        _ = try await getServerEvents(server)
+        let request = try #require(server.batchRequests.first)
+        return try #require((server.parseRequest(request)?["batch"] as? [[String: Any]])?.first)
+    }
+
+    @Test("the SDK's process_person_profile beats a caller property but not a caller option")
+    func processPersonProfilePrecedence() async throws {
+        let sut = makeSDK(personProfiles: .never)
+        defer { sut.close() }
+
+        var sent = try await captureAndSend(sut) { $0.capture("test", properties: ["$process_person_profile": true]) }
+        #expect((sent["options"] as? [String: Any])?["process_person_profile"] as? Bool == false)
+        #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
+
+        sent = try await captureAndSend(sut) {
+            $0.capture("test", options: ["process_person_profile": true, "cookieless_mode": true])
+        }
+        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": true, "cookieless_mode": true])
+    }
+
+    @Test("beforeSend has the final say over options")
+    func beforeSendEditsOptions() async throws {
+        let sut = makeSDK(personProfiles: .never) { event in
+            #expect(event.options["product_tour_id"] as? String == "caller-tour")
+            event.options["process_person_profile"] = true
+            event.options["product_tour_id"] = "edited-tour"
+            return event
+        }
+        defer { sut.close() }
+
+        let sent = try await captureAndSend(sut) { $0.capture("test", options: ["product_tour_id": "caller-tour"]) }
+
+        #expect(sent["options"] as? [String: AnyHashable] == ["process_person_profile": true, "product_tour_id": "edited-tour"])
     }
 }
 

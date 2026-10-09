@@ -426,6 +426,8 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
 
     /// Enable mobile surveys
     ///
+    /// With Swift Package Manager, this requires the `Surveys` package trait, which is enabled by default.
+    ///
     /// Default: true
     ///
     /// Note: Event triggers will only work with the instance that first enables surveys.
@@ -442,6 +444,7 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     /// Configuration for mobile survey presentation and localization.
     ///
     /// Mutate fields on `config.surveysConfig` or replace this object before calling setup.
+    /// With Swift Package Manager, this requires the `Surveys` package trait, which is enabled by default.
     @available(watchOS, unavailable, message: "Surveys are only available on iOS")
     @available(macOS, unavailable, message: "Surveys are only available on iOS")
     @available(tvOS, unavailable, message: "Surveys are only available on iOS")

@@ -22,7 +22,11 @@ let package = Package(
             name: "CrashReporting",
             description: "Captures crashes and uncaught exceptions using the vendored PLCrashReporter. When disabled, only manual captures are sent."
         ),
-        .default(enabledTraits: ["SessionReplay", "CrashReporting"]),
+        .trait(
+            name: "Surveys",
+            description: "Shows mobile surveys on iOS. When disabled, surveys are not loaded or shown."
+        ),
+        .default(enabledTraits: ["SessionReplay", "CrashReporting", "Surveys"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.

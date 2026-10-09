@@ -9,5 +9,5 @@
 - Apps whose window root is a SwiftUI view, which previously recorded nothing, now record sessions.
 - `PostHogSessionReplayConfig.screenshotMode` is deprecated and has no effect: delete the assignment. Setting it to `false` no longer prevents screenshots; use the masking options instead.
 - `screenshotModeBackgroundCapture` now applies without setting `screenshotMode`.
-- The replay screen name now names the visible screen (SwiftUI screens report their view name), and is also sent when `screenshotMode` was enabled.
+- The replay screen name now names the visible screen (SwiftUI screens report their view name), and is also sent when `screenshotMode` was enabled. It comes from the view controller's type name only: a plain `UIViewController`'s `title` is no longer sent, since it can contain user data.
 - Secure-entry text fields now stay masked inside a `postHogNoMask()` or `ph-no-mask` subtree.

@@ -10,22 +10,24 @@
     @MainActor
     struct PostHogReplayLayoutCaptureTest {
         enum Root: String, CaseIterable, CustomTestStringConvertible {
-            case uiKit, swiftUI
+            case uiKit, plainTitled, swiftUI
 
             var testDescription: String { rawValue }
 
-            var expectedHref: String {
+            var expectedHref: String? {
                 switch self {
                 case .uiKit: "Checkout"
+                // The title is display text, so it never becomes the href.
+                case .plainTitled: nil
                 case .swiftUI: "Text"
                 }
             }
 
             @MainActor func makeController() -> UIViewController {
                 switch self {
-                case .uiKit:
-                    let controller = UIViewController()
-                    controller.title = "Checkout"
+                case .uiKit, .plainTitled:
+                    let controller = self == .uiKit ? CheckoutViewController() : UIViewController()
+                    controller.title = "Invoice for Jane Doe"
                     let label = UILabel(frame: CGRect(x: 20, y: 100, width: 200, height: 40))
                     label.text = "secret"
                     controller.view.addSubview(label)
@@ -35,6 +37,8 @@
                 }
             }
         }
+
+        private final class CheckoutViewController: UIViewController {}
 
         private final class Snapshots {
             private let lock = NSLock()
@@ -109,7 +113,8 @@
             let wireframe = try #require(snapshots.wireframes.first, "No snapshot was captured")
             #expect(wireframe["type"] as? String == "screenshot")
             #expect(!(wireframe["base64"] as? String ?? "").isEmpty)
-            #expect(snapshots.metas.first?["href"] as? String == root.expectedHref)
+            let meta = try #require(snapshots.metas.first)
+            #expect(meta["href"] as? String == root.expectedHref)
         }
     }
 #endif

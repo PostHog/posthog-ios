@@ -1528,8 +1528,9 @@
             }
 
             // The replay meta `href`: the visible screen, with SwiftUI hosting generics unwrapped.
+            // Type names only: a controller's title is display text and isn't masked.
             let screenName = UIViewController.ph_topViewController(base: window.rootViewController)
-                .flatMap(UIViewController.getViewControllerName)
+                .flatMap(UIViewController.getViewControllerTypeName)
                 .flatMap { PostHogScreenNameSanitizer.sanitize(rawScreenName: $0) }
 
             if postHog.config.sessionReplayConfig.screenshotModeBackgroundCapture {

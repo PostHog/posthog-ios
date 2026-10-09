@@ -71,6 +71,8 @@ app.post("init") { req async throws -> Response in
         let flushAt: Int?
         let flushIntervalMs: Int?
         let maxRetries: Int?
+        let enableCompression: Bool?
+        let disableGeoip: Bool?
 
         enum CodingKeys: String, CodingKey {
             // Wire field name remains api_key, but it carries the PostHog project token.
@@ -79,6 +81,8 @@ app.post("init") { req async throws -> Response in
             case flushAt = "flush_at"
             case flushIntervalMs = "flush_interval_ms"
             case maxRetries = "max_retries"
+            case enableCompression = "enable_compression"
+            case disableGeoip = "disable_geoip"
         }
     }
 
@@ -115,6 +119,10 @@ app.post("init") { req async throws -> Response in
     let defaultFlushIntervalMs = config.flushAt > 1 ? 5000 : 500
     config.flushIntervalSeconds = TimeInterval(initReq.flushIntervalMs ?? defaultFlushIntervalMs) / 1000.0
     config.maxRetries = initReq.maxRetries ?? config.maxRetries
+    if initReq.enableCompression == false {
+        config.compression = .none
+    }
+    config.disableGeoIp = initReq.disableGeoip ?? config.disableGeoIp
 
     // Disable features for testing
     config.captureApplicationLifecycleEvents = false

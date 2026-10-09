@@ -1,5 +1,6 @@
 #if os(iOS) && canImport(Metal)
     import Foundation
+    import IOSurface
     @testable import PostHog
     import QuartzCore
     import Testing
@@ -1151,6 +1152,94 @@
             config.screenshotModeGPUCapture = flags.gpu
             config.screenshotModeBackgroundCapture = flags.background
             #expect(PostHogReplayIntegration.screenshotCapturePath(config) == flags.expected)
+        }
+
+        // MARK: - Shared contents
+
+        /// Builds a frame with one layer showing `contents` and reports whether the copy kept it.
+        private func copyShares(_ contents: AnyObject, in mirror: PostHogGPUMirrorCapture, window: UIWindow) throws -> Bool {
+            let layer = CALayer()
+            layer.frame = CGRect(x: 20, y: 20, width: 40, height: 40)
+            layer.contents = contents
+            window.layer.addSublayer(layer)
+            defer { layer.removeFromSuperlayer() }
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            defer { frame.release() }
+            return mirror.copiesForTesting.allObjects.contains { ($0.contents as AnyObject?) === contents }
+        }
+
+        /// The contents Core Animation keeps for a view or a layer that draws itself.
+        private func drawnContents(_ drawn: CALayer, in window: UIWindow) throws -> AnyObject {
+            drawn.frame = CGRect(x: 0, y: 0, width: 20, height: 20)
+            window.layer.addSublayer(drawn)
+            defer { drawn.removeFromSuperlayer() }
+            drawn.setNeedsDisplay()
+            drawn.displayIfNeeded()
+            return try #require(drawn.contents as AnyObject?)
+        }
+
+        /// What `contents` is: its CF type for a Core Foundation object, otherwise its class.
+        private static func kind(of contents: AnyObject) throws -> String {
+            guard NSStringFromClass(try #require(object_getClass(contents))) == "__NSCFType" else {
+                return NSStringFromClass(try #require(object_getClass(contents)))
+            }
+            return try #require(CFCopyTypeIDDescription(CFGetTypeID(contents)) as String?)
+        }
+
+        @Test("Copies share image, surface, backing-store and tinted-image contents, and drop any other kind")
+        func sharedContentsKinds() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let image = try #require(UIGraphicsImageRenderer(size: CGSize(width: 4, height: 4)).image { _ in }.cgImage)
+            #expect(try copyShares(image, in: mirror, window: window))
+            let surface = try #require(IOSurface(properties: [.width: 4, .height: 4, .bytesPerElement: 4, .pixelFormat: 0x4247_5241]))
+            #expect(try copyShares(surface, in: mirror, window: window))
+
+            let view = DrawnView()
+            let viewDrawn = try drawnContents(view.layer, in: window)
+            try #require(try Self.kind(of: viewDrawn) == "CABackingStore")
+            #expect(try copyShares(viewDrawn, in: mirror, window: window))
+            // iOS 26 keeps a layer's own drawing as a tinted image; earlier versions as a backing store.
+            let layerDrawn = try drawnContents(DrawnLayer(), in: window)
+            try #require(["CABackingStore", "CATintedImage"].contains(try Self.kind(of: layerDrawn)))
+            #expect(try copyShares(layerDrawn, in: mirror, window: window))
+
+            #expect(try !copyShares(NSObject(), in: mirror, window: window))
+        }
+
+        @Test("Contents whose CF type ID is an address, like IOSurface's, are dropped instead of described")
+        func addressTypedContentsAreDropped() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let contents = AddressTypedContents()
+            try #require(CFGetTypeID(contents) > CFTypeID(UInt32.max))
+            #expect(try !copyShares(contents, in: mirror, window: window))
+        }
+    }
+
+    private final class DrawnView: UIView {
+        override func draw(_: CGRect) {
+            UIColor.red.setFill()
+            UIRectFill(bounds)
+        }
+    }
+
+    private final class DrawnLayer: CALayer {
+        override func draw(in ctx: CGContext) {
+            ctx.setFillColor(UIColor.red.cgColor)
+            ctx.fill(bounds)
+        }
+    }
+
+    /// An Objective-C object reporting its class pointer as its CF type ID, the way IOSurface does: Core Foundation
+    /// asks Objective-C objects for `_cfTypeID`.
+    private final class AddressTypedContents: NSObject {
+        @objc func _cfTypeID() -> UInt {
+            unsafeBitCast(AddressTypedContents.self as AnyClass, to: UInt.self)
         }
     }
 #endif

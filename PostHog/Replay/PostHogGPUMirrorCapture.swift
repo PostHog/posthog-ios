@@ -355,6 +355,10 @@
         /// Shareable contents that are Objective-C objects, so they have no CF type of their own: SwiftUI draws text on
         /// Liquid Glass into a tinted image.
         private static let shareablePrivateContentClasses: Set<String> = ["CATintedImage"]
+        /// Core Foundation's own type IDs are small indexes into its class table. An Objective-C object reports
+        /// whatever its `_cfTypeID` returns (IOSurface returns its class pointer), and `CFCopyTypeIDDescription` reads
+        /// past the table and faults on an ID that size.
+        private static let maxDescribableTypeID = CFTypeID(UInt16.max)
         private static let maxPlaceholders = 8
         /// Slack around the visible rect so antialiased edges of a layer just outside it still render.
         private static let cullMargin: CGFloat = 1
@@ -913,7 +917,8 @@
             let typeID = CFGetTypeID(object)
             let shareableType = shareableTypeIDs[typeID] ?? {
                 let shareable = typeID == CGImage.typeID || typeID == IOSurfaceGetTypeID()
-                    || Self.shareablePrivateContentTypes.contains((CFCopyTypeIDDescription(typeID) as String?) ?? "")
+                    || typeID <= Self.maxDescribableTypeID
+                    && Self.shareablePrivateContentTypes.contains((CFCopyTypeIDDescription(typeID) as String?) ?? "")
                 shareableTypeIDs[typeID] = shareable
                 return shareable
             }()

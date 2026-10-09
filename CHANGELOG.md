@@ -1,5 +1,11 @@
 ## Next
 
+## 3.91.2
+
+### Patch Changes
+
+- c61cbdc: Retry feature flag requests after DNS, TLS handshake, and no-internet failures, in addition to timeouts and lost connections
+
 ## 3.91.1
 
 ### Patch Changes

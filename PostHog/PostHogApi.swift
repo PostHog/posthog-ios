@@ -192,7 +192,7 @@ class PostHogApi {
         let toSend: [String: Any] = [
             // Wire field name remains api_key, but it carries the PostHog project token.
             "api_key": config.projectToken,
-            "batch": events.map { $0.toJSON() },
+            "batch": events.map(Self.batchJSON),
             "sent_at": toISO8601String(Date()),
         ]
 
@@ -348,13 +348,50 @@ class PostHogApi {
         )
     }
 
+    /// Legacy properties and the capture V1 option each one fills, in the
+    /// order posthog-python, posthog-go and posthog-rs use.
+    static let legacyOptionProperties: [(property: String, option: String)] = [
+        ("$cookieless_mode", "cookieless_mode"),
+        ("$ignore_sent_at", "disable_skew_correction"),
+        ("$product_tour_id", "product_tour_id"),
+        ("$process_person_profile", "process_person_profile"),
+    ]
+
+    /// Shapes a stored event for `/batch`, which has no options: each option
+    /// goes back into its legacy property and wins over it. Remove with /batch.
+    private static func batchJSON(_ event: PostHogEvent) -> [String: Any] {
+        var json = event.toJSON()
+        guard let options = json.removeValue(forKey: "options") as? [String: Any] else { return json }
+        var properties = event.properties
+        for (property, option) in legacyOptionProperties {
+            if let value = options[option], !(value is NSNull) {
+                properties[property] = value
+            }
+        }
+        json["properties"] = properties
+        return json
+    }
+
     /// Shapes a stored event for capture V1. `$session_id` and `$window_id`
     /// move to the event root, and `$lib`/`$lib_version` are dropped because
     /// the server reads them from `PostHog-Sdk-Info`.
+    ///
+    /// Legacy option properties are hoisted here, after `beforeSend`, so events
+    /// queued by older versions are hoisted too. Each is always removed from
+    /// properties and fills its option only when the option is missing or null.
+    /// Values aren't coerced: the server validates them.
     private static func captureV1JSON(_ event: PostHogEvent) -> [String: Any] {
         var properties = event.properties
         properties.removeValue(forKey: "$lib")
         properties.removeValue(forKey: "$lib_version")
+
+        var options = event.options
+        for (property, option) in legacyOptionProperties {
+            guard let legacy = properties.removeValue(forKey: property) else { continue }
+            if options[option] == nil || options[option] is NSNull {
+                options[option] = legacy
+            }
+        }
 
         var json: [String: Any] = [
             "event": event.event,
@@ -369,6 +406,7 @@ class PostHogApi {
         if let windowId = properties.removeValue(forKey: "$window_id") as? String, !windowId.isEmpty {
             json["window_id"] = windowId
         }
+        json["options"] = options
         json["properties"] = properties
         return json
     }
@@ -383,7 +421,12 @@ class PostHogApi {
             event.projectToken = config.projectToken
         }
 
-        let toSend = events.map { $0.toJSON() }
+        // Options are an analytics capture field; replay doesn't send them.
+        let toSend = events.map { event -> [String: Any] in
+            var json = event.toJSON()
+            json.removeValue(forKey: "options")
+            return json
+        }
 
         guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
             hedgeLog("Error parsing the snapshot body")

@@ -893,7 +893,7 @@
 
         /// Waits for the capture to give the render slot back, through both turns and the readback.
         private func waitForCaptureToFinish(_ integration: PostHogReplayIntegration) async {
-            await waitUntil(timeout: 2) { !integration.isScreenshotRenderInFlightForTesting }
+            await waitUntil(timeout: 5) { !integration.isScreenshotRenderInFlightForTesting }
             #expect(!integration.isScreenshotRenderInFlightForTesting)
             await drainReplayQueue()
         }
@@ -1032,6 +1032,10 @@
             defer { DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared }
             let window = windowWithContent()
             try #require(window.screen.scale == 3, "the expected sizes are for a 3x simulator")
+            // Each size builds its own renderer; build it up front so the wait below only covers the capture.
+            if capture.gpu {
+                await prewarm(mirror, for: window, scale: integration.gpuPixelScale(window))
+            }
 
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
             await waitForCaptureToFinish(integration)

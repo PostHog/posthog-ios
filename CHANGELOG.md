@@ -1,5 +1,12 @@
 ## Next
 
+## 3.91.1
+
+### Patch Changes
+
+- 95f7173: Fix `$exception` event metadata: link chained errors with `exception_id`/`parent_id`, cap the chain at 50 entries, add `$exception_source` to crash and out-of-memory reports, and stop `captureException` properties from overriding `$exception_list` and `$debug_images`
+- 7c51382: Drop log attributes with an empty key instead of sending them
+
 ## 3.91.0
 
 ### Minor Changes

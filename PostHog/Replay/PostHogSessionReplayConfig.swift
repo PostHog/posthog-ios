@@ -35,13 +35,17 @@
         /// Note: When enabled, can be disabled remotely via project settings
         @objc public var captureNetworkTelemetry: Bool = true
 
-        /// By default Session replay will capture all the views on the screen as a wireframe,
-        /// By enabling this option, PostHog will capture the screenshot of the screen.
-        /// The screenshot may contain sensitive information, use with caution.
-        /// Default: false
-        @objc public var screenshotMode: Bool = false
+        /// Deprecated. Session replay always captures screenshots of the screen, with sensitive
+        /// content masked according to the masking options above.
+        ///
+        /// This property has no effect: it always reads `true` and ignores writes.
+        @available(*, deprecated, message: "Wireframe capture was removed and session replay always records masked screenshots. This property has no effect and will be removed in a future major release. Use the masking options or postHogMask() to hide sensitive content.")
+        @objc public var screenshotMode: Bool {
+            get { true }
+            set {} // swiftlint:disable:this unused_setter_value
+        }
 
-        /// Schedule screenshot image capture on a background queue when `screenshotMode` is enabled.
+        /// Schedule screenshot image capture on a background queue.
         ///
         /// Warning: Enabling this option will trigger Main Thread Checker warnings and may
         /// briefly freeze the app the first time a screenshot is captured. Consider disabling
@@ -52,7 +56,7 @@
         @objc public var screenshotModeBackgroundCapture: Bool = false
 
         /// Throttle delay used to reduce the number of snapshots captured and reduce performance impact
-        /// This is used for capturing the view as a wireframe or screenshot
+        /// This is used for capturing the screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact
         /// Defaults to 1s
         @objc public var throttleDelay: TimeInterval = 1

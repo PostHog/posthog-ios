@@ -68,7 +68,6 @@
                 config.captureScreenViews = false
                 config.sessionReplayConfig.maskAllTextInputs = true
                 config.sessionReplayConfig.maskAllImages = true
-                config.sessionReplayConfig.screenshotMode = true
                 sdk = PostHogSDK.with(config)
                 _ = integration.install(sdk)
                 integration.stop()
@@ -590,6 +589,24 @@
             try h.expectMasked(overlay, context: "banner still fading")
             try await wait { (banner.layer.presentation()?.opacity ?? banner.layer.opacity) == 0 }
             #expect(try h.rects().isEmpty, "Fully faded banner must not veto the opaque cover")
+        }
+
+        @Test("secure fields in a cover stay masked under a no-mask ancestor")
+        func secureFieldInCoverUnderNoMaskAncestor() async throws {
+            let base = UIViewController()
+            let h = try Harness(root: base)
+            defer { h.close() }
+            h.window.accessibilityIdentifier = "ph-no-mask"
+            let cover = Secrets()
+            cover.field.isSecureTextEntry = true
+            try await present(cover.controller, over: base, in: h)
+            let selected = try #require(PostHogPresentationCover.frontmostFullWindowCover(in: h.window))
+            try #require(selected !== h.window)
+            try #require(cover.field.isDescendant(of: selected))
+
+            try h.expectMasked(cover.field, context: "secure field under no-mask window")
+            let labelRect = cover.label.toPresentationRect(h.window)
+            #expect(try h.rects().allSatisfy { !$0.intersects(labelRect) }, "No-mask still unmasks ordinary text")
         }
 
         @Test("rotated cover bounding box is not proof the presenter is hidden")

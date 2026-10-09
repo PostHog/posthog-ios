@@ -732,7 +732,7 @@ let maxRetryDelay = 30.0
             #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 var replayDebugProperties = replayIntegration?.debugProperties() ?? [
                     "$recording_status": "disabled",
-                    "$sdk_debug_replay_capture_mode": PostHogReplayIntegration.captureMode(config: config),
+                    "$sdk_debug_replay_capture_mode": PostHogReplayIntegration.captureMode,
                 ]
             #else
                 var replayDebugProperties: [String: Any] = ["$recording_status": "disabled"]

@@ -136,6 +136,25 @@
             #expect(sut.integration.collectMaskableRects(in: window) == [])
         }
 
+        @Test("A secure UITextField nested under a ph-no-mask ancestor stays masked")
+        func noMaskAncestorKeepsSecureFieldMasked() {
+            let sut = makeSut(maskText: false, maskImages: false)
+            defer { teardown(sut) }
+
+            let container = UIView(frame: CGRect(x: 0, y: 80, width: 320, height: 200))
+            container.accessibilityIdentifier = "ph-no-mask"
+            let wrapper = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 200))
+            let secureField = UITextField(frame: CGRect(x: 12, y: 12, width: 160, height: 40))
+            secureField.isSecureTextEntry = true
+            secureField.text = "hunter2"
+            wrapper.addSubview(secureField)
+            wrapper.addSubview(UITextField(frame: CGRect(x: 12, y: 64, width: 160, height: 40)))
+            container.addSubview(wrapper)
+            let window = makeWindow(containing: container)
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [CGRect(x: 12, y: 92, width: 160, height: 40)])
+        }
+
         @Test("A ph-no-mask accessibilityLabel token unmasks Fabric paragraph view")
         func noMaskLabelTokenUnmasksParagraph() {
             let sut = makeSut(maskText: true, maskImages: false)

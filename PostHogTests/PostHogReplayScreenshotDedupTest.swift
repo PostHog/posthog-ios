@@ -29,7 +29,7 @@
                 imageHash: 42, lastImageHash: 42, hasPendingSnapshotData: true, expectedSkip: false
             ),
             DedupCase(
-                name: "never skips when there is no image hash (wireframe mode)",
+                name: "never skips when there is no image hash",
                 imageHash: nil, lastImageHash: 42, hasPendingSnapshotData: false, expectedSkip: false
             ),
             DedupCase(

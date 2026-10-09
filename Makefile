@@ -138,9 +138,11 @@ testPresentationMasks:
 	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TEST_PRESENTATION_MASKS' \
 	  -only-testing:PostHogTests/PostHogMaskPresentationTest \
 	  -only-testing:PostHogTests/PostHogMaskPresentationPrivacyTest \
+	  -only-testing:PostHogTests/PostHogReplayLayoutCaptureTest \
 	  2>&1 | tee presentation-masks.log | xcpretty
 	@grep -q 'Suite "Replay masking behind a cover" passed' presentation-masks.log
 	@grep -q 'Suite "Replay presentation privacy" passed' presentation-masks.log
+	@grep -q 'Suite "Replay layout-driven capture" passed' presentation-masks.log
 
 .PHONY: testCameraReplay
 

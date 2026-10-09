@@ -8,7 +8,7 @@
 // see: https://github.com/bring-shrubbery/SVG-to-SwiftUI
 
 // swiftlint:disable line_length
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     import SwiftUI
 
     struct VeryDissatisfiedEmoji: Shape {

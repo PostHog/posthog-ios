@@ -5,7 +5,7 @@
 //  Created by PostHog Code on 2026-05-13.
 //
 
-#if os(iOS) || TESTING
+#if (os(iOS) || TESTING) && (!SWIFT_PACKAGE || Surveys)
 
     import Foundation
     @testable import PostHog

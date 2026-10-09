@@ -241,51 +241,53 @@
             end: UInt64? = nil,
             postHog: PostHogSDK?
         ) {
-            let instance = postHog ?? PostHogSDK.shared
+            #if !SWIFT_PACKAGE || SessionReplay
+                let instance = postHog ?? PostHogSDK.shared
 
-            // we don't check config.sessionReplayConfig.captureNetworkTelemetry here since this extension
-            // has to be called manually anyway
-            guard let sessionId, instance.isSessionReplayActive() else {
-                return
-            }
-            let currentEnd = end ?? getMonotonicTimeInMilliseconds()
-
-            PostHogReplayIntegration.dispatchQueue.async {
-                var snapshotsData: [Any] = []
-
-                var requestsData: [String: Any] = ["duration": currentEnd - start,
-                                                   "method": request?.httpMethod ?? "GET",
-                                                   "name": request?.url?.absoluteString ?? (response?.url?.absoluteString ?? ""),
-                                                   "initiatorType": "fetch",
-                                                   "entryType": "resource",
-                                                   "timestamp": timestamp.toMillis()]
-
-                // the UI special case if the transferSize is 0 as coming from cache
-                let transferSize = Int64(request?.httpBody?.count ?? 0) + (response?.expectedContentLength ?? 0)
-                if transferSize > 0 {
-                    requestsData["transferSize"] = transferSize
+                // we don't check config.sessionReplayConfig.captureNetworkTelemetry here since this extension
+                // has to be called manually anyway
+                guard let sessionId, instance.isSessionReplayActive() else {
+                    return
                 }
+                let currentEnd = end ?? getMonotonicTimeInMilliseconds()
 
-                if let urlResponse = response as? HTTPURLResponse {
-                    requestsData["responseStatus"] = urlResponse.statusCode
+                PostHogReplayIntegration.dispatchQueue.async {
+                    var snapshotsData: [Any] = []
+
+                    var requestsData: [String: Any] = ["duration": currentEnd - start,
+                                                       "method": request?.httpMethod ?? "GET",
+                                                       "name": request?.url?.absoluteString ?? (response?.url?.absoluteString ?? ""),
+                                                       "initiatorType": "fetch",
+                                                       "entryType": "resource",
+                                                       "timestamp": timestamp.toMillis()]
+
+                    // the UI special case if the transferSize is 0 as coming from cache
+                    let transferSize = Int64(request?.httpBody?.count ?? 0) + (response?.expectedContentLength ?? 0)
+                    if transferSize > 0 {
+                        requestsData["transferSize"] = transferSize
+                    }
+
+                    if let urlResponse = response as? HTTPURLResponse {
+                        requestsData["responseStatus"] = urlResponse.statusCode
+                    }
+
+                    let payloadData: [String: Any] = ["requests": [requestsData]]
+                    let pluginData: [String: Any] = ["plugin": "rrweb/network@1", "payload": payloadData]
+
+                    let recordingData: [String: Any] = ["type": 6, "data": pluginData, "timestamp": timestamp.toMillis()]
+                    snapshotsData.append(recordingData)
+
+                    instance.capture(
+                        "$snapshot",
+                        properties: [
+                            "$snapshot_source": "mobile",
+                            "$snapshot_data": snapshotsData,
+                            "$session_id": sessionId,
+                        ],
+                        timestamp: timestamp
+                    )
                 }
-
-                let payloadData: [String: Any] = ["requests": [requestsData]]
-                let pluginData: [String: Any] = ["plugin": "rrweb/network@1", "payload": payloadData]
-
-                let recordingData: [String: Any] = ["type": 6, "data": pluginData, "timestamp": timestamp.toMillis()]
-                snapshotsData.append(recordingData)
-
-                instance.capture(
-                    "$snapshot",
-                    properties: [
-                        "$snapshot_source": "mobile",
-                        "$snapshot_data": snapshotsData,
-                        "$session_id": sessionId,
-                    ],
-                    timestamp: timestamp
-                )
-            }
+            #endif
         }
     }
 #endif

@@ -5,7 +5,7 @@
 //  Regression coverage for https://github.com/PostHog/posthog-ios/issues/780
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import Testing

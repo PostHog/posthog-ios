@@ -5,7 +5,7 @@
 //  Created by Ioannis Josephides on 13/03/2025.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     import SwiftUI
 
     struct OpenTextQuestionView: View {

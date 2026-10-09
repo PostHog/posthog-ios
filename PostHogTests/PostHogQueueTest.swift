@@ -312,6 +312,25 @@ final class PostHogQueueTest {
         sut.clear()
     }
 
+    @Test("caps Retry-After at the maximum retry delay", arguments: [("5", 5.0), ("3600", maxRetryDelay)])
+    func capsRetryAfter(retryAfter: String, expectedDelay: TimeInterval) async throws {
+        try await withMockedClock { clock in
+            let uploaded = AsyncLatch()
+            let sut = getSut(flushAt: 100) { uploaded.signal() }
+            server.batchResponseHandler = { _, _ in
+                HTTPStubsResponse(jsonObject: [], statusCode: 503, headers: ["Retry-After": retryAfter])
+            }
+
+            sut.add(PostHogEvent(event: "event", distinctId: "id"))
+            sut.flush()
+            await expectSignaled(uploaded)
+
+            let pausedUntil = try #require(sut.pausedUntilForTesting)
+            #expect(abs(pausedUntil.timeIntervalSince(clock.date) - expectedDelay) < 0.001)
+            sut.clear()
+        }
+    }
+
     @Test("pops batch on HTTP 429 (terminal for capture V1) and does not change cap")
     func popsBatchOnHTTP429AndDoesNotChangeCap() async {
         let sut = getSut(flushAt: 2, maxBatchSize: 4)

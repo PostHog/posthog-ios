@@ -198,11 +198,10 @@ class PostHogQueue<Record> {
     private func pauseForBackoff(retryAfter: TimeInterval?) {
         let newCount = nextRetryCount()
         let backoffDelay = min(TimeInterval(newCount) * retryDelay, maxRetryDelay)
-        var retryAfter = retryAfter ?? 0
-        if let maxRetryAfter = endpoint.maxRetryAfterSeconds {
-            retryAfter = min(retryAfter, maxRetryAfter)
-        }
-        let delay = max(backoffDelay, retryAfter)
+        // A server's Retry-After can't hold the queue longer than the backoff ceiling
+        // or the endpoint's documented maximum, whichever is lower.
+        let retryAfterCap = min(maxRetryDelay, endpoint.maxRetryAfterSeconds ?? maxRetryDelay)
+        let delay = max(backoffDelay, min(retryAfter ?? 0, retryAfterCap))
         pauseFor(seconds: delay)
         hedgeLog("Pausing queue consumption for \(delay) seconds due to \(newCount) API failure(s).")
     }

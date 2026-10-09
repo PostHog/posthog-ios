@@ -1773,26 +1773,22 @@
                 return triggers
             }()
 
+            // Activation is per session and survives config updates (as in posthog-js and posthog-android),
+            // so a session a trigger already activated keeps recording whatever the new trigger list is.
             let previousTriggers = eventTriggersLock.withLock {
                 let prev = eventTriggers
                 eventTriggers = remoteEventTriggers
-                // Clear activated session when triggers change
-                triggerActivatedSessionId = nil
                 return prev
             }
 
-            // If triggers were added/changed and integration is running, stop it
-            if let newTriggers = remoteEventTriggers, !newTriggers.isEmpty {
+            if shouldWaitForEventTriggers() {
                 if isEnabled {
                     hedgeLog("[Session Replay] Event triggers updated. Stopping until trigger is matched.")
                     stopRecording()
                 }
-            } else if previousTriggers != nil, !previousTriggers!.isEmpty, remoteEventTriggers?.isEmpty != false {
-                // Triggers were removed - start if not already running and sampling allows
-                if !isEnabled {
-                    hedgeLog("[Session Replay] Event triggers removed. Starting replay.")
-                    startRecording()
-                }
+            } else if previousTriggers?.isEmpty == false, remoteEventTriggers?.isEmpty != false, !isEnabled {
+                hedgeLog("[Session Replay] Event triggers removed. Starting replay.")
+                startRecording()
             }
         }
     }

@@ -53,11 +53,10 @@ app.get("health") { req async throws -> Response in
         "sdk_name": postHogSdkName,
         "sdk_version": postHogVersion,
         "adapter_version": "1.0.0",
-        // Declares which test suites apply. The iOS SDK posts events to /batch
-        // (capture_v0) with gzip; it does not implement the /i/v1/e capture_v1
-        // protocol. Without this, the harness skips the capability-gated capture
-        // suites entirely.
-        "capabilities": ["capture_v0", "encoding_gzip"],
+        // Declares which test suites apply. The iOS SDK posts events to
+        // /i/v1/analytics/events (capture_v1) with gzip. Without this, the
+        // harness skips the capability-gated capture suites entirely.
+        "capabilities": ["capture_v1", "encoding_gzip"],
     ]
 
     print("[ADAPTER] GET /health")

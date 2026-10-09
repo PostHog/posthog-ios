@@ -5,7 +5,7 @@
 //  Created by Ioannis Josephides on 05/05/2025.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
 
     final class PostHogConsoleLogInterceptor {

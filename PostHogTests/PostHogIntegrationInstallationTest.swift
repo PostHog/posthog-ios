@@ -82,7 +82,7 @@ class PostHogIntegrationInstallationTest {
         return PostHogSDK.with(config)
     }
 
-    #if os(iOS)
+    #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
         @Test("replay integration installed only once, on first instance")
         func replayIntegrationInstalledOnce() {
             let first = getSut(projectToken: "test_project_token", sessionReplay: true)
@@ -186,7 +186,7 @@ class PostHogIntegrationInstallationTest {
 
     // MARK: - Error tracking integration
 
-    #if os(iOS) || os(macOS) || os(tvOS)
+    #if (os(iOS) || os(macOS) || os(tvOS)) && (!SWIFT_PACKAGE || CrashReporting)
         @Test("error tracking integration installed on first launch before remote config arrives")
         func errorTrackingInstalledBeforeRemoteConfig() {
             // disableRemoteConfig=true means hasFetchedRemoteConfig stays false.
@@ -349,6 +349,27 @@ class PostHogIntegrationInstallationTest {
 
             sut.optIn() // triggers re-install with a fetched-but-failed remote config
             #expect(sut.getErrorTrackingIntegration() != nil)
+        }
+    #elseif os(iOS) || os(macOS) || os(tvOS)
+        @Test("error tracking integration is skipped when the CrashReporting trait is disabled")
+        func errorTrackingIntegrationSkippedWithoutCrashReportingTrait() {
+            let sut = getSut(projectToken: "test_project_token", errorTrackingAutoCapture: true)
+
+            #expect(sut.getErrorTrackingIntegration() == nil)
+            #expect(PostHogErrorTrackingAutoCaptureIntegration().install(sut) == .skipped(.disabledByPackageTrait))
+
+            sut.close()
+        }
+    #endif
+
+    #if os(iOS) && SWIFT_PACKAGE && !Surveys
+        @Test("surveys integration is skipped when the Surveys trait is disabled")
+        func surveysIntegrationSkippedWithoutSurveysTrait() {
+            let sut = getSut(projectToken: "test_project_token")
+
+            #expect(PostHogSurveyIntegration().install(sut) == .skipped(.disabledByPackageTrait))
+
+            sut.close()
         }
     #endif
 

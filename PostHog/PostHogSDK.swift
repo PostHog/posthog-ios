@@ -729,7 +729,7 @@ let maxRetryDelay = 30.0
 
             // SDK-computed debug keys overwrite a same-named registered super property (js: `extend`
             // after super properties), so a stale `register()` can't shadow the live status.
-            #if os(iOS)
+            #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 var replayDebugProperties = replayIntegration?.debugProperties() ?? [
                     "$recording_status": "disabled",
                     "$sdk_debug_replay_capture_mode": PostHogReplayIntegration.captureMode(config: config),

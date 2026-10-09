@@ -383,38 +383,40 @@ final class PostHogSDKTests {
     }
 
     #if os(iOS)
-        @Test("captures $recording_status on every event and the full replay debug bundle on the first eligible SDK event only")
-        func capturesRecordingStatusAndReplayDebugBundle() throws {
-            server.reset(batchCount: 1)
-            let sut = getSut(flushAt: 3)
+        #if !SWIFT_PACKAGE || SessionReplay
+            @Test("captures $recording_status on every event and the full replay debug bundle on the first eligible SDK event only")
+            func capturesRecordingStatusAndReplayDebugBundle() throws {
+                server.reset(batchCount: 1)
+                let sut = getSut(flushAt: 3)
 
-            sut.capture("test event")
-            sut.screen("theScreen")
-            sut.capture("$exception", properties: ["foo": "bar"])
+                sut.capture("test event")
+                sut.screen("theScreen")
+                sut.capture("$exception", properties: ["foo": "bar"])
 
-            let events = getBatchedEvents(server)
-            try #require(events.count == 3)
+                let events = getBatchedEvents(server)
+                try #require(events.count == 3)
 
-            #expect(events[0].properties["$recording_status"] as? String == "disabled")
-            #expect(events[0].properties["$sdk_debug_session_start"] == nil)
-            #expect(events[0].properties["$sdk_debug_replay_capture_mode"] == nil)
+                #expect(events[0].properties["$recording_status"] as? String == "disabled")
+                #expect(events[0].properties["$sdk_debug_session_start"] == nil)
+                #expect(events[0].properties["$sdk_debug_replay_capture_mode"] == nil)
 
-            #expect(events[1].properties["$recording_status"] as? String == "disabled")
-            #expect(events[1].properties["$sdk_debug_replay_capture_mode"] as? String == "wireframe")
-            #expect(events[1].properties["$sdk_debug_session_start"] != nil)
+                #expect(events[1].properties["$recording_status"] as? String == "disabled")
+                #expect(events[1].properties["$sdk_debug_replay_capture_mode"] as? String == "wireframe")
+                #expect(events[1].properties["$sdk_debug_session_start"] != nil)
 
-            // Inside the 30s window opened by $screen.
-            #expect(events[2].properties["$recording_status"] as? String == "disabled")
-            #expect(events[2].properties["$sdk_debug_session_start"] == nil)
-            #expect(events[2].properties["$sdk_debug_replay_capture_mode"] == nil)
+                // Inside the 30s window opened by $screen.
+                #expect(events[2].properties["$recording_status"] as? String == "disabled")
+                #expect(events[2].properties["$sdk_debug_session_start"] == nil)
+                #expect(events[2].properties["$sdk_debug_replay_capture_mode"] == nil)
 
-            for event in events {
-                #expect(event.properties["$sdk_debug_pending_queue_size"] != nil)
+                for event in events {
+                    #expect(event.properties["$sdk_debug_pending_queue_size"] != nil)
+                }
+
+                sut.reset()
+                sut.close()
             }
-
-            sut.reset()
-            sut.close()
-        }
+        #endif
 
         @Test("excludes $recording_status and $sdk_debug_* properties from $snapshot events")
         func excludesRecordingStatusAndDebugPropertiesFromSnapshotEvents() throws {
@@ -451,22 +453,24 @@ final class PostHogSDKTests {
             sut.close()
         }
 
-        @Test("reports screenshot capture mode for the flutter host")
-        func reportsScreenshotCaptureModeForFlutterHost() {
-            server.reset(batchCount: 1)
-            let original = postHogSdkName
-            postHogSdkName = "posthog-flutter"
-            defer { postHogSdkName = original }
+        #if !SWIFT_PACKAGE || SessionReplay
+            @Test("reports screenshot capture mode for the flutter host")
+            func reportsScreenshotCaptureModeForFlutterHost() {
+                server.reset(batchCount: 1)
+                let original = postHogSdkName
+                postHogSdkName = "posthog-flutter"
+                defer { postHogSdkName = original }
 
-            let sut = getSut()
-            sut.screen("theScreen")
+                let sut = getSut()
+                sut.screen("theScreen")
 
-            let events = getBatchedEvents(server)
-            #expect(events.first?.properties["$sdk_debug_replay_capture_mode"] as? String == "screenshot")
+                let events = getBatchedEvents(server)
+                #expect(events.first?.properties["$sdk_debug_replay_capture_mode"] as? String == "screenshot")
 
-            sut.reset()
-            sut.close()
-        }
+                sut.reset()
+                sut.close()
+            }
+        #endif
 
         @Test("SDK-computed debug keys win over a same-named registered super property")
         func sdkComputedDebugKeysWinOverRegisteredSuperProperty() throws {

@@ -13,6 +13,21 @@ let package = Package(
             targets: ["PostHog"]
         ),
     ],
+    traits: [
+        .trait(
+            name: "SessionReplay",
+            description: "Session replay on iOS, including the vendored libwebp. When disabled, session replay is not available."
+        ),
+        .trait(
+            name: "CrashReporting",
+            description: "Captures crashes and uncaught exceptions using the vendored PLCrashReporter. When disabled, only manual captures are sent."
+        ),
+        .trait(
+            name: "Surveys",
+            description: "Shows mobile surveys on iOS. When disabled, surveys are not loaded or shown."
+        ),
+        .default(enabledTraits: ["SessionReplay", "CrashReporting", "Surveys"]),
+    ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
         .package(url: "https://github.com/AliSoftware/OHHTTPStubs.git", from: "9.0.0"),
@@ -24,8 +39,8 @@ let package = Package(
             name: "PostHog",
             dependencies: [
                 "PostHogObjCExceptionSupport",
-                "phlibwebp",
-                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .macCatalyst, .tvOS])),
+                .target(name: "phlibwebp", condition: .when(traits: ["SessionReplay"])),
+                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .macCatalyst, .tvOS], traits: ["CrashReporting"])),
             ],
             path: "PostHog",
             exclude: [
@@ -95,7 +110,7 @@ let package = Package(
                 "OHHTTPStubs",
                 .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs"),
                 // The crash-report processor tests import this directly to build a PHPLCrashReport.
-                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .macCatalyst, .tvOS])),
+                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .macCatalyst, .tvOS], traits: ["CrashReporting"])),
             ],
             path: "PostHogTests",
             resources: [

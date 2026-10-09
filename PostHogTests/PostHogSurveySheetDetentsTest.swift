@@ -5,7 +5,7 @@
 //  Created by Anna Garcia on 28/09/2026.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     import Foundation
     @testable import PostHog
     import Testing

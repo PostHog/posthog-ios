@@ -402,12 +402,16 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
 
         /// Enable Recording of Session Replays for iOS
         ///
+        /// With Swift Package Manager, this requires the `SessionReplay` package trait, which is enabled by default.
+        ///
         /// Note: Ingestion controls (sampling, feature flags, and event triggers) are currently applied using AND logic.
         /// All configured conditions must be satisfied for recording to start.
         ///
         /// Default: false
         @objc public var sessionReplay: Bool = false
         /// Session Replay configuration
+        ///
+        /// With Swift Package Manager, this requires the `SessionReplay` package trait, which is enabled by default.
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 
@@ -421,6 +425,8 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     @objc public let logs: PostHogLogsConfig = .init()
 
     /// Enable mobile surveys
+    ///
+    /// With Swift Package Manager, this requires the `Surveys` package trait, which is enabled by default.
     ///
     /// Default: true
     ///
@@ -438,6 +444,7 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     /// Configuration for mobile survey presentation and localization.
     ///
     /// Mutate fields on `config.surveysConfig` or replace this object before calling setup.
+    /// With Swift Package Manager, this requires the `Surveys` package trait, which is enabled by default.
     @available(watchOS, unavailable, message: "Surveys are only available on iOS")
     @available(macOS, unavailable, message: "Surveys are only available on iOS")
     @available(tvOS, unavailable, message: "Surveys are only available on iOS")

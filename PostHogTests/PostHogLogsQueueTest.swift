@@ -328,7 +328,7 @@ final class PostHogLogsQueueTests {
     }
 
     @Test("Retry-After floors the backoff, clamped to the documented maximum", arguments: [
-        ("3600", logsMaxRetryAfterSeconds),
+        ("3600", min(logsMaxRetryAfterSeconds, maxRetryDelay)),
         ("30", 30.0),
     ])
     func retryAfterIsClampedThenFloored(header: String, expectedWait: TimeInterval) async throws {

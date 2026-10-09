@@ -240,6 +240,101 @@ final class PostHogCaptureV1Test {
         #expect(paths == ["/proxy/i/v1/analytics/events", "/proxy/batch", "/proxy/batch"])
     }
 
+    @Test("omits empty session and window IDs from the root and properties")
+    func omitsEmptySessionIds() async throws {
+        let event = PostHogEvent(event: "test", distinctId: "user", properties: ["$session_id": "", "$window_id": ""])
+        _ = await send(makeApi(), [event])
+
+        let request = try #require(server.batchRequests.first)
+        let sent = try #require((try body(request)["batch"] as? [[String: Any]])?.first)
+        #expect(sent["session_id"] == nil)
+        #expect(sent["window_id"] == nil)
+        let properties = try #require(sent["properties"] as? [String: Any])
+        #expect(properties["$session_id"] == nil)
+        #expect(properties["$window_id"] == nil)
+    }
+
+    @Test("follows a same-origin 307 or 308 with the same body and headers", arguments: [307, 308])
+    func followsSameOriginRedirect(statusCode: Int) async throws {
+        server.captureV1ResponseHandler = { _, index in
+            index == 1
+                ? HTTPStubsResponse(data: Data(), statusCode: Int32(statusCode), headers: [
+                    "Location": "http://localhost:9001/moved/i/v1/analytics/events",
+                ])
+                : HTTPStubsResponse(jsonObject: ["results": [:]], statusCode: 200, headers: nil)
+        }
+
+        let result = await send(makeApi(), [PostHogEvent(event: "test", distinctId: "user")])
+
+        #expect(result.statusCode == 200)
+        let requests = server.batchRequests
+        try #require(requests.count == 2)
+        #expect(requests[1].url?.path == "/moved/i/v1/analytics/events")
+        #expect(requests[1].httpMethod == "POST")
+        #expect(requests[1].httpBody == requests[0].httpBody)
+        for header in ["Authorization", "PostHog-Request-Id", "PostHog-Attempt", "PostHog-Sdk-Info", "Content-Encoding"] {
+            #expect(requests[1].value(forHTTPHeaderField: header) == requests[0].value(forHTTPHeaderField: header))
+        }
+    }
+
+    @Test("returns other redirects without following them", arguments: [
+        (301, "http://localhost:9001/moved/i/v1/analytics/events"),
+        (302, "http://localhost:9001/moved/i/v1/analytics/events"),
+        (303, "http://localhost:9001/moved/i/v1/analytics/events"),
+        (307, "http://other.example.com/i/v1/analytics/events"),
+        (308, "https://localhost:9001/i/v1/analytics/events"),
+        (307, "http://localhost:9002/i/v1/analytics/events"),
+    ])
+    func doesNotFollowOtherRedirects(statusCode: Int, location: String) async throws {
+        server.captureV1ResponseHandler = { _, _ in
+            HTTPStubsResponse(data: Data(), statusCode: Int32(statusCode), headers: ["Location": location])
+        }
+
+        let result = await send(makeApi(), [PostHogEvent(event: "test", distinctId: "user")])
+
+        #expect(result.statusCode == statusCode)
+        #expect(server.batchRequests.count == 1)
+        #expect(!QueueEndpoint<PostHogEvent>.batch(api: makeApi()).isRetriableStatusCode(statusCode))
+    }
+
+    @Test("stops after 5 redirects")
+    func stopsAfterMaxRedirects() async {
+        // OHHTTPStubs doesn't resolve a relative `Location`; URLSession does before asking the delegate.
+        server.captureV1ResponseHandler = { _, _ in
+            HTTPStubsResponse(data: Data(), statusCode: 307, headers: ["Location": "http://localhost:9001/proxy/i/v1/analytics/events"])
+        }
+
+        let result = await send(makeApi(), [PostHogEvent(event: "test", distinctId: "user")])
+
+        #expect(result.statusCode == 307)
+        #expect(server.batchRequests.count == PostHogRedirectHandler.maxCaptureV1Redirects + 1)
+    }
+
+    @Test("re-sets the original headers on a followed redirect")
+    func redirectResetsHeaders() throws {
+        let host = try #require(URL(string: "https://us.i.posthog.com"))
+        var original = URLRequest(url: host.appendingPathComponent("i/v1/analytics/events"))
+        original.httpMethod = "POST"
+        original.setValue("Bearer phc_test", forHTTPHeaderField: "Authorization")
+        original.setValue("request-id", forHTTPHeaderField: "PostHog-Request-Id")
+        original.setValue("2", forHTTPHeaderField: "PostHog-Attempt")
+        // What URLSession hands the delegate: the new URL without `Authorization`.
+        let stripped = try URLRequest(url: #require(URL(string: "https://US.i.posthog.com:443/next")))
+
+        let redirected = try #require(PostHogRedirectHandler.captureV1Redirect(
+            original: original, statusCode: 308, newRequest: stripped, host: host, hop: 5
+        ))
+        #expect(redirected.url?.path == "/next")
+        #expect(redirected.httpMethod == "POST")
+        #expect(redirected.value(forHTTPHeaderField: "Authorization") == "Bearer phc_test")
+        #expect(redirected.value(forHTTPHeaderField: "PostHog-Request-Id") == "request-id")
+        #expect(redirected.value(forHTTPHeaderField: "PostHog-Attempt") == "2")
+
+        #expect(PostHogRedirectHandler.captureV1Redirect(
+            original: original, statusCode: 308, newRequest: stripped, host: host, hop: 6
+        ) == nil)
+    }
+
     @Test("only 408 and 500/502/503/504 are retried", arguments: [
         (408, true), (500, true), (502, true), (503, true), (504, true),
         (301, false), (400, false), (401, false), (402, false), (403, false),

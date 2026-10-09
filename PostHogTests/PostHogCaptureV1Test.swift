@@ -216,6 +216,30 @@ final class PostHogCaptureV1Test {
         #expect(makeApi().usesCaptureV1)
     }
 
+    @Test("a failing /batch fallback is retried on /batch")
+    func failingFallbackIsRetriedOnBatch() async throws {
+        server.captureV1ResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 404, headers: nil)
+        }
+        server.batchResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 503, headers: nil)
+        }
+        let api = makeApi()
+        let endpoint = QueueEndpoint<PostHogEvent>.batch(api: api)
+
+        let result = await send(api, [PostHogEvent(event: "first", distinctId: "user")])
+
+        let statusCode = try #require(result.statusCode)
+        #expect(statusCode == 503)
+        #expect(endpoint.isRetriableStatusCode(statusCode))
+        #expect(result.retryRecordIds == nil)
+
+        _ = await send(api, [PostHogEvent(event: "second", distinctId: "user")])
+
+        let paths = server.batchRequests.map { $0.url?.path }
+        #expect(paths == ["/proxy/i/v1/analytics/events", "/proxy/batch", "/proxy/batch"])
+    }
+
     @Test("only 408 and 500/502/503/504 are retried", arguments: [
         (408, true), (500, true), (502, true), (503, true), (504, true),
         (301, false), (400, false), (401, false), (402, false), (403, false),

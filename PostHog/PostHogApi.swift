@@ -234,6 +234,9 @@ class PostHogApi {
         // The server rejects the whole batch with 400 when a UUID repeats.
         var seenUuids = Set<String>()
         let uniqueEvents = events.filter { seenUuids.insert($0.uuid.postHogUuidString).inserted }
+        if uniqueEvents.count < events.count {
+            hedgeLog("Dropping \(events.count - uniqueEvents.count) event(s) with a duplicate UUID from the capture batch.")
+        }
         let uuids = uniqueEvents.map(\.uuid.postHogUuidString)
         let identity = nextCaptureV1Identity(uuids: Set(uuids))
 
@@ -305,12 +308,12 @@ class PostHogApi {
 
         if let statusCode = info.statusCode, 200 ... 299 ~= statusCode {
             // A body without a readable results map counts as delivered, so a
-            // broken success can't loop forever (matches posthog-python).
+            // broken success can't loop forever.
             let results = data.flatMap { fromJSONData($0) }?["results"] as? [String: Any]
             if results == nil {
                 hedgeLog("Capture returned \(statusCode) without per-event results, treating the batch as delivered.")
             }
-            // Events missing from the results count as delivered (matches posthog-rs).
+            // Events missing from the results count as delivered.
             for uuid in uuids {
                 guard let entry = results?[uuid] as? [String: Any] else { continue }
                 switch entry["result"] as? String {

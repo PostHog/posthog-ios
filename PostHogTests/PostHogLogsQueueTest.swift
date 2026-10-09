@@ -865,6 +865,42 @@ final class PostHogLogsQueueTests {
         #expect(nestedValue["stringValue"] as? String == "value")
     }
 
+    @Test("OTLP drops empty attribute keys and still sends the log")
+    func otlpDropsEmptyAttributeKeys() async throws {
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 1, flushAt: 1)
+        defer { queue.clear()
+            queue.stop()
+        }
+
+        queue.add(makeRecord(
+            body: "empty keys",
+            attributes: [
+                "": "top-level",
+                "kept": "value",
+                "dict_attr": ["": "nested", "inner": "value"],
+            ]
+        ))
+        waitForLogsRequests(count: 1)
+
+        let request = try #require(server.logsRequests.first)
+        let body = try #require(request.body())
+        let unzipped = try body.gunzipped()
+        let json = try #require(JSONSerialization.jsonObject(with: unzipped) as? [String: Any])
+        let resourceLogs = try #require(json["resourceLogs"] as? [[String: Any]])
+        let scopeLogs = try #require(resourceLogs[0]["scopeLogs"] as? [[String: Any]])
+        let logRecords = try #require(scopeLogs[0]["logRecords"] as? [[String: Any]])
+        let attrs = try #require(logRecords[0]["attributes"] as? [[String: Any]])
+        let keys = attrs.compactMap { $0["key"] as? String }
+        #expect(!keys.contains(""))
+        #expect(keys.contains("kept"))
+
+        let dictAttr = try #require(attrs.first { $0["key"] as? String == "dict_attr" })
+        let dictValue = try #require(dictAttr["value"] as? [String: Any])
+        let kvList = try #require(dictValue["kvlistValue"] as? [String: Any])
+        let nestedKeys = try #require(kvList["values"] as? [[String: Any]]).compactMap { $0["key"] as? String }
+        #expect(nestedKeys == ["inner"])
+    }
+
     // MARK: - Persistence round-trip
 
     @Test("PostHogLogRecord round-trips all optional fields through the disk codec")

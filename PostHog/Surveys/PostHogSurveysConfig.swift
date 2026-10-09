@@ -15,6 +15,7 @@ import Foundation
     /// Delegate responsible for managing survey presentation in your app.
     /// Handles survey rendering, response collection, and lifecycle events.
     /// You can provide your own delegate for a custom survey presentation.
+    /// With Swift Package Manager, the delegate is only called when the `Surveys` package trait is enabled, which it is by default.
     ///
     /// Defaults to `PostHogSurveysDefaultDelegate` which provides a standard survey UI.
     public var surveysDelegate: PostHogSurveysDelegate = PostHogSurveysDefaultDelegate()

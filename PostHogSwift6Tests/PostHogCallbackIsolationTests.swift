@@ -11,8 +11,13 @@ import Testing
 ///
 /// In Swift 6 mode, a closure written in main-actor code and passed as a non-`Sendable`
 /// parameter is main-actor isolated, and the runtime traps if the SDK calls it off the main thread.
-@MainActor
-@Suite(.timeLimit(.minutes(1)))
+#if os(macOS)
+    // `.timeLimit` needs iOS 16, above the package's iOS 15 minimum.
+    @MainActor
+    @Suite(.timeLimit(.minutes(1)))
+#else
+    @MainActor
+#endif
 struct PostHogCallbackIsolationTests {
     @MainActor final class AppState {
         var reloadResult: PostHogFeatureFlagsLoaded?

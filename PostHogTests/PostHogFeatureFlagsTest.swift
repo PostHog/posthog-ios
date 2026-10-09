@@ -1478,7 +1478,7 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
-    #if SWIFT_PACKAGE
+    #if SWIFT_PACKAGE && os(macOS)
         @Suite("Test concurrent flag reload coalescing", .timeLimit(.minutes(1)))
     #else
         @Suite("Test concurrent flag reload coalescing")

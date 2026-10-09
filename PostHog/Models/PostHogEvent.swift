@@ -26,7 +26,7 @@ import Foundation
     ///
     /// Holds the options passed to `capture(..., options:)`. Known keys are `process_person_profile`,
     /// `cookieless_mode`, `disable_skew_correction` and `product_tour_id`; unknown keys are sent
-    /// unchanged. When the event is sent, the legacy `$process_person_profile`, `$cookieless_mode`,
+    /// unchanged and ignored by PostHog. When the event is sent, the legacy `$process_person_profile`, `$cookieless_mode`,
     /// `$ignore_sent_at` and `$product_tour_id` properties are removed from `properties` and used
     /// for their options, unless that option is set here.
     @objc public var options: [String: Any]

@@ -1371,7 +1371,8 @@ let maxRetryDelay = 30.0
     ///   - options: Optional settings that tell PostHog how to process this event, sent apart from
     ///     its properties. Known keys:
     ///     - `process_person_profile` (`Bool`): whether the event creates or updates a person profile.
-    ///       Defaults to the SDK's `personProfiles` setting.
+    ///       Defaults to whether the SDK currently processes person profiles for this user (see
+    ///       `personProfiles`).
     ///     - `cookieless_mode` (`Bool`): process the event in cookieless mode.
     ///     - `disable_skew_correction` (`Bool`): keep `timestamp` as sent, without correcting for
     ///       device clock skew.
@@ -1379,8 +1380,10 @@ let maxRetryDelay = 30.0
     ///
     ///     These replace the `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and
     ///     `$product_tour_id` properties. Those properties still work: they are removed from the
-    ///     event's properties and used as the option, unless you set that option here. Other keys
-    ///     are sent unchanged. PostHog drops an event whose option value it can't read.
+    ///     event's properties and used as the option, unless you set that option here. The SDK
+    ///     always sets `$process_person_profile` itself, so pass the `process_person_profile` option
+    ///     to override it. Other keys are sent unchanged and ignored by PostHog. PostHog drops an
+    ///     event whose option value it can't read.
     ///     `beforeSend` can change them through `PostHogEvent.options`.
     @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)
     public func capture(_ event: String,
@@ -1405,6 +1408,8 @@ let maxRetryDelay = 30.0
         )
     }
 
+    // A separate Swift name keeps this out of Swift overload resolution.
+
     /// Captures a custom event for an explicit distinct ID and timestamp from Objective-C.
     ///
     /// - Parameters:
@@ -1415,7 +1420,6 @@ let maxRetryDelay = 30.0
     ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
     ///   - groups: Group type/key pairs to attach to this event.
     ///   - timestamp: Optional event timestamp. Defaults to the current time.
-    // A separate Swift name keeps this out of Swift overload resolution.
     @available(swift, obsoleted: 1.0, message: "Use capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:) instead")
     @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:)
     public func captureObjC(_ event: String, // swiftlint:disable:this function_parameter_count
@@ -2642,8 +2646,8 @@ let maxRetryDelay = 30.0
 
     /// The strict property allowlist for minimal `$feature_flag_called` events. Everything else —
     /// registered super properties, `$active_feature_flags`, the `$feature/<key>` enumeration,
-    /// bootstrap enrichment — is stripped. Kept in sync with the cross-SDK minimal
-    /// `$feature_flag_called` contract.
+    /// bootstrap enrichment — is stripped. Based on the cross-SDK minimal
+    /// `$feature_flag_called` contract, plus the legacy option properties that capture V1 sends as options.
     private static let minimalFeatureFlagCalledProperties: Set<String> = [
         "$feature_flag",
         "$feature_flag_response",

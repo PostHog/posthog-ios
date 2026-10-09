@@ -575,6 +575,7 @@
             #expect(pixels[100, 130] == .red)
         }
 
+        @available(iOS 15.0, *)
         @Test("Glass with a white label, or tinted with no tint to read, is grey so its label still reads")
         func untintableGlassContrastsWithItsLabel() async throws {
             let mirror = try makeMirror()

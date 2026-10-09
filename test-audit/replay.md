@@ -883,10 +883,10 @@ These protect separate privacy and availability risks; no consolidation proposed
 1. Equal image hashes, no pending metadata → skip.
 2. Different hashes → send.
 3. Equal hashes with pending snapshot data → send.
-4. Nil image hash/wireframe mode → send.
+4. Nil image hash → send.
 5. No previous hash → send.
 
-Credible regressions: duplicate traffic, lost metadata, wireframe suppression, or missing first frame.
+Credible regressions: duplicate traffic, lost metadata, or missing first frame.
 
 ### 21. `PostHogSDKPersonProfilesTest.swift`
 

@@ -312,6 +312,19 @@
             #expect(rects.contains(secret.frame))
         }
 
+        @Test("a full-window no-capture leaf is masked itself")
+        func fullWindowNoCaptureLeaf() throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+
+            let secret = CustomDrawnSecretView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            secret.accessibilityIdentifier = "ph-no-capture"
+            let window = makeWindow(containing: secret)
+            try #require(secret.toAbsoluteRect(window).equalTo(window.frame))
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [secret.frame])
+        }
+
         @Test("inherited masking respects explicit no-mask and stays within the marked subtree")
         func inheritedMaskRespectsScopeAndNoMask() {
             let sut = makeSut()

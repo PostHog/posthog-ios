@@ -24,7 +24,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         config.sendFeatureFlagEvent = false
         config.sessionReplay = true
         config.sessionReplayConfig.maskAllTextInputs = true
-        config.sessionReplayConfig.screenshotMode = true
         config.sessionReplayConfig.maskAllImages = true
         config.sessionReplayConfig.captureNetworkTelemetry = true
 

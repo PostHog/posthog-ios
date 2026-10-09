@@ -124,15 +124,19 @@
         }
 
         static func getViewControllerName(_ viewController: UIViewController) -> String? {
-            var title: String? = String(describing: viewController.classForCoder).replacingOccurrences(of: "ViewController", with: "")
+            // Plain storyboard controllers have no meaningful class name, so fall back to the title.
+            getViewControllerTypeName(viewController) ?? viewController.title
+        }
 
-            // Plain storyboard controllers have no meaningful class name (stripping
-            // "ViewController" from "UIViewController" would otherwise leave "UI").
-            if title?.isEmpty == true || viewController.classForCoder == UIViewController.self {
-                title = viewController.title ?? nil
+        /// The controller's class name without "ViewController", or nil for a plain `UIViewController`.
+        /// Never the display title, which can contain user data.
+        static func getViewControllerTypeName(_ viewController: UIViewController) -> String? {
+            // Stripping "ViewController" from "UIViewController" would otherwise leave "UI".
+            if viewController.classForCoder == UIViewController.self {
+                return nil
             }
-
-            return title
+            let name = String(describing: viewController.classForCoder).replacingOccurrences(of: "ViewController", with: "")
+            return name.isEmpty ? nil : name
         }
     }
 #endif

@@ -160,8 +160,7 @@
 
         /// Mask geometry only. During a CA animation the model layer parks at the destination
         /// while the presentation layer holds the in-flight position the screenshot renders, so
-        /// mask rects have to come from the presentation tree. Wireframe geometry is a separate
-        /// consumer with no pixels to agree with and stays on `toAbsoluteRect`.
+        /// mask rects have to come from the presentation tree.
         func toPresentationRect(_ window: UIWindow?) -> CGRect {
             guard layer.presentation() != nil else {
                 // UIView's own convert, not the layer's: it resolves a nil window to the view's.

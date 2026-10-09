@@ -192,12 +192,16 @@ final class PostHogCaptureV1Test {
             HTTPStubsResponse(jsonObject: [], statusCode: 404, headers: nil)
         }
         let api = makeApi()
+        let endpoint = QueueEndpoint<PostHogEvent>.batch(api: api)
         let event = PostHogEvent(event: "first", distinctId: "user")
+        #expect(!endpoint.isRetriableStatusCode(429))
 
         let result = await send(api, [event])
 
         #expect(result.statusCode == 200)
         #expect(!api.usesCaptureV1)
+        // The fallback uses the /batch retry policy.
+        #expect(endpoint.isRetriableStatusCode(429))
         var paths = server.batchRequests.map { $0.url?.path }
         #expect(paths == ["/proxy/i/v1/analytics/events", "/proxy/batch"])
         let legacyRequest = try #require(server.batchRequests.last)

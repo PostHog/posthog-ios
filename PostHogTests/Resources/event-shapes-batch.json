@@ -1,6 +1,5 @@
 {
   "body" : {
-    "api_key" : "snapshot-project-token",
     "batch" : [
       {
         "distinct_id" : "anonymous-123",
@@ -26,8 +25,6 @@
           "$is_mac_catalyst_app" : "<environment-bool>",
           "$is_sideloaded" : "<environment-bool>",
           "$is_testflight" : "<environment-bool>",
-          "$lib" : "posthog-ios",
-          "$lib_version" : "<sdk-version>",
           "$locale" : "<environment-string>",
           "$network_cellular" : "<environment-bool>",
           "$network_wifi" : "<environment-bool>",
@@ -36,7 +33,6 @@
           "$process_person_profile" : true,
           "$recording_status" : "disabled",
           "$sdk_debug_pending_queue_size" : 0,
-          "$session_id" : "00000000-0000-7000-8000-000000000001",
           "$set" : {
             "plan" : "pro"
           },
@@ -54,6 +50,7 @@
           },
           "registered_property" : "registered-value"
         },
+        "session_id" : "00000000-0000-7000-8000-000000000001",
         "timestamp" : "<iso8601-timestamp>",
         "uuid" : "<uuid-v7>"
       },
@@ -79,8 +76,6 @@
           "$is_mac_catalyst_app" : "<environment-bool>",
           "$is_sideloaded" : "<environment-bool>",
           "$is_testflight" : "<environment-bool>",
-          "$lib" : "posthog-ios",
-          "$lib_version" : "<sdk-version>",
           "$locale" : "<environment-string>",
           "$network_cellular" : "<environment-bool>",
           "$network_wifi" : "<environment-bool>",
@@ -90,7 +85,6 @@
           "$recording_status" : "disabled",
           "$sdk_debug_pending_queue_size" : 1,
           "$sdk_debug_session_start" : "<timestamp-ms>",
-          "$session_id" : "00000000-0000-7000-8000-000000000001",
           "$set" : {
             "email" : "person@example.com"
           },
@@ -101,6 +95,7 @@
           "distinct_id" : "user-123",
           "registered_property" : "registered-value"
         },
+        "session_id" : "00000000-0000-7000-8000-000000000001",
         "timestamp" : "<iso8601-timestamp>",
         "uuid" : "<uuid-v7>"
       },
@@ -134,8 +129,6 @@
           "$is_mac_catalyst_app" : "<environment-bool>",
           "$is_sideloaded" : "<environment-bool>",
           "$is_testflight" : "<environment-bool>",
-          "$lib" : "posthog-ios",
-          "$lib_version" : "<sdk-version>",
           "$locale" : "<environment-string>",
           "$network_cellular" : "<environment-bool>",
           "$network_wifi" : "<environment-bool>",
@@ -144,10 +137,10 @@
           "$process_person_profile" : true,
           "$recording_status" : "disabled",
           "$sdk_debug_pending_queue_size" : 2,
-          "$session_id" : "00000000-0000-7000-8000-000000000001",
           "$timezone" : "<environment-string>",
           "registered_property" : "registered-value"
         },
+        "session_id" : "00000000-0000-7000-8000-000000000001",
         "timestamp" : "<iso8601-timestamp>",
         "uuid" : "<uuid-v7>"
       },
@@ -175,8 +168,6 @@
           "$is_mac_catalyst_app" : "<environment-bool>",
           "$is_sideloaded" : "<environment-bool>",
           "$is_testflight" : "<environment-bool>",
-          "$lib" : "posthog-ios",
-          "$lib_version" : "<sdk-version>",
           "$locale" : "<environment-string>",
           "$network_cellular" : "<environment-bool>",
           "$network_wifi" : "<environment-bool>",
@@ -185,7 +176,6 @@
           "$process_person_profile" : true,
           "$recording_status" : "disabled",
           "$sdk_debug_pending_queue_size" : 3,
-          "$session_id" : "00000000-0000-7000-8000-000000000001",
           "$set" : {
             "$feature_interaction\/checkout-redesign" : "test"
           },
@@ -194,6 +184,7 @@
           "feature_flag_variant" : "test",
           "registered_property" : "registered-value"
         },
+        "session_id" : "00000000-0000-7000-8000-000000000001",
         "timestamp" : "<iso8601-timestamp>",
         "uuid" : "<uuid-v7>"
       },
@@ -243,8 +234,6 @@
           "$is_mac_catalyst_app" : "<environment-bool>",
           "$is_sideloaded" : "<environment-bool>",
           "$is_testflight" : "<environment-bool>",
-          "$lib" : "posthog-ios",
-          "$lib_version" : "<sdk-version>",
           "$locale" : "<environment-string>",
           "$network_cellular" : "<environment-bool>",
           "$network_wifi" : "<environment-bool>",
@@ -253,28 +242,33 @@
           "$process_person_profile" : true,
           "$recording_status" : "disabled",
           "$sdk_debug_pending_queue_size" : 4,
-          "$session_id" : "00000000-0000-7000-8000-000000000001",
           "$timezone" : "<environment-string>",
           "handled_by" : "snapshot-test",
           "registered_property" : "registered-value"
         },
+        "session_id" : "00000000-0000-7000-8000-000000000001",
         "timestamp" : "<iso8601-timestamp>",
         "uuid" : "<uuid-v7>"
       }
     ],
-    "sent_at" : "<iso8601-timestamp>"
+    "created_at" : "<iso8601-timestamp>"
   },
   "headers" : {
     "accept-encoding" : "gzip",
+    "authorization" : "Bearer snapshot-project-token",
     "content-encoding" : "gzip",
     "content-length" : "<content-length>",
-    "content-type" : "application\/json; charset=utf-8",
+    "content-type" : "application\/json",
+    "posthog-attempt" : "1",
+    "posthog-request-id" : "<uuid>",
+    "posthog-request-timestamp" : "<iso8601-timestamp>",
+    "posthog-sdk-info" : "posthog-ios\/<sdk-version>",
     "user-agent" : "posthog-ios\/<sdk-version>"
   },
   "method" : "POST",
   "url" : {
     "host" : "localhost",
-    "path" : "\/batch",
+    "path" : "\/i\/v1\/analytics\/events",
     "port" : 9001,
     "query" : [
 

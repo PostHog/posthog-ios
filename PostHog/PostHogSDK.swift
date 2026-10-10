@@ -2988,6 +2988,11 @@ let maxRetryDelay = 30.0
          remote config loads, event triggers and session changes will not start recording until the app
          calls `startSessionRecording()` again.
 
+         Stopping also starts a best-effort, asynchronous flush of replay snapshots already recorded instead of
+         waiting for the next scheduled flush. Normal buffering and delivery limits still apply: snapshots can be
+         held back, for example because the session is shorter than the minimum duration, and a large backlog is
+         sent over more than one flush.
+
          This method will have no effect if PostHog is not enabled
          */
         @objc public func stopSessionRecording() {
@@ -3000,6 +3005,7 @@ let maxRetryDelay = 30.0
             }
 
             replayIntegration.stop()
+            replayQueue?.flush()
         }
 
         /// Captures the current native window for a first-party wrapper SDK

@@ -327,6 +327,34 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 2)
     }
 
+    @Test("Retry-After floors the backoff, clamped to the documented maximum", arguments: [
+        ("3600", logsMaxRetryAfterSeconds),
+        ("30", 30.0),
+    ])
+    func retryAfterIsClampedThenFloored(header: String, expectedWait: TimeInterval) async throws {
+        let mockNow = MockDate()
+        now = { mockNow.date }
+        defer { now = { Date() } }
+
+        let (queue, _) = makeQueue()
+        defer { queue.clear()
+            queue.stop()
+        }
+
+        server.logsResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 429, headers: ["Retry-After": header])
+        }
+
+        queue.add(makeRecord())
+        queue.flush()
+        waitForLogsRequests(count: 1)
+        await waitUntil { queue.pausedUntilForTesting != nil }
+
+        let pausedUntil = try #require(queue.pausedUntilForTesting)
+        #expect(abs(pausedUntil.timeIntervalSince(mockNow.date) - expectedWait) < 0.001)
+        #expect(queue.depth == 1)
+    }
+
     @Test("413 halving reaches singleton poison drops and drains record-by-record")
     func handle413PoisonDropIsNotARetry() async throws {
         // Multi-record batches are retained while the cap halves to one. At

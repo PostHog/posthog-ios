@@ -67,6 +67,11 @@ struct QueueEndpoint<Record> {
     /// When set, the queue sends only a compatible FIFO prefix.
     var canBatchTogether: ((Record, Record) -> Bool)?
 
+    /// Soft byte limit for one request, measured on the encoded records. A
+    /// record that doesn't fit starts the next request; a record larger than
+    /// the limit goes alone. `nil` batches by count only.
+    var maxBatchBytes: Int?
+
     // MARK: Send
 
     /// Build the wire payload from a list of records and POST it. The queue

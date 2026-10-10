@@ -85,6 +85,7 @@ let maxRetryDelay = 30.0
     }
 
     private(set) var logsQueue: PostHogQueue<PostHogLogRecord>?
+    private(set) var aiQueue: PostHogQueue<PostHogEvent>?
     private(set) var storage: PostHogStorage?
     private var surveyIdentityGeneration: String?
     #if !os(watchOS)
@@ -278,10 +279,12 @@ let maxRetryDelay = 30.0
                 queue = PostHogQueue(config, theStorage, .batch(api: api), reachability)
                 replayQueue = PostHogReplayQueue(config, theStorage, api, reachability)
                 logsQueue = PostHogQueue(config, theStorage, logsEndpoint, reachability)
+                aiQueue = PostHogQueue(config, theStorage, .ai(api: api), reachability)
             #else
                 queue = PostHogQueue(config, theStorage, .batch(api: api))
                 replayQueue = PostHogReplayQueue(config, theStorage, api)
                 logsQueue = PostHogQueue(config, theStorage, logsEndpoint)
+                aiQueue = PostHogQueue(config, theStorage, .ai(api: api))
             #endif
 
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
@@ -292,6 +295,9 @@ let maxRetryDelay = 30.0
 
             logsQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                              disableQueueTimerForTesting: config.disableQueueTimerForTesting)
+
+            aiQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
+                           disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
             // Create session manager instance for this PostHogSDK instance
             sessionManager.setup(config: config)
@@ -803,8 +809,8 @@ let maxRetryDelay = 30.0
         return props
     }
 
-    /// Trigger an immediate flush of every queue — events, session-replay
-    /// snapshots, and structured logs.
+    /// Trigger an immediate flush of every queue — events, AI events,
+    /// session-replay snapshots, and structured logs.
     @objc public func flush() {
         if !isEnabled() {
             return
@@ -813,6 +819,7 @@ let maxRetryDelay = 30.0
         queue?.flush()
         replayQueue?.flush()
         logsQueue?.flush()
+        aiQueue?.flush()
         pushSubscriptionHandler?.retryIfNeeded()
     }
 
@@ -1408,6 +1415,49 @@ let maxRetryDelay = 30.0
         )
     }
 
+    /// Captures an AI observability event, such as `$ai_generation`, `$ai_span`, `$ai_trace` or
+    /// `$ai_embedding`, and sends it to PostHog's AI endpoint, which accepts much larger events than
+    /// `capture`.
+    ///
+    /// Takes the same arguments as `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`
+    /// and goes through the same `beforeSend` hooks. The event is queued on disk separately from other
+    /// events and sent unchanged: the SDK doesn't redact or truncate prompts, outputs or media.
+    /// An event over 8 MiB is dropped. PostHog drops an event sent here whose name doesn't start
+    /// with `$ai_`. `capture` never sends events here, even ones named `$ai_*`.
+    ///
+    /// - Parameters:
+    ///   - event: AI event name, such as `$ai_generation`.
+    ///   - distinctId: Optional distinct ID override. Defaults to the current SDK distinct ID.
+    ///   - properties: Event properties attached only to this event.
+    ///   - userProperties: Person properties to set. Existing values are overwritten.
+    ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
+    ///   - groups: Group type/key pairs to attach to this event.
+    ///   - timestamp: Optional event timestamp. Defaults to the current time.
+    ///   - options: Optional settings that tell PostHog how to process this event. Same keys as
+    ///     `capture`'s `options`.
+    @objc(captureAiWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)
+    public func captureAi(_ event: String,
+                          distinctId: String? = nil,
+                          properties: [String: Any]? = nil,
+                          userProperties: [String: Any]? = nil,
+                          userPropertiesSetOnce: [String: Any]? = nil,
+                          groups: [String: String]? = nil,
+                          timestamp: Date? = nil,
+                          options: [String: Any]? = nil)
+    {
+        captureInternal(
+            event,
+            distinctId: distinctId,
+            properties: properties,
+            userProperties: userProperties,
+            userPropertiesSetOnce: userPropertiesSetOnce,
+            groups: groups,
+            timestamp: timestamp,
+            options: options,
+            aiLane: true
+        )
+    }
+
     // A separate Swift name keeps this out of Swift overload resolution.
 
     /// Captures a custom event for an explicit distinct ID and timestamp from Objective-C.
@@ -1595,7 +1645,8 @@ let maxRetryDelay = 30.0
         options: [String: Any]? = nil,
         skipBuildProperties: Bool = false,
         propertyAllowlist: Set<String>? = nil,
-        deduplicatePersonProperties: Bool = false
+        deduplicatePersonProperties: Bool = false,
+        aiLane: Bool = false
     ) {
         if !isEnabled() {
             return
@@ -1605,7 +1656,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let queue else {
+        guard let queue = aiLane ? aiQueue : queue else {
             return
         }
 
@@ -1620,7 +1671,7 @@ let maxRetryDelay = 30.0
             }
         }
 
-        var isSnapshotEvent = event == "$snapshot"
+        var isSnapshotEvent = !aiLane && event == "$snapshot"
         let eventTimestamp = timestamp ?? now()
         let eventDistinctId = distinctId ?? getDistinctId()
 
@@ -1684,8 +1735,9 @@ let maxRetryDelay = 30.0
             return
         }
 
-        // Reevaluate if this is a snapshot event because the event might have been updated by the beforeSend hook
-        isSnapshotEvent = posthogEvent.event == "$snapshot"
+        // Reevaluate if this is a snapshot event because the event might have been updated by the beforeSend hook.
+        // The AI lane always uses its own queue.
+        isSnapshotEvent = !aiLane && posthogEvent.event == "$snapshot"
 
         // if this is a $snapshot event and $session_id is missing, don't process then event
         if isSnapshotEvent, posthogEvent.properties["$session_id"] == nil {
@@ -2869,10 +2921,12 @@ let maxRetryDelay = 30.0
             queue?.stop()
             replayQueue?.stop()
             logsQueue?.stop()
+            aiQueue?.stop()
 
             queue = nil
             replayQueue = nil
             logsQueue = nil
+            aiQueue = nil
             pushSubscriptionHandler = nil
             replayDebugPropertiesLock.withLock {
                 lastReplayDebugPropertiesAt = nil

@@ -605,3 +605,127 @@ final class PostHogCaptureV1QueueTest {
         }
     }
 }
+
+@Suite("Capture V1 AI lane", .serialized, .resetsGlobalState)
+final class PostHogCaptureAiTest {
+    private let server: MockPostHogServer
+
+    init() {
+        deleteSafely(applicationSupportDirectoryURL())
+        server = MockPostHogServer()
+        server.start(batchCount: 0)
+    }
+
+    deinit {
+        server.stop()
+    }
+
+    private func makeSDK(beforeSend: BeforeSendBlock? = nil) -> PostHogSDK {
+        let config = PostHogConfig(projectToken: "phc_ai_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.flushAt = 1
+        config.preloadFeatureFlags = false
+        config.sendFeatureFlagEvent = false
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
+        config.captureApplicationLifecycleEvents = false
+        if let beforeSend {
+            config.setBeforeSend(beforeSend)
+        }
+        server.batchProjectToken = config.projectToken
+        return PostHogSDK.with(config)
+    }
+
+    @Test("captureAi sends to /i/v1/ai/events through beforeSend, and capture keeps $ai_ events on analytics")
+    func routesByMethod() async throws {
+        let sut = makeSDK { event in
+            event.properties["edited"] = true
+            return event
+        }
+        defer { sut.close() }
+
+        sut.captureAi("$ai_generation", distinctId: "user", properties: ["$ai_model": "gpt"], options: ["cookieless_mode": true])
+        await waitUntil { self.server.aiRequests.count == 1 }
+
+        let request = try #require(server.aiRequests.first)
+        #expect(request.url?.path == "/i/v1/ai/events")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer \(sut.config.projectToken)")
+        #expect(request.value(forHTTPHeaderField: "PostHog-Attempt") == "1")
+        #expect(request.value(forHTTPHeaderField: "PostHog-Request-Id") != nil)
+        let event = try #require(server.parsePostHogEvents(request).first)
+        #expect(event.event == "$ai_generation")
+        #expect(event.distinctId == "user")
+        #expect(event.properties["$ai_model"] as? String == "gpt")
+        #expect(event.properties["edited"] as? Bool == true)
+        #expect(event.options["cookieless_mode"] as? Bool == true)
+        #expect(server.batchRequests.isEmpty)
+
+        sut.capture("$ai_generation")
+        await waitUntil { self.server.batchRequests.count == 1 }
+        #expect(server.parsePostHogEvents(try #require(server.batchRequests.first)).map(\.event) == ["$ai_generation"])
+        #expect(server.aiRequests.count == 1)
+    }
+
+    @Test("a 404 from the AI endpoint drops the batch without falling back to /batch")
+    func notFoundIsTerminal() async throws {
+        server.aiResponseHandler = { _, _ in HTTPStubsResponse(jsonObject: [:], statusCode: 404, headers: nil) }
+        let config = PostHogConfig(projectToken: "phc_ai_404", host: "http://localhost:9001")
+        let storage = PostHogStorage(config)
+        let api = PostHogApi(config)
+        let queue = PostHogQueue(config, storage, .ai(api: api), nil)
+        defer {
+            queue.stop()
+            queue.clear()
+            deleteSafely(storage.appFolderUrl)
+        }
+
+        queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user"))
+        queue.flush()
+        await waitUntil { queue.depth == 0 }
+
+        #expect(queue.depth == 0)
+        #expect(server.aiRequests.count == 1)
+        #expect(server.batchRequests.isEmpty)
+        #expect(api.usesCaptureV1)
+    }
+
+    @Test("drops an AI event over the size limit when it is queued")
+    func dropsOversizedEvent() {
+        let config = PostHogConfig(projectToken: "phc_ai_big", host: "http://localhost:9001")
+        let storage = PostHogStorage(config)
+        let queue = PostHogQueue(config, storage, .ai(api: PostHogApi(config)), nil)
+        defer {
+            queue.stop()
+            queue.clear()
+            deleteSafely(storage.appFolderUrl)
+        }
+
+        let big = String(repeating: "a", count: aiMaxEventBytes)
+        #expect(!queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user", properties: ["$ai_input": big])))
+        #expect(queue.depth == 0)
+    }
+
+    @Test("splits AI requests at the batch byte limit")
+    func batchesByBytes() async throws {
+        let config = PostHogConfig(projectToken: "phc_ai_bytes", host: "http://localhost:9001")
+        config.flushAt = 100
+        let storage = PostHogStorage(config)
+        let queue = PostHogQueue(config, storage, .ai(api: PostHogApi(config)), nil)
+        defer {
+            queue.stop()
+            queue.clear()
+            deleteSafely(storage.appFolderUrl)
+        }
+
+        // Each event is a little over 2 MiB, so two fit under 5 MiB and the third goes next.
+        let input = String(repeating: "a", count: 2 * 1024 * 1024)
+        for _ in 0 ..< 3 {
+            queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user", properties: ["$ai_input": input]))
+        }
+        queue.flush()
+        await waitUntil(timeout: 10) { queue.depth == 0 }
+
+        #expect(queue.depth == 0)
+        #expect(server.aiRequests.map { server.parsePostHogEvents($0).count } == [2, 1])
+    }
+}

@@ -18,6 +18,15 @@ func isCaptureV1RetriableStatusCode(_ code: Int) -> Bool {
     [408, 500, 502, 503, 504].contains(code)
 }
 
+/// PostHog's AI endpoint drops events whose properties exceed 8 MiB. The
+/// stored event also holds its envelope, so allow 64 KiB on top, as
+/// posthog-python and posthog-go do.
+let aiMaxEventBytes = 8 * 1024 * 1024 + 64 * 1024
+/// Soft request size for the AI endpoint, matching the other PostHog SDKs.
+let aiMaxBatchBytes = 5 * 1024 * 1024
+/// AI events can be megabytes, so keep fewer of them on disk than analytics events.
+let aiMaxQueueSize = 100
+
 extension QueueEndpoint where Record == PostHogEvent {
     /// Analytics events endpoint: capture V1 (`/i/v1/analytics/events`), or
     /// `/batch` after V1 returned 404 this session.
@@ -43,6 +52,40 @@ extension QueueEndpoint where Record == PostHogEvent {
                 // The /batch fallback keeps the /batch policy. Remove with /batch.
                 api.usesCaptureV1 ? isCaptureV1RetriableStatusCode(code) : isEventsRetriableStatusCode(code)
             }
+        )
+    }
+
+    /// Capture V1 AI endpoint (`/i/v1/ai/events`) for events sent with
+    /// `captureAi`. Same retry policy as capture V1, with no `/batch` fallback.
+    /// Batches by bytes as well as count, since AI events can be megabytes.
+    static func ai(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
+        QueueEndpoint<PostHogEvent>(
+            storageKey: .aiQueue,
+            oldStorageKeys: [],
+            dispatchQueueLabel: "com.posthog.AiQueue",
+            initialCap: { $0.maxBatchSize },
+            initialFlushAt: { $0.flushAt },
+            maxQueueSize: { _ in aiMaxQueueSize },
+            flushIntervalSeconds: { $0.flushIntervalSeconds },
+            rateCapMax: { _ in 0 },
+            rateCapWindowSeconds: { _ in 0 },
+            encode: { event in
+                guard let data = toJSONData(event.toJSON()) else { return nil }
+                // Name and size only: AI properties can hold prompts and media.
+                if data.count > aiMaxEventBytes {
+                    hedgeLog("Dropping AI event '\(event.event)' of \(data.count) bytes, over the \(aiMaxEventBytes) byte limit.")
+                    return nil
+                }
+                return data
+            },
+            decode: { data in PostHogEvent.fromJSON(data) },
+            describe: { event in "AI event '\(event.event)'" },
+            recordId: { event in event.uuid.postHogUuidString },
+            maxBatchBytes: aiMaxBatchBytes,
+            send: { events, completion in
+                api.captureAi(events: events, completion: completion)
+            },
+            isRetriableStatusCode: isCaptureV1RetriableStatusCode
         )
     }
 

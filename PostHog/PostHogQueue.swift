@@ -461,6 +461,7 @@ class PostHogQueue<Record> {
         var selectedIds: [String] = []
         // Entry ID -> `endpoint.recordId`, for removing all but retried records.
         var recordIds: [String: String] = [:]
+        var batchBytes = 0
         var next = start
         while next < entries.count {
             let entry = entries[next]
@@ -471,6 +472,12 @@ class PostHogQueue<Record> {
                 {
                     break
                 }
+                if !processing.isEmpty, let maxBatchBytes = endpoint.maxBatchBytes,
+                   batchBytes + entry.data.count > maxBatchBytes
+                {
+                    break
+                }
+                batchBytes += entry.data.count
                 processing.append(record)
                 recordIds[entry.id] = endpoint.recordId?(record)
             }

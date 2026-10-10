@@ -56,7 +56,7 @@ app.get("health") { req async throws -> Response in
         // Declares which test suites apply. The iOS SDK posts events to
         // /i/v1/analytics/events (capture_v1) with gzip. Without this, the
         // harness skips the capability-gated capture suites entirely.
-        "capabilities": ["capture_v1", "encoding_gzip", "event_options"],
+        "capabilities": ["capture_v1", "capture_ai_v1", "encoding_gzip", "event_options"],
     ]
 
     print("[ADAPTER] GET /health")
@@ -197,6 +197,40 @@ app.post("capture") { req async throws -> Response in
     )
 
     print("[ADAPTER] Event captured: \(captureReq.event)")
+
+    let result = ["status": "ok"]
+    return try await result.encodeResponse(for: req)
+}
+
+// AI capture endpoint: same request as /capture, sent with captureAi to /i/v1/ai/events.
+app.post("capture_ai") { req async throws -> Response in
+    struct CaptureAiRequest: Content {
+        let event: String
+        let distinctId: String?
+        let properties: [String: AnyCodable]?
+        let options: [String: AnyCodable]?
+
+        enum CodingKeys: String, CodingKey {
+            case event
+            case distinctId = "distinct_id"
+            case properties
+            case options
+        }
+    }
+
+    let captureReq = try req.content.decode(CaptureAiRequest.self)
+    print("[ADAPTER] POST /capture_ai - event: \(captureReq.event), distinct_id: \(captureReq.distinctId ?? "nil")")
+
+    guard let sdk = state.posthogSDK else {
+        throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
+    }
+
+    sdk.captureAi(
+        captureReq.event,
+        distinctId: captureReq.distinctId,
+        properties: captureReq.properties?.mapValues(\.value),
+        options: captureReq.options?.mapValues(\.value)
+    )
 
     let result = ["status": "ok"]
     return try await result.encodeResponse(for: req)

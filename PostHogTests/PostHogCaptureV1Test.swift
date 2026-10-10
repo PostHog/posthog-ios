@@ -184,58 +184,23 @@ final class PostHogCaptureV1Test {
         #expect(Set(createdAt[0 ... 3]).count == 1)
     }
 
-    @Test("falls back to /batch on 404 for the rest of the session")
-    func fallsBackToBatchOn404() async throws {
+    @Test("a 404 is terminal and doesn't fall back to /batch")
+    func notFoundIsTerminal() async throws {
         server.captureV1ResponseHandler = { _, _ in
             HTTPStubsResponse(jsonObject: [], statusCode: 404, headers: nil)
         }
         let api = makeApi()
-        let endpoint = QueueEndpoint<PostHogEvent>.batch(api: api)
-        let event = PostHogEvent(event: "first", distinctId: "user")
-        #expect(!endpoint.isRetriableStatusCode(429))
-
-        let result = await send(api, [event])
-
-        #expect(result.statusCode == 200)
-        #expect(!api.usesCaptureV1)
-        // The fallback uses the /batch retry policy.
-        #expect(endpoint.isRetriableStatusCode(429))
-        var paths = server.batchRequests.map { $0.url?.path }
-        #expect(paths == ["/proxy/i/v1/analytics/events", "/proxy/batch"])
-        let legacyRequest = try #require(server.batchRequests.last)
-        #expect(try body(legacyRequest)["api_key"] as? String == "phc_capture_v1")
-        #expect(server.parsePostHogEvents(legacyRequest).map(\.uuid) == [event.uuid])
-
-        _ = await send(api, [PostHogEvent(event: "second", distinctId: "user")])
-
-        paths = server.batchRequests.map { $0.url?.path }
-        #expect(paths == ["/proxy/i/v1/analytics/events", "/proxy/batch", "/proxy/batch"])
-        // A new API instance (next launch) tries V1 again.
-        #expect(makeApi().usesCaptureV1)
-    }
-
-    @Test("a failing /batch fallback is retried on /batch")
-    func failingFallbackIsRetriedOnBatch() async throws {
-        server.captureV1ResponseHandler = { _, _ in
-            HTTPStubsResponse(jsonObject: [], statusCode: 404, headers: nil)
-        }
-        server.batchResponseHandler = { _, _ in
-            HTTPStubsResponse(jsonObject: [], statusCode: 503, headers: nil)
-        }
-        let api = makeApi()
-        let endpoint = QueueEndpoint<PostHogEvent>.batch(api: api)
 
         let result = await send(api, [PostHogEvent(event: "first", distinctId: "user")])
 
-        let statusCode = try #require(result.statusCode)
-        #expect(statusCode == 503)
-        #expect(endpoint.isRetriableStatusCode(statusCode))
+        #expect(result.statusCode == 404)
         #expect(result.retryRecordIds == nil)
+        #expect(!QueueEndpoint<PostHogEvent>.batch(api: api).isRetriableStatusCode(404))
 
         _ = await send(api, [PostHogEvent(event: "second", distinctId: "user")])
 
         let paths = server.batchRequests.map { $0.url?.path }
-        #expect(paths == ["/proxy/i/v1/analytics/events", "/proxy/batch", "/proxy/batch"])
+        #expect(paths == ["/proxy/i/v1/analytics/events", "/proxy/i/v1/analytics/events"])
     }
 
     @Test("omits empty session and window IDs from the root and properties")
@@ -424,34 +389,6 @@ final class PostHogCaptureV1OptionsTest {
         let sent = try await sentEvent(PostHogEvent(event: "test", distinctId: "user"))
 
         #expect((sent["options"] as? [String: Any])?.isEmpty == true)
-    }
-
-    @Test("the /batch fallback folds options into their legacy properties and sends no options")
-    func batchFallbackFoldsOptions() async throws {
-        server.captureV1ResponseHandler = { _, _ in
-            HTTPStubsResponse(jsonObject: [], statusCode: 404, headers: nil)
-        }
-        let api = makeApi()
-        let event = PostHogEvent(
-            event: "test",
-            distinctId: "user",
-            properties: ["$process_person_profile": false, "$ignore_sent_at": true, "$product_tour_id": "tour"],
-            options: ["process_person_profile": true, "cookieless_mode": true, "product_tour_id": NSNull(), "future_option": 1]
-        )
-        await withCheckedContinuation { continuation in
-            api.captureV1(events: [event]) { _ in continuation.resume() }
-        }
-
-        let request = try #require(server.batchRequests.last)
-        #expect(request.url?.path == "/batch")
-        let sent = try #require((server.parseRequest(request)?["batch"] as? [[String: Any]])?.first)
-        #expect(sent["options"] == nil)
-        let properties = try #require(sent["properties"] as? [String: Any])
-        #expect(properties["$process_person_profile"] as? Bool == true)
-        #expect(properties["$cookieless_mode"] as? Bool == true)
-        #expect(properties["$ignore_sent_at"] as? Bool == true)
-        #expect(properties["$product_tour_id"] as? String == "tour")
-        #expect(properties["future_option"] == nil)
     }
 
     @Test("replay snapshots don't send options")
@@ -678,7 +615,7 @@ final class PostHogCaptureAiTest {
         #expect(sut.captureAi("$ai_generation") == nil)
     }
 
-    @Test("a 404 from the AI endpoint drops the batch without falling back to /batch")
+    @Test("a 404 from the AI endpoint drops the batch")
     func notFoundIsTerminal() async throws {
         server.aiResponseHandler = { _, _ in HTTPStubsResponse(jsonObject: [:], statusCode: 404, headers: nil) }
         let config = PostHogConfig(projectToken: "phc_ai_404", host: "http://localhost:9001")
@@ -698,7 +635,6 @@ final class PostHogCaptureAiTest {
         #expect(queue.depth == 0)
         #expect(server.aiRequests.count == 1)
         #expect(server.batchRequests.isEmpty)
-        #expect(api.usesCaptureV1)
     }
 
     @Test("drops an AI event over the size limit when it is queued")

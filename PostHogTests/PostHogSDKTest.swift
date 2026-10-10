@@ -420,7 +420,7 @@ final class PostHogSDKTests {
 
         @Test("excludes $recording_status and $sdk_debug_* properties from $snapshot events")
         func excludesRecordingStatusAndDebugPropertiesFromSnapshotEvents() throws {
-            // $snapshot events route to the replay queue and the /s/ endpoint, not /batch —
+            // $snapshot events route to the replay queue and the /s/ endpoint, not capture V1 —
             // read the raw request body rather than getBatchedEvents.
             server.reset(batchCount: 0, snapshotCount: 1)
             let sut = getSut()

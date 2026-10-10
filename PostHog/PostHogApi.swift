@@ -7,7 +7,7 @@
 
 import Foundation
 
-/// Common URLSession upload-response handler shared by `/batch`, `/snapshot`,
+/// Common URLSession upload-response handler shared by capture V1, `/snapshot`,
 /// and `/i/v1/logs`. Routes through `as?` so a missing HTTP response can't
 /// crash inside a customer process.
 func processUploadResponse(
@@ -70,9 +70,6 @@ class PostHogApi {
     private let captureV1Lock = NSLock()
     // Keyed by endpoint path, so analytics and AI retries keep separate identities.
     private var captureV1PendingRetry: [String: CaptureV1RequestIdentity] = [:]
-    // Set when V1 returns 404 so the rest of this session uses `/batch`.
-    // Remove with /batch.
-    private var captureV1Unavailable = false
 
     init(_ config: PostHogConfig) {
         self.config = config
@@ -102,7 +99,7 @@ class PostHogApi {
     }
 
     /// `gzipped: true` adds `Content-Encoding: gzip` for upload endpoints
-    /// (/batch, /s/, /i/v1/logs) whose bodies are gzipped.
+    /// (capture V1, /s/, /i/v1/logs) whose bodies are gzipped.
     private func getURLRequest(_ url: URL, gzipped: Bool = false, httpMethod: String = "POST") -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = httpMethod
@@ -184,51 +181,16 @@ class PostHogApi {
         return request
     }
 
-    func batch(events: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {
-        guard let url = getEndpointURL("/batch", relativeTo: config.host) else {
-            hedgeLog("Malformed batch URL error.")
-            return completion(PostHogUploadInfo(statusCode: nil, error: nil))
-        }
-
-        let toSend: [String: Any] = [
-            // Wire field name remains api_key, but it carries the PostHog project token.
-            "api_key": config.projectToken,
-            "batch": events.map(Self.batchJSON),
-            "sent_at": toISO8601String(Date()),
-        ]
-
-        guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
-            hedgeLog("Error parsing the batch body")
-            return completion(PostHogUploadInfo(statusCode: nil, error: nil))
-        }
-
-        let (request, payload) = requestAndPayload(url: url, data: data, endpointName: "batch")
-
-        session.uploadTask(with: request, from: payload) { data, response, error in
-            processUploadResponse(endpointName: "batch", data: data, response: response, error: error, completion: completion)
-        }.resume()
-    }
-
-    /// Whether analytics events still go to capture V1 this session.
-    var usesCaptureV1: Bool {
-        captureV1Lock.withLock { !captureV1Unavailable }
-    }
-
     /// POSTs analytics events to capture V1 (`/i/v1/analytics/events`).
     ///
     /// The completion's `retryRecordIds` holds the UUIDs of events a 200 asked
-    /// to retry. A 404 resends the batch through `/batch` and keeps using it for
-    /// the rest of the session.
+    /// to retry.
     func captureV1(events: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {
-        guard usesCaptureV1 else {
-            return batch(events: events, completion: completion)
-        }
         postCaptureV1(path: Self.captureV1AnalyticsPath, events: events, completion: completion)
     }
 
     /// POSTs AI events to the capture V1 AI endpoint (`/i/v1/ai/events`).
-    /// Same wire format and per-event results as `captureV1`, but a 404 is
-    /// terminal: AI events never fall back to `/batch`.
+    /// Same wire format, per-event results and retry policy as `captureV1`.
     func captureAi(events: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {
         postCaptureV1(path: Self.captureV1AiPath, events: events, completion: completion)
     }
@@ -269,20 +231,6 @@ class PostHogApi {
         session.uploadTask(with: request, from: payload) { [weak self] data, response, error in
             processUploadResponse(endpointName: "capture", data: data, response: response, error: error) { info in
                 guard let self else { return completion(info) }
-
-                // iOS-only fallback for hosts without capture V1. Remove with /batch.
-                if info.statusCode == 404, path == Self.captureV1AnalyticsPath {
-                    let firstFallback = self.captureV1Lock.withLock {
-                        defer { self.captureV1Unavailable = true }
-                        self.captureV1PendingRetry[path] = nil
-                        return !self.captureV1Unavailable
-                    }
-                    if firstFallback {
-                        hedgeLog("Capture V1 returned 404, using /batch for the rest of this session.")
-                    }
-                    return self.batch(events: events, completion: completion)
-                }
-
                 completion(self.captureV1Result(
                     info, path: path, data: data, uuids: uuids, identity: identity,
                     duplicates: events.count - uniqueEvents.count
@@ -372,21 +320,6 @@ class PostHogApi {
         ("$product_tour_id", "product_tour_id"),
         ("$process_person_profile", "process_person_profile"),
     ]
-
-    /// Shapes a stored event for `/batch`, which has no options: each option
-    /// goes back into its legacy property and wins over it. Remove with /batch.
-    private static func batchJSON(_ event: PostHogEvent) -> [String: Any] {
-        var json = event.toJSON()
-        guard let options = json.removeValue(forKey: "options") as? [String: Any] else { return json }
-        var properties = event.properties
-        for (property, option) in legacyOptionProperties {
-            if let value = options[option], !(value is NSNull) {
-                properties[property] = value
-            }
-        }
-        json["properties"] = properties
-        return json
-    }
 
     /// Shapes a stored event for capture V1. `$session_id` and `$window_id`
     /// move to the event root, and `$lib`/`$lib_version` are dropped because

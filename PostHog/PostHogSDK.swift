@@ -2948,8 +2948,10 @@ let maxRetryDelay = 30.0
          remote config loads, event triggers and session changes will not start recording until the app
          calls `startSessionRecording()` again.
 
-         Replay snapshots already recorded are sent right away instead of waiting for the next scheduled flush,
-         unless they are still held back, for example because the session is shorter than the minimum duration.
+         Stopping also starts a best-effort, asynchronous flush of replay snapshots already recorded instead of
+         waiting for the next scheduled flush. Normal buffering and delivery limits still apply: snapshots can be
+         held back, for example because the session is shorter than the minimum duration, and a large backlog is
+         sent over more than one flush.
 
          This method will have no effect if PostHog is not enabled
          */

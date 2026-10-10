@@ -5,9 +5,8 @@
 
 import Foundation
 
-/// Retry policy shared by `/batch` (events fallback) and `/snapshot` (replay): 408, 429,
-/// the listed 5xx, plus 3xx redirects.
-private func isEventsRetriableStatusCode(_ code: Int) -> Bool {
+/// `/snapshot` (replay) retry policy: 408, 429, the listed 5xx, plus 3xx redirects.
+private func isSnapshotRetriableStatusCode(_ code: Int) -> Bool {
     [408, 429, 500, 502, 503, 504].contains(code)
         || (300 ... 399).contains(code)
 }
@@ -30,8 +29,7 @@ let aiMaxQueueSize = 100
 let aiMaxQueueBytes = 50 * 1024 * 1024
 
 extension QueueEndpoint where Record == PostHogEvent {
-    /// Analytics events endpoint: capture V1 (`/i/v1/analytics/events`), or
-    /// `/batch` after V1 returned 404 this session.
+    /// Analytics events endpoint: capture V1 (`/i/v1/analytics/events`).
     static func batch(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
         QueueEndpoint<PostHogEvent>(
             storageKey: .queue,
@@ -50,15 +48,12 @@ extension QueueEndpoint where Record == PostHogEvent {
             send: { events, completion in
                 api.captureV1(events: events, completion: completion)
             },
-            isRetriableStatusCode: { code in
-                // The /batch fallback keeps the /batch policy. Remove with /batch.
-                api.usesCaptureV1 ? isCaptureV1RetriableStatusCode(code) : isEventsRetriableStatusCode(code)
-            }
+            isRetriableStatusCode: isCaptureV1RetriableStatusCode
         )
     }
 
     /// Capture V1 AI endpoint (`/i/v1/ai/events`) for events sent with
-    /// `captureAi`. Same retry policy as capture V1, with no `/batch` fallback.
+    /// `captureAi`. Same retry policy as capture V1.
     /// Batches by bytes as well as count, since AI events can be megabytes.
     static func ai(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
         QueueEndpoint<PostHogEvent>(
@@ -92,8 +87,7 @@ extension QueueEndpoint where Record == PostHogEvent {
         )
     }
 
-    /// `/snapshot` endpoint for session-replay snapshots. Shares its retry
-    /// policy with `/batch`.
+    /// `/snapshot` endpoint for session-replay snapshots.
     static func snapshot(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
         QueueEndpoint<PostHogEvent>(
             storageKey: .replayQeueue,
@@ -116,7 +110,7 @@ extension QueueEndpoint where Record == PostHogEvent {
             send: { events, completion in
                 api.snapshot(events: events, completion: completion)
             },
-            isRetriableStatusCode: isEventsRetriableStatusCode
+            isRetriableStatusCode: isSnapshotRetriableStatusCode
         )
     }
 }

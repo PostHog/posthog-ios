@@ -112,7 +112,7 @@ final class PostHogQueueTest {
             isRetriableStatusCode: base.isRetriableStatusCode
         )
         let sut = PostHogQueue(config, storage, endpoint, nil)
-        // Only count /batch requests from this fixture's queue: the stub and the activation hook are
+        // Only count capture requests from this fixture's queue: the stub and the activation hook are
         // process-global, so a stray request from another queue/SDK instance would otherwise shift
         // batchRequests.count and the request number the batchResponseHandler keys on.
         server.batchProjectToken = config.projectToken

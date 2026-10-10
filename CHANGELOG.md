@@ -1,5 +1,21 @@
 ## Next
 
+## 3.92.0
+
+### Minor Changes
+
+- d4ea175: Change properties passed to `capture()` and the other event methods to override registered super properties and SDK context properties such as `$app_version`, `$os_name` and `$lib`, and a group passed in `groups:` to override a group set with `group()`, matching posthog-android and posthog-js. If you relied on the registered or SDK value winning, stop passing the conflicting key per event; `$is_identified`, `$process_person_profile`, `$geoip_disable`, `$recording_status` and `$sdk_debug_*` properties are still set by the SDK.
+
+### Patch Changes
+
+- 5d2a98b: Send queued events, session replay snapshots, and logs when `close()` is called instead of holding them until the next SDK setup
+- f524e31: Keep `$referring_domain` and registered UTM/click-id super properties on minimal `$feature_flag_called` events
+- 4257154: Ignore `group(type:key:)` calls with an empty `type` or `key`. Previously they stored the empty group on later events and sent an invalid `$groupidentify`; now the call does nothing and logs a debug message
+- ea22826: Fix `errorTrackingConfig.ignoredExceptionTypes` not dropping matching `$exception` events on watchOS and visionOS
+- 4708ca1: Cap how long a `Retry-After` response header can pause log uploads at 5 minutes.
+- 8ad4249: Fix `$recording_status` reporting `active` after a backgrounded session times out, while `isSessionReplayActive()` returns `false`
+- 0aa4af5: Send already recorded session replay snapshots when `stopSessionRecording()` is called instead of holding them until the next flush
+
 ## 3.91.2
 
 ### Patch Changes

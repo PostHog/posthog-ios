@@ -17,6 +17,7 @@ class MockPostHogServer {
     private var recordedSnapshotRequests = [URLRequest]()
     private var recordedLogsRequests = [URLRequest]()
     private var recordedFlagsRequests = [URLRequest]()
+    private var recordedAiRequests = [URLRequest]()
 
     var batchRequests: [URLRequest] {
         get { requestsLock.withLock { recordedBatchRequests } }
@@ -34,6 +35,14 @@ class MockPostHogServer {
         get { requestsLock.withLock { recordedFlagsRequests } }
         set { requestsLock.withLock { recordedFlagsRequests = newValue } }
     }
+    /// Requests to the capture V1 AI endpoint (`/i/v1/ai/events`), with buffered bodies.
+    var aiRequests: [URLRequest] {
+        get { requestsLock.withLock { recordedAiRequests } }
+        set { requestsLock.withLock { recordedAiRequests = newValue } }
+    }
+    /// Optional override for `/i/v1/ai/events` responses, given the request and its
+    /// 1-based number. When `nil`, every event gets an `ok` result.
+    var aiResponseHandler: ((URLRequest, Int) -> HTTPStubsResponse)?
     var batchExpectation: XCTestExpectation?
     var snapshotExpectation: XCTestExpectation?
     var logsExpectation: XCTestExpectation?
@@ -448,6 +457,21 @@ class MockPostHogServer {
             return HTTPStubsResponse(jsonObject: ["results": results], statusCode: 200, headers: nil)
         })
 
+        stubDescriptors.append(stub(condition: pathEndsWith("/i/v1/ai/events")) { request in
+            var request = request
+            request.httpBody = request.body()
+            let index = self.requestsLock.withLock { () -> Int in
+                self.recordedAiRequests.append(request)
+                return self.recordedAiRequests.count
+            }
+            if let handler = self.aiResponseHandler {
+                return handler(request, index)
+            }
+            let uuids = (self.parseRequest(request)?["batch"] as? [[String: Any]] ?? []).compactMap { $0["uuid"] as? String }
+            let results = Dictionary(uniqueKeysWithValues: uuids.map { ($0, ["result": "ok"]) })
+            return HTTPStubsResponse(jsonObject: ["results": results], statusCode: 200, headers: nil)
+        })
+
         stubDescriptors.append(stub(condition: pathEndsWith("/s")) { _ in
             if self.return500 {
                 HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
@@ -640,6 +664,8 @@ class MockPostHogServer {
         snapshotRequests = []
         logsRequests = []
         flagsRequests = []
+        aiRequests = []
+        aiResponseHandler = nil
         pushSubscriptionRequests = []
         batchExpectation = XCTestExpectation(description: "\(batchCount) batch requests to occur")
         snapshotExpectation = XCTestExpectation(description: "\(snapshotCount) snapshot requests to occur")
@@ -672,7 +698,7 @@ class MockPostHogServer {
     }
 
     static func isCaptureV1(_ request: URLRequest) -> Bool {
-        request.url?.path.hasSuffix("/i/v1/analytics/events") == true
+        request.url.map { $0.path.hasSuffix("/i/v1/analytics/events") || $0.path.hasSuffix("/i/v1/ai/events") } == true
     }
 
     /// Decodes the events of a `/batch` or capture V1 request. For V1 it puts

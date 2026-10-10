@@ -1163,9 +1163,6 @@
         /// All regions to redact in `window`: heuristic widgets from the hierarchy walk plus the
         /// live regions of `postHogMask()` reporters. Returns nil when a reporter hasn't laid out
         /// yet — the caller must skip the frame rather than capture it under-masked.
-        /// Pre-existing limitation with `screenshotModeBackgroundCapture` (off by default): pixels
-        /// render after this collection, so any rect source can go stale for content committed in
-        /// between.
         private func collectMaskedRegions(in window: UIWindow) -> [MaskedRegion]? {
             guard !window.hasCameraForReplay() else {
                 return nil
@@ -1212,8 +1209,8 @@
             }
 
             // The settled path renders here so the pixels come from the same main-thread tick that
-            // measured the mask rects — any later and the presentation tree has moved on. Callers
-            // that render themselves (background capture, the bridge's first frame) pass false.
+            // measured the mask rects — any later and the presentation tree has moved on. The
+            // bridge's first frame renders itself and passes false.
             let image = renderImage ? window.toImage(preferFidelityRenderer: preferFidelityRenderer) : nil
 
             return ScreenshotCapture(wireframe: wireframe, windowSize: window.bounds.size, timestampDate: Date(), image: image)
@@ -1441,49 +1438,6 @@
             )
         }
 
-        /// The render sits between two mask samples instead of one: measure geometry, render
-        /// off-main, measure again, mask the per-owner union — provably covering wherever the
-        /// content sat while the render ran, so no threshold is needed. Always uses
-        /// `drawHierarchy`, never the presentation-tree renderer: that reads `layer.presentation()`,
-        /// which is main-only, and this path's other reads already sit inside `main.sync`.
-        @discardableResult
-        private func performBracketedBackgroundCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) -> Bool {
-            defer { finishScreenshotRender() }
-
-            guard let before = DispatchQueue.main.sync(execute: { self.collectMaskedRegions(in: window) }) else {
-                return false
-            }
-            // Off-main on purpose, and the reason this mode exists: drawHierarchy on main was too
-            // slow to keep up. UIKit documents it as main-thread-only, so it stays experimental
-            // behind `screenshotModeBackgroundCapture` — the bracketing above is what keeps masks
-            // aligned with pixels despite the render happening on this thread.
-            let image = window.toImage(preferFidelityRenderer: true)
-            let capture = DispatchQueue.main.sync { () -> ScreenshotCapture? in
-                let after = self.collectMaskedRegions(in: window)
-                guard let rects = Self.sweptRects(before: before, after: after) else {
-                    hedgeLog("[Session Replay] Skipping snapshot: mask samples could not be paired")
-                    return nil
-                }
-                // No renderer preference: `renderImage: false` means this call never renders — the
-                // image was already taken off-main above.
-                return self.collectScreenshotMetadata(window, overrideMaskRects: rects, renderImage: false)
-            }
-
-            guard let capture, let image, postHog.isSessionReplayActive() else {
-                return false
-            }
-
-            return renderAndEnqueueScreenshot(
-                capture.wireframe,
-                window: window,
-                windowSize: capture.windowSize,
-                screenName: screenName,
-                postHog: postHog,
-                timestampDate: capture.timestampDate,
-                image: image
-            )
-        }
-
         /// Settle-then-shoot: after one display-pipeline depth, unchanged mask geometry proves the
         /// displayed frame identical to the current tree, so full-fidelity drawHierarchy is safe
         /// (blur/video/Metal intact); drift within budget keeps drawHierarchy with masks swept to
@@ -1533,13 +1487,7 @@
                 .flatMap(UIViewController.getViewControllerTypeName)
                 .flatMap { PostHogScreenNameSanitizer.sanitize(rawScreenName: $0) }
 
-            if postHog.config.sessionReplayConfig.screenshotModeBackgroundCapture {
-                PostHogReplayIntegration.dispatchQueue.async { [weak self] in
-                    self?.performBracketedBackgroundCapture(window: window, screenName: screenName, postHog: postHog)
-                }
-            } else {
-                scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)
-            }
+            scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)
         }
 
         private func handleEventCaptured(event: String) {

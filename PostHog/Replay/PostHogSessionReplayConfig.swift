@@ -45,16 +45,6 @@
             set {} // swiftlint:disable:this unused_setter_value
         }
 
-        /// Schedule screenshot image capture on a background queue.
-        ///
-        /// Warning: Enabling this option will trigger Main Thread Checker warnings and may
-        /// briefly freeze the app the first time a screenshot is captured. Consider disabling
-        /// Main Thread Checker in your scheme's run diagnostics when enabling this.
-        ///
-        /// Experimental.
-        /// Default: false
-        @objc public var screenshotModeBackgroundCapture: Bool = false
-
         /// Throttle delay used to reduce the number of snapshots captured and reduce performance impact
         /// This is used for capturing the screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact

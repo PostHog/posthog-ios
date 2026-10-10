@@ -110,37 +110,6 @@
             return oldRects
         }
 
-        /// Per-owner union of two samples taken either side of a render: covers wherever the
-        /// content sat while the render ran. An owner present in only one sample was still on
-        /// screen for part of that window, so its rect is emitted as collected rather than
-        /// discarding the frame — a scroll that recycles cells changes the owner set constantly,
-        /// and dropping every such frame freezes the recording across the whole interaction.
-        /// Unlike `pairedOldRects` the result is a mask list, not positionally tied to `after`.
-        /// nil only for a repeated owner within one sample, where the pairing is genuinely
-        /// ambiguous and there is no safe rect to emit.
-        static func sweptRects(before: [MaskedRegion]?, after: [MaskedRegion]?) -> [CGRect]? {
-            guard let before, let after, let beforeByOwner = rectsByOwner(before) else {
-                return nil
-            }
-
-            var rects: [CGRect] = []
-            rects.reserveCapacity(max(before.count, after.count))
-            var seenAfterOwners: Set<ObjectIdentifier> = []
-            seenAfterOwners.reserveCapacity(after.count)
-            for region in after {
-                guard seenAfterOwners.insert(region.owner).inserted else {
-                    return nil
-                }
-                // No counterpart means the owner appeared mid-render; cover where it landed.
-                rects.append(beforeByOwner[region.owner].map { $0.union(region.rect) } ?? region.rect)
-            }
-            // Owners that went away mid-render were still displayed for part of it.
-            for region in before where !seenAfterOwners.contains(region.owner) {
-                rects.append(region.rect)
-            }
-            return rects
-        }
-
         /// Banded by measured drift:
         /// - still (≤ tolerance): rects as collected.
         /// - drift (≤ budget): each mask inflated to the swept region (both sampled positions

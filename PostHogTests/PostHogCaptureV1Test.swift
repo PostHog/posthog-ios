@@ -849,7 +849,7 @@ final class PostHogCaptureAiTest {
         }
         defer { sut.close() }
 
-        sut.captureAi("$ai_generation", distinctId: "user", properties: ["$ai_model": "gpt"], options: ["cookieless_mode": true])
+        let uuid = sut.captureAi("$ai_generation", distinctId: "user", properties: ["$ai_model": "gpt"], options: ["cookieless_mode": true])
         await waitUntil { self.server.aiRequests.count == 1 }
 
         let request = try #require(server.aiRequests.first)
@@ -859,6 +859,7 @@ final class PostHogCaptureAiTest {
         #expect(request.value(forHTTPHeaderField: "PostHog-Request-Id") != nil)
         let event = try #require(server.parsePostHogEvents(request).first)
         #expect(event.event == "$ai_generation")
+        #expect(event.uuid.postHogUuidString == uuid)
         #expect(event.distinctId == "user")
         #expect(event.properties["$ai_model"] as? String == "gpt")
         #expect(event.properties["edited"] as? Bool == true)
@@ -869,6 +870,17 @@ final class PostHogCaptureAiTest {
         await waitUntil { self.server.batchRequests.count == 1 }
         #expect(server.parsePostHogEvents(try #require(server.batchRequests.first)).map(\.event) == ["$ai_generation"])
         #expect(server.aiRequests.count == 1)
+    }
+
+    @Test("captureAi returns nil when the event isn't queued")
+    func returnsNilWhenNotQueued() {
+        let sut = makeSDK { event in event.event == "$ai_span" ? nil : event }
+        defer { sut.close() }
+
+        #expect(sut.captureAi("$ai_span") == nil)
+        #expect(sut.captureAi("$ai_generation", properties: ["$ai_input": String(repeating: "a", count: aiMaxEventBytes)]) == nil)
+        sut.optOut()
+        #expect(sut.captureAi("$ai_generation") == nil)
     }
 
     @Test("a 404 from the AI endpoint drops the batch without falling back to /batch")
@@ -905,6 +917,7 @@ final class PostHogCaptureAiTest {
             deleteSafely(storage.appFolderUrl)
         }
 
+        #expect(QueueEndpoint.ai(api: PostHogApi(config)).maxQueueBytes == aiMaxQueueBytes)
         let big = String(repeating: "a", count: aiMaxEventBytes)
         #expect(!queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user", properties: ["$ai_input": big])))
         #expect(queue.depth == 0)

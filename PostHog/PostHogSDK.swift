@@ -2609,7 +2609,7 @@ let maxRetryDelay = 30.0
     }
 
     /// The strict property allowlist for minimal `$feature_flag_called` events. Everything else —
-    /// registered super properties, `$active_feature_flags`, the `$feature/<key>` enumeration,
+    /// other registered super properties, `$active_feature_flags`, the `$feature/<key>` enumeration,
     /// bootstrap enrichment — is stripped. Kept in sync with the cross-SDK minimal
     /// `$feature_flag_called` contract.
     private static let minimalFeatureFlagCalledProperties: Set<String> = [
@@ -2631,6 +2631,19 @@ let maxRetryDelay = 30.0
         "$os_name",
         "$os_version",
         "$app_version",
+        // Session attribution: web analytics reads session-initial attribution from the first event
+        // in a session, which can be a minimized $feature_flag_called. iOS doesn't register these
+        // itself, but apps can via register(). The full $referrer is intentionally excluded.
+        "$referring_domain",
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_content",
+        "utm_term",
+        "gad_source",
+        "mc_cid",
+        "gclid",
+        "fbclid",
         // Forward-looking cross-SDK contract entries: not produced by buildProperties for
         // $feature_flag_called on iOS today ($device_id is added later by PostHogApi on the
         // /flags request only; $window_id is snapshot-only; $feature_flag_error isn't emitted

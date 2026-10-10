@@ -72,6 +72,10 @@ struct QueueEndpoint<Record> {
     /// the limit goes alone. `nil` batches by count only.
     var maxBatchBytes: Int?
 
+    /// FIFO limit on the total size of queued records on disk, on top of
+    /// `maxQueueSize`. `nil` limits by count only.
+    var maxQueueBytes: Int?
+
     // MARK: Send
 
     /// Build the wire payload from a list of records and POST it. The queue

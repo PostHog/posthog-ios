@@ -57,7 +57,7 @@ struct PostHogFileBackedQueueAlignmentTest {
 
         let first = queue.add(Data("A".utf8), maxSize: 2)
         #expect(first.success)
-        #expect(first.evicted == nil)
+        #expect(first.evicted.isEmpty)
         queue.add(Data("B".utf8), maxSize: 2)
         let originalIds = queue.peekEntries(2).map(\.id)
         try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: dir.path)
@@ -67,7 +67,7 @@ struct PostHogFileBackedQueueAlignmentTest {
 
         let failed = queue.add(Data("C".utf8), maxSize: 2)
         #expect(!failed.success)
-        #expect(failed.evicted == nil)
+        #expect(failed.evicted.isEmpty)
         #expect(queue.depth == 2)
         #expect(queue.peekEntries(2).map(\.id) == originalIds)
         #expect(decode(queue.peek(2)) == ["A", "B"])
@@ -76,12 +76,59 @@ struct PostHogFileBackedQueueAlignmentTest {
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dir.path)
         let retried = queue.add(Data("C".utf8), maxSize: 2)
         #expect(retried.success)
-        #expect(retried.evicted == originalIds.first)
+        #expect(retried.evicted == [originalIds[0]])
         #expect(queue.depth == 2)
         #expect(decode(queue.peek(2)) == ["B", "C"])
         let reloaded = PostHogFileBackedQueue(queue: dir, maxSize: 2)
         #expect(Set(reloaded.peekEntries(2).map(\.id)) == Set(queue.peekEntries(2).map(\.id)))
         #expect(reloaded.depth == 2)
+    }
+
+    @Test("evicts the oldest records to stay under the byte limit")
+    func evictsOldestOverByteLimit() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ph-queue-bytes-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let queue = PostHogFileBackedQueue(queue: dir, maxBytes: 10)
+
+        queue.add(Data("AAAA".utf8))
+        let first = queue.peekEntries(1).map(\.id)
+        queue.add(Data("BBBB".utf8))
+        let added = queue.add(Data("CCCC".utf8))
+
+        #expect(added.evicted == first)
+        #expect(decode(queue.peek(10)) == ["BBBB", "CCCC"])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).count == 2)
+
+        queue.pop(1)
+        queue.add(Data("DDDD".utf8))
+        #expect(decode(queue.peek(10)) == ["CCCC", "DDDD"])
+    }
+
+    @Test("keeps the newest record even when it is over the byte limit alone")
+    func keepsOversizedNewestRecord() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ph-queue-bytes-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let queue = PostHogFileBackedQueue(queue: dir, maxBytes: 4)
+
+        queue.add(Data("AA".utf8))
+        let added = queue.add(Data("BBBBBB".utf8))
+
+        #expect(added.evicted.count == 1)
+        #expect(decode(queue.peek(10)) == ["BBBBBB"])
+    }
+
+    @Test("trims the oldest records over the byte limit when reloading from disk")
+    func trimsByteLimitOnLoad() throws {
+        let (queue, dir) = makeQueue()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        enqueue(["AAAA", "BBBB", "CCCC"], into: queue)
+
+        let reloaded = PostHogFileBackedQueue(queue: dir, maxBytes: 8)
+
+        #expect(decode(reloaded.peek(10)) == ["BBBB", "CCCC"])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).count == 2)
     }
 
     @Test("delivers every record once in FIFO order on the happy path")

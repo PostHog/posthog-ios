@@ -105,7 +105,8 @@ class RequestInterceptor: URLProtocol {
 
         // Intercept capture endpoints, but not /flags/ or /config
         let urlString = url.absoluteString
-        if urlString.contains("/i/v1/analytics/events") || urlString.contains("/batch")
+        if urlString.contains("/i/v1/analytics/events") || urlString.contains("/i/v1/ai/events")
+            || urlString.contains("/batch")
             || urlString.contains("/e/") || urlString.contains("/s/"),
             !urlString.contains("/flags"),
             !urlString.contains("/config")

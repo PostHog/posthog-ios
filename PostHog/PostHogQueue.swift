@@ -118,7 +118,8 @@ class PostHogQueue<Record> {
             fileQueue = PostHogFileBackedQueue(
                 queue: storage.url(forKey: endpoint.storageKey),
                 oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) },
-                maxSize: configuredMaxQueueSize
+                maxSize: configuredMaxQueueSize,
+                maxBytes: endpoint.maxQueueBytes
             )
             dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }
@@ -134,7 +135,8 @@ class PostHogQueue<Record> {
             fileQueue = PostHogFileBackedQueue(
                 queue: storage.url(forKey: endpoint.storageKey),
                 oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) },
-                maxSize: configuredMaxQueueSize
+                maxSize: configuredMaxQueueSize,
+                maxBytes: endpoint.maxQueueBytes
             )
             dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }
@@ -363,8 +365,8 @@ class PostHogQueue<Record> {
 
         let result = fileQueue.add(data, maxSize: configuredMaxQueueSize)
         guard result.success else { return false }
-        if result.evicted != nil {
-            hedgeLog("Queue is full, dropping oldest record")
+        if !result.evicted.isEmpty {
+            hedgeLog("Queue is full, dropped \(result.evicted.count) oldest record(s)")
         }
         hedgeLog("Queued \(endpoint.describe(record)). Depth: \(fileQueue.depth)")
         flushIfOverThreshold()
@@ -461,6 +463,7 @@ class PostHogQueue<Record> {
         var selectedIds: [String] = []
         // Entry ID -> `endpoint.recordId`, for removing all but retried records.
         var recordIds: [String: String] = [:]
+        var batchBytes = 0
         var next = start
         while next < entries.count {
             let entry = entries[next]
@@ -471,6 +474,12 @@ class PostHogQueue<Record> {
                 {
                     break
                 }
+                if !processing.isEmpty, let maxBatchBytes = endpoint.maxBatchBytes,
+                   batchBytes + entry.data.count > maxBatchBytes
+                {
+                    break
+                }
+                batchBytes += entry.data.count
                 processing.append(record)
                 recordIds[entry.id] = endpoint.recordId?(record)
             }

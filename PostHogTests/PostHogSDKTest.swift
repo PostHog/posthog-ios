@@ -428,6 +428,27 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("close() sends queued events before stopping")
+    func closeSendsQueuedEvents() async throws {
+        server.reset(batchCount: 1)
+        let sut = getSut(flushAt: 10)
+        let queueFolder = PostHogStorage(sut.config).url(forKey: .queue)
+
+        sut.capture("Save")
+        sut.close()
+
+        let events = getBatchedEvents(server)
+        #expect(events.map(\.event) == ["Save"])
+
+        // The delivered event is removed from disk, so the next setup doesn't send it again.
+        let queuedFiles = { (try? FileManager.default.contentsOfDirectory(atPath: queueFolder.path))?.count ?? 0 }
+        let deadline = Date().addingTimeInterval(5)
+        while queuedFiles() > 0, Date() < deadline {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        #expect(queuedFiles() == 0)
+    }
+
     #if os(iOS)
         @Test("captures $recording_status on every event and the full replay debug bundle on the first eligible SDK event only")
         func capturesRecordingStatusAndReplayDebugBundle() throws {

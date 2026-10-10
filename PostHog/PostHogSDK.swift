@@ -2829,7 +2829,9 @@ let maxRetryDelay = 30.0
 
     /// Shuts down this SDK instance and clears its in-memory state.
     ///
-    /// Queues are stopped, integrations are uninstalled, and this instance must be set up again before reuse.
+    /// Starts sending queued events, session replay snapshots, and logs (up to one batch each) and returns without
+    /// waiting for delivery. Anything not sent, for example while offline, stays on disk and is sent after the next
+    /// setup. Integrations are uninstalled, and this instance must be set up again before reuse.
     @objc public func close() {
         if !isEnabled() {
             return
@@ -2838,6 +2840,10 @@ let maxRetryDelay = 30.0
         setupLock.withLock {
             enabled = false
             PostHogSDK.projectTokens.remove(config.projectToken)
+
+            queue?.flush()
+            replayQueue?.flush()
+            logsQueue?.flush()
 
             queue?.stop()
             replayQueue?.stop()

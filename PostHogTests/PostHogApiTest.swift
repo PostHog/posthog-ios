@@ -140,13 +140,13 @@ enum PostHogApiTests {
             #expect(server.flagsRequests.count == 1)
         }
 
-        func testBatchEndpoint(forHost host: String) async throws {
+        func testCaptureV1Endpoint(forHost host: String) async throws {
             let sut = getSut(host: host)
             let resp = await getApiResponse { completion in
-                sut.batch(events: [], completion: completion)
+                sut.captureV1(events: [], completion: completion)
             }
 
-            try requireEndpoint(server.batchRequests.last, host: host, path: "batch")
+            try requireEndpoint(server.batchRequests.last, host: host, path: "i/v1/analytics/events")
             #expect(resp.error == nil)
             #expect(resp.statusCode == 200)
         }
@@ -230,41 +230,41 @@ enum PostHogApiTests {
         }
     }
 
-    @Suite("Test batch endpoint with different host paths")
-    class TestBatchEndpoint: BaseTestSuite {
+    @Suite("Test capture V1 endpoint with different host paths")
+    class TestCaptureV1Endpoint: BaseTestSuite {
         @Test("with host containing no path")
         func hostWithNoPath() async throws {
-            try await testBatchEndpoint(forHost: "http://localhost")
+            try await testCaptureV1Endpoint(forHost: "http://localhost")
         }
 
         @Test("with host containing no path and trailing slash")
         func hostWithNoPathAndTrailingSlash() async throws {
-            try await testBatchEndpoint(forHost: "http://localhost/")
+            try await testCaptureV1Endpoint(forHost: "http://localhost/")
         }
 
         @Test("with host containing path")
         func hostWithPath() async throws {
-            try await testBatchEndpoint(forHost: "http://localhost/api/v1")
+            try await testCaptureV1Endpoint(forHost: "http://localhost/api/v1")
         }
 
         @Test("with host containing path and trailing slash")
         func hostWithPathAndTrailingSlash() async throws {
-            try await testBatchEndpoint(forHost: "http://localhost/api/v1/")
+            try await testCaptureV1Endpoint(forHost: "http://localhost/api/v1/")
         }
 
         @Test("with host containing port number")
         func hostWithPortNumber() async throws {
-            try await testBatchEndpoint(forHost: "http://localhost:9000")
+            try await testCaptureV1Endpoint(forHost: "http://localhost:9000")
         }
 
         @Test("with host containing port number and path")
         func hostWithPortNumberAndPath() async throws {
-            try await testBatchEndpoint(forHost: "http://localhost:9000/api/v1")
+            try await testCaptureV1Endpoint(forHost: "http://localhost:9000/api/v1")
         }
 
         @Test("with host containing port number, path and trailing slash")
         func hostWithPortNumberAndTrailingSlash() async throws {
-            try await testBatchEndpoint(forHost: "http://localhost:9000/api/v1/")
+            try await testCaptureV1Endpoint(forHost: "http://localhost:9000/api/v1/")
         }
     }
 
@@ -349,11 +349,11 @@ enum PostHogApiTests {
     /// session-level gzip would silently mis-label /flags on the wire.
     @Suite("Content-Encoding header per endpoint")
     class TestContentEncodingHeader: BaseTestSuite {
-        @Test("/batch declares gzip Content-Encoding")
-        func batchDeclaresGzip() async throws {
+        @Test("capture V1 declares gzip Content-Encoding")
+        func captureV1DeclaresGzip() async throws {
             let sut = getSut(host: "http://localhost")
             _ = await getApiResponse { completion in
-                sut.batch(events: [], completion: completion)
+                sut.captureV1(events: [], completion: completion)
             }
             let request = try #require(server.batchRequests.first)
             #expect(request.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
@@ -389,15 +389,15 @@ enum PostHogApiTests {
             #expect(request.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
         }
 
-        @Test("/batch falls back to uncompressed when gzip fails")
-        func batchFallsBackToUncompressedWhenGzipFails() async throws {
+        @Test("capture V1 falls back to uncompressed when gzip fails")
+        func captureV1FallsBackToUncompressedWhenGzipFails() async throws {
             let originalGzipData = PostHogApi.gzipData
             PostHogApi.gzipData = { _ in throw NSError(domain: "PostHogApiTests", code: 1) }
             defer { PostHogApi.gzipData = originalGzipData }
 
             let sut = getSut(host: "http://localhost")
             _ = await getApiResponse { completion in
-                sut.batch(events: [], completion: completion)
+                sut.captureV1(events: [], completion: completion)
             }
             let request = try #require(server.batchRequests.first)
             #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
@@ -427,11 +427,11 @@ enum PostHogApiTests {
             #expect(PostHogConfig(projectToken: "test_project_token", host: "http://localhost").compression == .gzip)
         }
 
-        @Test("/batch sends an uncompressed body when compression is none")
-        func batchSendsUncompressedWhenCompressionIsNone() async throws {
+        @Test("capture V1 sends an uncompressed body when compression is none")
+        func captureV1SendsUncompressedWhenCompressionIsNone() async throws {
             let sut = getUncompressedSut()
             _ = await getApiResponse { completion in
-                sut.batch(events: [], completion: completion)
+                sut.captureV1(events: [], completion: completion)
             }
             let request = try #require(server.batchRequests.first)
             #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
@@ -461,8 +461,8 @@ enum PostHogApiTests {
             #expect(server.parseRequest(request, gzip: false)?["resourceLogs"] != nil)
         }
 
-        @Test("/batch drops a session-level Content-Encoding when compression is none")
-        func batchDropsSessionContentEncodingWhenCompressionIsNone() async throws {
+        @Test("capture V1 drops a session-level Content-Encoding when compression is none")
+        func captureV1DropsSessionContentEncodingWhenCompressionIsNone() async throws {
             let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
             config.compression = .none
             let sessionConfig = URLSessionConfiguration.default
@@ -470,7 +470,7 @@ enum PostHogApiTests {
             config.urlSessionConfiguration = sessionConfig
             let sut = PostHogApi(config)
             _ = await getApiResponse { completion in
-                sut.batch(events: [], completion: completion)
+                sut.captureV1(events: [], completion: completion)
             }
             let request = try #require(server.batchRequests.first)
             #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
@@ -497,14 +497,14 @@ enum PostHogApiTests {
             return PostHogApi(config)
         }
 
-        @Test("attaches custom headers to /batch requests")
-        func attachesToBatch() async throws {
-            let sut = getSut(host: "http://localhost", requestHeaders: ["Authorization": "Bearer test-jwt"])
+        @Test("attaches custom headers to capture V1 requests")
+        func attachesToCaptureV1() async throws {
+            let sut = getSut(host: "http://localhost", requestHeaders: ["X-Proxy-Token": "test-token"])
             _ = await getApiResponse { completion in
-                sut.batch(events: [], completion: completion)
+                sut.captureV1(events: [], completion: completion)
             }
             let request = try #require(server.batchRequests.first)
-            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-jwt")
+            #expect(request.value(forHTTPHeaderField: "X-Proxy-Token") == "test-token")
         }
 
         @Test("attaches custom headers to /flags requests")
@@ -523,9 +523,11 @@ enum PostHogApiTests {
         func noHeaderWhenUnset() async throws {
             let sut = getSut(host: "http://localhost", requestHeaders: nil)
             _ = await getApiResponse { completion in
-                sut.batch(events: [], completion: completion)
+                sut.flags(distinctId: "x", anonymousId: nil, groups: [:], personProperties: [:]) { data, _ in
+                    completion(data)
+                }
             }
-            let request = try #require(server.batchRequests.first)
+            let request = try #require(server.flagsRequests.first)
             #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
         }
 
@@ -533,7 +535,7 @@ enum PostHogApiTests {
         func doesNotOverrideSDKManagedHeaders() async throws {
             let sut = getSut(host: "http://localhost", requestHeaders: ["content-type": "text/plain", "User-Agent": "evil"])
             _ = await getApiResponse { completion in
-                sut.batch(events: [], completion: completion)
+                sut.captureV1(events: [], completion: completion)
             }
             let request = try #require(server.batchRequests.first)
             #expect(request.value(forHTTPHeaderField: "Content-Type") != "text/plain")

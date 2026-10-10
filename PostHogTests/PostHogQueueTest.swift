@@ -115,7 +115,7 @@ final class PostHogQueueTest {
         )
         // 0.5 is a jitter factor of 1, so backoff waits are exact unless a test injects its own.
         let sut = PostHogQueue(config, storage, endpoint, nil, jitterUnit: jitterUnit)
-        // Only count /batch requests from this fixture's queue: the stub and the activation hook are
+        // Only count capture requests from this fixture's queue: the stub and the activation hook are
         // process-global, so a stray request from another queue/SDK instance would otherwise shift
         // batchRequests.count and the request number the batchResponseHandler keys on.
         server.batchProjectToken = config.projectToken

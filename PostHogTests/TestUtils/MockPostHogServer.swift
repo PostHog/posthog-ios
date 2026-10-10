@@ -84,7 +84,7 @@ class MockPostHogServer {
     var logsResponseHandler: ((URLRequest, Int) -> HTTPStubsResponse)?
     var version: Int = 3
 
-    /// When set, `/batch` requests whose `api_key` differs are not recorded, so batches from other
+    /// When set, capture V1 requests whose Bearer token differs are not recorded, so batches from other
     /// tests' still-running SDK instances can't satisfy or inflate this server's expectations.
     var batchProjectToken: String?
     /// When set, `/flags` requests whose `api_key` differs are not recorded, for the same reason.
@@ -95,9 +95,7 @@ class MockPostHogServer {
         if let batchProjectToken {
             // Buffer the body: a stream-backed body can only be read once.
             request.httpBody = request.body()
-            let token = Self.isCaptureV1(request)
-                ? request.value(forHTTPHeaderField: "Authorization").map { String($0.dropFirst("Bearer ".count)) }
-                : parseRequest(request)?["api_key"] as? String
+            let token = request.value(forHTTPHeaderField: "Authorization").map { String($0.dropFirst("Bearer ".count)) }
             guard token == batchProjectToken else { return }
         }
 
@@ -153,7 +151,7 @@ class MockPostHogServer {
 
     var errorsWhileComputingFlags = false
     var return500 = false
-    /// Optional override for `/batch` responses. When set, takes precedence
+    /// Optional override for capture V1 responses. When set, takes precedence
     /// over `return500`. The closure receives the incoming request and the
     /// 1-based index of that request in the batch sequence so callers can
     /// vary the response (e.g. 413 then 200).
@@ -425,17 +423,6 @@ class MockPostHogServer {
             return response
         })
 
-        stubDescriptors.append(stub(condition: pathEndsWith("/batch")) { request in
-            if let handler = self.batchResponseHandler {
-                let index = self.batchRequests.count + 1
-                return handler(request, index)
-            }
-            if self.return500 {
-                return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
-            }
-            return HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
-        })
-
         stubDescriptors.append(stub(condition: pathEndsWith("/i/v1/analytics/events")) { request in
             // Buffer the body and record here: a stream-backed body can only be
             // read once, and the default response needs the event UUIDs.
@@ -630,9 +617,7 @@ class MockPostHogServer {
 
         HTTPStubs.onStubActivation { request, _, _ in
             // Capture V1 requests are recorded by their stub.
-            if request.url?.lastPathComponent == "batch" {
-                self.trackBatchRequest(request)
-            } else if request.url?.lastPathComponent == "s" {
+            if request.url?.lastPathComponent == "s" {
                 self.trackSnapshotRequest(request)
             } else if request.url?.lastPathComponent == "logs" {
                 self.trackLogsRequest(request)
@@ -701,7 +686,7 @@ class MockPostHogServer {
         request.url.map { $0.path.hasSuffix("/i/v1/analytics/events") || $0.path.hasSuffix("/i/v1/ai/events") } == true
     }
 
-    /// Decodes the events of a `/batch` or capture V1 request. For V1 it puts
+    /// Decodes the events of a capture V1 request. It puts
     /// back what the server injects (`$session_id`, `$window_id`, `$lib`,
     /// `$lib_version` and the legacy property of each known option), so event
     /// assertions don't depend on the transport. V1 events keep `options` too.

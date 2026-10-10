@@ -2021,6 +2021,7 @@ let maxRetryDelay = 30.0
     /// Associates subsequent events with a group and optionally updates group properties.
     ///
     /// This sends a `$groupidentify` event and reloads feature flags if the group value changed.
+    /// The call is ignored if `type` or `key` is empty.
     ///
     /// - Parameters:
     ///   - type: Group type, such as `"company"` or `"organization"`.
@@ -2029,6 +2030,11 @@ let maxRetryDelay = 30.0
     @objc(groupWithType:key:groupProperties:)
     public func group(type: String, key: String, groupProperties: [String: Any]? = nil) {
         if !isEnabled() {
+            return
+        }
+
+        if type.isEmpty || key.isEmpty {
+            hedgeLog("group call not allowed, type and key must not be empty")
             return
         }
 

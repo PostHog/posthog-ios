@@ -26,6 +26,8 @@ let aiMaxEventBytes = 8 * 1024 * 1024 + 64 * 1024
 let aiMaxBatchBytes = 5 * 1024 * 1024
 /// AI events can be megabytes, so keep fewer of them on disk than analytics events.
 let aiMaxQueueSize = 100
+/// Disk budget for queued AI events; the oldest are dropped first.
+let aiMaxQueueBytes = 50 * 1024 * 1024
 
 extension QueueEndpoint where Record == PostHogEvent {
     /// Analytics events endpoint: capture V1 (`/i/v1/analytics/events`), or
@@ -82,6 +84,7 @@ extension QueueEndpoint where Record == PostHogEvent {
             describe: { event in "AI event '\(event.event)'" },
             recordId: { event in event.uuid.postHogUuidString },
             maxBatchBytes: aiMaxBatchBytes,
+            maxQueueBytes: aiMaxQueueBytes,
             send: { events, completion in
                 api.captureAi(events: events, completion: completion)
             },

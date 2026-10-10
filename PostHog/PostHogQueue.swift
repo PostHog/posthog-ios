@@ -118,7 +118,8 @@ class PostHogQueue<Record> {
             fileQueue = PostHogFileBackedQueue(
                 queue: storage.url(forKey: endpoint.storageKey),
                 oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) },
-                maxSize: configuredMaxQueueSize
+                maxSize: configuredMaxQueueSize,
+                maxBytes: endpoint.maxQueueBytes
             )
             dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }
@@ -134,7 +135,8 @@ class PostHogQueue<Record> {
             fileQueue = PostHogFileBackedQueue(
                 queue: storage.url(forKey: endpoint.storageKey),
                 oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) },
-                maxSize: configuredMaxQueueSize
+                maxSize: configuredMaxQueueSize,
+                maxBytes: endpoint.maxQueueBytes
             )
             dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }
@@ -363,8 +365,8 @@ class PostHogQueue<Record> {
 
         let result = fileQueue.add(data, maxSize: configuredMaxQueueSize)
         guard result.success else { return false }
-        if result.evicted != nil {
-            hedgeLog("Queue is full, dropping oldest record")
+        if !result.evicted.isEmpty {
+            hedgeLog("Queue is full, dropped \(result.evicted.count) oldest record(s)")
         }
         hedgeLog("Queued \(endpoint.describe(record)). Depth: \(fileQueue.depth)")
         flushIfOverThreshold()

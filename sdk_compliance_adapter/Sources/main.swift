@@ -225,14 +225,15 @@ app.post("capture_ai") { req async throws -> Response in
         throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
     }
 
-    sdk.captureAi(
+    let uuid = sdk.captureAi(
         captureReq.event,
         distinctId: captureReq.distinctId,
         properties: captureReq.properties?.mapValues(\.value),
         options: captureReq.options?.mapValues(\.value)
     )
 
-    let result = ["status": "ok"]
+    var result = ["status": "ok"]
+    result["uuid"] = uuid
     return try await result.encodeResponse(for: req)
 }
 

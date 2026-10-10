@@ -1142,6 +1142,108 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("caller-supplied properties win over registered super properties")
+    func callerPropertiesWinOverRegisteredProperties() throws {
+        let sut = getSut()
+
+        sut.register(["plan": "registered"])
+        sut.capture("event", properties: ["plan": "caller"])
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.properties["plan"] as? String == "caller")
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("caller-supplied properties win over SDK context")
+    func callerPropertiesWinOverSdkContext() throws {
+        let sut = getSut()
+
+        sut.capture("event", properties: ["$os_name": "caller-os", "$lib": "caller-lib"])
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.properties["$os_name"] as? String == "caller-os")
+        #expect(event.properties["$lib"] as? String == "caller-lib")
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("caller-supplied groups win over a registered group of the same type")
+    func callerGroupsWinOverRegisteredGroups() throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.group(type: "company", key: "registered")
+        sut.capture("event", groups: ["company": "caller"])
+
+        let event = try #require(getBatchedEvents(server).first { $0.event == "event" })
+        let groups = try #require(event.properties["$groups"] as? [String: String])
+        #expect(groups["company"] == "caller")
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("caller-supplied $groups add to registered groups")
+    func callerGroupsPropertyAddsToRegisteredGroups() throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.group(type: "company", key: "registered")
+        sut.capture("event", properties: ["$groups": ["project": "caller"]])
+
+        let event = try #require(getBatchedEvents(server).first { $0.event == "event" })
+        let groups = try #require(event.properties["$groups"] as? [String: String])
+        #expect(groups == ["company": "registered", "project": "caller"])
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("blank or non-string caller $session_id keeps the SDK session", arguments: ["", "  ", 1] as [AnyHashable])
+    func invalidCallerSessionIdKeepsSdkSession(sessionId: AnyHashable) throws {
+        let sut = getSut()
+
+        sut.capture("event", properties: ["$session_id": sessionId])
+
+        let event = try #require(getBatchedEvents(server).first)
+        let sentSessionId = try #require(event.properties["$session_id"] as? String)
+        #expect(!sentSessionId.trimmingCharacters(in: .whitespaces).isEmpty)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("caller can't override $is_identified")
+    func callerCannotOverrideIsIdentified() throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.identify("user")
+        sut.capture("event", properties: ["$is_identified": false])
+
+        let event = try #require(getBatchedEvents(server).first { $0.event == "event" })
+        #expect(event.properties["$is_identified"] as? Bool == true)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("caller can't override SDK debug properties")
+    func callerCannotOverrideSdkDebugProperties() throws {
+        let sut = getSut()
+
+        sut.capture("event", properties: ["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
+
+        let event = try #require(getBatchedEvents(server).first)
+        let recordingStatus = try #require(event.properties["$recording_status"] as? String)
+        let pendingQueueSize = try #require(event.properties["$sdk_debug_pending_queue_size"] as? Int)
+        #expect(recordingStatus != "bogus")
+        #expect(pendingQueueSize != -1)
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("add active feature flags as part of the event")
     func addActiveFeatureFlagsToEvent() throws {
         let sut = getSut()

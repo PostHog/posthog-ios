@@ -66,6 +66,19 @@ final class PostHogSDKPersonProfilesTest {
         sut.close()
     }
 
+    @Test("caller can't override $process_person_profile")
+    func callerCannotOverrideProcessPersonProfile() throws {
+        let sut = getSut(personProfiles: .never)
+
+        sut.capture("test event", properties: ["$process_person_profile": true])
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.properties["$process_person_profile"] as? Bool == false)
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("capture sets process person to true if identified only and with user props")
     func captureSetsProcessPersonTrueIfIdentifiedOnlyWithUserProps() throws {
         let sut = getSut()

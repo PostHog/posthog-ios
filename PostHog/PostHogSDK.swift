@@ -641,6 +641,10 @@ let maxRetryDelay = 30.0
     /// Internal marker on built properties, stripped in `buildEvent` and carried on the event instead.
     private static let replayDebugClaimMarkerKey = "$__replay_debug_claim"
 
+    private static func isBlank(_ value: String) -> Bool {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private static func isReplayDebugEvent(_ event: String?) -> Bool {
         guard let event else { return false }
         return event.hasPrefix("$")
@@ -702,7 +706,7 @@ let maxRetryDelay = 30.0
         // here, so the debug keys must describe the session this event lands in (mirrors posthog-js).
         // A caller-supplied $session_id wins so replay snapshots never land in the wrong session.
         let eventTime = timestamp ?? now()
-        let propSessionId = properties?["$session_id"] as? String
+        let propSessionId = (properties?["$session_id"] as? String).flatMap { Self.isBlank($0) ? nil : $0 }
         let sessionId: String? = propSessionId.isNilOrEmpty
             ? sessionManager.getSessionId(at: eventTime, readOnly: readOnlySession)
             : propSessionId
@@ -728,10 +732,62 @@ let maxRetryDelay = 30.0
             if groups != nil {
                 // $groups are also set via the dynamicContext
                 let currentGroups = props["$groups"] as? [String: String] ?? [:]
-                let mergedGroups = currentGroups.merging(groups ?? [:]) { current, _ in current }
+                let mergedGroups = currentGroups.merging(groups ?? [:]) { _, new in new }
                 props["$groups"] = mergedGroups
             }
 
+            // Only stamp if the caller didn't supply a non-empty value. Whitespace-only
+            // caller values are treated as absent (almost always accidental).
+            let trimmedCallerScreenName = (properties?["$screen_name"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if let name = lastScreenName, !name.isEmpty, trimmedCallerScreenName.isNilOrEmpty {
+                props["$screen_name"] = name
+            }
+        }
+
+        let sdkInfo = context?.sdkInfo()
+        if sdkInfo != nil {
+            props = props.merging(sdkInfo ?? [:]) { current, _ in current }
+        }
+
+        if let sessionId {
+            if propSessionId.isNilOrEmpty {
+                props["$session_id"] = sessionId
+            }
+            // only Session replay requires $window_id, so we set as the same as $session_id.
+            // the backend might fallback to $session_id if $window_id is not present next.
+            #if os(iOS)
+                if !appendSharedProps, isSessionReplayActive() {
+                    props["$window_id"] = sessionId
+                }
+            #endif
+        }
+
+        // only Session Replay needs distinct_id also in the props
+        // remove after https://github.com/PostHog/posthog/issues/23275 gets merged
+        let propDistinctId = properties?["distinct_id"] as? String
+        if !appendSharedProps, propDistinctId.map(Self.isBlank) ?? true {
+            props["distinct_id"] = distinctId
+        }
+
+        // Caller-supplied properties win over registered super properties and SDK context.
+        // A blank caller value for a key the SDK filled in above is treated as absent.
+        var callerProps = properties ?? [:]
+        for key in ["$session_id", "$screen_name", "distinct_id"] where props[key] != nil {
+            if let value = callerProps[key] as? String, !Self.isBlank(value) {
+                continue
+            }
+            callerProps.removeValue(forKey: key)
+        }
+        // A caller-supplied $groups adds to the registered and per-call groups instead of replacing them.
+        if let callerGroups = callerProps["$groups"] as? [String: String], let currentGroups = props["$groups"] as? [String: String] {
+            callerProps["$groups"] = currentGroups.merging(callerGroups) { _, new in new }
+        }
+        props.merge(callerProps) { _, new in new }
+
+        // After the caller merge so the SDK's person-processing state, geoip opt-out and debug
+        // values can't be overridden per event, matching posthog-js and posthog-android.
+        if appendSharedProps {
             if let isIdentified = config.storageManager?.isIdentified() {
                 props["$is_identified"] = isIdentified
             }
@@ -772,48 +828,7 @@ let maxRetryDelay = 30.0
             if let depth = queue?.depth {
                 props["$sdk_debug_pending_queue_size"] = depth
             }
-
-            // Only stamp if the caller didn't supply a non-empty value —
-            // `merging(properties)` below keeps the existing value on conflict,
-            // so seeding would shadow a caller-supplied override. Whitespace-only
-            // caller values are treated as absent (almost always accidental).
-            let trimmedCallerScreenName = (properties?["$screen_name"] as? String)?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            if let name = lastScreenName, !name.isEmpty, trimmedCallerScreenName.isNilOrEmpty {
-                props["$screen_name"] = name
-            }
         }
-
-        let sdkInfo = context?.sdkInfo()
-        if sdkInfo != nil {
-            props = props.merging(sdkInfo ?? [:]) { current, _ in current }
-        }
-
-        if let sessionId {
-            if propSessionId.isNilOrEmpty {
-                props["$session_id"] = sessionId
-            }
-            // only Session replay requires $window_id, so we set as the same as $session_id.
-            // the backend might fallback to $session_id if $window_id is not present next.
-            #if os(iOS)
-                if !appendSharedProps, isSessionReplayActive() {
-                    props["$window_id"] = sessionId
-                }
-            #endif
-        }
-
-        // only Session Replay needs distinct_id also in the props
-        // remove after https://github.com/PostHog/posthog/issues/23275 gets merged
-        let propDistinctId = properties?["distinct_id"] as? String
-        if !appendSharedProps, propDistinctId == nil || propDistinctId?.isEmpty == true {
-            props["distinct_id"] = distinctId
-        }
-
-        let callerProps = properties ?? [:]
-        props = props.merging(callerProps) { current, _ in current }
-        // Caller-supplied feature-flag properties take precedence over the cached values
-        let callerFlagProps = callerProps.filter { $0.key.hasPrefix("$feature/") || $0.key == "$active_feature_flags" }
-        props = props.merging(callerFlagProps) { _, new in new }
 
         return props
     }

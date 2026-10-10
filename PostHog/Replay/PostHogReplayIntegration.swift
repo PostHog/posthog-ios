@@ -1898,7 +1898,10 @@
             // true (the capturer self-gates on the flag), so gate on the flag too once the config has
             // resolved. js reports DISABLED whenever recording isn't enabled.
             let flagActive = linkedFlagSnapshot?.activated ?? false
-            let recording = enabled && (awaitingConfig || flagActive)
+            // Also mirrors the getter's session check: a backgrounded session timeout clears the id
+            // without stopping the integration (handleSessionChanged ignores a nil id).
+            let hasSession = !(postHog?.sessionManager.getSessionId(readOnly: true)).isNilOrEmpty
+            let recording = enabled && hasSession && (awaitingConfig || flagActive)
 
             // Mirrors isBuffering's minimum-duration branch: only counts when a duration is configured,
             // since hasPassedMinimumDuration never flips otherwise and this would report "buffering"

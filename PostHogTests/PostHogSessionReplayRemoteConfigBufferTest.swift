@@ -542,6 +542,24 @@
             #expect(props["$sdk_debug_replay_capture_mode"] != nil)
         }
 
+        @Test("a cleared session reports disabled, matching isSessionReplayActive()")
+        func clearedSessionReportsDisabled() async throws {
+            let (sut, integration, _) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            await waitUntil { integration.isBuffering == false }
+            #expect(integration.debugProperties()["$recording_status"] as? String == "active")
+            #expect(sut.isSessionReplayActive() == true)
+
+            // Same state a backgrounded session timeout leaves: the session id is cleared while the
+            // integration stays enabled, since the session-change handler ignores a nil id.
+            sut.endSession()
+
+            #expect(sut.isSessionReplayActive() == false)
+            #expect(integration.debugProperties()["$recording_status"] as? String == "disabled")
+        }
+
         @Test(
             "linked flag trigger status reflects whether a linkedFlag is configured and matched",
             arguments: [

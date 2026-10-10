@@ -262,9 +262,10 @@ final class PostHogCaptureV1Test {
                 : HTTPStubsResponse(jsonObject: ["results": [:]], statusCode: 200, headers: nil)
         }
 
-        let result = await send(makeApi(), [PostHogEvent(event: "test", distinctId: "user")])
+        _ = await send(makeApi(), [PostHogEvent(event: "test", distinctId: "user")])
 
-        #expect(result.statusCode == 200)
+        // No check on the result: OHHTTPStubs delivers the 3xx without waiting for the redirect
+        // decision, so the task can end with either response. The redirected request is what counts.
         let requests = server.batchRequests
         try #require(requests.count == 2)
         #expect(requests[1].url?.path == "/moved/i/v1/analytics/events")
@@ -296,22 +297,33 @@ final class PostHogCaptureV1Test {
     }
 
     @Test("stops after 5 redirects")
-    func stopsAfterMaxRedirects() async {
-        // OHHTTPStubs doesn't resolve a relative `Location`; URLSession does before asking the delegate.
-        server.captureV1ResponseHandler = { _, _ in
-            HTTPStubsResponse(data: Data(), statusCode: 307, headers: ["Location": "http://localhost:9001/proxy/i/v1/analytics/events"])
+    func stopsAfterMaxRedirects() throws {
+        // Drives the delegate directly: a stubbed redirect chain races URLSession and can end
+        // the task without a response.
+        let host = try #require(URL(string: "http://localhost:9001"))
+        let url = host.appendingPathComponent("i/v1/analytics/events")
+        var original = URLRequest(url: url)
+        original.setValue("request-id", forHTTPHeaderField: "PostHog-Request-Id")
+        let task = URLSession.shared.dataTask(with: original)
+        let redirect = URLRequest(url: host.appendingPathComponent("proxy/i/v1/analytics/events"))
+        let response = try #require(HTTPURLResponse(url: url, statusCode: 307, httpVersion: nil, headerFields: nil))
+        let handler = PostHogRedirectHandler(host: host, headerKeys: [])
+
+        var followed: [Bool] = []
+        for _ in 0 ... PostHogRedirectHandler.maxCaptureV1Redirects {
+            handler.urlSession(URLSession.shared, task: task, willPerformHTTPRedirection: response, newRequest: redirect) {
+                followed.append($0 != nil)
+            }
         }
 
-        let result = await send(makeApi(), [PostHogEvent(event: "test", distinctId: "user")])
-
-        #expect(result.statusCode == 307)
-        #expect(server.batchRequests.count == PostHogRedirectHandler.maxCaptureV1Redirects + 1)
+        #expect(followed == Array(repeating: true, count: PostHogRedirectHandler.maxCaptureV1Redirects) + [false])
     }
 
     @Test("re-sets the original headers on a followed redirect")
     func redirectResetsHeaders() throws {
         let host = try #require(URL(string: "https://us.i.posthog.com"))
-        var original = URLRequest(url: host.appendingPathComponent("i/v1/analytics/events"))
+        let url = host.appendingPathComponent("i/v1/analytics/events")
+        var original = URLRequest(url: url)
         original.httpMethod = "POST"
         original.setValue("Bearer phc_test", forHTTPHeaderField: "Authorization")
         original.setValue("request-id", forHTTPHeaderField: "PostHog-Request-Id")

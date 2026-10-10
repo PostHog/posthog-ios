@@ -65,6 +65,14 @@ class PostHogApi {
 
     static let flagsRetryDelay: TimeInterval = 0.3
 
+    /// Guards the capture V1 state below. In memory only: a new request ID
+    /// after an app restart is fine, since the server only logs it.
+    private let captureV1Lock = NSLock()
+    private var captureV1PendingRetry: CaptureV1RequestIdentity?
+    // Set when V1 returns 404 so the rest of this session uses `/batch`.
+    // Remove with /batch.
+    private var captureV1Unavailable = false
+
     init(_ config: PostHogConfig) {
         self.config = config
         customRequestHeaders = config.requestHeaders ?? [:]
@@ -86,13 +94,10 @@ class PostHogApi {
         headers["User-Agent"] = "\(postHogSdkName)/\(postHogVersion)"
         headers["Accept-Encoding"] = "gzip"
         sessionConfig.httpAdditionalHeaders = headers
-        // Strip custom headers on cross-host redirects so they don't leak to another origin.
-        if customRequestHeaders.isEmpty {
-            session = URLSession(configuration: sessionConfig)
-        } else {
-            let stripper = PostHogRedirectHeaderStripper(allowedHost: config.host.host, headerKeys: Array(customRequestHeaders.keys))
-            session = URLSession(configuration: sessionConfig, delegate: stripper, delegateQueue: nil)
-        }
+        // Decides each redirect: capture V1 follows only the configured origin, and other
+        // endpoints strip custom headers on cross-host redirects so they don't leak.
+        let redirectHandler = PostHogRedirectHandler(host: config.host, headerKeys: Array(customRequestHeaders.keys))
+        session = URLSession(configuration: sessionConfig, delegate: redirectHandler, delegateQueue: nil)
     }
 
     /// `gzipped: true` adds `Content-Encoding: gzip` for upload endpoints
@@ -120,8 +125,11 @@ class PostHogApi {
     }
 
     /// SDK-managed headers that custom values can't override (compared lowercase).
+    /// `Authorization` stays overridable for proxies on other endpoints; capture
+    /// V1 sets its Bearer token after custom headers, so it always wins there.
     private static let reservedHeaderKeys: Set<String> = [
         "content-type", "user-agent", "accept-encoding", "content-encoding",
+        "posthog-sdk-info", "posthog-attempt", "posthog-request-id", "posthog-request-timestamp",
     ]
 
     private func requestAndPayload(url: URL, data: Data, endpointName: String, httpMethod: String = "POST") -> (URLRequest, Data) {
@@ -184,7 +192,7 @@ class PostHogApi {
         let toSend: [String: Any] = [
             // Wire field name remains api_key, but it carries the PostHog project token.
             "api_key": config.projectToken,
-            "batch": events.map { $0.toJSON() },
+            "batch": events.map(Self.batchJSON),
             "sent_at": toISO8601String(Date()),
         ]
 
@@ -200,6 +208,209 @@ class PostHogApi {
         }.resume()
     }
 
+    /// Whether analytics events still go to capture V1 this session.
+    var usesCaptureV1: Bool {
+        captureV1Lock.withLock { !captureV1Unavailable }
+    }
+
+    /// POSTs analytics events to capture V1 (`/i/v1/analytics/events`).
+    ///
+    /// The completion's `retryRecordIds` holds the UUIDs of events a 200 asked
+    /// to retry. A 404 resends the batch through `/batch` and keeps using it for
+    /// the rest of the session.
+    func captureV1(events: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {
+        guard usesCaptureV1 else {
+            return batch(events: events, completion: completion)
+        }
+
+        guard let url = getEndpointURL("/i/v1/analytics/events", relativeTo: config.host) else {
+            hedgeLog("Malformed capture URL error.")
+            return completion(PostHogUploadInfo(statusCode: nil, error: nil))
+        }
+
+        // The server rejects the whole batch with 400 when a UUID repeats.
+        var seenUuids = Set<String>()
+        let uniqueEvents = events.filter { seenUuids.insert($0.uuid.postHogUuidString).inserted }
+        let uuids = uniqueEvents.map(\.uuid.postHogUuidString)
+        let identity = nextCaptureV1Identity(uuids: Set(uuids))
+
+        let toSend: [String: Any] = [
+            "created_at": identity.createdAt,
+            "batch": uniqueEvents.map(Self.captureV1JSON),
+        ]
+
+        guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
+            hedgeLog("Error parsing the capture body")
+            return completion(PostHogUploadInfo(statusCode: nil, error: nil))
+        }
+
+        var (request, payload) = requestAndPayload(url: url, data: data, endpointName: "capture")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(config.projectToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("\(postHogSdkName)/\(postHogVersion)", forHTTPHeaderField: "PostHog-Sdk-Info")
+        request.setValue(String(identity.attempt), forHTTPHeaderField: "PostHog-Attempt")
+        request.setValue(identity.requestId, forHTTPHeaderField: "PostHog-Request-Id")
+        request.setValue(toISO8601String(Date()), forHTTPHeaderField: "PostHog-Request-Timestamp")
+
+        session.uploadTask(with: request, from: payload) { [weak self] data, response, error in
+            processUploadResponse(endpointName: "capture", data: data, response: response, error: error) { info in
+                guard let self else { return completion(info) }
+
+                // iOS-only fallback for hosts without capture V1. Remove with /batch.
+                if info.statusCode == 404 {
+                    let firstFallback = self.captureV1Lock.withLock {
+                        defer { self.captureV1Unavailable = true }
+                        self.captureV1PendingRetry = nil
+                        return !self.captureV1Unavailable
+                    }
+                    if firstFallback {
+                        hedgeLog("Capture V1 returned 404, using /batch for the rest of this session.")
+                    }
+                    return self.batch(events: events, completion: completion)
+                }
+
+                completion(self.captureV1Result(
+                    info, data: data, uuids: uuids, identity: identity, duplicates: events.count - uniqueEvents.count
+                ))
+            }
+        }.resume()
+    }
+
+    /// Reuses the request ID with the next attempt number when `uuids` is the
+    /// set of events the previous request left to retry. Otherwise starts a new
+    /// request at attempt 1.
+    private func nextCaptureV1Identity(uuids: Set<String>) -> CaptureV1RequestIdentity {
+        captureV1Lock.withLock {
+            if let pending = captureV1PendingRetry, pending.uuids == uuids {
+                return CaptureV1RequestIdentity(
+                    uuids: uuids, requestId: pending.requestId, attempt: pending.attempt + 1, createdAt: pending.createdAt
+                )
+            }
+            return CaptureV1RequestIdentity(
+                uuids: uuids, requestId: UUID().postHogUuidString, attempt: 1, createdAt: toISO8601String(Date())
+            )
+        }
+    }
+
+    /// Reads the per-event results of a 2xx and records which events, if any,
+    /// the next request retries under the same identity.
+    private func captureV1Result(
+        _ info: PostHogUploadInfo,
+        data: Data?,
+        uuids: [String],
+        identity: CaptureV1RequestIdentity,
+        duplicates: Int
+    ) -> PostHogUploadInfo {
+        var retryUuids: Set<String> = []
+        // Duplicate UUIDs are dropped before sending.
+        var dropped = duplicates
+
+        if let statusCode = info.statusCode, 200 ... 299 ~= statusCode {
+            // A body without a readable results map counts as delivered, so a
+            // broken success can't loop forever.
+            let results = data.flatMap { fromJSONData($0) }?["results"] as? [String: Any]
+            if results == nil {
+                hedgeLog("Capture returned \(statusCode) without per-event results, treating the batch as delivered.")
+            }
+            // Events missing from the results count as delivered.
+            for uuid in uuids {
+                guard let entry = results?[uuid] as? [String: Any] else { continue }
+                switch entry["result"] as? String {
+                case "retry":
+                    retryUuids.insert(uuid)
+                case "drop":
+                    dropped += 1
+                default:
+                    break
+                }
+            }
+        } else if info.statusCode.map(isCaptureV1RetriableStatusCode) ?? true {
+            // No response or a retriable status: the whole batch is resent.
+            retryUuids = Set(uuids)
+        }
+
+        // Counts only: event UUIDs and server details can identify users.
+        if dropped > 0 || !retryUuids.isEmpty {
+            hedgeLog("Capture: \(dropped) dropped, \(retryUuids.count) to retry.")
+        }
+
+        captureV1Lock.withLock {
+            captureV1PendingRetry = retryUuids.isEmpty ? nil : CaptureV1RequestIdentity(
+                uuids: retryUuids, requestId: identity.requestId, attempt: identity.attempt, createdAt: identity.createdAt
+            )
+        }
+
+        return PostHogUploadInfo(
+            statusCode: info.statusCode,
+            error: info.error,
+            retryAfter: info.retryAfter,
+            retryRecordIds: info.statusCode.map { 200 ... 299 ~= $0 } == true ? retryUuids : nil
+        )
+    }
+
+    /// Legacy properties and the capture V1 option each one fills, in the
+    /// order posthog-python, posthog-go and posthog-rs use.
+    static let legacyOptionProperties: [(property: String, option: String)] = [
+        ("$cookieless_mode", "cookieless_mode"),
+        ("$ignore_sent_at", "disable_skew_correction"),
+        ("$product_tour_id", "product_tour_id"),
+        ("$process_person_profile", "process_person_profile"),
+    ]
+
+    /// Shapes a stored event for `/batch`, which has no options: each option
+    /// goes back into its legacy property and wins over it. Remove with /batch.
+    private static func batchJSON(_ event: PostHogEvent) -> [String: Any] {
+        var json = event.toJSON()
+        guard let options = json.removeValue(forKey: "options") as? [String: Any] else { return json }
+        var properties = event.properties
+        for (property, option) in legacyOptionProperties {
+            if let value = options[option], !(value is NSNull) {
+                properties[property] = value
+            }
+        }
+        json["properties"] = properties
+        return json
+    }
+
+    /// Shapes a stored event for capture V1. `$session_id` and `$window_id`
+    /// move to the event root, and `$lib`/`$lib_version` are dropped because
+    /// the server reads them from `PostHog-Sdk-Info`.
+    ///
+    /// Legacy option properties are hoisted here, after `beforeSend`, so events
+    /// queued by older versions are hoisted too. Each is always removed from
+    /// properties and fills its option only when the option is missing or null.
+    /// Values aren't coerced: the server validates them.
+    private static func captureV1JSON(_ event: PostHogEvent) -> [String: Any] {
+        var properties = event.properties
+        properties.removeValue(forKey: "$lib")
+        properties.removeValue(forKey: "$lib_version")
+
+        var options = event.options
+        for (property, option) in legacyOptionProperties {
+            guard let legacy = properties.removeValue(forKey: property) else { continue }
+            if options[option] == nil || options[option] is NSNull {
+                options[option] = legacy
+            }
+        }
+
+        var json: [String: Any] = [
+            "event": event.event,
+            "uuid": event.uuid.postHogUuidString,
+            "distinct_id": event.distinctId,
+            "timestamp": toISO8601String(event.timestamp),
+        ]
+        // Always removed from properties; only a non-empty string is sent at the root.
+        if let sessionId = properties.removeValue(forKey: "$session_id") as? String, !sessionId.isEmpty {
+            json["session_id"] = sessionId
+        }
+        if let windowId = properties.removeValue(forKey: "$window_id") as? String, !windowId.isEmpty {
+            json["window_id"] = windowId
+        }
+        json["options"] = options
+        json["properties"] = properties
+        return json
+    }
+
     func snapshot(events: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {
         guard let url = getEndpointURL(config.snapshotEndpoint, relativeTo: config.host) else {
             hedgeLog("Malformed snapshot URL error.")
@@ -210,7 +421,12 @@ class PostHogApi {
             event.projectToken = config.projectToken
         }
 
-        let toSend = events.map { $0.toJSON() }
+        // Options are an analytics capture field; replay doesn't send them.
+        let toSend = events.map { event -> [String: Any] in
+            var json = event.toJSON()
+            json.removeValue(forKey: "options")
+            return json
+        }
 
         guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
             hedgeLog("Error parsing the snapshot body")
@@ -554,24 +770,47 @@ extension PostHogApi {
     }()
 }
 
-/// Strips custom headers on redirects that leave the configured host.
-private final class PostHogRedirectHeaderStripper: NSObject, URLSessionTaskDelegate {
-    private let allowedHost: String?
-    private let headerKeys: [String]
+/// Session delegate that decides every redirect.
+///
+/// Capture V1 requests follow only a 307 or 308 to the origin of `config.host`, at most
+/// `maxCaptureV1Redirects` times, with the original headers re-set. URLSession would otherwise
+/// drop `Authorization`, resend the batch to another host, or turn a 302 into a body-less GET.
+/// Any other redirect is not followed, so its 3xx is the response. Other requests follow
+/// redirects but lose the custom headers when they leave the configured host.
+final class PostHogRedirectHandler: NSObject, URLSessionTaskDelegate {
+    static let maxCaptureV1Redirects = 5
 
-    init(allowedHost: String?, headerKeys: [String]) {
-        self.allowedHost = allowedHost
+    private let host: URL
+    private let headerKeys: [String]
+    private let lock = NSLock()
+    // Redirects followed per capture task. Weak keys drop finished tasks.
+    private let captureV1Hops = NSMapTable<URLSessionTask, NSNumber>.weakToStrongObjects()
+
+    init(host: URL, headerKeys: [String]) {
+        self.host = host
         self.headerKeys = headerKeys
     }
 
     func urlSession(
         _: URLSession,
-        task _: URLSessionTask,
-        willPerformHTTPRedirection _: HTTPURLResponse,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
         newRequest request: URLRequest,
         completionHandler: @escaping (URLRequest?) -> Void
     ) {
-        guard request.url?.host != allowedHost else {
+        if let original = task.originalRequest, Self.isCaptureV1(original) {
+            let hop = lock.withLock { () -> Int in
+                let hop = (captureV1Hops.object(forKey: task)?.intValue ?? 0) + 1
+                captureV1Hops.setObject(NSNumber(value: hop), forKey: task)
+                return hop
+            }
+            completionHandler(Self.captureV1Redirect(
+                original: original, statusCode: response.statusCode, newRequest: request, host: host, hop: hop
+            ))
+            return
+        }
+
+        guard request.url?.host != host.host else {
             completionHandler(request)
             return
         }
@@ -581,4 +820,52 @@ private final class PostHogRedirectHeaderStripper: NSObject, URLSessionTaskDeleg
         }
         completionHandler(redirected)
     }
+
+    /// Capture V1 requests are the only ones that carry `PostHog-Request-Id`,
+    /// which custom headers can't set.
+    static func isCaptureV1(_ request: URLRequest) -> Bool {
+        request.value(forHTTPHeaderField: "PostHog-Request-Id") != nil
+    }
+
+    /// The request to follow for the `hop`th redirect of a capture V1 request, or `nil` to stop
+    /// and return the 3xx.
+    static func captureV1Redirect(
+        original: URLRequest,
+        statusCode: Int,
+        newRequest: URLRequest,
+        host: URL,
+        hop: Int
+    ) -> URLRequest? {
+        guard [307, 308].contains(statusCode),
+              hop <= maxCaptureV1Redirects,
+              let target = newRequest.url,
+              let targetOrigin = origin(target),
+              targetOrigin == origin(host)
+        else {
+            hedgeLog("Capture did not follow a \(statusCode) redirect.")
+            return nil
+        }
+        var redirected = newRequest
+        redirected.httpMethod = original.httpMethod
+        // Same origin, so every original header is safe to resend.
+        for (key, value) in original.allHTTPHeaderFields ?? [:] {
+            redirected.setValue(value, forHTTPHeaderField: key)
+        }
+        return redirected
+    }
+
+    private static func origin(_ url: URL) -> String? {
+        guard let scheme = url.scheme?.lowercased(), let host = url.host?.lowercased() else { return nil }
+        let port = url.port ?? (scheme == "https" ? 443 : 80)
+        return "\(scheme)://\(host):\(port)"
+    }
+}
+
+/// Identity of a capture V1 request, kept so a retry of the same events reuses
+/// `PostHog-Request-Id` and `created_at` with an incremented `PostHog-Attempt`.
+private struct CaptureV1RequestIdentity {
+    let uuids: Set<String>
+    let requestId: String
+    let attempt: Int
+    let createdAt: String
 }

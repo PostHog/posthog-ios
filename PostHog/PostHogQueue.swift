@@ -154,11 +154,7 @@ class PostHogQueue<Record> {
         let isRetriable = statusCode == -1 || endpoint.isRetriableStatusCode(statusCode)
 
         if isRetriable {
-            let newCount = nextRetryCount()
-            let backoffDelay = min(TimeInterval(newCount) * retryDelay, maxRetryDelay)
-            let delay = max(backoffDelay, result.retryAfter ?? 0)
-            pauseFor(seconds: delay)
-            hedgeLog("Pausing queue consumption for \(delay) seconds due to \(newCount) API failure(s).")
+            pauseForBackoff(retryAfter: result.retryAfter)
             payload.completion(false)
             return
         }
@@ -185,10 +181,27 @@ class PostHogQueue<Record> {
             return
         }
 
+        // A 2xx that asks to retry some records (capture V1) removes the rest
+        // and backs off before resending the kept ones.
+        if let retryRecordIds = result.retryRecordIds, !retryRecordIds.isEmpty {
+            pauseForBackoff(retryAfter: result.retryAfter)
+            payload.completeKeeping(retryRecordIds)
+            return
+        }
+
         // 2xx success or a terminal response removes the exact snapshotted
         // entries. The adaptive cap stays where it is.
         resetRetryState()
         payload.completion(true)
+    }
+
+    private func pauseForBackoff(retryAfter: TimeInterval?) {
+        let newCount = nextRetryCount()
+        let backoffDelay = min(TimeInterval(newCount) * retryDelay, maxRetryDelay)
+        // A server's Retry-After can't hold the queue longer than the backoff ceiling.
+        let delay = max(backoffDelay, min(retryAfter ?? 0, maxRetryDelay))
+        pauseFor(seconds: delay)
+        hedgeLog("Pausing queue consumption for \(delay) seconds due to \(newCount) API failure(s).")
     }
 
     private func nextRetryCount() -> Int {
@@ -446,6 +459,8 @@ class PostHogQueue<Record> {
 
         var processing: [Record] = []
         var selectedIds: [String] = []
+        // Entry ID -> `endpoint.recordId`, for removing all but retried records.
+        var recordIds: [String: String] = [:]
         var next = start
         while next < entries.count {
             let entry = entries[next]
@@ -457,13 +472,19 @@ class PostHogQueue<Record> {
                     break
                 }
                 processing.append(record)
+                recordIds[entry.id] = endpoint.recordId?(record)
             }
             selectedIds.append(entry.id)
             next += 1
         }
         let nextIndex = next
 
-        completion(PostHogConsumerPayload(records: processing) { [weak self] success in
+        let finishFlush: () -> Void = { [weak self] in
+            guard let self else { return }
+            self.isFlushingLock.withLock { self.isFlushing = false }
+        }
+
+        completion(PostHogConsumerPayload(records: processing, completion: { [weak self] success in
             guard let self else { return }
             if success, !selectedIds.isEmpty {
                 self.fileQueue.remove(ids: selectedIds)
@@ -475,9 +496,19 @@ class PostHogQueue<Record> {
                     self?.consume(entries, from: nextIndex, completion: completion)
                 }
             } else {
-                self.isFlushingLock.withLock { self.isFlushing = false }
+                finishFlush()
             }
-        })
+        }, completeKeeping: { [weak self] keepRecordIds in
+            guard let self else { return }
+            let delivered = selectedIds.filter { id in
+                recordIds[id].map { !keepRecordIds.contains($0) } ?? true
+            }
+            if !delivered.isEmpty {
+                self.fileQueue.remove(ids: delivered)
+            }
+            hedgeLog("Completed \(delivered.count) of \(selectedIds.count) records, keeping the rest for retry.")
+            finishFlush()
+        }))
     }
 
     #if !os(watchOS)
@@ -536,6 +567,10 @@ class PostHogQueue<Record> {
 
         var currentRetryCountForTesting: Int {
             stateLock.withLock { retryCount }
+        }
+
+        var pausedUntilForTesting: Date? {
+            stateLock.withLock { pausedUntil }
         }
     }
 #endif

@@ -101,6 +101,7 @@ final class PostHogQueueTest {
             encode: base.encode,
             decode: base.decode,
             describe: base.describe,
+            recordId: base.recordId,
             send: { events, completion in
                 let send = sender?.send ?? base.send
                 send(events) { result in
@@ -311,8 +312,27 @@ final class PostHogQueueTest {
         sut.clear()
     }
 
-    @Test("retains batch on HTTP 429 and does not change cap")
-    func retainsBatchOnHTTP429AndDoesNotChangeCap() async {
+    @Test("caps Retry-After at the maximum retry delay", arguments: [("5", 5.0), ("3600", maxRetryDelay)])
+    func capsRetryAfter(retryAfter: String, expectedDelay: TimeInterval) async throws {
+        try await withMockedClock { clock in
+            let uploaded = AsyncLatch()
+            let sut = getSut(flushAt: 100) { uploaded.signal() }
+            server.batchResponseHandler = { _, _ in
+                HTTPStubsResponse(jsonObject: [], statusCode: 503, headers: ["Retry-After": retryAfter])
+            }
+
+            sut.add(PostHogEvent(event: "event", distinctId: "id"))
+            sut.flush()
+            await expectSignaled(uploaded)
+
+            let pausedUntil = try #require(sut.pausedUntilForTesting)
+            #expect(abs(pausedUntil.timeIntervalSince(clock.date) - expectedDelay) < 0.001)
+            sut.clear()
+        }
+    }
+
+    @Test("pops batch on HTTP 429 (terminal for capture V1) and does not change cap")
+    func popsBatchOnHTTP429AndDoesNotChangeCap() async {
         let sut = getSut(flushAt: 2, maxBatchSize: 4)
         server.batchResponseHandler = { _, _ in
             HTTPStubsResponse(jsonObject: [], statusCode: 429, headers: nil)
@@ -323,7 +343,7 @@ final class PostHogQueueTest {
 
         _ = getBatchedEvents(server)
 
-        await expectEventually({ sut.depth }, 2)
+        await expectEventually({ sut.depth }, 0)
         await expectEventually({ sut.currentBatchCapForTesting }, 4)
 
         sut.clear()
@@ -649,6 +669,7 @@ struct PostHogQueueUploadDispositionTest {
             encode: base.encode,
             decode: base.decode,
             describe: base.describe,
+            recordId: base.recordId,
             canBatchTogether: base.canBatchTogether,
             send: sender.send,
             isRetriableStatusCode: base.isRetriableStatusCode
@@ -680,7 +701,8 @@ struct PostHogQueueUploadDispositionTest {
             sender.completeRequest(at: 0, with: $0)
         }
 
-        let retryable = [-1, 408, 429, 503].contains(statusCode)
+        // 429 is terminal for capture V1 (events) but retried by /snapshot.
+        let retryable = [-1, 408, 503].contains(statusCode) || (snapshot && statusCode == 429)
         let expectedIds = retryable ? allIds : allIds.filter { !sentIds.contains($0) }
         #expect(queue.fileQueue.peekEntries(2).map(\.id) == expectedIds)
         #expect(queue.currentRetryCountForTesting == (retryable ? 1 : 0))

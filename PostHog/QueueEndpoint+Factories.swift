@@ -5,15 +5,22 @@
 
 import Foundation
 
-/// Retry policy shared by `/batch` (events) and `/snapshot` (replay): 408, 429,
+/// Retry policy shared by `/batch` (events fallback) and `/snapshot` (replay): 408, 429,
 /// the listed 5xx, plus 3xx redirects.
 private func isEventsRetriableStatusCode(_ code: Int) -> Bool {
     [408, 429, 500, 502, 503, 504].contains(code)
         || (300 ... 399).contains(code)
 }
 
+/// Capture V1 retry policy: 408 and the listed 5xx. Everything else, including
+/// 429 and 3xx, is terminal; 413 is handled by the queue's batch halving.
+func isCaptureV1RetriableStatusCode(_ code: Int) -> Bool {
+    [408, 500, 502, 503, 504].contains(code)
+}
+
 extension QueueEndpoint where Record == PostHogEvent {
-    /// `/batch` endpoint for analytics events.
+    /// Analytics events endpoint: capture V1 (`/i/v1/analytics/events`), or
+    /// `/batch` after V1 returned 404 this session.
     static func batch(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
         QueueEndpoint<PostHogEvent>(
             storageKey: .queue,
@@ -28,10 +35,14 @@ extension QueueEndpoint where Record == PostHogEvent {
             encode: { event in toJSONData(event.toJSON()) },
             decode: { data in PostHogEvent.fromJSON(data) },
             describe: { event in "event '\(event.event)'" },
+            recordId: { event in event.uuid.postHogUuidString },
             send: { events, completion in
-                api.batch(events: events, completion: completion)
+                api.captureV1(events: events, completion: completion)
             },
-            isRetriableStatusCode: isEventsRetriableStatusCode
+            isRetriableStatusCode: { code in
+                // The /batch fallback keeps the /batch policy. Remove with /batch.
+                api.usesCaptureV1 ? isCaptureV1RetriableStatusCode(code) : isEventsRetriableStatusCode(code)
+            }
         )
     }
 

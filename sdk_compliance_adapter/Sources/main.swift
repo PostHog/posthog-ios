@@ -53,11 +53,10 @@ app.get("health") { req async throws -> Response in
         "sdk_name": postHogSdkName,
         "sdk_version": postHogVersion,
         "adapter_version": "1.0.0",
-        // Declares which test suites apply. The iOS SDK posts events to /batch
-        // (capture_v0) with gzip; it does not implement the /i/v1/e capture_v1
-        // protocol. Without this, the harness skips the capability-gated capture
-        // suites entirely.
-        "capabilities": ["capture_v0", "encoding_gzip"],
+        // Declares which test suites apply. The iOS SDK posts events to
+        // /i/v1/analytics/events (capture_v1) with gzip. Without this, the
+        // harness skips the capability-gated capture suites entirely.
+        "capabilities": ["capture_v1", "encoding_gzip", "event_options"],
     ]
 
     print("[ADAPTER] GET /health")
@@ -72,6 +71,8 @@ app.post("init") { req async throws -> Response in
         let flushAt: Int?
         let flushIntervalMs: Int?
         let maxRetries: Int?
+        let enableCompression: Bool?
+        let disableGeoip: Bool?
 
         enum CodingKeys: String, CodingKey {
             // Wire field name remains api_key, but it carries the PostHog project token.
@@ -80,6 +81,8 @@ app.post("init") { req async throws -> Response in
             case flushAt = "flush_at"
             case flushIntervalMs = "flush_interval_ms"
             case maxRetries = "max_retries"
+            case enableCompression = "enable_compression"
+            case disableGeoip = "disable_geoip"
         }
     }
 
@@ -116,6 +119,10 @@ app.post("init") { req async throws -> Response in
     let defaultFlushIntervalMs = config.flushAt > 1 ? 5000 : 500
     config.flushIntervalSeconds = TimeInterval(initReq.flushIntervalMs ?? defaultFlushIntervalMs) / 1000.0
     config.maxRetries = initReq.maxRetries ?? config.maxRetries
+    if initReq.enableCompression == false {
+        config.compression = .none
+    }
+    config.disableGeoIp = initReq.disableGeoip ?? config.disableGeoIp
 
     // Disable features for testing
     config.captureApplicationLifecycleEvents = false
@@ -155,11 +162,13 @@ app.post("capture") { req async throws -> Response in
         let event: String
         let distinctId: String?
         let properties: [String: AnyCodable]?
+        let options: [String: AnyCodable]?
 
         enum CodingKeys: String, CodingKey {
             case event
             case distinctId = "distinct_id"
             case properties
+            case options
         }
     }
 
@@ -180,7 +189,12 @@ app.post("capture") { req async throws -> Response in
 
     // Capture the event with distinct_id parameter (don't use identify())
     // This ensures the distinct_id is set for THIS event, not globally
-    sdk.capture(captureReq.event, distinctId: captureReq.distinctId, properties: props)
+    sdk.capture(
+        captureReq.event,
+        distinctId: captureReq.distinctId,
+        properties: props,
+        options: captureReq.options?.mapValues(\.value)
+    )
 
     print("[ADAPTER] Event captured: \(captureReq.event)")
 

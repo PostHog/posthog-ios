@@ -131,6 +131,9 @@ let maxRetryDelay = 30.0
         }
 
         private weak var surveysIntegration: PostHogSurveyIntegration?
+        /// Whether `optIn()` may start session replay: false when it wasn't recording at `optOut()`
+        /// (e.g. the app stopped it), so consent doesn't override that. Guarded by `setupLock`.
+        private var startSessionRecordingOnOptIn = true
     #endif
 
     // nonisolated(unsafe) is introduced in Swift 5.10
@@ -2782,7 +2785,19 @@ let maxRetryDelay = 30.0
         }
 
         setupLock.withLock {
+            #if os(iOS)
+                // Replay restarts in a new session (a no-op under React Native, which owns the session id)
+                if config.sessionReplay, startSessionRecordingOnOptIn {
+                    sessionManager.startSession()
+                }
+            #endif
             installIntegrations()
+            #if os(iOS)
+                // install() starts recording; undo it if the app had stopped replay before opting out
+                if !startSessionRecordingOnOptIn {
+                    replayIntegration?.stop()
+                }
+            #endif
             // Start the buffer for this run, then notify the freshly installed crash writer of the
             // current context and any buffered steps (the buffer survives opt-out, so steps may exist).
             createExceptionStepsBufferIfNeeded()
@@ -2833,6 +2848,9 @@ let maxRetryDelay = 30.0
         pushSubscriptionHandler?.onOptOut()
 
         setupLock.withLock {
+            #if os(iOS)
+                startSessionRecordingOnOptIn = replayIntegration?.isActive() ?? true
+            #endif
             uninstallIntegrations()
         }
     }

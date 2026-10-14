@@ -13,11 +13,15 @@
             let owner: ObjectIdentifier
             let object: AnyObject
             let rect: CGRect
+            /// Whether GPU capture may mask it in its mirror instead of painting the rect: false when the object doesn't
+            /// own the pixels the rect covers (a `postHogMask()` reporter, a whole portal).
+            let inlineEligible: Bool
 
-            init(_ object: AnyObject, rect: CGRect) {
+            init(_ object: AnyObject, rect: CGRect, inlineEligible: Bool = true) {
                 owner = ObjectIdentifier(object)
                 self.object = object
                 self.rect = rect
+                self.inlineEligible = inlineEligible
             }
 
             init(_ view: UIView, in window: UIWindow?) {

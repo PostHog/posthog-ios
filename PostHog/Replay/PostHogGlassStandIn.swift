@@ -232,7 +232,7 @@
         }
 
         /// SwiftUI's glass shapes have no view of their own, so their traits (dark mode) come from the nearest one above.
-        private static func nearestView(of layer: CALayer) -> UIView? {
+        static func nearestView(of layer: CALayer) -> UIView? {
             var current: CALayer? = layer
             while let candidate = current {
                 if let view = candidate.delegate as? UIView { return view }

@@ -27,6 +27,8 @@
 
          Use this modifier to prevent views from being masked in session replay recordings.
 
+         Note: for `.drawingGroup()` or `Canvas` content, apply this modifier to the group itself.
+
          For example:
          ```swift
          // This view may be accidentally masked by PostHog SDK

@@ -33,7 +33,7 @@
                     questionDescription: translation?.description ?? question.description,
                     questionDescriptionContentType: question.descriptionContentType?.toDisplayContentType(),
                     isOptional: question.optional ?? false,
-                    buttonText: translation?.buttonText ?? question.buttonText
+                    buttonText: (translation?.buttonText).nonBlank ?? question.buttonText.nonBlank
                 )
 
             case let .link(question):
@@ -43,7 +43,7 @@
                     questionDescription: translation?.description ?? question.description,
                     questionDescriptionContentType: question.descriptionContentType?.toDisplayContentType(),
                     isOptional: question.optional ?? false,
-                    buttonText: translation?.buttonText ?? question.buttonText,
+                    buttonText: (translation?.buttonText).nonBlank ?? question.buttonText.nonBlank,
                     link: translation?.link ?? question.link ?? ""
                 )
 
@@ -54,7 +54,7 @@
                     questionDescription: translation?.description ?? question.description,
                     questionDescriptionContentType: question.descriptionContentType?.toDisplayContentType(),
                     isOptional: question.optional ?? false,
-                    buttonText: translation?.buttonText ?? question.buttonText,
+                    buttonText: (translation?.buttonText).nonBlank ?? question.buttonText.nonBlank,
                     ratingType: question.display.toDisplayRatingType(),
                     scaleLowerBound: question.scale.range.lowerBound,
                     scaleUpperBound: question.scale.range.upperBound,
@@ -70,7 +70,7 @@
                     questionDescription: translation?.description ?? question.description,
                     questionDescriptionContentType: question.descriptionContentType?.toDisplayContentType(),
                     isOptional: question.optional ?? false,
-                    buttonText: translation?.buttonText ?? question.buttonText,
+                    buttonText: (translation?.buttonText).nonBlank ?? question.buttonText.nonBlank,
                     choices: translation?.choices ?? question.choices,
                     hasOpenChoice: question.hasOpenChoice ?? false,
                     shuffleOptions: question.shuffleOptions ?? false,
@@ -116,7 +116,7 @@
                 backgroundColor: backgroundColor,
                 borderColor: borderColor,
                 submitButtonColor: submitButtonColor,
-                submitButtonText: submitButtonText,
+                submitButtonText: submitButtonText.nonBlank,
                 submitButtonTextColor: submitButtonTextColor,
                 textColor: textColor,
                 descriptionTextColor: descriptionTextColor,
@@ -130,12 +130,12 @@
                 thankYouMessageHeader: translation?.thankYouMessageHeader ?? thankYouMessageHeader,
                 thankYouMessageDescription: translation?.thankYouMessageDescription ?? thankYouMessageDescription,
                 thankYouMessageDescriptionContentType: thankYouMessageDescriptionContentType?.toDisplayContentType(),
-                thankYouMessageCloseButtonText: translation?.thankYouMessageCloseButtonText ?? thankYouMessageCloseButtonText,
+                thankYouMessageCloseButtonText: (translation?.thankYouMessageCloseButtonText).nonBlank ?? thankYouMessageCloseButtonText.nonBlank,
                 displayIntroScreen: displayIntroScreen ?? false,
                 introScreenHeader: translation?.introScreenHeader ?? introScreenHeader,
                 introScreenDescription: translation?.introScreenDescription ?? introScreenDescription,
                 introScreenDescriptionContentType: introScreenDescriptionContentType?.toDisplayContentType(),
-                introScreenButtonText: translation?.introScreenButtonText ?? introScreenButtonText
+                introScreenButtonText: (translation?.introScreenButtonText).nonBlank ?? introScreenButtonText.nonBlank
             )
         }
     }

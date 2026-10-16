@@ -50,6 +50,18 @@
         return nil
     }
 
+    extension Optional where Wrapped == String {
+        /// A blank button label is treated as unset, so the next fallback applies.
+        var nonBlank: String? {
+            guard let value = self,
+                  !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                return nil
+            }
+            return value
+        }
+    }
+
     /// Finds the best matching translation key in `translations` for `targetLanguage`.
     ///
     /// Matching is case-insensitive. If no exact match is found and the target contains a
@@ -147,14 +159,14 @@
            header != appearance?.thankYouMessageHeader { return true }
         if let description = translation.thankYouMessageDescription,
            description != appearance?.thankYouMessageDescription { return true }
-        if let closeText = translation.thankYouMessageCloseButtonText,
-           closeText != appearance?.thankYouMessageCloseButtonText { return true }
+        if let closeText = translation.thankYouMessageCloseButtonText.nonBlank,
+           closeText != (appearance?.thankYouMessageCloseButtonText).nonBlank { return true }
         if let header = translation.introScreenHeader,
            header != appearance?.introScreenHeader { return true }
         if let description = translation.introScreenDescription,
            description != appearance?.introScreenDescription { return true }
-        if let buttonText = translation.introScreenButtonText,
-           buttonText != appearance?.introScreenButtonText { return true }
+        if let buttonText = translation.introScreenButtonText.nonBlank,
+           buttonText != (appearance?.introScreenButtonText).nonBlank { return true }
         return false
     }
 
@@ -164,7 +176,7 @@
     ) -> Bool {
         if let translated = translation.question, translated != question.question { return true }
         if let translated = translation.description, translated != question.description { return true }
-        if let translated = translation.buttonText, translated != question.buttonText { return true }
+        if let translated = translation.buttonText.nonBlank, translated != question.buttonText.nonBlank { return true }
 
         switch question {
         case let .link(link):

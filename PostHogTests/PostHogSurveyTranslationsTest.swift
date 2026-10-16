@@ -999,6 +999,141 @@
                 #expect(display.appearance?.displayIntroScreen == true)
                 #expect(display.appearance?.introScreenHeader == "Welcome!")
             }
+
+            @Test("blank translated button text falls back instead of rendering an empty label", arguments: ["", "   "])
+            func blankTranslatedButtonTextFallsBack(blank: String) throws {
+                let survey = try decodeButtonTextSurvey(
+                    baseButtonText: "\"Send\"",
+                    translatedButtonText: "\"\(blank)\"",
+                    baseCloseText: "\"Done\"",
+                    translatedCloseText: "\"\(blank)\"",
+                    baseIntroText: "\"Start\"",
+                    translatedIntroText: "\"\(blank)\""
+                )
+                let resolved = resolveSurveyTranslations(survey: survey, targetLanguage: "ja")
+                let display = survey.toDisplaySurvey(
+                    surveyTranslation: resolved.survey,
+                    questionTranslations: resolved.questions
+                )
+
+                #expect(display.questions[0].question == "translated question")
+                #expect(display.questions[0].buttonText == "Send")
+                #expect(display.appearance?.thankYouMessageHeader == "translated header")
+                #expect(display.appearance?.thankYouMessageCloseButtonText == "Done")
+                #expect(display.appearance?.introScreenButtonText == "Start")
+            }
+
+            @Test("blank button text everywhere resolves to nil so the default label applies")
+            func blankButtonTextEverywhereIsNil() throws {
+                let survey = try decodeButtonTextSurvey(
+                    baseButtonText: nil,
+                    translatedButtonText: "\"\"",
+                    baseCloseText: "\"\"",
+                    translatedCloseText: "\"\"",
+                    baseIntroText: nil,
+                    translatedIntroText: "\"\"",
+                    submitButtonText: "\"\""
+                )
+                let resolved = resolveSurveyTranslations(survey: survey, targetLanguage: "ja")
+                let display = survey.toDisplaySurvey(
+                    surveyTranslation: resolved.survey,
+                    questionTranslations: resolved.questions
+                )
+
+                #expect(display.questions[0].buttonText == nil)
+                #expect(display.appearance?.submitButtonText == nil)
+                #expect(display.appearance?.thankYouMessageCloseButtonText == nil)
+                #expect(display.appearance?.introScreenButtonText == nil)
+            }
+
+            @Test("translated button text still wins when it is not blank")
+            func translatedButtonTextWins() throws {
+                let survey = try decodeButtonTextSurvey(
+                    baseButtonText: "\"Send\"",
+                    translatedButtonText: "\"translated send\"",
+                    baseCloseText: "\"Done\"",
+                    translatedCloseText: "\"translated done\"",
+                    baseIntroText: "\"Start\"",
+                    translatedIntroText: "\"translated start\""
+                )
+                let resolved = resolveSurveyTranslations(survey: survey, targetLanguage: "ja")
+                let display = survey.toDisplaySurvey(
+                    surveyTranslation: resolved.survey,
+                    questionTranslations: resolved.questions
+                )
+
+                #expect(display.questions[0].buttonText == "translated send")
+                #expect(display.appearance?.thankYouMessageCloseButtonText == "translated done")
+                #expect(display.appearance?.introScreenButtonText == "translated start")
+            }
+
+            @Test("a translation that only blanks button labels is a no-op")
+            func blankOnlyTranslationIsNoop() throws {
+                let survey = try decodeButtonTextSurvey(
+                    baseButtonText: "\"Send\"",
+                    translatedButtonText: "\"\"",
+                    baseCloseText: "\"Done\"",
+                    translatedCloseText: "\"\"",
+                    baseIntroText: "\"Start\"",
+                    translatedIntroText: "\"\"",
+                    translateOtherFields: false
+                )
+                let resolved = resolveSurveyTranslations(survey: survey, targetLanguage: "ja")
+
+                #expect(resolved.matchedKey == nil)
+                #expect(resolved.survey == nil)
+                #expect(resolved.questions.allSatisfy { $0 == nil })
+            }
+
+            /// Each argument is a raw JSON value (a quoted string), or `nil` to omit the key.
+            private func decodeButtonTextSurvey(
+                baseButtonText: String?,
+                translatedButtonText: String?,
+                baseCloseText: String?,
+                translatedCloseText: String?,
+                baseIntroText: String?,
+                translatedIntroText: String?,
+                submitButtonText: String? = nil,
+                translateOtherFields: Bool = true
+            ) throws -> PostHogSurvey {
+                func field(_ key: String, _ value: String?) -> String {
+                    value.map { ", \"\(key)\": \($0)" } ?? ""
+                }
+                let translatedQuestion = translateOtherFields ? "translated question" : "base question"
+                let translatedHeader = translateOtherFields ? "translated header" : "base header"
+                let appearanceButtons = field("submitButtonText", submitButtonText)
+                    + field("thankYouMessageCloseButtonText", baseCloseText)
+                    + field("introScreenButtonText", baseIntroText)
+                let translatedButtons = field("thankYouMessageCloseButtonText", translatedCloseText)
+                    + field("introScreenButtonText", translatedIntroText)
+                let json = """
+                {
+                    "id": "button-text-survey",
+                    "name": "Hello",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "q1",
+                            "type": "open",
+                            "question": "base question"\(field("buttonText", baseButtonText)),
+                            "translations": {
+                                "ja": { "question": "\(translatedQuestion)"\(field("buttonText", translatedButtonText)) }
+                            }
+                        }
+                    ],
+                    "appearance": {
+                        "thankYouMessageHeader": "base header"\(appearanceButtons)
+                    },
+                    "translations": {
+                        "ja": {
+                            "thankYouMessageHeader": "\(translatedHeader)"\(translatedButtons)
+                        }
+                    },
+                    "start_date": "2025-01-16T22:23:38.805000Z"
+                }
+                """
+                return try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: Data(json.utf8))
+            }
         }
     }
 

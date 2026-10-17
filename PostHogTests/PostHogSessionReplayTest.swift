@@ -16,9 +16,9 @@
             server.stop()
         }
 
-        private func getSut() -> PostHogSDK {
+        private func getSut(sessionReplay: Bool = false) -> PostHogSDK {
             let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
-            config.sessionReplay = false
+            config.sessionReplay = sessionReplay
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
             config.disableFlushOnBackgroundForTesting = true
@@ -69,6 +69,40 @@
             sut.optIn()
             sut.startSessionRecording()
             #expect(sut.isSessionReplayActive())
+        }
+
+        @Test("Opt-in restarts session replay in a new session")
+        func optInRestartsReplayInNewSession() async throws {
+            let sut = getSut(sessionReplay: true)
+            let storageURL = applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken)
+            defer {
+                sut.close()
+                deleteSafely(storageURL)
+            }
+            #expect(sut.isSessionReplayActive())
+            let sessionId = sut.getSessionId()
+
+            sut.optOut()
+            sut.optIn()
+
+            #expect(sut.isSessionReplayActive())
+            #expect(sut.getSessionId() != sessionId)
+        }
+
+        @Test("Opt-in does not restart session replay the app stopped")
+        func optInKeepsStoppedReplayStopped() async throws {
+            let sut = getSut(sessionReplay: true)
+            let storageURL = applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken)
+            defer {
+                sut.close()
+                deleteSafely(storageURL)
+            }
+            sut.stopSessionRecording()
+
+            sut.optOut()
+            sut.optIn()
+
+            #expect(!sut.isSessionReplayActive())
         }
     }
 #endif

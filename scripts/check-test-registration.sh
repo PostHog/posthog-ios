@@ -9,6 +9,9 @@ cd "$(dirname "$0")/.."
 project="PostHog.xcodeproj/project.pbxproj"
 
 [[ -f "$project" ]] || { echo "error: $project not found" >&2; exit 1; }
+for dir in PostHogTests PostHogTestsObjC; do
+    [[ -d "$dir" ]] || { echo "error: $dir/ not found" >&2; exit 1; }
+done
 
 checked=0
 missing=()

@@ -1,5 +1,3 @@
-// swiftlint:disable cyclomatic_complexity
-
 //
 //  RRWireframe.swift
 //  PostHog
@@ -90,21 +88,13 @@ class RRWireframe {
             dict["childWireframes"] = childWireframes.map { $0.toDict() }
         }
 
-        if let type = type {
-            dict["type"] = type
-        }
+        dict["type"] = type
 
-        if let inputType = inputType {
-            dict["inputType"] = inputType
-        }
+        dict["inputType"] = inputType
 
-        if let text = text {
-            dict["text"] = text
-        }
+        dict["text"] = text
 
-        if let label = label {
-            dict["label"] = label
-        }
+        dict["label"] = label
 
         if let value = value {
             dict["value"] = value
@@ -129,32 +119,20 @@ class RRWireframe {
             }
         #endif
 
-        if let base64 = base64 {
-            dict["base64"] = base64
-        }
+        dict["base64"] = base64
 
         if let style = style {
             dict["style"] = style.toDict()
         }
 
-        if let disabled = disabled {
-            dict["disabled"] = disabled
-        }
+        dict["disabled"] = disabled
 
-        if let checked = checked {
-            dict["checked"] = checked
-        }
+        dict["checked"] = checked
 
-        if let options = options {
-            dict["options"] = options
-        }
+        dict["options"] = options
 
-        if let max = max {
-            dict["max"] = max
-        }
+        dict["max"] = max
 
         return dict
     }
 }
-
-// swiftlint:enable cyclomatic_complexity

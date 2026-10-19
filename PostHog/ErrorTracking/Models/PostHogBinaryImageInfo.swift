@@ -50,17 +50,13 @@ struct PostHogBinaryImageInfo {
             "image_size": size,
         ]
 
-        if let uuid = uuid {
-            dict["debug_id"] = uuid
-        }
+        dict["debug_id"] = uuid
 
         if let vmAddress, vmAddress > 0 {
             dict["image_vmaddr"] = String(format: PostHogStackFrame.hexAddressFormat, vmAddress)
         }
 
-        if let arch = arch {
-            dict["arch"] = arch
-        }
+        dict["arch"] = arch
 
         return dict
     }

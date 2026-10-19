@@ -44,6 +44,13 @@ jobs:
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make test
 
+  test-registration:
+    name: Check Xcode Project Test Registration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: make checkTestRegistration
+
   # `make test` runs `swift test` on macOS, which compiles out every `#if os(iOS)` block, so the
   # iOS-only suites (session replay, autocapture, tracing headers, crash reporting, etc.) never run
   # there. Run the iOS test target on a simulator so those suites are actually exercised in CI.

@@ -104,5 +104,24 @@
 
             #expect(!sut.isSessionReplayActive())
         }
+
+        @Test("Opt-in after close() and setup() ignores a stop from the earlier run")
+        func optInAfterReuseStartsReplay() async throws {
+            let sut = getSut(sessionReplay: true)
+            let storageURL = applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken)
+            defer {
+                sut.close()
+                deleteSafely(storageURL)
+            }
+            let config = sut.config
+            sut.stopSessionRecording()
+            sut.optOut()
+            sut.close()
+
+            sut.setup(config)
+            sut.optIn()
+
+            #expect(sut.isSessionReplayActive())
+        }
     }
 #endif

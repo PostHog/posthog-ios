@@ -2892,6 +2892,9 @@ let maxRetryDelay = 30.0
             replayQueue = nil
             logsQueue = nil
             pushSubscriptionHandler = nil
+            #if os(iOS)
+                startSessionRecordingOnOptIn = true
+            #endif
             replayDebugPropertiesLock.withLock {
                 lastReplayDebugPropertiesAt = nil
                 hasOutstandingReplayDebugClaim = false

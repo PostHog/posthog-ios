@@ -1,4 +1,4 @@
-.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
+.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility checkTestRegistration testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
 
 build: buildSdk buildExamples
 
@@ -32,6 +32,8 @@ buildExamplesPlatforms:
 	set -o pipefail && xcrun xcodebuild clean build -scheme 'PostHogExampleWatchOS Watch App' -destination generic/platform=watchos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleTvOS -destination generic/platform=tvos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty #SPM
+	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleAutocapture -destination generic/platform=ios | xcpretty #Autocapture
+	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleStoryboard -destination generic/platform=ios | xcpretty #Storyboard
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination 'platform=macOS,variant=Mac Catalyst' | xcpretty #Mac Catalyst SPM
 
 buildExamplePodsDynamicFramework:
@@ -205,6 +207,9 @@ recordEventShapeSnapshots:
 
 testDowngradeCompatibility:
 	DOWNGRADE_REF="$${DOWNGRADE_REF:-3.48.0}" ./scripts/test-downgrade-compatibility.sh
+
+checkTestRegistration:
+	scripts/check-test-registration.sh
 
 
 lint: swiftFormatCheck swiftLintCheck

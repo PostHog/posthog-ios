@@ -1093,10 +1093,6 @@
                 activeSurveyLock.withLock { self.activeSurveyLanguage }
             }
 
-            func testRefreshActiveSurveyTranslations() {
-                refreshActiveSurveyTranslations()
-            }
-
             func getNextQuestion(index: Int, response: PostHogSurveyResponse) -> (Int, Bool)? {
                 guard let activeSurvey else { return nil }
                 activeSurveyQuestionIndex = index

@@ -51,15 +51,26 @@ import Foundation
 
             // Full Apple-format report (all threads, registers, binary images); addresses are not symbolicated.
             if let crashReportText = buildCrashReportText(from: report) {
-                // Capture rejects oversized events, which would drop the crash event itself.
-                if crashReportText.utf8.count <= maxCrashReportBytes {
-                    properties["$exception_crash_report"] = crashReportText
-                } else {
-                    hedgeLog("Crash report text is \(crashReportText.utf8.count) bytes, too large to attach")
-                }
+                properties["$exception_crash_report"] = crashReportText
             }
 
             return properties
+        }
+
+        /// Removes `$exception_crash_report` when the serialized event would exceed `maxBytes`.
+        /// Capture rejects oversized events, which would drop the crash event itself.
+        static func removingOversizedCrashReport(from properties: [String: Any], maxBytes: Int = maxCrashEventBytes) -> [String: Any] {
+            guard properties["$exception_crash_report"] != nil,
+                  JSONSerialization.isValidJSONObject(properties),
+                  let data = try? JSONSerialization.data(withJSONObject: properties),
+                  data.count > maxBytes
+            else {
+                return properties
+            }
+            hedgeLog("Crash event is \(data.count) bytes, dropping $exception_crash_report to stay under the size limit")
+            var trimmed = properties
+            trimmed.removeValue(forKey: "$exception_crash_report")
+            return trimmed
         }
 
         /// Formats the report as Apple-format text, listing only the binary images its frames reference.
@@ -312,8 +323,8 @@ import Foundation
         /// Format string for zero-padded 64-bit hex addresses (e.g., "0x00007fff12345678")
         private static let hexAddressPaddedFormat = "0x%016llx"
 
-        /// Typical reports are tens of KB; this leaves headroom under capture's default 1 MB per-event limit.
-        private static let maxCrashReportBytes = 512 * 1024
+        /// Leaves headroom under capture's default 1 MB per-event limit for the event envelope.
+        static let maxCrashEventBytes = 900_000
 
         private static let machExceptionNames: [UInt64: String] = [
             1: "EXC_BAD_ACCESS",

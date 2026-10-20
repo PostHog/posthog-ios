@@ -259,6 +259,23 @@ import Testing
                 // The test runner's own frames are always on the stack.
                 #expect(imageLines.contains { $0.contains("PostHogPackageTests") || $0.contains("xctest") })
             }
+
+            @Test("drops the report when JSON escaping pushes the event over the limit")
+            func dropsReportWhenSerializedEventTooLarge() {
+                // Quotes double in size once JSON-escaped, and the reason appears in both properties.
+                let reason = String(repeating: "\"", count: 300)
+                let properties: [String: Any] = [
+                    "$exception_list": [["type": "NSInvalidArgumentException", "value": reason]],
+                    "$exception_crash_report": "Reason: \(reason)",
+                ]
+
+                let kept = PostHogCrashReportProcessor.removingOversizedCrashReport(from: properties, maxBytes: 1500)
+                let dropped = PostHogCrashReportProcessor.removingOversizedCrashReport(from: properties, maxBytes: 1000)
+
+                #expect(kept["$exception_crash_report"] != nil)
+                #expect(dropped["$exception_crash_report"] == nil)
+                #expect(dropped["$exception_list"] != nil)
+            }
         }
 
         // MARK: - Crash Info Type Tests

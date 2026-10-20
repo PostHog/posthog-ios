@@ -35,6 +35,10 @@ jobs:
             command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleTvOS -destination generic/platform=tvos | xcpretty
           - name: SPM
             command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty
+          - name: Autocapture
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleAutocapture -destination generic/platform=ios | xcpretty
+          - name: Storyboard
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleStoryboard -destination generic/platform=ios | xcpretty
     name: Example (${{ matrix.name }})
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

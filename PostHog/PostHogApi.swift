@@ -100,6 +100,11 @@ class PostHogApi {
         session = URLSession(configuration: sessionConfig, delegate: redirectHandler, delegateQueue: nil)
     }
 
+    deinit {
+        // A session retains its delegate until it's invalidated; in-flight tasks still finish.
+        session.finishTasksAndInvalidate()
+    }
+
     /// `gzipped: true` adds `Content-Encoding: gzip` for upload endpoints
     /// (/batch, /s/, /i/v1/logs) whose bodies are gzipped.
     private func getURLRequest(_ url: URL, gzipped: Bool = false, httpMethod: String = "POST") -> URLRequest {
@@ -304,8 +309,9 @@ class PostHogApi {
         var retryUuids: Set<String> = []
         // Duplicate UUIDs are dropped before sending.
         var dropped = duplicates
+        let statusCode = captureV1StatusCode(info)
 
-        if let statusCode = info.statusCode, 200 ... 299 ~= statusCode {
+        if let statusCode, 200 ... 299 ~= statusCode {
             // A body without a readable results map counts as delivered, so a
             // broken success can't loop forever.
             let results = data.flatMap { fromJSONData($0) }?["results"] as? [String: Any]
@@ -324,7 +330,7 @@ class PostHogApi {
                     break
                 }
             }
-        } else if info.statusCode.map(isCaptureV1RetriableStatusCode) ?? true {
+        } else if statusCode.map(isCaptureV1RetriableStatusCode) ?? true {
             // No response or a retriable status: the whole batch is resent.
             retryUuids = Set(uuids)
         }
@@ -341,10 +347,10 @@ class PostHogApi {
         }
 
         return PostHogUploadInfo(
-            statusCode: info.statusCode,
+            statusCode: statusCode,
             error: info.error,
             retryAfter: info.retryAfter,
-            retryRecordIds: info.statusCode.map { 200 ... 299 ~= $0 } == true ? retryUuids : nil
+            retryRecordIds: statusCode.map { 200 ... 299 ~= $0 } == true ? retryUuids : nil
         )
     }
 
@@ -874,6 +880,14 @@ final class PostHogRedirectHandler: NSObject, URLSessionTaskDelegate {
 
 /// Identity of a capture V1 request, kept so a retry of the same events reuses
 /// `PostHog-Request-Id` and `created_at` with an incremented `PostHog-Attempt`.
+/// The status capture V1 acts on. A transfer that failed after a 2xx header
+/// never delivered the per-event results, so it counts as no response and the
+/// whole batch is resent instead of being removed from the queue.
+func captureV1StatusCode(_ info: PostHogUploadInfo) -> Int? {
+    guard let statusCode = info.statusCode else { return nil }
+    return info.error != nil && 200 ... 299 ~= statusCode ? nil : statusCode
+}
+
 private struct CaptureV1RequestIdentity {
     let uuids: Set<String>
     let requestId: String

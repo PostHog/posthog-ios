@@ -255,7 +255,7 @@ app.on(.POST, "capture_ai", body: .collect(maxSize: "9mb")) { req async throws -
         options: captureReq.options?.mapValues(\.value)
     )
 
-    var result = ["status": "ok"]
+    var result: [String: Any] = ["success": true]
     result["uuid"] = uuid
     return try await result.encodeResponse(for: req)
 }

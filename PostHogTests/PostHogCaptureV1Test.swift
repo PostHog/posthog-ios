@@ -946,4 +946,25 @@ final class PostHogCaptureAiTest {
         #expect(queue.depth == 0)
         #expect(server.aiRequests.map { server.parsePostHogEvents($0).count } == [2, 1])
     }
+
+    @Test("flushes once a batch's worth of bytes is queued, before flushAt is reached")
+    func flushesAtBatchBytes() async throws {
+        let config = PostHogConfig(projectToken: "phc_ai_byte_flush", host: "http://localhost:9001")
+        config.flushAt = 100
+        let storage = PostHogStorage(config)
+        let queue = PostHogQueue(config, storage, .ai(api: PostHogApi(config)), nil)
+        defer {
+            queue.stop()
+            queue.clear()
+            deleteSafely(storage.appFolderUrl)
+        }
+
+        let input = String(repeating: "a", count: 3 * 1024 * 1024)
+        queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user", properties: ["$ai_input": input]))
+        queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user", properties: ["$ai_input": input]))
+        await waitUntil(timeout: 10) { queue.depth == 0 }
+
+        #expect(queue.depth == 0)
+        #expect(server.aiRequests.map { server.parsePostHogEvents($0).count } == [1, 1])
+    }
 }

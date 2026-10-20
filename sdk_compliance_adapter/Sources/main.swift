@@ -222,17 +222,20 @@ app.post("capture") { req async throws -> Response in
 }
 
 // AI capture endpoint: same request as /capture, sent with captureAi to /i/v1/ai/events.
-app.post("capture_ai") { req async throws -> Response in
+// AI events can be up to 8 MiB, over Vapor's default 16 KB body limit.
+app.on(.POST, "capture_ai", body: .collect(maxSize: "9mb")) { req async throws -> Response in
     struct CaptureAiRequest: Content {
         let event: String
         let distinctId: String?
         let properties: [String: AnyCodable]?
+        let timestamp: String?
         let options: [String: AnyCodable]?
 
         enum CodingKeys: String, CodingKey {
             case event
             case distinctId = "distinct_id"
             case properties
+            case timestamp
             case options
         }
     }
@@ -248,6 +251,7 @@ app.post("capture_ai") { req async throws -> Response in
         captureReq.event,
         distinctId: captureReq.distinctId,
         properties: captureReq.properties?.mapValues(\.value),
+        timestamp: captureReq.timestamp.flatMap(parseHarnessTimestamp),
         options: captureReq.options?.mapValues(\.value)
     )
 

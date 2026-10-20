@@ -28,6 +28,11 @@ class PostHogFileBackedQueue {
         itemsLock.withLock { items.count }
     }
 
+    /// Total size of the stored files. Tracked only when `maxBytes` is set, 0 otherwise.
+    var byteCount: Int {
+        itemsLock.withLock { totalBytes }
+    }
+
     init(queue: URL, oldQueues: [URL] = [], maxSize: Int? = nil, maxBytes: Int? = nil) {
         self.queue = queue
         self.maxSize = maxSize.map { max(1, $0) }
@@ -67,8 +72,10 @@ class PostHogFileBackedQueue {
         peekEntries(count).map(\.data)
     }
 
-    func peekEntries(_ count: Int) -> [Entry] {
-        loadEntries(count)
+    /// Reads up to `count` entries, oldest first. With `maxBytes`, stops after the
+    /// entry that reaches it, so large entries aren't all held in memory at once.
+    func peekEntries(_ count: Int, maxBytes: Int? = nil) -> [Entry] {
+        loadEntries(count, maxBytes: maxBytes)
     }
 
     func delete(index: Int) {
@@ -177,9 +184,10 @@ class PostHogFileBackedQueue {
         }
     }
 
-    private func loadEntries(_ count: Int) -> [Entry] {
+    private func loadEntries(_ count: Int, maxBytes: Int? = nil) -> [Entry] {
         var results = [Entry]()
         var skipped = Set<String>()
+        var loadedBytes = 0
 
         let itemsCopy = itemsLock.withLock { items }
 
@@ -194,6 +202,7 @@ class PostHogFileBackedQueue {
                 let contents = try Data(contentsOf: itemURL)
 
                 results.append(Entry(id: item, data: contents))
+                loadedBytes += contents.count
             } catch {
                 if isTemporarilyUnavailable(error) {
                     hedgeLog("File \(itemURL) is temporarily unavailable, will retry \(error)")
@@ -206,7 +215,7 @@ class PostHogFileBackedQueue {
                 skipped.insert(item)
             }
 
-            if results.count == count {
+            if results.count == count || maxBytes.map({ loadedBytes >= $0 }) == true {
                 break
             }
         }

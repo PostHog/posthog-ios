@@ -131,6 +131,17 @@ struct PostHogFileBackedQueueAlignmentTest {
         #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).count == 2)
     }
 
+    @Test("a byte-bounded peek stops after the record that reaches the budget")
+    func peekStopsAtByteBudget() throws {
+        let (queue, dir) = makeQueue()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        enqueue(["AAAA", "BBBB", "CCCC"], into: queue)
+
+        #expect(queue.peekEntries(10, maxBytes: 5).map { String(decoding: $0.data, as: UTF8.self) } == ["AAAA", "BBBB"])
+        #expect(queue.peekEntries(10, maxBytes: 1).count == 1)
+        #expect(queue.peekEntries(10).count == 3)
+    }
+
     @Test("delivers every record once in FIFO order on the happy path")
     func happyPath() throws {
         let (queue, dir) = makeQueue()

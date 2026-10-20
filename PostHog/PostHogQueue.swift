@@ -376,7 +376,10 @@ class PostHogQueue<Record> {
 
     func flushIfOverThreshold() {
         let threshold = batchLimitsLock.withLock { batchLimits.flushAt }
-        if fileQueue.depth >= threshold {
+        // A full byte-sized batch also flushes, so large records go out before
+        // the queue's byte cap starts evicting them.
+        let overByteThreshold = endpoint.maxBatchBytes.map { fileQueue.byteCount >= $0 } == true
+        if fileQueue.depth >= threshold || overByteThreshold {
             flush()
         }
     }
@@ -482,7 +485,8 @@ class PostHogQueue<Record> {
 
             // Bound this flush to its original FIFO window, including across
             // replay boundaries. Concurrent appends belong to a later flush.
-            let entries = self.fileQueue.peekEntries(count)
+            // A byte-limited endpoint reads about one batch, not the whole window.
+            let entries = self.fileQueue.peekEntries(count, maxBytes: self.endpoint.maxBatchBytes)
             self.consume(entries, from: 0, completion: completion)
         }
     }

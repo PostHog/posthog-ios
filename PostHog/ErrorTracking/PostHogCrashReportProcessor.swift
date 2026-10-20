@@ -49,7 +49,47 @@ import Foundation
                 properties["$debug_images"] = debugImages
             }
 
+            // Full Apple-format report (all threads, registers, binary images); addresses are not symbolicated.
+            if let crashReportText = buildCrashReportText(from: report) {
+                // Capture rejects oversized events, which would drop the crash event itself.
+                if crashReportText.utf8.count <= maxCrashReportBytes {
+                    properties["$exception_crash_report"] = crashReportText
+                } else {
+                    hedgeLog("Crash report text is \(crashReportText.utf8.count) bytes, too large to attach")
+                }
+            }
+
             return properties
+        }
+
+        /// Formats the report as Apple-format text, listing only the binary images its frames reference.
+        /// The process loads hundreds of images, and listing all of them makes up nearly all of the text.
+        static func buildCrashReportText(from report: PHPLCrashReport) -> String? {
+            guard let text = PHPLCrashReportTextFormatter.stringValue(for: report, with: PLCrashReportTextFormatiOS) else {
+                return nil
+            }
+            let imagesHeader = "Binary Images:\n"
+            // The images section is last; an exception reason earlier in the text can contain the header too.
+            guard let imagesRange = text.range(of: imagesHeader, options: .backwards) else {
+                return text
+            }
+
+            var frames: [PHPLCrashReportStackFrameInfo] = []
+            for case let thread as PHPLCrashReportThreadInfo in report.threads ?? [] {
+                frames += thread.stackFrames as? [PHPLCrashReportStackFrameInfo] ?? []
+            }
+            frames += report.exceptionInfo?.stackFrames as? [PHPLCrashReportStackFrameInfo] ?? []
+            let referencedImageAddresses = Set(frames.compactMap { report.image(forAddress: $0.instructionPointer)?.imageBaseAddress })
+
+            // Each image line starts with its base address, e.g. "       0x104a3c000 - 0x104a5ffff PostHog arm64 ..."
+            let imageLines = text[imagesRange.upperBound...].split(separator: "\n").filter { line in
+                guard let baseAddress = line.split(separator: " ").first, baseAddress.hasPrefix("0x"),
+                      let address = UInt64(baseAddress.dropFirst(2), radix: 16)
+                else { return false }
+                return referencedImageAddresses.contains(address)
+            }
+
+            return text[..<imagesRange.upperBound] + imageLines.joined(separator: "\n") + "\n"
         }
 
         /// Get the crash timestamp from the report
@@ -271,6 +311,9 @@ import Foundation
 
         /// Format string for zero-padded 64-bit hex addresses (e.g., "0x00007fff12345678")
         private static let hexAddressPaddedFormat = "0x%016llx"
+
+        /// Typical reports are tens of KB; this leaves headroom under capture's default 1 MB per-event limit.
+        private static let maxCrashReportBytes = 512 * 1024
 
         private static let machExceptionNames: [UInt64: String] = [
             1: "EXC_BAD_ACCESS",

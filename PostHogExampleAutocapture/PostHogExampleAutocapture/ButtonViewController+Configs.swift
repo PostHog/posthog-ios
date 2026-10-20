@@ -7,7 +7,7 @@
 
 import UIKit
 
-extension ButtonViewController: UIToolTipInteractionDelegate {
+extension ButtonViewController {
     func configureSystemTextButton(_ button: UIButton) {
         button.setTitle(NSLocalizedString("Button", comment: ""), for: [])
         button.addTarget(self, action: #selector(ButtonViewController.buttonClicked(_:)), for: .touchUpInside)
@@ -385,14 +385,6 @@ extension ButtonViewController: UIToolTipInteractionDelegate {
     // MARK: - Add To Cart Button
 
     @available(iOS 15.0, *)
-    func toolTipInteraction(_: UIToolTipInteraction, configurationAt _: CGPoint) -> UIToolTipConfiguration? {
-        let formatString = NSLocalizedString("Cart Tooltip String",
-                                             comment: "Cart Tooltip String format to be found in Localizable.stringsdict")
-        let resultString = String.localizedStringWithFormat(formatString, cartItemCount)
-        return UIToolTipConfiguration(toolTip: resultString)
-    }
-
-    @available(iOS 15.0, *)
     func addToCart(action: UIAction) {
         cartItemCount = cartItemCount > 0 ? 0 : 12
         if let button = action.sender as? UIButton {
@@ -463,5 +455,15 @@ extension ButtonViewController: UIToolTipInteractionDelegate {
     @objc
     func toggleButtonClicked(_ sender: UIButton) {
         Swift.debugPrint("Toggle action: \(sender)")
+    }
+}
+
+@available(iOS 15.0, *)
+extension ButtonViewController: UIToolTipInteractionDelegate {
+    func toolTipInteraction(_: UIToolTipInteraction, configurationAt _: CGPoint) -> UIToolTipConfiguration? {
+        let formatString = NSLocalizedString("Cart Tooltip String",
+                                             comment: "Cart Tooltip String format to be found in Localizable.stringsdict")
+        let resultString = String.localizedStringWithFormat(formatString, cartItemCount)
+        return UIToolTipConfiguration(toolTip: resultString)
     }
 }

@@ -85,7 +85,11 @@ let maxRetryDelay = 30.0
     }
 
     private(set) var logsQueue: PostHogQueue<PostHogLogRecord>?
-    private(set) var aiQueue: PostHogQueue<PostHogEvent>?
+    private var _aiQueue: PostHogQueue<PostHogEvent>?
+    private(set) var aiQueue: PostHogQueue<PostHogEvent>? {
+        get { setupLock.withLock { _aiQueue } }
+        set { setupLock.withLock { _aiQueue = newValue } }
+    }
     private(set) var storage: PostHogStorage?
     private var surveyIdentityGeneration: String?
     #if !os(watchOS)
@@ -3170,7 +3174,7 @@ let maxRetryDelay = 30.0
 
     /// Shuts down this SDK instance and clears its in-memory state.
     ///
-    /// Starts sending queued events, session replay snapshots, and logs (up to one batch each) and returns without
+    /// Starts sending queued events, AI events, session replay snapshots, and logs (up to one batch each) and returns without
     /// waiting for delivery. Anything not sent, for example while offline, stays on disk and is sent after the next
     /// setup. Integrations are uninstalled, and this instance must be set up again before reuse.
     @objc public func close() {
@@ -3183,6 +3187,7 @@ let maxRetryDelay = 30.0
             PostHogSDK.projectTokens.remove(config.projectToken)
 
             queue?.flush()
+            aiQueue?.flush()
             replayQueue?.flush()
             logsQueue?.flush()
 

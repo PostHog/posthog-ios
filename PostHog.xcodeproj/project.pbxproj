@@ -38,6 +38,8 @@
 		1F5558262DFC4802007643C0 /* PostHogStorageMergeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F55581F2DFC47E8007643C0 /* PostHogStorageMergeTest.swift */; };
 		A1A1A1A1A1A1A1A1A1A10002 /* PostHogMaskScenarioTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A1A1A1A10001 /* PostHogMaskScenarioTest.swift */; };
 		C0FFEE002F8000010000C004 /* PostHogMaskPresentationTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE002F8000010000C003 /* PostHogMaskPresentationTest.swift */; };
+		D3D3D3D3D3D3D3D3D3D30002 /* RRWireframeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D3D3D3D3D3D3D3D3D30001 /* RRWireframeTest.swift */; };
+		D3D3D3D3D3D3D3D3D3D30004 /* NetworkSampleTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D3D3D3D3D3D3D3D3D30003 /* NetworkSampleTest.swift */; };
 		C0FFEE002F8000010000C006 /* PostHogMaskPresentationPrivacyTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE002F8000010000C005 /* PostHogMaskPresentationPrivacyTest.swift */; };
 		E4E4E4E4E4E4E4E4E4E40002 /* RRStyleTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4E4E4E4E4E4E4E4E4E40001 /* RRStyleTest.swift */; };
 		F5F5F5F5F5F5F5F5F5F50002 /* PostHogBinaryImageInfoTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F5F5F5F5F5F5F5F5F50001 /* PostHogBinaryImageInfoTest.swift */; };
@@ -884,6 +886,8 @@
 		1F55581F2DFC47E8007643C0 /* PostHogStorageMergeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStorageMergeTest.swift; sourceTree = "<group>"; };
 		A1A1A1A1A1A1A1A1A1A10001 /* PostHogMaskScenarioTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskScenarioTest.swift; sourceTree = "<group>"; };
 		C0FFEE002F8000010000C003 /* PostHogMaskPresentationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskPresentationTest.swift; sourceTree = "<group>"; };
+		D3D3D3D3D3D3D3D3D3D30001 /* RRWireframeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RRWireframeTest.swift; sourceTree = "<group>"; };
+		D3D3D3D3D3D3D3D3D3D30003 /* NetworkSampleTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkSampleTest.swift; sourceTree = "<group>"; };
 		C0FFEE002F8000010000C005 /* PostHogMaskPresentationPrivacyTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskPresentationPrivacyTest.swift; sourceTree = "<group>"; };
 		E4E4E4E4E4E4E4E4E4E40001 /* RRStyleTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RRStyleTest.swift; sourceTree = "<group>"; };
 		F5F5F5F5F5F5F5F5F5F50001 /* PostHogBinaryImageInfoTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBinaryImageInfoTest.swift; sourceTree = "<group>"; };
@@ -1862,6 +1866,8 @@
 				A1A1A1A1A1A1A1A1A1A10001 /* PostHogMaskScenarioTest.swift */,
 				C0FFEE002F8000010000C003 /* PostHogMaskPresentationTest.swift */,
 				C0FFEE002F8000010000C005 /* PostHogMaskPresentationPrivacyTest.swift */,
+				D3D3D3D3D3D3D3D3D3D30001 /* RRWireframeTest.swift */,
+				D3D3D3D3D3D3D3D3D3D30003 /* NetworkSampleTest.swift */,
 				E4E4E4E4E4E4E4E4E4E40001 /* RRStyleTest.swift */,
 				F5F5F5F5F5F5F5F5F5F50001 /* PostHogBinaryImageInfoTest.swift */,
 				B2B2B2B2B2B2B2B2B2B20001 /* PostHogReactNativeMaskingTest.swift */,
@@ -3806,6 +3812,8 @@
 				A1A1A1A1A1A1A1A1A1A10002 /* PostHogMaskScenarioTest.swift in Sources */,
 				C0FFEE002F8000010000C004 /* PostHogMaskPresentationTest.swift in Sources */,
 				C0FFEE002F8000010000C006 /* PostHogMaskPresentationPrivacyTest.swift in Sources */,
+				D3D3D3D3D3D3D3D3D3D30002 /* RRWireframeTest.swift in Sources */,
+				D3D3D3D3D3D3D3D3D3D30004 /* NetworkSampleTest.swift in Sources */,
 				E4E4E4E4E4E4E4E4E4E40002 /* RRStyleTest.swift in Sources */,
 				F5F5F5F5F5F5F5F5F5F50002 /* PostHogBinaryImageInfoTest.swift in Sources */,
 				B2B2B2B2B2B2B2B2B2B20002 /* PostHogReactNativeMaskingTest.swift in Sources */,

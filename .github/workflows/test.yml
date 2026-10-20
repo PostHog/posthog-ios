@@ -44,6 +44,13 @@ jobs:
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make test
 
+  test-registration:
+    name: Check Xcode Project Test Registration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: make checkTestRegistration
+
   # `make test` runs `swift test` on macOS, which compiles out every `#if os(iOS)` block, so the
   # iOS-only suites (session replay, autocapture, tracing headers, crash reporting, etc.) never run
   # there. Run the iOS test target on a simulator so those suites are actually exercised in CI.
@@ -73,7 +80,7 @@ jobs:
         run: make testPresentationMasks
       - name: Upload iOS test logs
         if: always() && needs.detect-markdown-only.outputs.markdown_only != 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ios-test-logs
           path: |
@@ -131,7 +138,7 @@ jobs:
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make maskSnapshots
       - name: Upload diff images on failure
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         id: diff-upload
         if: failure() && needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:

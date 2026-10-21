@@ -1,5 +1,11 @@
 ## Next
 
+## 3.92.1
+
+### Patch Changes
+
+- 12de246: Start session replay in a new session when `optIn()` is called, and keep it stopped if the app had called `stopSessionRecording()` before `optOut()`
+
 ## 3.92.0
 
 ### Minor Changes

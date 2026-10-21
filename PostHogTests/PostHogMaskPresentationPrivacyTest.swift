@@ -711,6 +711,23 @@
             #expect(isMaskBlack(rgb), "\(source): uploaded frame shows \(rgb) where the private image is, masks=\(rects)")
         }
 
+        @Test("a masked image view keeps masking a label that overflows its bounds", arguments: ImageSource.allCases)
+        func maskedImageViewKeepsOverflowingDescendantMasked(source: ImageSource) async throws {
+            let root = UIViewController()
+            let view = try Self.imageView(showing: source)
+            view.clipsToBounds = false
+            let label = UILabel(frame: CGRect(x: 0, y: 140, width: 120, height: 30))
+            label.text = "PRIVATE"
+            view.addSubview(label)
+            root.view.addSubview(view)
+            let h = try Harness(root: root)
+            defer { h.close() }
+            try await settle(h.window)
+
+            try h.expectMasked(view, context: "\(source) image view")
+            try h.expectMasked(label, context: "\(source) overflowing label")
+        }
+
         @Test("an image view animating asset-catalog frames stays unmasked")
         func assetAnimationImageViewStaysUnmasked() async throws {
             let root = UIViewController()

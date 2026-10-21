@@ -727,12 +727,14 @@ final class PostHogSDKTests {
         }
 
         sut.optOut()
-        probeDone.wait()
+        #expect(probeDone.wait(timeout: .now() + 5) == .success)
 
         #expect(probed.value?.optedOut == true)
         #expect(probed.value?.installed == false)
         #expect(sut.isOptOut())
         #expect(sut.getAppLifeCycleIntegration() == nil)
+
+        sut.reset()
     }
 
     @Test("does not capture event if opt out")

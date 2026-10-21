@@ -2769,7 +2769,9 @@ let maxRetryDelay = 30.0
     /// Opts the current user back into data capture.
     ///
     /// This persists the opt-in state, unless opt-out persistence is disabled, and installs
-    /// integrations that were disabled while opted out.
+    /// integrations that were disabled while opted out. Session replay restarts in a new session if it
+    /// was recording at `optOut()`, including a recording started with `startSessionRecording()`; call
+    /// `stopSessionRecording()` before `optOut()` to keep it off.
     @objc public func optIn() {
         if !isEnabled() {
             return

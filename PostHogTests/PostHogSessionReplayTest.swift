@@ -106,6 +106,22 @@
             #expect(!sut.isSessionReplayActive())
         }
 
+        @Test("Opt-in ignores a stop made while opted out")
+        func optInIgnoresStopWhileOptedOut() async throws {
+            let sut = getSut(sessionReplay: true)
+            let storageURL = applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken)
+            defer {
+                sut.close()
+                deleteSafely(storageURL)
+            }
+
+            sut.optOut()
+            sut.stopSessionRecording()
+            sut.optIn()
+
+            #expect(sut.isSessionReplayActive())
+        }
+
         @Test("Opt-in restarts a recording the app started itself in a new session")
         func optInRestartsManuallyStartedReplayInNewSession() async throws {
             let sut = getSut()

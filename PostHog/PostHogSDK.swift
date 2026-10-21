@@ -131,8 +131,9 @@ let maxRetryDelay = 30.0
         }
 
         private weak var surveysIntegration: PostHogSurveyIntegration?
-        /// Whether `optIn()` starts session replay: whether it was recording at `optOut()`, including a
-        /// recording the app started itself, so consent doesn't override a stop. Guarded by `setupLock`.
+        /// Whether `optIn()` starts session replay: whether the app wants it, from `config.sessionReplay`
+        /// and the app's last `startSessionRecording()`/`stopSessionRecording()` while opted in, so consent
+        /// doesn't override a stop. Internal stops don't change it. Guarded by `setupLock`.
         private var startSessionRecordingOnOptIn = true
     #endif
 
@@ -2769,9 +2770,10 @@ let maxRetryDelay = 30.0
     /// Opts the current user back into data capture.
     ///
     /// This persists the opt-in state, unless opt-out persistence is disabled, and installs
-    /// integrations that were disabled while opted out. Session replay restarts in a new session if it
-    /// was recording at `optOut()`, including a recording started with `startSessionRecording()`; call
-    /// `stopSessionRecording()` before `optOut()` to keep it off.
+    /// integrations that were disabled while opted out. Session replay restarts in a new session if the app
+    /// wanted it on at `optOut()`: `config.sessionReplay` is enabled or `startSessionRecording()` was called,
+    /// and `stopSessionRecording()` wasn't called after. Sampling, linked flags and event triggers apply
+    /// again to the new session.
     @objc public func optIn() {
         if !isEnabled() {
             return
@@ -2863,9 +2865,6 @@ let maxRetryDelay = 30.0
                 }
             }
 
-            #if os(iOS)
-                startSessionRecordingOnOptIn = replayIntegration?.isActive() ?? config.sessionReplay
-            #endif
             uninstallIntegrations()
             return true
         }
@@ -2992,11 +2991,14 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            if replayIntegration == nil {
+            setupLock.withLock {
+                // Re-checked under the lock in case optOut() or close() ran since the checks above.
+                // Recorded before the gates below, which can hold the start (e.g. an event trigger).
+                guard enabled, !_config.optOut else { return }
+                startSessionRecordingOnOptIn = true
+
                 // replay integration was not previously installed (probably disabled in config), attempt to install it
-                setupLock.withLock {
-                    installReplayIntegration()
-                }
+                installReplayIntegration()
             }
 
             guard let replayIntegration else {
@@ -3027,7 +3029,8 @@ let maxRetryDelay = 30.0
 
          With `config.sessionReplay = false`, this also cancels a pending `startSessionRecording()` call, so
          remote config loads, event triggers and session changes will not start recording until the app
-         calls `startSessionRecording()` again.
+         calls `startSessionRecording()` again. A later `optOut()` and `optIn()` don't restart it either. While opted
+         out this method is ignored.
 
          Stopping also starts a best-effort, asynchronous flush of replay snapshots already recorded instead of
          waiting for the next scheduled flush. Normal buffering and delivery limits still apply: snapshots can be
@@ -3041,7 +3044,13 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            guard let replayIntegration else {
+            // A stop while opted out is ignored, like a start
+            let stopped = setupLock.withLock { () -> Bool in
+                guard enabled, !_config.optOut else { return false }
+                startSessionRecordingOnOptIn = false
+                return true
+            }
+            guard stopped, let replayIntegration else {
                 return
             }
 

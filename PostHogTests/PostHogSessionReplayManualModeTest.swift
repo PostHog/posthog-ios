@@ -311,5 +311,42 @@
             sut.capture("purchase_completed")
             #expect(integration.isActive() == true)
         }
+
+        // MARK: - Opt-in
+
+        @Test("Opt-in keeps a manual start waiting for a trigger, in a new session")
+        func optInKeepsManualStartWaitingForTrigger() async throws {
+            let sut = getSut(sessionReplay: false, eventTriggers: ["purchase_completed"])
+            defer { sut.close() }
+
+            sut.startSessionRecording()
+            #expect(sut.isSessionReplayActive() == false)
+            let sessionId = sut.getSessionId()
+
+            sut.optOut()
+            sut.optIn()
+            #expect(sut.getSessionId() != sessionId)
+            #expect(sut.isSessionReplayActive() == false)
+
+            sut.capture("purchase_completed")
+            #expect(sut.isSessionReplayActive() == true)
+        }
+
+        @Test("Opt-in keeps automatic replay waiting for a trigger, in a new session")
+        func optInKeepsAutomaticReplayWaitingForTrigger() async throws {
+            let sut = getSut(sessionReplay: true, eventTriggers: ["purchase_completed"])
+            defer { sut.close() }
+
+            #expect(sut.isSessionReplayActive() == false)
+            let sessionId = sut.getSessionId()
+
+            sut.optOut()
+            sut.optIn()
+            #expect(sut.getSessionId() != sessionId)
+            #expect(sut.isSessionReplayActive() == false)
+
+            sut.capture("purchase_completed")
+            #expect(sut.isSessionReplayActive() == true)
+        }
     }
 #endif

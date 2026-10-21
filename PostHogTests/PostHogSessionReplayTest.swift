@@ -16,9 +16,10 @@
             server.stop()
         }
 
-        private func getSut(sessionReplay: Bool = false) -> PostHogSDK {
+        private func getSut(sessionReplay: Bool = false, optOut: Bool = false) -> PostHogSDK {
             let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
             config.sessionReplay = sessionReplay
+            config.optOut = optOut
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
             config.disableFlushOnBackgroundForTesting = true
@@ -102,6 +103,56 @@
             sut.optOut()
             sut.optIn()
 
+            #expect(!sut.isSessionReplayActive())
+        }
+
+        @Test("Opt-in restarts a recording the app started itself in a new session")
+        func optInRestartsManuallyStartedReplayInNewSession() async throws {
+            let sut = getSut()
+            let storageURL = applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken)
+            defer {
+                sut.close()
+                deleteSafely(storageURL)
+            }
+            sut.startSessionRecording()
+            #expect(sut.isSessionReplayActive())
+            let sessionId = sut.getSessionId()
+
+            sut.optOut()
+            sut.optIn()
+
+            #expect(sut.isSessionReplayActive())
+            #expect(sut.getSessionId() != sessionId)
+        }
+
+        @Test("Opt-in does not start replay the app never started when disabled in config")
+        func optInDoesNotStartReplayNeverStarted() async throws {
+            let sut = getSut()
+            let storageURL = applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken)
+            defer {
+                sut.close()
+                deleteSafely(storageURL)
+            }
+
+            sut.optOut()
+            sut.optIn()
+
+            #expect(sut.getReplayIntegration() == nil)
+            #expect(!sut.isSessionReplayActive())
+        }
+
+        @Test("Opt-in after launching opted out does not start replay disabled in config")
+        func optInAfterLaunchingOptedOutDoesNotStartReplay() async throws {
+            let sut = getSut(optOut: true)
+            let storageURL = applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken)
+            defer {
+                sut.close()
+                deleteSafely(storageURL)
+            }
+
+            sut.optIn()
+
+            #expect(sut.getReplayIntegration() == nil)
             #expect(!sut.isSessionReplayActive())
         }
 

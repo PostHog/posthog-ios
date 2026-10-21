@@ -131,8 +131,8 @@ let maxRetryDelay = 30.0
         }
 
         private weak var surveysIntegration: PostHogSurveyIntegration?
-        /// Whether `optIn()` may start session replay: false when it wasn't recording at `optOut()`
-        /// (e.g. the app stopped it), so consent doesn't override that. Guarded by `setupLock`.
+        /// Whether `optIn()` starts session replay: whether it was recording at `optOut()`, including a
+        /// recording the app started itself, so consent doesn't override a stop. Guarded by `setupLock`.
         private var startSessionRecordingOnOptIn = true
     #endif
 
@@ -327,6 +327,11 @@ let maxRetryDelay = 30.0
             // remoteConfig are ready. A fresh install is already seeded in PostHogStorageManager;
             // this only reconciles an existing local identity.
             reconcileBootstrapIdentityIfNeeded()
+
+            #if os(iOS)
+                // Launched opted out: optIn() starts replay only when the config does
+                startSessionRecordingOnOptIn = config.sessionReplay
+            #endif
 
             if !config.optOut {
                 // don't install integrations if in opt-out state
@@ -2770,32 +2775,37 @@ let maxRetryDelay = 30.0
             return
         }
 
-        if !isOptOut() {
-            return
-        }
-
-        // Read `config` before taking optOutLock: its getter takes setupLock, and setup() holds
-        // setupLock while taking optOutLock, so reading it inside would invert the two.
-        let config = self.config
-        optOutLock.withLock {
-            config.optOut = false
-            if config.persistOptOut {
-                storage?.setBool(forKey: .optOut, contents: false)
+        // The consent decision, its write and the integration transition run as one setupLock section,
+        // so a concurrent optOut() can't land between them and leave integrations out of step with consent.
+        // setupLock is taken before optOutLock, the same order setup() uses.
+        let didOptIn = setupLock.withLock { () -> Bool in
+            // close() may have run since the check above
+            guard enabled, _config.optOut else {
+                return false
             }
-        }
 
-        setupLock.withLock {
+            let config = _config
+            optOutLock.withLock {
+                config.optOut = false
+                if config.persistOptOut {
+                    storage?.setBool(forKey: .optOut, contents: false)
+                }
+            }
+
             #if os(iOS)
                 // Replay restarts in a new session (a no-op under React Native, which owns the session id)
-                if config.sessionReplay, startSessionRecordingOnOptIn {
+                if startSessionRecordingOnOptIn {
                     sessionManager.startSession()
                 }
             #endif
             installIntegrations()
             #if os(iOS)
-                // install() starts recording; undo it if the app had stopped replay before opting out
                 if !startSessionRecordingOnOptIn {
+                    // install() starts recording; undo it if the app had stopped replay before opting out
                     replayIntegration?.stop()
+                } else if !config.sessionReplay {
+                    // A recording the app started itself isn't part of the configured integrations
+                    installReplayIntegration()
                 }
             #endif
             // Start the buffer for this run, then notify the freshly installed crash writer of the
@@ -2803,6 +2813,11 @@ let maxRetryDelay = 30.0
             createExceptionStepsBufferIfNeeded()
             notifyContextDidChange()
             notifyExceptionStepsDidChange()
+            return true
+        }
+
+        guard didOptIn else {
+            return
         }
 
         pushSubscriptionHandler?.onOptIn()
@@ -2832,26 +2847,29 @@ let maxRetryDelay = 30.0
             return
         }
 
-        if isOptOut() {
-            return
-        }
-
-        // Same lock-order reason as optIn(): hoist the setupLock-guarded read out of optOutLock.
-        let config = self.config
-        optOutLock.withLock {
-            config.optOut = true
-            if config.persistOptOut {
-                storage?.setBool(forKey: .optOut, contents: true)
+        // Same atomic section as optIn()
+        let didOptOut = setupLock.withLock { () -> Bool in
+            guard enabled, !_config.optOut else {
+                return false
             }
-        }
 
-        pushSubscriptionHandler?.onOptOut()
+            let config = _config
+            optOutLock.withLock {
+                config.optOut = true
+                if config.persistOptOut {
+                    storage?.setBool(forKey: .optOut, contents: true)
+                }
+            }
 
-        setupLock.withLock {
             #if os(iOS)
-                startSessionRecordingOnOptIn = replayIntegration?.isActive() ?? true
+                startSessionRecordingOnOptIn = replayIntegration?.isActive() ?? config.sessionReplay
             #endif
             uninstallIntegrations()
+            return true
+        }
+
+        if didOptOut {
+            pushSubscriptionHandler?.onOptOut()
         }
     }
 

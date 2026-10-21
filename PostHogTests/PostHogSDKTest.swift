@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 #if SWIFT_PACKAGE
     import PostHogTestsObjC
 #endif
@@ -703,6 +703,8 @@ final class PostHogSDKTests {
         config.disableQueueTimerForTesting = true
         config.disableFlushOnBackgroundForTesting = true
         config.captureApplicationLifecycleEvents = true
+        // Other suites share this token's storage while this test holds opt-out
+        config.persistOptOut = false
         PostHogStorage(config).reset()
         let sut = PostHogSDK.with(config)
         fixture.track(sut)
@@ -733,8 +735,6 @@ final class PostHogSDKTests {
         #expect(probed.value?.installed == false)
         #expect(sut.isOptOut())
         #expect(sut.getAppLifeCycleIntegration() == nil)
-
-        sut.reset()
     }
 
     @Test("does not capture event if opt out")

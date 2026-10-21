@@ -101,7 +101,7 @@
             }
 
             let path = strippingAPIHostPathPrefix(from: url.path, apiHostPath: apiHost.path)
-            let ignoredPaths = [snapshotEndpoint, "/batch", "/e/", "/i/"]
+            let ignoredPaths = [snapshotEndpoint, "/e/", "/i/"]
 
             return ignoredPaths.contains { ignoredPath in
                 pathMatches(path, ignoredPath: ignoredPath)

@@ -16,8 +16,11 @@
             server.stop()
         }
 
-        private func getSut(sessionReplay: Bool = false, optOut: Bool = false) -> PostHogSDK {
-            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
+        private func getSut(
+            sessionReplay: Bool = false,
+            optOut: Bool = false,
+            config: PostHogConfig = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
+        ) -> PostHogSDK {
             config.sessionReplay = sessionReplay
             config.optOut = optOut
             config.disableReachabilityForTesting = true
@@ -189,6 +192,52 @@
             sut.optIn()
 
             #expect(sut.isSessionReplayActive())
+        }
+
+        @Test("A stop racing a start leaves replay intent matching the recording")
+        func stopRacingStartKeepsIntentInStep() async throws {
+            let config = SessionReplayObservingConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
+            let sut = getSut(config: config)
+            let storageURL = applicationSupportDirectoryURL().appendingPathComponent(sut.config.projectToken)
+            defer {
+                sut.close()
+                deleteSafely(storageURL)
+            }
+            sut.startSessionRecording()
+            sut.stopSessionRecording()
+
+            // The replay integration reads `sessionReplay` as it starts; stop from another thread right then
+            let stopDone = DispatchSemaphore(value: 0)
+            config.onSessionReplayRead = {
+                config.onSessionReplayRead = nil
+                DispatchQueue.global().async {
+                    sut.stopSessionRecording()
+                    stopDone.signal()
+                }
+                if stopDone.wait(timeout: .now() + 0.5) == .success {
+                    stopDone.signal()
+                }
+            }
+            sut.startSessionRecording()
+            #expect(stopDone.wait(timeout: .now() + 5) == .success)
+
+            #expect(!sut.isSessionReplayActive())
+            sut.optOut()
+            sut.optIn()
+            #expect(!sut.isSessionReplayActive())
+        }
+    }
+
+    /// Runs `onSessionReplayRead` on the thread that reads `sessionReplay`, so a test can act mid-start.
+    private final class SessionReplayObservingConfig: PostHogConfig {
+        var onSessionReplayRead: (() -> Void)?
+
+        override var sessionReplay: Bool {
+            get {
+                onSessionReplayRead?()
+                return super.sessionReplay
+            }
+            set { super.sessionReplay = newValue }
         }
     }
 #endif

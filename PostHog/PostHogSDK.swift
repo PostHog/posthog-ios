@@ -2991,6 +2991,8 @@ let maxRetryDelay = 30.0
                 return
             }
 
+            // The intent and the start it describes run as one setupLock section, so a concurrent
+            // stopSessionRecording() lands wholly before or after it and the two stay in step.
             setupLock.withLock {
                 // Re-checked under the lock in case optOut() or close() ran since the checks above.
                 // Recorded before the gates below, which can hold the start (e.g. an event trigger).
@@ -2999,29 +3001,29 @@ let maxRetryDelay = 30.0
 
                 // replay integration was not previously installed (probably disabled in config), attempt to install it
                 installReplayIntegration()
-            }
 
-            guard let replayIntegration else {
-                return
-            }
+                guard let replayIntegration else {
+                    return
+                }
 
-            if resumeCurrent, replayIntegration.isActive() {
-                // nothing to resume, already active
-                return
-            }
+                if resumeCurrent, replayIntegration.isActive() {
+                    // nothing to resume, already active
+                    return
+                }
 
-            guard let remoteConfig, remoteConfig.isSessionReplayFlagActive() else {
-                return hedgeLog("Could not start recording. Session replay feature flag is disabled.")
-            }
+                guard let remoteConfig, remoteConfig.isSessionReplayFlagActive() else {
+                    return hedgeLog("Could not start recording. Session replay feature flag is disabled.")
+                }
 
-            guard (resumeCurrent
-                ? sessionManager.getSessionId()
-                : sessionManager.getNextSessionId()) != nil
-            else {
-                return hedgeLog("Could not start recording. Missing session id.")
-            }
+                guard (resumeCurrent
+                    ? sessionManager.getSessionId()
+                    : sessionManager.getNextSessionId()) != nil
+                else {
+                    return hedgeLog("Could not start recording. Missing session id.")
+                }
 
-            replayIntegration.start()
+                replayIntegration.start()
+            }
         }
 
         /**
@@ -3044,17 +3046,18 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            // A stop while opted out is ignored, like a start
+            // A stop while opted out is ignored, like a start. Same atomic section as startSessionRecording()
             let stopped = setupLock.withLock { () -> Bool in
                 guard enabled, !_config.optOut else { return false }
                 startSessionRecordingOnOptIn = false
+                guard let replayIntegration else { return false }
+                replayIntegration.stop()
                 return true
             }
-            guard stopped, let replayIntegration else {
+            guard stopped else {
                 return
             }
 
-            replayIntegration.stop()
             replayQueue?.flush()
         }
 

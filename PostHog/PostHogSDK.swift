@@ -3403,6 +3403,8 @@ let maxRetryDelay = 30.0
     /// Callable from any thread; runs under `setupLock` like every other `installedIntegrations` access.
     func addIntegration(_ integration: PostHogIntegration) {
         setupLock.withLock {
+            // Lazy installs (e.g. a live /config re-enabling autocapture) must not bypass opt-out.
+            guard enabled, !_config.optOut else { return }
             let id = ObjectIdentifier(integration)
             guard !installedIntegrations.contains(where: { ObjectIdentifier($0) == id }) else { return }
             guard case .installed = integration.install(self) else { return }

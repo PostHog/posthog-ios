@@ -884,6 +884,7 @@ final class PostHogCaptureAiTest {
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer \(sut.config.projectToken)")
         #expect(request.value(forHTTPHeaderField: "PostHog-Attempt") == "1")
         #expect(request.value(forHTTPHeaderField: "PostHog-Request-Id") != nil)
+        #expect(request.timeoutInterval == PostHogApi.aiTimeout)
         let event = try #require(server.parsePostHogEvents(request).first)
         #expect(event.event == "$ai_generation")
         #expect(event.uuid.postHogUuidString == uuid)
@@ -895,7 +896,9 @@ final class PostHogCaptureAiTest {
 
         sut.capture("$ai_generation")
         await waitUntil { self.server.batchRequests.count == 1 }
-        #expect(server.parsePostHogEvents(try #require(server.batchRequests.first)).map(\.event) == ["$ai_generation"])
+        let batchRequest = try #require(server.batchRequests.first)
+        #expect(server.parsePostHogEvents(batchRequest).map(\.event) == ["$ai_generation"])
+        #expect(batchRequest.timeoutInterval < PostHogApi.aiTimeout)
         #expect(server.aiRequests.count == 1)
     }
 

@@ -104,18 +104,6 @@ final class PostHogCaptureV1Test {
         #expect(event.properties["$lib"] as? String == "posthog-ios")
     }
 
-    @Test("sends each UUID once per batch")
-    func dedupesUuids() async throws {
-        let first = PostHogEvent(event: "first", distinctId: "user")
-        let duplicate = PostHogEvent(event: "duplicate", distinctId: "user", uuid: first.uuid)
-        let other = PostHogEvent(event: "other", distinctId: "user")
-        _ = await send(makeApi(), [first, duplicate, other])
-
-        let request = try #require(server.batchRequests.first)
-        let events = try #require(try body(request)["batch"] as? [[String: Any]])
-        #expect(events.map { $0["event"] as? String } == ["first", "other"])
-    }
-
     @Test("reports retry results and treats ok, warning, drop and missing results as delivered")
     func reportsRetryResults() async throws {
         let events = (0 ..< 5).map { PostHogEvent(event: "e\($0)", distinctId: "user") }

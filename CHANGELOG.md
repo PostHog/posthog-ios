@@ -1,5 +1,11 @@
 ## Next
 
+## 3.92.2
+
+### Patch Changes
+
+- 9091129: Stop exception autocapture from starting while the SDK is opted out, when a remote config that enables it arrives after `optOut()`. A later `optIn()` also no longer skips installing the other integrations.
+
 ## 3.92.1
 
 ### Patch Changes

@@ -626,6 +626,85 @@ final class PostHogCaptureV1OptionsTest {
         #expect(events.count == 2)
         #expect(Set(events.map(\.uuid)).count == 2)
     }
+
+    @Test("the other event-sending methods apply options like capture does", arguments: [
+        "screen", "identify", "identify existing user", "setPersonProperties", "alias", "group",
+        "captureException Error", "captureException NSException",
+    ])
+    func eventSendingMethodsApplyOptions(method: String) async throws {
+        let options: [String: Any] = ["process_person_profile": true, "cookieless_mode": true, "product_tour_id": "caller-tour"]
+        // The setup identify and the call under test go out in one batch.
+        let sut = makeSDK(flushAt: method == "identify existing user" ? 2 : 1) { event in
+            if event.options["product_tour_id"] as? String == "caller-tour" {
+                event.options["product_tour_id"] = "edited-tour"
+            }
+            return event
+        }
+        defer { sut.close() }
+        // A legacy property the option must beat.
+        sut.register(["$cookieless_mode": false])
+
+        server.reset(batchCount: 1)
+        let expectedEvent: String
+        switch method {
+        case "screen":
+            sut.screen("Home", properties: ["$screen_name": "Other"], options: options)
+            expectedEvent = "$screen"
+        case "identify":
+            sut.identify("user", options: options)
+            expectedEvent = "$identify"
+        case "identify existing user":
+            sut.identify("user")
+            sut.identify("user", userProperties: ["plan": "pro"], options: options)
+            expectedEvent = "$set"
+        case "setPersonProperties":
+            sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"], options: options)
+            expectedEvent = "$set"
+        case "alias":
+            sut.alias("other-id", options: options)
+            expectedEvent = "$create_alias"
+        case "group":
+            sut.group(type: "company", key: "acme", options: options)
+            expectedEvent = "$groupidentify"
+        case "captureException Error":
+            sut.captureException(NSError(domain: "test", code: 1), options: options)
+            expectedEvent = "$exception"
+        default:
+            sut.captureException(NSException(name: .genericException, reason: "boom"), options: options)
+            expectedEvent = "$exception"
+        }
+        _ = try await getServerEvents(server)
+        let request = try #require(server.batchRequests.first)
+        let sent = try #require((server.parseRequest(request)?["batch"] as? [[String: Any]])?.last)
+
+        #expect(sent["event"] as? String == expectedEvent)
+        #expect(sent["options"] as? [String: AnyHashable] == [
+            "process_person_profile": true, "cookieless_mode": true, "product_tour_id": "edited-tour",
+        ])
+        let properties = try #require(sent["properties"] as? [String: Any])
+        #expect(properties["$cookieless_mode"] == nil)
+        if method == "screen" {
+            #expect(properties["$screen_name"] as? String == "Home")
+        }
+    }
+
+    @Test("Objective-C keeps the old selectors and gains ones that take options")
+    func objcSelectors() {
+        let selectors = [
+            "screenWithTitle:properties:", "screenWithTitle:properties:options:",
+            "identifyWithDistinctId:userProperties:userPropertiesSetOnce:",
+            "identifyWithDistinctId:userProperties:userPropertiesSetOnce:options:",
+            "setPersonPropertiesWithUserPropertiesToSet:userPropertiesToSetOnce:",
+            "setPersonPropertiesWithUserPropertiesToSet:userPropertiesToSetOnce:options:",
+            "alias:", "alias:options:",
+            "groupWithType:key:groupProperties:", "groupWithType:key:groupProperties:options:",
+            "captureExceptionWithError:properties:", "captureExceptionWithError:properties:options:",
+            "captureExceptionWithNSException:properties:", "captureExceptionWithNSException:properties:options:",
+        ]
+        for selector in selectors {
+            #expect(PostHogSDK.instancesRespond(to: NSSelectorFromString(selector)), "\(selector)")
+        }
+    }
 }
 
 @Suite("Capture V1 queue partial retry", .serialized, .resetsGlobalState)

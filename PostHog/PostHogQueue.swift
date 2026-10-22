@@ -11,6 +11,37 @@ private func clamped(_ value: Int) -> Int {
     max(1, value)
 }
 
+/// Largest fraction a retry wait moves either way, so devices refused together
+/// don't all come back at the same moment. Matches the capture V1 server SDKs
+/// (a factor drawn from `[0.75, 1.25)`).
+let retryJitter = 0.25
+
+/// Number of consecutive failures after which the exponential backoff reaches
+/// `maxRetryDelay`. The retry counter stops there; it only ramps the delay.
+let maxRetryBackoffStep = 1 + Int(ceil(log2(maxRetryDelay / retryDelay)))
+
+/// Wait before the queue sends again after its `attempt`-th consecutive failure.
+///
+/// The delay doubles from `retryDelay` and is capped at `maxRetryDelay`, then
+/// scaled by a jitter factor in `[1 - retryJitter, 1 + retryJitter)` and capped
+/// again. A server `Retry-After`, clamped to `retryAfterCap`, is a floor applied
+/// after jitter, so jitter never retries earlier than the server asked.
+///
+/// - Parameter jitterUnit: A uniform value in `[0, 1)`. A value outside that
+///   range (e.g. no randomness available) falls back to the unjittered delay.
+func queueRetryDelay(attempt: Int,
+                     jitterUnit: Double,
+                     retryAfter: TimeInterval?,
+                     retryAfterCap: TimeInterval) -> TimeInterval
+{
+    let step = min(max(attempt, 1), maxRetryBackoffStep)
+    let computed = min(retryDelay * pow(2, Double(step - 1)), maxRetryDelay)
+    let factor = (0 ..< 1).contains(jitterUnit) ? 1 - retryJitter + 2 * retryJitter * jitterUnit : 1
+    let jittered = min(computed * factor, maxRetryDelay)
+    let retryAfterFloor = min(max(retryAfter ?? 0, 0), retryAfterCap)
+    return max(jittered, retryAfterFloor)
+}
+
 /// Adaptive limits stored privately on the queue rather than mutating
 /// `config.maxBatchSize` / `config.flushAt` so user-supplied config fields
 /// aren't silently changed. Both `cap` and `flushAt` are halved together on
@@ -55,6 +86,8 @@ class PostHogQueue<Record> {
     private let endpoint: QueueEndpoint<Record>
     private let configuredMaxQueueSize: Int
     private let timerInterval: TimeInterval
+    /// Source of the backoff jitter: a uniform value in `[0, 1)`.
+    private let jitterUnit: () -> Double
 
     /// Guards `paused`, `pausedUntil`, and `retryCount`. These are touched from
     /// the URLSession completion queue (handleResult), the timer's main-thread
@@ -106,10 +139,13 @@ class PostHogQueue<Record> {
     let fileQueue: PostHogFileBackedQueue
 
     #if !os(watchOS)
-        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ endpoint: QueueEndpoint<Record>, _ reachability: Reachability?) {
+        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ endpoint: QueueEndpoint<Record>, _ reachability: Reachability?,
+             jitterUnit: @escaping () -> Double = { Double.random(in: 0 ..< 1) })
+        {
             self.config = config
             self.endpoint = endpoint
             self.reachability = reachability
+            self.jitterUnit = jitterUnit
             configuredMaxQueueSize = endpoint.maxQueueSize(config)
             timerInterval = endpoint.flushIntervalSeconds(config)
             batchLimits = .initial(cap: endpoint.initialCap(config), flushAt: endpoint.initialFlushAt(config))
@@ -123,9 +159,12 @@ class PostHogQueue<Record> {
             dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }
     #else
-        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ endpoint: QueueEndpoint<Record>) {
+        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ endpoint: QueueEndpoint<Record>,
+             jitterUnit: @escaping () -> Double = { Double.random(in: 0 ..< 1) })
+        {
             self.config = config
             self.endpoint = endpoint
+            self.jitterUnit = jitterUnit
             configuredMaxQueueSize = endpoint.maxQueueSize(config)
             timerInterval = endpoint.flushIntervalSeconds(config)
             batchLimits = .initial(cap: endpoint.initialCap(config), flushAt: endpoint.initialFlushAt(config))
@@ -197,19 +236,18 @@ class PostHogQueue<Record> {
 
     private func pauseForBackoff(retryAfter: TimeInterval?) {
         let newCount = nextRetryCount()
-        let backoffDelay = min(TimeInterval(newCount) * retryDelay, maxRetryDelay)
         // A server's Retry-After can't hold the queue longer than the backoff ceiling
         // or the endpoint's documented maximum, whichever is lower.
         let retryAfterCap = min(maxRetryDelay, endpoint.maxRetryAfterSeconds ?? maxRetryDelay)
-        let delay = max(backoffDelay, min(retryAfter ?? 0, retryAfterCap))
+        let delay = queueRetryDelay(attempt: newCount, jitterUnit: jitterUnit(),
+                                    retryAfter: retryAfter, retryAfterCap: retryAfterCap)
         pauseFor(seconds: delay)
         hedgeLog("Pausing queue consumption for \(delay) seconds due to \(newCount) API failure(s).")
     }
 
     private func nextRetryCount() -> Int {
         stateLock.withLock {
-            let maximumBackoffStep = max(1, Int(maxRetryDelay / retryDelay))
-            if retryCount < maximumBackoffStep {
+            if retryCount < maxRetryBackoffStep {
                 retryCount += 1
             }
             return retryCount

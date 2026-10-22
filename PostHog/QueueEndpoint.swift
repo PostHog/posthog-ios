@@ -81,8 +81,9 @@ struct QueueEndpoint<Record> {
     /// since that case is universal.
     let isRetriableStatusCode: (Int) -> Bool
     /// Upper bound applied to a parsed `Retry-After` header before it floors
-    /// the backoff: the wait is `max(backoff, min(retryAfter, maximum))`.
-    /// `nil` honors the header unbounded; events and replay keep that, logs
-    /// sets `logsMaxRetryAfterSeconds`.
+    /// the jittered backoff: the wait is `max(backoff, min(retryAfter, maximum))`.
+    /// The queue never lets `maximum` exceed `maxRetryDelay`; `nil` means that
+    /// ceiling alone applies. Events and replay keep `nil`, logs sets
+    /// `logsMaxRetryAfterSeconds`.
     var maxRetryAfterSeconds: TimeInterval?
 }

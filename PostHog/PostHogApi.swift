@@ -398,16 +398,46 @@ class PostHogApi {
             "distinct_id": event.distinctId,
             "timestamp": toISO8601String(event.timestamp),
         ]
-        // Always removed from properties; only a non-empty string is sent at the root.
-        if let sessionId = properties.removeValue(forKey: "$session_id") as? String, !sessionId.isEmpty {
+        if let sessionId = liftStringProperty("$session_id", from: &properties) {
             json["session_id"] = sessionId
         }
-        if let windowId = properties.removeValue(forKey: "$window_id") as? String, !windowId.isEmpty {
+        if let windowId = liftStringProperty("$window_id", from: &properties) {
             json["window_id"] = windowId
         }
         json["options"] = options
         json["properties"] = properties
         return json
+    }
+
+    /// Removes `key` from `properties` and returns its value when it's a string,
+    /// including an empty one, which is sent unchanged. Capture rejects the whole
+    /// request when a root `session_id` or `window_id` isn't a string, so any other
+    /// value is dropped with a warning that names its JSON type, never the value.
+    /// A null value counts as unset and is dropped without a warning.
+    static func liftStringProperty(
+        _ key: String,
+        from properties: inout [String: Any],
+        warn: (String) -> Void = hedgeLog
+    ) -> String? {
+        guard let value = properties.removeValue(forKey: key) else { return nil }
+        if let string = value as? String { return string }
+        if value is NSNull { return nil }
+        warn("dropping \(key): a \(jsonTypeName(value)) value is not a string")
+        return nil
+    }
+
+    /// The JSON type name of a property value, the names posthog-go and posthog-rs log.
+    private static func jsonTypeName(_ value: Any) -> String {
+        switch value {
+        case let number as NSNumber:
+            return CFGetTypeID(number) == CFBooleanGetTypeID() ? "bool" : "number"
+        case is [Any]:
+            return "array"
+        case is [AnyHashable: Any]:
+            return "object"
+        default:
+            return String(describing: type(of: value))
+        }
     }
 
     func snapshot(events: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {

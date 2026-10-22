@@ -2003,6 +2003,9 @@ let maxRetryDelay = 30.0
         let resultEvent = config.runBeforeSend(event)
 
         if let resultEvent {
+            // beforeSend can return an event kept from an earlier call. Capture V1
+            // rejects a batch that repeats a UUID, so each capture keeps its own.
+            resultEvent.uuid = event.uuid
             resultEvent.carriesReplayDebugBundle = carriesReplayDebugBundle
         } else {
             if carriesReplayDebugBundle {

@@ -480,9 +480,13 @@ final class PostHogCaptureV1OptionsTest {
         #expect(old.properties["$cookieless_mode"] as? Bool == true)
     }
 
-    private func makeSDK(personProfiles: PostHogPersonProfiles = .identifiedOnly, beforeSend: BeforeSendBlock? = nil) -> PostHogSDK {
+    private func makeSDK(
+        personProfiles: PostHogPersonProfiles = .identifiedOnly,
+        flushAt: Int = 1,
+        beforeSend: BeforeSendBlock? = nil
+    ) -> PostHogSDK {
         let config = PostHogConfig(projectToken: "phc_options_\(UUID().uuidString)", host: "http://localhost:9001")
-        config.flushAt = 1
+        config.flushAt = flushAt
         config.preloadFeatureFlags = false
         config.sendFeatureFlagEvent = false
         config.disableReachabilityForTesting = true
@@ -534,6 +538,24 @@ final class PostHogCaptureV1OptionsTest {
         let sent = try await captureAndSend(sut) { $0.capture("test", options: ["product_tour_id": "caller-tour"]) }
 
         #expect(sent["options"] as? [String: AnyHashable] == ["process_person_profile": true, "product_tour_id": "edited-tour"])
+    }
+
+    @Test("an event beforeSend returns again still gets a new UUID")
+    func beforeSendReturningEarlierEventGetsNewUuid() async throws {
+        var kept: PostHogEvent?
+        let sut = makeSDK(flushAt: 2) { event in
+            if kept == nil { kept = event }
+            return kept
+        }
+        defer { sut.close() }
+
+        server.reset(batchCount: 1)
+        sut.capture("first")
+        sut.capture("second")
+        let events = try await getServerEvents(server)
+
+        #expect(events.count == 2)
+        #expect(Set(events.map(\.uuid)).count == 2)
     }
 }
 

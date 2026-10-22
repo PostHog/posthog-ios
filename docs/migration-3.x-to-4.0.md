@@ -83,6 +83,8 @@ In PostHog, the events still have `$session_id` and `$window_id`, so insights, f
 
 Capture v1 reads processing settings from an `options` object sent next to `properties`.
 `capture` takes a new `options` argument, and `beforeSend` can read and change `PostHogEvent.options`.
+`screen`, `identify`, `setPersonProperties`, `alias`, `group` and `captureException` take the same argument.
+For `identify`, the options apply to the `$identify` or `$set` event the call sends.
 
 ```swift
 // 3.x
@@ -92,7 +94,7 @@ PostHogSDK.shared.capture("signed_up", properties: ["$cookieless_mode": true])
 PostHogSDK.shared.capture("signed_up", options: ["cookieless_mode": true])
 ```
 
-In Objective-C, use `captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:`.
+In Objective-C, use the selectors that end in `options:`, such as `captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:`, `screenWithTitle:properties:options:`, `identifyWithDistinctId:userProperties:userPropertiesSetOnce:options:`, `setPersonPropertiesWithUserPropertiesToSet:userPropertiesToSetOnce:options:`, `alias:options:`, `groupWithType:key:groupProperties:options:`, `captureExceptionWithError:properties:options:` and `captureExceptionWithNSException:properties:options:`. The selectors without `options:` still work.
 
 The legacy option properties still work.
 When the event is sent, the SDK removes each one from `properties` and uses it for its option:
@@ -104,7 +106,7 @@ When the event is sent, the SDK removes each one from `properties` and uses it f
 | `$ignore_sent_at` | `disable_skew_correction` |
 | `$product_tour_id` | `product_tour_id` |
 
-- An option you set in `capture(..., options:)` or in `beforeSend` wins over its legacy property. An option set to `NSNull()` counts as unset, so the legacy property fills it.
+- An option you pass to any of these methods or set in `beforeSend` wins over its legacy property. An option set to `NSNull()` counts as unset, so the legacy property fills it.
 - The SDK ignores a `$process_person_profile` property you pass or register. When `personProfiles` turns person processing off, the SDK sets the `process_person_profile` option to `false`. Otherwise it sends neither, because PostHog processes person profiles by default. To change person processing for one event, pass the `process_person_profile` option.
 - The SDK sends option values as given. PostHog reads common forms of a value, such as `"false"` or `0` for a boolean, and drops an event whose option value it can't read.
 - Other option keys are sent unchanged, and PostHog ignores keys it doesn't know.

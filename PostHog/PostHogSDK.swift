@@ -1024,10 +1024,19 @@ let maxRetryDelay = 30.0
     ///   - distinctId: Stable user identifier from your application.
     ///   - userProperties: Properties to set on the person profile. Existing values are overwritten.
     ///   - userPropertiesSetOnce: Properties to set only if they do not already exist.
-    @objc(identifyWithDistinctId:userProperties:userPropertiesSetOnce:)
+    ///   - options: Optional settings that tell PostHog how to process the `$identify` or `$set` event it sends,
+    ///     sent apart from its properties. Known keys are `process_person_profile` (`Bool`),
+    ///     `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id`
+    ///     (`String`), as described on
+    ///     `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`.
+    ///     An option wins over its legacy `$process_person_profile`, `$cookieless_mode`,
+    ///     `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through
+    ///     `PostHogEvent.options`.
+    @objc(identifyWithDistinctId:userProperties:userPropertiesSetOnce:options:)
     public func identify(_ distinctId: String,
                          userProperties: [String: Any]? = nil,
-                         userPropertiesSetOnce: [String: Any]? = nil)
+                         userPropertiesSetOnce: [String: Any]? = nil,
+                         options: [String: Any]? = nil)
     {
         if !isEnabled() {
             return
@@ -1094,7 +1103,12 @@ let maxRetryDelay = 30.0
                 userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce)
             )
 
-            guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: personProcessingOptions(nil)) else {
+            guard let event = buildEvent(
+                event: eventName,
+                distinctId: distinctId,
+                properties: properties,
+                options: personProcessingOptions(sanitizeDictionary(options))
+            ) else {
                 return
             }
 
@@ -1121,7 +1135,8 @@ let maxRetryDelay = 30.0
             capture(PostHogKnownUnsafeEditableEvent.set.rawValue,
                     distinctId: distinctId,
                     userProperties: userProperties,
-                    userPropertiesSetOnce: userPropertiesSetOnce)
+                    userPropertiesSetOnce: userPropertiesSetOnce,
+                    options: options)
 
             // The identified state itself is not part of the flags request; reload only when the
             // caller supplied properties that can affect flag evaluation.
@@ -1135,6 +1150,7 @@ let maxRetryDelay = 30.0
                             distinctId: distinctId,
                             userProperties: userProperties,
                             userPropertiesSetOnce: userPropertiesSetOnce,
+                            options: options,
                             deduplicatePersonProperties: true)
 
             // Automatically set person properties for feature flags during user property updates
@@ -1145,6 +1161,23 @@ let maxRetryDelay = 30.0
         } else {
             hedgeLog("already identified with id: \(oldDistinctId)")
         }
+    }
+
+    // A separate Swift name keeps this out of Swift overload resolution.
+
+    /// Identifies the current user and sets person properties from Objective-C.
+    ///
+    /// - Parameters:
+    ///   - distinctId: Stable user identifier from your application.
+    ///   - userProperties: Properties to set on the person profile. Existing values are overwritten.
+    ///   - userPropertiesSetOnce: Properties to set only if they do not already exist.
+    @available(swift, obsoleted: 1.0, message: "Use identify(_:userProperties:userPropertiesSetOnce:options:) instead")
+    @objc(identifyWithDistinctId:userProperties:userPropertiesSetOnce:)
+    public func identifyObjC(_ distinctId: String,
+                             userProperties: [String: Any]?,
+                             userPropertiesSetOnce: [String: Any]?)
+    {
+        identify(distinctId, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, options: nil)
     }
 
     /// Sets properties on the person profile associated with the current distinct_id.
@@ -1175,10 +1208,19 @@ let maxRetryDelay = 30.0
     ///   - userPropertiesToSetOnce: Properties to store about the user only if not previously set.
     ///     Note: For feature flag evaluations, if the same key is present in both parameters,
     ///     the value from userPropertiesToSet will take precedence.
-    @objc(setPersonPropertiesWithUserPropertiesToSet:userPropertiesToSetOnce:)
+    ///   - options: Optional settings that tell PostHog how to process the `$set` event,
+    ///     sent apart from its properties. Known keys are `process_person_profile` (`Bool`),
+    ///     `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id`
+    ///     (`String`), as described on
+    ///     `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`.
+    ///     An option wins over its legacy `$process_person_profile`, `$cookieless_mode`,
+    ///     `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through
+    ///     `PostHogEvent.options`.
+    @objc(setPersonPropertiesWithUserPropertiesToSet:userPropertiesToSetOnce:options:)
     public func setPersonProperties(
         userPropertiesToSet: [String: Any]?,
-        userPropertiesToSetOnce: [String: Any]?
+        userPropertiesToSetOnce: [String: Any]? = nil,
+        options: [String: Any]? = nil
     ) {
         if !isEnabled() {
             return
@@ -1212,8 +1254,27 @@ let maxRetryDelay = 30.0
             distinctId: currentDistinctId,
             userProperties: userPropertiesToSet,
             userPropertiesSetOnce: userPropertiesToSetOnce,
+            options: options,
             deduplicatePersonProperties: true
         )
+    }
+
+    // A separate Swift name keeps this out of Swift overload resolution.
+
+    /// Sets properties on the person profile associated with the current distinct_id from Objective-C.
+    ///
+    /// This method sends a `$set` event to PostHog.
+    ///
+    /// - Parameters:
+    ///   - userPropertiesToSet: Properties to store about the user. These will overwrite existing values.
+    ///   - userPropertiesToSetOnce: Properties to store about the user only if not previously set.
+    @available(swift, obsoleted: 1.0, message: "Use setPersonProperties(userPropertiesToSet:userPropertiesToSetOnce:options:) instead")
+    @objc(setPersonPropertiesWithUserPropertiesToSet:userPropertiesToSetOnce:)
+    public func setPersonPropertiesObjC(
+        userPropertiesToSet: [String: Any]?,
+        userPropertiesToSetOnce: [String: Any]?
+    ) {
+        setPersonProperties(userPropertiesToSet: userPropertiesToSet, userPropertiesToSetOnce: userPropertiesToSetOnce, options: nil)
     }
 
     /// Computes a hash for deduplicating person properties calls.
@@ -1775,8 +1836,16 @@ let maxRetryDelay = 30.0
     ///   - screenTitle: The screen name to record. It takes precedence over a
     ///     `$screen_name` key in `properties`.
     ///   - properties: Additional properties to attach to this `$screen` event.
-    @objc(screenWithTitle:properties:)
-    public func screen(_ screenTitle: String, properties: [String: Any]? = nil) {
+    ///   - options: Optional settings that tell PostHog how to process this `$screen` event,
+    ///     sent apart from its properties. Known keys are `process_person_profile` (`Bool`),
+    ///     `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id`
+    ///     (`String`), as described on
+    ///     `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`.
+    ///     An option wins over its legacy `$process_person_profile`, `$cookieless_mode`,
+    ///     `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through
+    ///     `PostHogEvent.options`.
+    @objc(screenWithTitle:properties:options:)
+    public func screen(_ screenTitle: String, properties: [String: Any]? = nil, options: [String: Any]? = nil) {
         if !isEnabled() {
             return
         }
@@ -1815,7 +1884,12 @@ let maxRetryDelay = 30.0
         let eventName = "$screen"
         let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: personProcessingOptions(nil)) else {
+        guard let event = buildEvent(
+            event: eventName,
+            distinctId: distinctId,
+            properties: properties,
+            options: personProcessingOptions(sanitizeDictionary(options))
+        ) else {
             return
         }
 
@@ -1835,6 +1909,20 @@ let maxRetryDelay = 30.0
         if screenNameChanged {
             notifyContextDidChange()
         }
+    }
+
+    // A separate Swift name keeps this out of Swift overload resolution.
+
+    /// Records a screen view by capturing a `$screen` event from Objective-C.
+    ///
+    /// - Parameters:
+    ///   - screenTitle: The screen name to record. It takes precedence over a
+    ///     `$screen_name` key in `properties`.
+    ///   - properties: Additional properties to attach to this `$screen` event.
+    @available(swift, obsoleted: 1.0, message: "Use screen(_:properties:options:) instead")
+    @objc(screenWithTitle:properties:)
+    public func screenObjC(_ screenTitle: String, properties: [String: Any]?) {
+        screen(screenTitle, properties: properties, options: nil)
     }
 
     func autocapture(
@@ -1904,6 +1992,26 @@ let maxRetryDelay = 30.0
     ///
     /// - Parameter alias: The additional distinct ID to associate with the current user.
     @objc public func alias(_ alias: String) {
+        self.alias(alias, options: nil)
+    }
+
+    /// Assigns an additional distinct ID to the current user.
+    ///
+    /// Use alias when a user should be connected to another identifier that was previously used
+    /// to track them. This sends a `$create_alias` event.
+    ///
+    /// - Parameters:
+    ///   - alias: The additional distinct ID to associate with the current user.
+    ///   - options: Optional settings that tell PostHog how to process the `$create_alias` event,
+    ///     sent apart from its properties. Known keys are `process_person_profile` (`Bool`),
+    ///     `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id`
+    ///     (`String`), as described on
+    ///     `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`.
+    ///     An option wins over its legacy `$process_person_profile`, `$cookieless_mode`,
+    ///     `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through
+    ///     `PostHogEvent.options`.
+    @objc(alias:options:)
+    public func alias(_ alias: String, options: [String: Any]? = nil) {
         if !isEnabled() {
             return
         }
@@ -1927,7 +2035,12 @@ let maxRetryDelay = 30.0
         let eventName = "$create_alias"
         let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: personProcessingOptions(nil)) else {
+        guard let event = buildEvent(
+            event: eventName,
+            distinctId: distinctId,
+            properties: properties,
+            options: personProcessingOptions(sanitizeDictionary(options))
+        ) else {
             return
         }
 
@@ -1962,7 +2075,7 @@ let maxRetryDelay = 30.0
         return mergedGroups ?? [:]
     }
 
-    private func groupIdentify(type: String, key: String, groupProperties: [String: Any]? = nil) {
+    private func groupIdentify(type: String, key: String, groupProperties: [String: Any]? = nil, options: [String: Any]? = nil) {
         if !isEnabled() {
             return
         }
@@ -1993,7 +2106,12 @@ let maxRetryDelay = 30.0
         let eventName = "$groupidentify"
         let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: personProcessingOptions(nil)) else {
+        guard let event = buildEvent(
+            event: eventName,
+            distinctId: distinctId,
+            properties: properties,
+            options: personProcessingOptions(sanitizeDictionary(options))
+        ) else {
             return
         }
 
@@ -2112,8 +2230,16 @@ let maxRetryDelay = 30.0
     ///   - type: Group type, such as `"company"` or `"organization"`.
     ///   - key: Group key from your application.
     ///   - groupProperties: Optional properties to set on the group profile.
-    @objc(groupWithType:key:groupProperties:)
-    public func group(type: String, key: String, groupProperties: [String: Any]? = nil) {
+    ///   - options: Optional settings that tell PostHog how to process the `$groupidentify` event,
+    ///     sent apart from its properties. Known keys are `process_person_profile` (`Bool`),
+    ///     `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id`
+    ///     (`String`), as described on
+    ///     `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`.
+    ///     An option wins over its legacy `$process_person_profile`, `$cookieless_mode`,
+    ///     `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through
+    ///     `PostHogEvent.options`.
+    @objc(groupWithType:key:groupProperties:options:)
+    public func group(type: String, key: String, groupProperties: [String: Any]? = nil, options: [String: Any]? = nil) {
         if !isEnabled() {
             return
         }
@@ -2133,10 +2259,24 @@ let maxRetryDelay = 30.0
 
         _ = groups([type: key])
 
-        groupIdentify(type: type, key: key, groupProperties: sanitizeDictionary(groupProperties))
+        groupIdentify(type: type, key: key, groupProperties: sanitizeDictionary(groupProperties), options: options)
 
         // Notify integrations of context change (e.g., for crash reporting)
         notifyContextDidChange()
+    }
+
+    // A separate Swift name keeps this out of Swift overload resolution.
+
+    /// Associates subsequent events with a group and optionally updates group properties from Objective-C.
+    ///
+    /// - Parameters:
+    ///   - type: Group type, such as `"company"` or `"organization"`.
+    ///   - key: Group key from your application.
+    ///   - groupProperties: Optional properties to set on the group profile.
+    @available(swift, obsoleted: 1.0, message: "Use group(type:key:groupProperties:options:) instead")
+    @objc(groupWithType:key:groupProperties:)
+    public func groupObjC(type: String, key: String, groupProperties: [String: Any]?) {
+        group(type: type, key: key, groupProperties: groupProperties, options: nil)
     }
 
     // FEATURE FLAGS
@@ -3237,11 +3377,20 @@ let maxRetryDelay = 30.0
     /// - Parameters:
     ///   - error: The error to capture (can be any Error or NSError)
     ///   - properties: Optional additional properties to attach to the event
+    ///   - options: Optional settings that tell PostHog how to process the `$exception` event,
+    ///     sent apart from its properties. Known keys are `process_person_profile` (`Bool`),
+    ///     `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id`
+    ///     (`String`), as described on
+    ///     `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`.
+    ///     An option wins over its legacy `$process_person_profile`, `$cookieless_mode`,
+    ///     `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through
+    ///     `PostHogEvent.options`.
     ///
-    @objc(captureExceptionWithError:properties:)
+    @objc(captureExceptionWithError:properties:options:)
     public func captureException(
         _ error: Error,
-        properties: [String: Any]? = nil
+        properties: [String: Any]? = nil,
+        options: [String: Any]? = nil
     ) {
         guard isEnabled() else { return }
 
@@ -3251,7 +3400,21 @@ let maxRetryDelay = 30.0
             config: config.errorTrackingConfig
         )
 
-        captureExceptionEvent(errorProperties, additionalProperties: properties)
+        captureExceptionEvent(errorProperties, additionalProperties: properties, options: options)
+    }
+
+    // A separate Swift name keeps this out of Swift overload resolution.
+
+    /// Capture a Swift Error or NSError from Objective-C
+    ///
+    /// - Parameters:
+    ///   - error: The error to capture (can be any Error or NSError)
+    ///   - properties: Optional additional properties to attach to the event
+    ///
+    @available(swift, obsoleted: 1.0, message: "Use captureException(_:properties:options:) instead")
+    @objc(captureExceptionWithError:properties:)
+    public func captureExceptionObjC(_ error: Error, properties: [String: Any]?) {
+        captureException(error, properties: properties, options: nil)
     }
 
     /// Capture a Swift Error or NSError without additional properties
@@ -3284,11 +3447,20 @@ let maxRetryDelay = 30.0
     /// - Parameters:
     ///   - exception: The NSException to capture
     ///   - properties: Optional additional properties to attach to the event
+    ///   - options: Optional settings that tell PostHog how to process the `$exception` event,
+    ///     sent apart from its properties. Known keys are `process_person_profile` (`Bool`),
+    ///     `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id`
+    ///     (`String`), as described on
+    ///     `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`.
+    ///     An option wins over its legacy `$process_person_profile`, `$cookieless_mode`,
+    ///     `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through
+    ///     `PostHogEvent.options`.
     ///
-    @objc(captureExceptionWithNSException:properties:)
+    @objc(captureExceptionWithNSException:properties:options:)
     public func captureException(
         _ exception: NSException,
-        properties: [String: Any]? = nil
+        properties: [String: Any]? = nil,
+        options: [String: Any]? = nil
     ) {
         guard isEnabled() else { return }
 
@@ -3298,7 +3470,21 @@ let maxRetryDelay = 30.0
             config: config.errorTrackingConfig
         )
 
-        captureExceptionEvent(exceptionProperties, additionalProperties: properties)
+        captureExceptionEvent(exceptionProperties, additionalProperties: properties, options: options)
+    }
+
+    // A separate Swift name keeps this out of Swift overload resolution.
+
+    /// Capture an NSException from Objective-C
+    ///
+    /// - Parameters:
+    ///   - exception: The NSException to capture
+    ///   - properties: Optional additional properties to attach to the event
+    ///
+    @available(swift, obsoleted: 1.0, message: "Use captureException(_:properties:options:) instead")
+    @objc(captureExceptionWithNSException:properties:)
+    public func captureExceptionObjC(_ exception: NSException, properties: [String: Any]?) {
+        captureException(exception, properties: properties, options: nil)
     }
 
     /// Capture an NSException without additional properties
@@ -3411,7 +3597,8 @@ let maxRetryDelay = 30.0
 
     private func captureExceptionEvent(
         _ exceptionProperties: [String: Any],
-        additionalProperties: [String: Any]?
+        additionalProperties: [String: Any]?,
+        options: [String: Any]?
     ) {
         var mergedProperties = exceptionProperties
         additionalProperties?.forEach { key, value in
@@ -3421,7 +3608,7 @@ let maxRetryDelay = 30.0
         }
 
         // ignoredExceptionTypes is enforced in captureInternal, the chokepoint for every $exception path
-        capture("$exception", properties: mergedProperties)
+        capture("$exception", properties: mergedProperties, options: options)
     }
 
     private func installIntegrations() {

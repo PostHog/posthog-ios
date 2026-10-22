@@ -2,6 +2,7 @@
 
 ## Start here
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) for development commands/prerequisites, [AI_POLICY.md](AI_POLICY.md) and the [PR template](.github/PULL_REQUEST_TEMPLATE.md) for contribution requirements. For releasable changes, follow [RELEASING.md](RELEASING.md), including maintainer approval and emergency-only manual publishing.
+- Sign every commit; `main` rejects unsigned commits. Configure signing in the git config you commit with, as described in "Commit signing" in [CONTRIBUTING.md](CONTRIBUTING.md).
 - SDK entry point: [PostHog/PostHogSDK.swift](PostHog/PostHogSDK.swift); tests: `PostHogTests/`; replay/privacy: `PostHog/Replay/` and `PostHog/Resources/`.
 
 ## Repository invariants

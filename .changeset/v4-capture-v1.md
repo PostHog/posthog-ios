@@ -9,3 +9,5 @@
 - Only a 307 or 308 redirect to the same origin as `host` is followed, at most 5 times. Other redirects drop the events, so point `host` at the final host.
 - 429 responses are no longer retried, and `Retry-After` pauses sending for at most 30 seconds, including session replay and logs.
 - The `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` properties are sent as capture options, and PostHog drops an event whose option value it can't read.
+
+See the [migration guide](https://github.com/PostHog/posthog-ios/blob/main/docs/migration-3.x-to-4.0.md) for what to check before you upgrade.

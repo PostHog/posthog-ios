@@ -1,0 +1,118 @@
+# Migrating from PostHog iOS 3.x to 4.0
+
+4.0 sends analytics events to capture v1 (`/i/v1/analytics/events`) instead of `/batch`.
+Most apps upgrade without code changes.
+Read the checklist first, then the sections that apply to you.
+
+For the full list of 4.0 changes, see the [changelog](../CHANGELOG.md).
+
+## Checklist
+
+You need to change something if your app does any of these:
+
+- sends events to a self-hosted PostHog or a reverse proxy that doesn't serve `/i/v1/analytics/events`
+- authenticates its proxy with an `Authorization` header in `requestHeaders`
+- sends events through a proxy that redirects capture requests, other than with a 307 or 308 to the same origin as `host`
+- captures events with an empty event name or distinct ID, or with either over 200 bytes
+- sets `$lib` or `$lib_version` and expects PostHog to store that value
+- reads `$session_id` or `$window_id` from the raw request body, for example in a proxy
+- sets `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` to a value PostHog can't read, such as `"maybe"`
+- relies on 429 responses being retried, or on a `Retry-After` longer than 30 seconds
+
+## Endpoints
+
+| Data | 3.x | 4.0 |
+| --- | --- | --- |
+| Analytics events | `/batch` | `/i/v1/analytics/events`, or `/batch` after a 404 (see below) |
+| Session replay | `/s/` | `/s/`, unchanged |
+| Logs | `/i/v1/logs` | `/i/v1/logs`, unchanged |
+| Feature flags | `/flags` | `/flags`, unchanged |
+
+Capture v1 requests send the project token in an `Authorization: Bearer <projectToken>` header instead of an `api_key` body field.
+This header replaces any `Authorization` header you set in `PostHogConfig.requestHeaders`, so authenticate your proxy with a different header, such as `X-Proxy-Token`.
+Other requests still send your `Authorization` header.
+
+### Hosts without capture v1
+
+If you use a reverse proxy, forward `/i/v1/analytics/events` before you upgrade.
+PostHog Cloud (`us.i.posthog.com`, `eu.i.posthog.com`) serves it.
+
+When `/i/v1/analytics/events` returns 404, the SDK resends that batch to `/batch` and keeps using `/batch` until the app restarts.
+Any other error status, such as 403 or 405, drops the events.
+
+### Redirects
+
+The SDK follows a 307 or 308 redirect only to the origin of `host` (same scheme, host and port), at most 5 times, and resends the same body and headers.
+Any other redirect is not followed and the events are dropped.
+In 3.x, `URLSession` followed redirects to any host.
+If a proxy redirects capture requests to another host, point `host` at the final host.
+
+## Event validation
+
+Capture v1 checks each event on its own and drops only the invalid ones, so the rest of the batch is delivered.
+The SDK doesn't check these before sending. PostHog drops the event, and the SDK removes it from the queue.
+With `debug` on, the SDK logs how many events were dropped.
+
+- An event with an empty event name is dropped, for example `capture("")`.
+- An event with an empty or whitespace-only distinct ID is dropped, for example `capture("signed_up", distinctId: "")`.
+- An event whose name is over 200 UTF-8 bytes is dropped. Legacy capture had no limit on event name length.
+- An event whose distinct ID is over 200 UTF-8 bytes is dropped. Legacy capture shortened the ID to 200 characters and kept the event.
+
+In 3.x, an empty event name or distinct ID made legacy capture reject the whole batch it was in.
+
+The distinct ID can come from `identify(_:)`, the `distinctId` argument of `capture` or `beforeSend`.
+If you identify users with a long ID, such as a JWT or a long email address, shorten or hash it before you upgrade. Otherwise every event for that user is dropped.
+
+## SDK identity
+
+PostHog sets `$lib` and `$lib_version` from the `PostHog-Sdk-Info` request header, for example `posthog-ios/4.0.0`.
+The SDK removes `$lib` and `$lib_version` from the properties it sends to capture v1.
+A value you set in properties, in a super property or in `beforeSend` doesn't reach PostHog.
+`beforeSend` still sees the SDK's value.
+
+## Session and window IDs
+
+Capture v1 sends `$session_id` and `$window_id` as top-level `session_id` and `window_id` fields, not as properties.
+The SDK moves them out of `properties` for you.
+An empty or non-string value is removed and not sent.
+In PostHog, the events still have `$session_id` and `$window_id`, so insights, filters and session replay work as before.
+
+## Event options
+
+Capture v1 reads processing settings from an `options` object sent next to `properties`.
+`capture` takes a new `options` argument, and `beforeSend` can read and change `PostHogEvent.options`.
+
+```swift
+// 3.x
+PostHogSDK.shared.capture("signed_up", properties: ["$cookieless_mode": true])
+
+// 4.0
+PostHogSDK.shared.capture("signed_up", options: ["cookieless_mode": true])
+```
+
+In Objective-C, use `captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:`.
+
+The legacy option properties still work.
+When the event is sent, the SDK removes each one from `properties` and uses it for its option:
+
+| Legacy property | Option |
+| --- | --- |
+| `$process_person_profile` | `process_person_profile` |
+| `$cookieless_mode` | `cookieless_mode` |
+| `$ignore_sent_at` | `disable_skew_correction` |
+| `$product_tour_id` | `product_tour_id` |
+
+- An option you set in `capture(..., options:)` or in `beforeSend` wins over its legacy property. An option set to `NSNull()` counts as unset, so the legacy property fills it.
+- The SDK sets `$process_person_profile` on every event from `personProfiles`, so a `$process_person_profile` property you pass is replaced. To change person processing for one event, pass the `process_person_profile` option.
+- The SDK sends option values as given. PostHog reads common forms of a value, such as `"false"` or `0` for a boolean, and drops an event whose option value it can't read.
+- Other option keys are sent unchanged, and PostHog ignores keys it doesn't know.
+- Events still queued on disk by 3.x are sent to capture v1 after the update, with their legacy properties moved to options.
+- After a 404 fallback to `/batch`, the SDK puts each option back into its legacy property.
+
+## Retries
+
+- The SDK retries network errors and 408, 500, 502, 503 and 504 responses. Other statuses drop the events, including 429. 3.x also retried 429 and 3xx responses. Capture itself doesn't return 429, but a proxy in front of it can.
+- When the response asks to retry only some events, the SDK keeps those events queued and removes the rest.
+- A `Retry-After` header pauses sending for at most 30 seconds. This also applies to session replay and logs. In 3.x, analytics events and session replay had no cap, and logs allowed up to 5 minutes.
+- A 413 still splits the batch into smaller requests.
+- After a 404 fallback, `/batch` keeps the 3.x retry rules.

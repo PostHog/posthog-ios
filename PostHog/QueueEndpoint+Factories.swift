@@ -27,8 +27,9 @@ func isCaptureV1RetriableStatusCode(_ code: Int) -> Bool {
 /// stored event also holds its envelope, so allow 64 KiB on top, as
 /// posthog-python and posthog-go do.
 let aiMaxEventBytes = 8 * 1024 * 1024 + 64 * 1024
-/// Soft request size for the AI endpoint, matching the other PostHog SDKs.
-let aiMaxBatchBytes = 5 * 1024 * 1024
+/// Soft request size for the capture V1 analytics and AI endpoints, matching
+/// the other PostHog SDKs and well under capture V1's 10 MiB request limit.
+let captureV1MaxBatchBytes = 5 * 1024 * 1024
 /// AI events can be megabytes, so keep fewer of them on disk than analytics events.
 let aiMaxQueueSize = 100
 /// Disk budget for queued AI events; the oldest are dropped first.
@@ -36,7 +37,8 @@ let aiMaxQueueBytes = 50 * 1024 * 1024
 
 extension QueueEndpoint where Record == PostHogEvent {
     /// Analytics events endpoint: capture V1 (`/i/v1/analytics/events`), or
-    /// `/batch` after V1 returned 404 this session.
+    /// `/batch` after V1 returned 404 this session. Batches by bytes as well
+    /// as count, so a batch of large events stays under the request limit.
     static func batch(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
         QueueEndpoint<PostHogEvent>(
             storageKey: .queue,
@@ -52,6 +54,7 @@ extension QueueEndpoint where Record == PostHogEvent {
             decode: { data in PostHogEvent.fromJSON(data) },
             describe: { event in "event '\(event.event)'" },
             recordId: { event in event.uuid.postHogUuidString },
+            maxBatchBytes: captureV1MaxBatchBytes,
             send: { events, completion in
                 api.captureV1(events: events, completion: completion)
             },
@@ -88,7 +91,7 @@ extension QueueEndpoint where Record == PostHogEvent {
             decode: { data in PostHogEvent.fromJSON(data) },
             describe: { event in "AI event '\(event.event)'" },
             recordId: { event in event.uuid.postHogUuidString },
-            maxBatchBytes: aiMaxBatchBytes,
+            maxBatchBytes: captureV1MaxBatchBytes,
             maxQueueBytes: aiMaxQueueBytes,
             send: { events, completion in
                 api.captureAi(events: events, completion: completion)

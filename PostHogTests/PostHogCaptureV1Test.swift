@@ -809,6 +809,33 @@ final class PostHogCaptureV1QueueTest {
             )
         }
     }
+
+    @Test("splits analytics batches at the byte limit and sends an event over it alone")
+    func batchesByBytes() async throws {
+        let config = PostHogConfig(projectToken: "phc_bytes_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.flushAt = 100
+        let storage = PostHogStorage(config)
+        let queue = PostHogQueue(config, storage, .batch(api: PostHogApi(config)), nil)
+        server.batchProjectToken = config.projectToken
+        defer {
+            queue.stop()
+            queue.clear()
+            deleteSafely(storage.appFolderUrl)
+        }
+
+        // Two ~2 MiB events fit under 5 MiB; the ~6 MiB one doesn't fit with them and
+        // is over the limit on its own.
+        let small = String(repeating: "a", count: 2 * 1024 * 1024)
+        let big = String(repeating: "b", count: 6 * 1024 * 1024)
+        for blob in [small, small, big] {
+            queue.add(PostHogEvent(event: "large", distinctId: "user", properties: ["blob": blob]))
+        }
+        queue.flush()
+        await waitUntil(timeout: 10) { queue.depth == 0 }
+
+        #expect(queue.depth == 0)
+        #expect(server.batchRequests.map { server.parsePostHogEvents($0).count } == [2, 1])
+    }
 }
 
 @Suite("Capture V1 AI lane", .serialized, .resetsGlobalState)

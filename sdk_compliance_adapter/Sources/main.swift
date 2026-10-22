@@ -130,6 +130,9 @@ app.post("init") { req async throws -> Response in
     config.preloadFeatureFlags = false
     config.sendFeatureFlagEvent = false
     config.enableSwizzling = false
+    // The harness models a server SDK: it never identifies, and expects person
+    // processing on unless an event opts out.
+    config.personProfiles = .always
 
     #if os(iOS)
         config.sessionReplay = false

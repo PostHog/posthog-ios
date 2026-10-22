@@ -233,15 +233,12 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        // The server rejects the whole batch with 400 when a UUID repeats.
-        var seenUuids = Set<String>()
-        let uniqueEvents = events.filter { seenUuids.insert($0.uuid.postHogUuidString).inserted }
-        let uuids = uniqueEvents.map(\.uuid.postHogUuidString)
+        let uuids = events.map(\.uuid.postHogUuidString)
         let identity = nextCaptureV1Identity(uuids: Set(uuids))
 
         let toSend: [String: Any] = [
             "created_at": identity.createdAt,
-            "batch": uniqueEvents.map(Self.captureV1JSON),
+            "batch": events.map(Self.captureV1JSON),
         ]
 
         guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
@@ -274,9 +271,7 @@ class PostHogApi {
                     return self.batch(events: events, completion: completion)
                 }
 
-                completion(self.captureV1Result(
-                    info, data: data, uuids: uuids, identity: identity, duplicates: events.count - uniqueEvents.count
-                ))
+                completion(self.captureV1Result(info, data: data, uuids: uuids, identity: identity))
             }
         }.resume()
     }
@@ -303,12 +298,10 @@ class PostHogApi {
         _ info: PostHogUploadInfo,
         data: Data?,
         uuids: [String],
-        identity: CaptureV1RequestIdentity,
-        duplicates: Int
+        identity: CaptureV1RequestIdentity
     ) -> PostHogUploadInfo {
         var retryUuids: Set<String> = []
-        // Duplicate UUIDs are dropped before sending.
-        var dropped = duplicates
+        var dropped = 0
         let statusCode = captureV1StatusCode(info)
 
         if let statusCode, 200 ... 299 ~= statusCode {

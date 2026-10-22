@@ -321,7 +321,7 @@ final class PostHogSDKTests {
         let events = getBatchedEvents(server)
         #expect(events.count == 1)
         #expect(events.first?.event == "$set")
-        #expect(events.first?.properties["$process_person_profile"] as? Bool == true)
+        #expect(events.first?.options["process_person_profile"] == nil)
         #expect(config.storageManager?.isIdentified() == true)
     }
 
@@ -360,7 +360,7 @@ final class PostHogSDKTests {
 
         let event = try #require(events.first)
         #expect(event.event == "$set")
-        #expect(event.properties["$process_person_profile"] as? Bool == true)
+        #expect(event.options["process_person_profile"] == nil)
 
         let set = event.properties["$set"] as? [String: Any] ?? [:]
         #expect(set["foo"] as? String == "bar")
@@ -955,7 +955,8 @@ final class PostHogSDKTests {
         let event = try #require(events.last)
         #expect(event.event == "$feature_flag_called")
         // $groups is correctness-required (ingestion dedup key + personful routing for group
-        // flags), so it must survive minimization when groups are registered.
+        // flags), so it must survive minimization when groups are registered. group() turns person
+        // processing on, so there's no process_person_profile option or property.
         #expect(Set(event.properties.keys) == Set([
             "$feature_flag",
             "$feature_flag_response",
@@ -966,7 +967,6 @@ final class PostHogSDKTests {
             "$feature_flag_request_id",
             "$feature_flag_evaluated_at",
             "$groups",
-            "$process_person_profile",
             "$session_id",
             "$lib",
             "$lib_version",

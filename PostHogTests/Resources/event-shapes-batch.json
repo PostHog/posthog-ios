@@ -5,7 +5,7 @@
         "distinct_id" : "anonymous-123",
         "event" : "order completed",
         "options" : {
-          "process_person_profile" : true
+
         },
         "properties" : {
           "$active_feature_flags" : [
@@ -60,7 +60,7 @@
         "distinct_id" : "user-123",
         "event" : "$identify",
         "options" : {
-          "process_person_profile" : true
+
         },
         "properties" : {
           "$active_feature_flags" : [
@@ -107,7 +107,7 @@
         "distinct_id" : "user-123",
         "event" : "$groupidentify",
         "options" : {
-          "process_person_profile" : true
+
         },
         "properties" : {
           "$active_feature_flags" : [
@@ -154,7 +154,7 @@
         "distinct_id" : "user-123",
         "event" : "$feature_interaction",
         "options" : {
-          "process_person_profile" : true
+
         },
         "properties" : {
           "$active_feature_flags" : [
@@ -200,7 +200,7 @@
         "distinct_id" : "user-123",
         "event" : "$exception",
         "options" : {
-          "process_person_profile" : true
+
         },
         "properties" : {
           "$active_feature_flags" : [

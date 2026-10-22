@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 #if SWIFT_PACKAGE
     import PostHogTestsObjC
 #endif
@@ -103,6 +103,27 @@ private func hostAppInfoHas(_ key: String) -> Bool {
 /// The app-version key the minimal `$feature_flag_called` allowlist keeps, when the host provides it.
 private var hostAppVersionKeys: Set<String> {
     hostAppInfoHas("CFBundleShortVersionString") ? ["$app_version"] : []
+}
+
+/// Runs `onOptOutChange` on the thread that writes `optOut`, so a test can act mid-optIn()/optOut().
+private final class OptOutObservingConfig: PostHogConfig {
+    var onOptOutChange: (() -> Void)?
+
+    override var optOut: Bool {
+        didSet { onOptOutChange?() }
+    }
+}
+
+private final class LockedBox<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _value: T
+    init(_ value: T) {
+        _value = value
+    }
+    var value: T {
+        get { lock.withLock { _value } }
+        set { lock.withLock { _value = newValue } }
+    }
 }
 
 @Suite("PostHogSDK", .serialized, .resetsGlobalState)
@@ -672,6 +693,48 @@ final class PostHogSDKTests {
 
         sut.reset()
         sut.close()
+    }
+
+    @Test("a reader never sees opt-out consent before integrations are uninstalled")
+    func optOutAppliesConsentWithItsTransition() {
+        let config = OptOutObservingConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+        config.flushAt = 1
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
+        config.captureApplicationLifecycleEvents = true
+        // Other suites share this token's storage while this test holds opt-out
+        config.persistOptOut = false
+        PostHogStorage(config).reset()
+        let sut = PostHogSDK.with(config)
+        fixture.track(sut)
+        // Setup captures `Application Installed`; drain it so the upload can't land on the next test's server.
+        _ = getBatchedEvents(server)
+        #expect(sut.getAppLifeCycleIntegration() != nil)
+
+        let probeDone = DispatchSemaphore(value: 0)
+        let probed = LockedBox<(optedOut: Bool, installed: Bool)?>(nil)
+        config.onOptOutChange = {
+            config.onOptOutChange = nil
+            // While optOut() writes consent, read it from another thread together with the integrations
+            DispatchQueue.global().async {
+                let optedOut = sut.isOptOut()
+                probed.value = (optedOut, sut.getAppLifeCycleIntegration() != nil)
+                probeDone.signal()
+            }
+            // Give the reader time to run if nothing blocks it; it must not observe a half-applied opt-out
+            if probeDone.wait(timeout: .now() + 0.5) == .success {
+                probeDone.signal()
+            }
+        }
+
+        sut.optOut()
+        #expect(probeDone.wait(timeout: .now() + 5) == .success)
+
+        #expect(probed.value?.optedOut == true)
+        #expect(probed.value?.installed == false)
+        #expect(sut.isOptOut())
+        #expect(sut.getAppLifeCycleIntegration() == nil)
     }
 
     @Test("does not capture event if opt out")

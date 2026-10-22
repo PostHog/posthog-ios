@@ -264,10 +264,11 @@
 
         /// `config.sessionReplay` controls automatic starts; a recording explicitly started while it was
         /// off is allowed to resume (e.g. into a new session) until an explicit stop. Caller holds
-        /// `bufferingLock`.
-        private func isAutomaticStartPermittedLocked() -> Bool {
-            guard let config else { return false }
-            return config.sessionReplay || startedWithAutomaticDisabled
+        /// `bufferingLock` and passes `config?.sessionReplay` read before taking it: the `config` getter
+        /// takes the SDK's setupLock, whose holders (optOut(), stopSessionRecording()) take `bufferingLock`.
+        private func isAutomaticStartPermittedLocked(sessionReplay: Bool?) -> Bool {
+            guard let sessionReplay else { return false }
+            return sessionReplay || startedWithAutomaticDisabled
         }
 
         /// Flips `isEnabled` and resets the buffering state in one lock acquisition, re-checking the
@@ -275,8 +276,9 @@
         /// early gate in `startRecording()` and this claim clears the marker first, so it wins for `isEnabled`.
         private func claimRecording() -> Bool {
             let awaiting = shouldAwaitFirstRemoteConfig()
+            let sessionReplay = config?.sessionReplay
             let claimed = bufferingLock.withLock { () -> Bool in
-                guard !isEnabled, isAutomaticStartPermittedLocked() else { return false }
+                guard !isEnabled, isAutomaticStartPermittedLocked(sessionReplay: sessionReplay) else { return false }
                 isEnabled = true
                 hasPassedMinimumDuration = false
                 awaitingFirstRemoteConfig = awaiting
@@ -291,7 +293,8 @@
         private func startRecording() {
             guard let postHog, !isEnabled else { return }
 
-            guard bufferingLock.withLock({ isAutomaticStartPermittedLocked() }) else {
+            let sessionReplay = config?.sessionReplay
+            guard bufferingLock.withLock({ isAutomaticStartPermittedLocked(sessionReplay: sessionReplay) }) else {
                 hedgeLog("[Session Replay] Automatic replay is disabled in config and no manual start is pending. Skipping start.")
                 return
             }

@@ -608,6 +608,18 @@ let maxRetryDelay = 30.0
         )
     }
 
+    /// Adds `process_person_profile: false` when the SDK doesn't process person profiles for this
+    /// event, unless the caller set that option. Nothing is added otherwise: PostHog processes
+    /// person profiles by default.
+    private func personProcessingOptions(_ options: [String: Any]?) -> [String: Any]? {
+        guard !hasPersonProcessing() else { return options }
+        var options = options ?? [:]
+        if options["process_person_profile"] == nil || options["process_person_profile"] is NSNull {
+            options["process_person_profile"] = false
+        }
+        return options
+    }
+
     @discardableResult
     private func requirePersonProcessing(functionName: String = #function) -> Bool {
         if config.personProfiles == .never {
@@ -786,7 +798,14 @@ let maxRetryDelay = 30.0
                 props["$is_identified"] = isIdentified
             }
 
-            props["$process_person_profile"] = hasPersonProcessing()
+            // Person processing is sent as the `process_person_profile` option, only when it's off
+            // (see `personProcessingOptions`). The legacy property is dropped so a caller or super
+            // property can't override the SDK's state with it; the option can. The crash-context
+            // snapshot stores only properties, so it keeps the property, which the send hoists.
+            props.removeValue(forKey: "$process_person_profile")
+            if readOnlySession, !hasPersonProcessing() {
+                props["$process_person_profile"] = false
+            }
 
             if config.disableGeoIp {
                 props["$geoip_disable"] = true
@@ -1075,7 +1094,7 @@ let maxRetryDelay = 30.0
                 userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce)
             )
 
-            guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
+            guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: personProcessingOptions(nil)) else {
                 return
             }
 
@@ -1405,7 +1424,7 @@ let maxRetryDelay = 30.0
     ///     These replace the `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and
     ///     `$product_tour_id` properties. Those properties still work: they are removed from the
     ///     event's properties and used as the option, unless you set that option here. The SDK
-    ///     always sets `$process_person_profile` itself, so pass the `process_person_profile` option
+    ///     ignores a `$process_person_profile` property, so pass the `process_person_profile` option
     ///     to override it. Other keys are sent unchanged and ignored by PostHog. PostHog drops an
     ///     event whose option value it can't read.
     ///     `beforeSend` can change them through `PostHogEvent.options`.
@@ -1695,12 +1714,17 @@ let maxRetryDelay = 30.0
             finalProperties[PostHogExceptionStepFields.stepsKey] = steps
         }
 
+        // Snapshots and pre-built crash events don't carry the SDK's person-processing option.
+        let eventOptions = skipBuildProperties || isSnapshotEvent
+            ? sanitizeDictionary(options)
+            : personProcessingOptions(sanitizeDictionary(options))
+
         // Sanitize is now called in buildEvent
         let posthogEvent = buildEvent(
             event: event,
             distinctId: eventDistinctId,
             properties: finalProperties,
-            options: sanitizeDictionary(options),
+            options: eventOptions,
             timestamp: eventTimestamp
         )
 
@@ -1791,7 +1815,7 @@ let maxRetryDelay = 30.0
         let eventName = "$screen"
         let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
+        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: personProcessingOptions(nil)) else {
             return
         }
 
@@ -1866,7 +1890,7 @@ let maxRetryDelay = 30.0
 
         let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
+        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: personProcessingOptions(nil)) else {
             return
         }
 
@@ -1903,7 +1927,7 @@ let maxRetryDelay = 30.0
         let eventName = "$create_alias"
         let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
+        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: personProcessingOptions(nil)) else {
             return
         }
 
@@ -1969,7 +1993,7 @@ let maxRetryDelay = 30.0
         let eventName = "$groupidentify"
         let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
+        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: personProcessingOptions(nil)) else {
             return
         }
 

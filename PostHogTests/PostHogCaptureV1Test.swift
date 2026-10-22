@@ -561,6 +561,39 @@ final class PostHogCaptureV1OptionsTest {
         #expect(sent["options"] as? [String: Bool] == ["process_person_profile": true, "cookieless_mode": true])
     }
 
+    @Test("the SDK sends process_person_profile only as a false option when person processing is off")
+    func processPersonProfileOnlyWhenOff() async throws {
+        let personless = makeSDK(personProfiles: .never)
+        var sent = try await captureAndSend(personless) { $0.capture("test") }
+        personless.close()
+        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
+        #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
+
+        let processed = makeSDK(personProfiles: .always)
+        defer { processed.close() }
+        sent = try await captureAndSend(processed) { $0.capture("test") }
+        #expect((sent["options"] as? [String: Any])?.isEmpty == true)
+        #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
+
+        // A caller property still can't override the SDK's state, so nothing is sent for it.
+        sent = try await captureAndSend(processed) { $0.capture("test", properties: ["$process_person_profile": false]) }
+        #expect((sent["options"] as? [String: Any])?.isEmpty == true)
+        #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
+    }
+
+    @Test("the crash context keeps $process_person_profile false only when person processing is off")
+    func crashContextKeepsPersonlessProperty() {
+        for (personProfiles, expected) in [(PostHogPersonProfiles.never, false as Bool?), (.always, nil)] {
+            let sut = makeSDK(personProfiles: personProfiles)
+            var eventProperties: [String: Any]?
+            let token = sut.onEventContextChanged.subscribe { eventProperties = $0["event_properties"] as? [String: Any] }
+            sut.notifyContextDidChange()
+            withExtendedLifetime(token) {}
+            sut.close()
+            #expect(eventProperties?["$process_person_profile"] as? Bool == expected)
+        }
+    }
+
     @Test("beforeSend has the final say over options")
     func beforeSendEditsOptions() async throws {
         let sut = makeSDK(personProfiles: .never) { event in

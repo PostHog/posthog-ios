@@ -74,7 +74,9 @@ A value you set in properties, in a super property or in `beforeSend` doesn't re
 
 Capture v1 sends `$session_id` and `$window_id` as top-level `session_id` and `window_id` fields, not as properties.
 The SDK moves them out of `properties` for you.
-An empty or non-string value is removed and not sent.
+A string value, including an empty string, is sent unchanged.
+Any other value is removed and not sent, and the SDK logs a warning that names the key and the value's JSON type, never the value.
+A null value counts as unset and is removed without a warning.
 In PostHog, the events still have `$session_id` and `$window_id`, so insights, filters and session replay work as before.
 
 ## Event options

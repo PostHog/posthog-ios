@@ -235,9 +235,23 @@ final class PostHogCaptureV1Test {
         #expect(paths == ["/proxy/i/v1/analytics/events", "/proxy/batch", "/proxy/batch"])
     }
 
-    @Test("omits empty session and window IDs from the root and properties")
-    func omitsEmptySessionIds() async throws {
-        let event = PostHogEvent(event: "test", distinctId: "user", properties: ["$session_id": "", "$window_id": ""])
+    @Test("sends empty and whitespace session and window IDs at the root unchanged", arguments: ["", "  "])
+    func sendsBlankSessionIds(value: String) async throws {
+        let event = PostHogEvent(event: "test", distinctId: "user", properties: ["$session_id": value, "$window_id": value])
+        _ = await send(makeApi(), [event])
+
+        let request = try #require(server.batchRequests.first)
+        let sent = try #require((try body(request)["batch"] as? [[String: Any]])?.first)
+        #expect(sent["session_id"] as? String == value)
+        #expect(sent["window_id"] as? String == value)
+        let properties = try #require(sent["properties"] as? [String: Any])
+        #expect(properties["$session_id"] == nil)
+        #expect(properties["$window_id"] == nil)
+    }
+
+    @Test("drops non-string session and window IDs from the root and properties")
+    func dropsNonStringSessionIds() async throws {
+        let event = PostHogEvent(event: "test", distinctId: "user", properties: ["$session_id": 42, "$window_id": ["w"]])
         _ = await send(makeApi(), [event])
 
         let request = try #require(server.batchRequests.first)
@@ -247,6 +261,25 @@ final class PostHogCaptureV1Test {
         let properties = try #require(sent["properties"] as? [String: Any])
         #expect(properties["$session_id"] == nil)
         #expect(properties["$window_id"] == nil)
+    }
+
+    @Test("a dropped non-string ID logs its key and JSON type but not its value; null drops silently", arguments: [
+        (42 as Any, "number"),
+        (3.5 as Any, "number"),
+        (true as Any, "bool"),
+        (["secret"] as Any, "array"),
+        (["k": "secret"] as Any, "object"),
+        (NSNull() as Any, nil),
+    ] as [(Any, String?)])
+    func warnsOnNonStringId(value: Any, type: String?) {
+        var properties: [String: Any] = ["$window_id": value, "other": "kept"]
+        var warnings: [String] = []
+
+        let lifted = PostHogApi.liftStringProperty("$window_id", from: &properties) { warnings.append($0) }
+
+        #expect(lifted == nil)
+        #expect(properties.keys.sorted() == ["other"])
+        #expect(warnings == type.map { ["dropping $window_id: a \($0) value is not a string"] } ?? [])
     }
 
     @Test("follows a same-origin 307 or 308 with the same body and headers", arguments: [307, 308])

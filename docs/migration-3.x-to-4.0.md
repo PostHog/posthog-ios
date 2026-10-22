@@ -16,7 +16,7 @@ You need to change something if your app does any of these:
 - captures events with an empty event name or distinct ID, or with either over 200 bytes
 - sets `$lib` or `$lib_version` and expects PostHog to store that value
 - reads `$session_id` or `$window_id` from the raw request body, for example in a proxy
-- sets `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` to a value PostHog can't read, such as `"maybe"`
+- sets `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` to a value PostHog can't read, such as `"maybe"`
 - relies on 429 responses being retried, or on a `Retry-After` longer than 30 seconds
 
 ## Endpoints
@@ -105,7 +105,7 @@ When the event is sent, the SDK removes each one from `properties` and uses it f
 | `$product_tour_id` | `product_tour_id` |
 
 - An option you set in `capture(..., options:)` or in `beforeSend` wins over its legacy property. An option set to `NSNull()` counts as unset, so the legacy property fills it.
-- The SDK sets `$process_person_profile` on every event from `personProfiles`, so a `$process_person_profile` property you pass is replaced. To change person processing for one event, pass the `process_person_profile` option.
+- The SDK ignores a `$process_person_profile` property you pass or register. When `personProfiles` turns person processing off, the SDK sets the `process_person_profile` option to `false`. Otherwise it sends neither, because PostHog processes person profiles by default. To change person processing for one event, pass the `process_person_profile` option.
 - The SDK sends option values as given. PostHog reads common forms of a value, such as `"false"` or `0` for a boolean, and drops an event whose option value it can't read.
 - Other option keys are sent unchanged, and PostHog ignores keys it doesn't know.
 - Events still queued on disk by 3.x are sent to capture v1 after the update, with their legacy properties moved to options.

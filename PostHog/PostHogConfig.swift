@@ -32,7 +32,7 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
         #endif
         static let maxBatchSize: Int = 50
         static let flushIntervalSeconds: TimeInterval = 30
-        static let maxRetries: Int = 3
+        static let pushNotificationSubscriptionMaxRetries: Int = 3
         static let featureFlagRequestMaxRetries: Int = 1
     }
 
@@ -86,7 +86,14 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     /// Use `maxQueueSize` for events and replay, and `logs.maxBufferSize` for logs.
     ///
     /// Default: `3`.
-    @objc public var maxRetries: Int = Defaults.maxRetries
+    @objc public var pushNotificationSubscriptionMaxRetries: Int = Defaults.pushNotificationSubscriptionMaxRetries
+
+    /// Former name of `pushNotificationSubscriptionMaxRetries`. Reads and writes that property.
+    @available(*, deprecated, message: "Use pushNotificationSubscriptionMaxRetries. maxRetries only ever applied to push-subscription registration in 3.73.0+.")
+    @objc public var maxRetries: Int {
+        get { pushNotificationSubscriptionMaxRetries }
+        set { pushNotificationSubscriptionMaxRetries = newValue }
+    }
 
     /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.
     /// Defaults to 1. Set to 0 to disable feature flag request retries.

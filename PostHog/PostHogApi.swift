@@ -58,6 +58,8 @@ class PostHogApi {
 
     // default is 60s but we do 10s
     private let defaultTimeout: TimeInterval = 10
+    /// AI batches can be several MB, so give them longer than other requests.
+    static let aiTimeout: TimeInterval = 60
 
     /// Shared so connection pool, TLS state, and HTTP/2 streams survive
     /// between calls instead of being torn down per request.
@@ -108,10 +110,10 @@ class PostHogApi {
 
     /// `gzipped: true` adds `Content-Encoding: gzip` for upload endpoints
     /// (/batch, /s/, /i/v1/logs) whose bodies are gzipped.
-    private func getURLRequest(_ url: URL, gzipped: Bool = false, httpMethod: String = "POST") -> URLRequest {
+    private func getURLRequest(_ url: URL, gzipped: Bool = false, httpMethod: String = "POST", timeout: TimeInterval? = nil) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = httpMethod
-        request.timeoutInterval = defaultTimeout
+        request.timeoutInterval = timeout ?? defaultTimeout
         applyCustomHeaders(&request)
         if gzipped {
             request.setValue("gzip", forHTTPHeaderField: "Content-Encoding")
@@ -138,15 +140,17 @@ class PostHogApi {
         "posthog-sdk-info", "posthog-attempt", "posthog-request-id", "posthog-request-timestamp",
     ]
 
-    private func requestAndPayload(url: URL, data: Data, endpointName: String, httpMethod: String = "POST") -> (URLRequest, Data) {
+    private func requestAndPayload(
+        url: URL, data: Data, endpointName: String, httpMethod: String = "POST", timeout: TimeInterval? = nil
+    ) -> (URLRequest, Data) {
         guard config.compression == .gzip else {
-            return (getURLRequest(url, httpMethod: httpMethod), data)
+            return (getURLRequest(url, httpMethod: httpMethod, timeout: timeout), data)
         }
         do {
-            return (getURLRequest(url, gzipped: true, httpMethod: httpMethod), try Self.gzipData(data))
+            return (getURLRequest(url, gzipped: true, httpMethod: httpMethod, timeout: timeout), try Self.gzipData(data))
         } catch {
             hedgeLog("Error gzipping the \(endpointName) body, sending it uncompressed: \(error).")
-            return (getURLRequest(url, httpMethod: httpMethod), data)
+            return (getURLRequest(url, httpMethod: httpMethod, timeout: timeout), data)
         }
     }
 
@@ -260,7 +264,8 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        var (request, payload) = requestAndPayload(url: url, data: data, endpointName: "capture")
+        let timeout = path == Self.captureV1AiPath ? Self.aiTimeout : nil
+        var (request, payload) = requestAndPayload(url: url, data: data, endpointName: "capture", timeout: timeout)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(config.projectToken)", forHTTPHeaderField: "Authorization")
         request.setValue("\(postHogSdkName)/\(postHogVersion)", forHTTPHeaderField: "PostHog-Sdk-Info")

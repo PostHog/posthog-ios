@@ -1542,7 +1542,14 @@ let maxRetryDelay = 30.0
     /// and goes through the same `beforeSend` hooks. The event is queued on disk separately from other
     /// events and sent unchanged: the SDK doesn't redact or truncate prompts, outputs or media.
     /// An event over 8 MiB is dropped. PostHog drops an event sent here whose name doesn't start
-    /// with `$ai_`. `capture` never sends events here, even ones named `$ai_*`.
+    /// with `$ai_`, and the SDK logs a debug message when it's given one. `capture` never sends events
+    /// here, even ones named `$ai_*`.
+    ///
+    /// AI events use `flushAt`, `maxBatchSize`, `flushIntervalSeconds` and `compression` from
+    /// `PostHogConfig`, like other events. These limits are fixed and can't be configured:
+    /// - Requests carry up to about 5 MiB of events, and the SDK sends as soon as that much is queued.
+    /// - Requests time out after 60 seconds without network activity, instead of 10.
+    /// - Up to 100 events and 50 MiB are kept on disk. Beyond that, the oldest are dropped.
     ///
     /// - Parameters:
     ///   - event: AI event name, such as `$ai_generation`.
@@ -1568,7 +1575,11 @@ let maxRetryDelay = 30.0
                           timestamp: Date? = nil,
                           options: [String: Any]? = nil) -> String?
     {
-        captureInternal(
+        if !event.hasPrefix("$ai_") {
+            hedgeLog("captureAi event '\(event)' doesn't start with '$ai_', so PostHog will drop it. Use capture for non-AI events.")
+        }
+
+        return captureInternal(
             event,
             distinctId: distinctId,
             properties: properties,

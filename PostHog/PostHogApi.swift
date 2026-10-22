@@ -294,7 +294,7 @@ class PostHogApi {
 
     /// Reads the per-event results of a 2xx and records which events, if any,
     /// the next request retries under the same identity.
-    private func captureV1Result(
+    func captureV1Result(
         _ info: PostHogUploadInfo,
         data: Data?,
         uuids: [String],
@@ -302,14 +302,15 @@ class PostHogApi {
     ) -> PostHogUploadInfo {
         var retryUuids: Set<String> = []
         var dropped = 0
-        let statusCode = captureV1StatusCode(info)
+        let statusCode = info.statusCode
 
         if let statusCode, 200 ... 299 ~= statusCode {
-            // A body without a readable results map counts as delivered, so a
-            // broken success can't loop forever.
+            // A 2xx whose results can't be read, including a transfer that failed
+            // after the status arrived, counts as delivered: the server already
+            // stored its ok events, and a resend would store them again.
             let results = data.flatMap { fromJSONData($0) }?["results"] as? [String: Any]
             if results == nil {
-                hedgeLog("Capture returned \(statusCode) without per-event results, treating the batch as delivered.")
+                hedgeLog("Capture returned \(statusCode) without readable per-event results, treating \(uuids.count) events as delivered.")
             }
             // Events missing from the results count as delivered.
             for uuid in uuids {
@@ -903,15 +904,7 @@ final class PostHogRedirectHandler: NSObject, URLSessionTaskDelegate {
 
 /// Identity of a capture V1 request, kept so a retry of the same events reuses
 /// `PostHog-Request-Id` and `created_at` with an incremented `PostHog-Attempt`.
-/// The status capture V1 acts on. A transfer that failed after a 2xx header
-/// never delivered the per-event results, so it counts as no response and the
-/// whole batch is resent instead of being removed from the queue.
-func captureV1StatusCode(_ info: PostHogUploadInfo) -> Int? {
-    guard let statusCode = info.statusCode else { return nil }
-    return info.error != nil && 200 ... 299 ~= statusCode ? nil : statusCode
-}
-
-private struct CaptureV1RequestIdentity {
+struct CaptureV1RequestIdentity {
     let uuids: Set<String>
     let requestId: String
     let attempt: Int

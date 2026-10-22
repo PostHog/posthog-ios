@@ -136,13 +136,16 @@ final class PostHogCaptureV1Test {
         #expect(result.retryRecordIds?.isEmpty ?? true)
     }
 
-    @Test("a 2xx whose transfer then failed is resent, not treated as delivered")
-    func failedTransferAfterSuccessIsRetried() {
-        let error = URLError(.networkConnectionLost)
-        #expect(captureV1StatusCode(PostHogUploadInfo(statusCode: 200, error: error)) == nil)
-        #expect(captureV1StatusCode(PostHogUploadInfo(statusCode: 400, error: error)) == 400)
-        #expect(captureV1StatusCode(PostHogUploadInfo(statusCode: 200, error: nil)) == 200)
-        #expect(captureV1StatusCode(PostHogUploadInfo(statusCode: nil, error: error)) == nil)
+    @Test("treats a 2xx whose transfer then failed as delivered, so its ok events aren't stored twice")
+    func failedTransferAfterSuccessIsDelivered() {
+        let uuids = [UUID().postHogUuidString, UUID().postHogUuidString]
+        let identity = CaptureV1RequestIdentity(uuids: Set(uuids), requestId: "request", attempt: 1, createdAt: "now")
+        let info = PostHogUploadInfo(statusCode: 200, error: URLError(.networkConnectionLost))
+
+        let result = makeApi().captureV1Result(info, data: nil, uuids: uuids, identity: identity)
+
+        #expect(result.statusCode == 200)
+        #expect(result.retryRecordIds?.isEmpty ?? true)
     }
 
     @Test("a retry reuses the request ID and increments the attempt; an independent flush starts over")

@@ -114,5 +114,6 @@ When the event is sent, the SDK removes each one from `properties` and uses it f
 - The SDK retries network errors and 408, 500, 502, 503 and 504 responses. Other statuses drop the events, including 429. 3.x also retried 429 and 3xx responses. Capture itself doesn't return 429, but a proxy in front of it can.
 - When the response asks to retry only some events, the SDK keeps those events queued and removes the rest.
 - A `Retry-After` header pauses sending for at most 30 seconds. This also applies to session replay and logs. In 3.x, analytics events and session replay had no cap, and logs allowed up to 5 minutes.
+- After a failed send, the wait before the next one doubles from 1 second up to 30 seconds, with up to 25% random jitter. In 3.x it grew by 1 second per failure. This applies to events, session replay and logs. As in 3.x, retries have no limit: queued events stay until they're delivered or a full queue evicts them (`maxQueueSize`, or `logs.maxBufferSize` for logs).
 - A 413 still splits the batch into smaller requests.
 - After a 404 fallback, `/batch` keeps the 3.x retry rules.

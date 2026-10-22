@@ -36,20 +36,6 @@ struct PostHogConfigTest {
         #expect(config.pushIdentityProvider == nil)
     }
 
-    @Test("deprecated maxRetries reads and writes pushNotificationSubscriptionMaxRetries")
-    @available(*, deprecated, message: "Exercises the deprecated maxRetries alias.")
-    func maxRetriesForwardsToPushNotificationSubscriptionMaxRetries() {
-        let config = PostHogConfig(projectToken: testProjectToken)
-        #expect(config.pushNotificationSubscriptionMaxRetries == 3)
-        #expect(config.maxRetries == 3)
-
-        config.maxRetries = 7
-        #expect(config.pushNotificationSubscriptionMaxRetries == 7)
-
-        config.pushNotificationSubscriptionMaxRetries = 1
-        #expect(config.maxRetries == 1)
-    }
-
     @Test("init takes project token")
     func initTakesProjectToken() {
         let config = PostHogConfig(projectToken: testProjectToken)

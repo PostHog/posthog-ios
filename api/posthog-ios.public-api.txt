@@ -59,12 +59,13 @@ PostHog | PostHogConfig.init(projectToken:host:) | init | @objc(projectToken:hos
 PostHog | PostHogConfig.logs | property | @objc let logs: PostHogLogsConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)logs
 PostHog | PostHogConfig.maxBatchSize | property | @objc var maxBatchSize: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)maxBatchSize
 PostHog | PostHogConfig.maxQueueSize | property | @objc var maxQueueSize: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)maxQueueSize
-PostHog | PostHogConfig.maxRetries | property | @objc var maxRetries: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)maxRetries
+PostHog | PostHogConfig.maxRetries | property | @objc var maxRetries: Int { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)maxRetries
 PostHog | PostHogConfig.optOut | property | @objc var optOut: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)optOut
 PostHog | PostHogConfig.personProfiles | property | @objc var personProfiles: PostHogPersonProfiles | c:@M@PostHog@objc(cs)PostHogConfig(py)personProfiles
 PostHog | PostHogConfig.preloadFeatureFlags | property | @objc var preloadFeatureFlags: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)preloadFeatureFlags
 PostHog | PostHogConfig.projectToken | property | @objc let projectToken: String | c:@M@PostHog@objc(cs)PostHogConfig(py)projectToken
 PostHog | PostHogConfig.pushIdentityProvider | property | @objc var pushIdentityProvider: ((String, String, @escaping (String?) -> Void) -> Void)? | c:@M@PostHog@objc(cs)PostHogConfig(py)pushIdentityProvider
+PostHog | PostHogConfig.pushNotificationSubscriptionMaxRetries | property | @objc var pushNotificationSubscriptionMaxRetries: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)pushNotificationSubscriptionMaxRetries
 PostHog | PostHogConfig.rageClickConfig | property | @objc let rageClickConfig: PostHogRageClickConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)rageClickConfig
 PostHog | PostHogConfig.requestHeaders | property | @objc var requestHeaders: [String : String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)requestHeaders
 PostHog | PostHogConfig.reuseAnonymousId | property | @objc var reuseAnonymousId: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)reuseAnonymousId

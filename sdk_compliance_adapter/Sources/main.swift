@@ -118,7 +118,7 @@ app.post("init") { req async throws -> Response in
     config.flushAt = initReq.flushAt ?? 1
     let defaultFlushIntervalMs = config.flushAt > 1 ? 5000 : 500
     config.flushIntervalSeconds = TimeInterval(initReq.flushIntervalMs ?? defaultFlushIntervalMs) / 1000.0
-    config.maxRetries = initReq.maxRetries ?? config.maxRetries
+    config.pushNotificationSubscriptionMaxRetries = initReq.maxRetries ?? config.pushNotificationSubscriptionMaxRetries
     if initReq.enableCompression == false {
         config.compression = .none
     }

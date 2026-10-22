@@ -85,7 +85,7 @@ final class PostHogQueueTest {
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
         config.maxBatchSize = maxBatchSize
-        config.maxRetries = maxRetries
+        config.pushNotificationSubscriptionMaxRetries = maxRetries
         config.sendFeatureFlagEvent = false
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
@@ -714,7 +714,7 @@ struct PostHogQueueUploadDispositionTest {
         let config = PostHogConfig(projectToken: "queue_disposition_\(UUID().uuidString)", host: "http://localhost:9001")
         config.flushAt = 100
         config.maxBatchSize = 4
-        config.maxRetries = 0
+        config.pushNotificationSubscriptionMaxRetries = 0
         let api = PostHogApi(config)
         let base: QueueEndpoint<PostHogEvent> = snapshot ? .snapshot(api: api) : .batch(api: api)
         let endpoint = QueueEndpoint<PostHogEvent>(

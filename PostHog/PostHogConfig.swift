@@ -88,13 +88,6 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     /// Default: `3`.
     @objc public var pushNotificationSubscriptionMaxRetries: Int = Defaults.pushNotificationSubscriptionMaxRetries
 
-    /// Former name of `pushNotificationSubscriptionMaxRetries`. Reads and writes that property.
-    @available(*, deprecated, message: "Use pushNotificationSubscriptionMaxRetries. maxRetries only ever applied to push-subscription registration in 3.73.0+.")
-    @objc public var maxRetries: Int {
-        get { pushNotificationSubscriptionMaxRetries }
-        set { pushNotificationSubscriptionMaxRetries = newValue }
-    }
-
     /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.
     /// Defaults to 1. Set to 0 to disable feature flag request retries.
     @objc public var featureFlagRequestMaxRetries: Int = Defaults.featureFlagRequestMaxRetries

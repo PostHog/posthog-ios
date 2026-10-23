@@ -64,18 +64,18 @@ class PostHogGeoIpTests {
         sut.close()
     }
 
-    @Test("a caller $geoip_disable overrides disableGeoIp, a registered one doesn't")
-    func callerOverridesGeoipDisable() {
+    @Test("registered and caller $geoip_disable values override disableGeoIp")
+    func registeredAndCallerOverrideGeoipDisable() {
         let sut = getSut(disableGeoIp: true)
         server.reset(batchCount: 2)
 
-        sut.capture("caller", properties: ["$geoip_disable": false])
         sut.register(["$geoip_disable": false])
         sut.capture("registered")
+        sut.capture("caller", properties: ["$geoip_disable": true])
 
         let events = getBatchedEvents(server)
-        #expect(events.first { $0.event == "caller" }?.properties["$geoip_disable"] as? Bool == false)
-        #expect(events.first { $0.event == "registered" }?.properties["$geoip_disable"] as? Bool == true)
+        #expect(events.first { $0.event == "registered" }?.properties["$geoip_disable"] as? Bool == false)
+        #expect(events.first { $0.event == "caller" }?.properties["$geoip_disable"] as? Bool == true)
 
         sut.reset()
         sut.close()

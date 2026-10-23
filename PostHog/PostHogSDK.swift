@@ -565,7 +565,7 @@ let maxRetryDelay = 30.0
     // EVENT CAPTURE
 
     private func dynamicContext() -> [String: Any] {
-        var properties = getRegisteredProperties()
+        var properties: [String: Any] = [:]
 
         var groups: [String: String]?
         groupsLock.withLock {
@@ -785,18 +785,17 @@ let maxRetryDelay = 30.0
             props["distinct_id"] = distinctId
         }
 
-        // SDK-owned values are defaults: they overwrite registered super properties and SDK context,
-        // and the caller's properties below override them for one event.
+        // Values the SDK sets itself. Registered super properties and then the caller's properties
+        // override them below, and `beforeSend` has the final say.
         if appendSharedProps {
             if let isIdentified = config.storageManager?.isIdentified() {
                 props["$is_identified"] = isIdentified
             }
 
             // Person processing is sent as the `process_person_profile` option, only when it's off
-            // (see `personProcessingOptions`). A registered legacy property is dropped; a caller's is
-            // kept and wins over the SDK's option when the send hoists it. The crash-context snapshot
-            // stores only properties, so it keeps the property, which the send hoists.
-            props.removeValue(forKey: "$process_person_profile")
+            // (see `personProcessingOptions`). A registered or caller `$process_person_profile` wins
+            // over it when the send hoists the property. The crash-context snapshot stores only
+            // properties, so it keeps the property, which the send hoists.
             if readOnlySession, !hasPersonProcessing() {
                 props["$process_person_profile"] = false
             }
@@ -805,8 +804,6 @@ let maxRetryDelay = 30.0
                 props["$geoip_disable"] = true
             }
 
-            // SDK-computed debug keys overwrite a same-named registered super property (js: `extend`
-            // after super properties), so a stale `register()` can't shadow the live status.
             #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 var replayDebugProperties = replayIntegration?.debugProperties() ?? [
                     "$recording_status": "disabled",
@@ -837,7 +834,12 @@ let maxRetryDelay = 30.0
             }
         }
 
-        // Caller-supplied properties win over registered super properties, SDK context and SDK-owned values.
+        // Registered super properties win over everything the SDK set above.
+        if appendSharedProps {
+            props.merge(getRegisteredProperties()) { _, new in new }
+        }
+
+        // Caller-supplied properties win over registered super properties and SDK-set values.
         // A blank caller value for a key the SDK filled in above is treated as absent.
         var callerProps = properties ?? [:]
         for key in ["$session_id", "$screen_name", "distinct_id"] where props[key] != nil {
@@ -1494,8 +1496,8 @@ let maxRetryDelay = 30.0
     ///     These replace the `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and
     ///     `$product_tour_id` properties. Those properties still work: they are removed from the
     ///     event's properties and used as the option, unless you set that option here. A
-    ///     `$process_person_profile` property you pass here overrides the SDK's default, but a
-    ///     registered one is ignored. Other keys are sent unchanged and ignored by PostHog. PostHog drops an
+    ///     `$process_person_profile` property you pass or register overrides the SDK's default.
+    ///     Other keys are sent unchanged and ignored by PostHog. PostHog drops an
     ///     event whose option value it can't read.
     ///     `beforeSend` can change them through `PostHogEvent.options`.
     @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)

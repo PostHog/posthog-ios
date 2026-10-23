@@ -5,11 +5,10 @@
 //  Created by Ioannis Josephides on 22/03/2025.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
 
     import SwiftUI
 
-    @available(iOS 15.0, *)
     struct SurveyPresentationDetentsRepresentable: UIViewControllerRepresentable {
         enum Detent: Hashable, Identifiable, Comparable {
             case medium

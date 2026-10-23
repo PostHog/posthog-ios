@@ -24,13 +24,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     import SwiftUI
     import UIKit
 
     // swiftlint:disable identifier_name
     /// Convenience helpers for creating and describing survey colors.
-    public extension UIColor {
+    extension UIColor {
         /**
          Creates an immutable UIColor instance specified by a hex string, CSS color name, or nil.
 
@@ -71,7 +71,6 @@
 
          - Returns: A new `String` with the color's hexadecimal value.
          */
-        @available(*, deprecated, message: "UIColor.hexDescription(_:) is removed from the public API in PostHog 4.0.")
         func hexDescription(_ includeAlpha: Bool = false) -> String {
             guard cgColor.numberOfComponents == 4 else {
                 return "Color not RGB."
@@ -291,7 +290,6 @@
     }
 
     extension Color {
-        @available(iOS 15.0, *)
         func getContrastingTextColor() -> Color {
             var r, g, b, a: CGFloat
             (r, g, b, a) = (0, 0, 0, 0)

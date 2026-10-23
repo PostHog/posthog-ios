@@ -5,10 +5,9 @@
 //  Created by Ioannis Josephides on 18/03/2025.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     import SwiftUI
 
-    @available(iOS 15.0, *)
     struct BottomSection: View {
         let label: String
         let action: () -> Void

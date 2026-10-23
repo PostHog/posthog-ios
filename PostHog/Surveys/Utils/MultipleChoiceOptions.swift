@@ -5,10 +5,9 @@
 //  Created by Ioannis Josephides on 11/03/2025.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     import SwiftUI
 
-    @available(iOS 15.0, *)
     struct MultipleChoiceOptions: View {
         @Environment(\.surveyAppearance) private var appearance
 
@@ -131,7 +130,6 @@
         }
     }
 
-    @available(iOS 15.0, *)
     private struct SurveyOptionStyle: ViewModifier {
         let isChecked: Bool
         let textColor: Color

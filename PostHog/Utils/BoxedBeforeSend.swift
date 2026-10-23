@@ -4,11 +4,7 @@
 //
 
 import Foundation
-#if compiler(>=6.0)
-    internal import PostHogObjCExceptionSupport
-#else
-    @_implementationOnly import PostHogObjCExceptionSupport
-#endif
+internal import PostHogObjCExceptionSupport
 
 /// ObjC wrappers for the Swift function-typed `beforeSend` chains: Swift
 /// function types aren't `@objc`-bridgeable, and `@objc` classes can't be
@@ -17,7 +13,7 @@ import Foundation
 
 /// ObjC wrapper for the events `beforeSend` block. Use with
 /// `PostHogConfig.setBeforeSend(_:)`.
-@objc public final class BoxedBeforeSendBlock: NSObject {
+@objc public final class BoxedBeforeSendBlock: NSObject, Sendable {
     /// Wrapped event callback.
     @objc public let block: BeforeSendBlock
 
@@ -39,7 +35,7 @@ import Foundation
 
 /// ObjC wrapper for the logs `beforeSend` block. Use with
 /// `PostHogLogsConfig.setBeforeSend(_:)`.
-@objc public final class BoxedBeforeSendLogBlock: NSObject {
+@objc public final class BoxedBeforeSendLogBlock: NSObject, Sendable {
     /// Wrapped log callback.
     @objc public let block: PostHogBeforeSendLogBlock
 

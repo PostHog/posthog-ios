@@ -43,7 +43,7 @@ class PostHogFileBackedQueue {
                     migrateOldQueueFolder(queue: queue, oldQueueFolder: oldQueue)
                 } else {
                     // old plist file
-                    migrateOldQueue(queue: queue, oldQueue: oldQueue)
+                    deleteSafely(oldQueue)
                 }
             }
         }

@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     @testable import PostHog
     import Testing
     import UIKit
@@ -68,7 +68,6 @@
         func bridgeRecoversAfterCamera() throws {
             let config = PostHogConfig(projectToken: UUID().uuidString)
             config.sessionReplay = true
-            config.sessionReplayConfig.screenshotMode = true
             config.sessionReplayConfig.captureNetworkTelemetry = false
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
@@ -118,7 +117,7 @@
     }
 #endif
 
-#if os(iOS) && TEST_CAMERA_REPLAY
+#if os(iOS) && TEST_CAMERA_REPLAY && (!SWIFT_PACKAGE || SessionReplay)
     @Suite("System camera replay regression", .serialized)
     @MainActor
     struct PostHogSystemCameraReplayTest {

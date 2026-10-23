@@ -5,1235 +5,1790 @@
 //  Created by Yiannis Josephides on 21/01/2025.
 //
 
-import Foundation
-import OHHTTPStubs
-import OHHTTPStubsSwift
-@testable import PostHog
-import Testing
+#if !SWIFT_PACKAGE || Surveys
+    import Foundation
+    import OHHTTPStubs
+    import OHHTTPStubsSwift
+    @testable import PostHog
+    import Testing
 
-@Suite("Test Surveys")
-enum PostHogSurveysTest {
-    @Suite("Auto-submit on selection")
-    struct AutoSubmit {
-        private func displayQuestion(type: String, skipSubmit: Bool?, hasOpenChoice: Bool = false, display: String = "number") throws -> PostHogDisplaySurveyQuestion {
-            var json: [String: Any] = [
-                "id": "auto-submit", "type": type, "question": "Choose",
-                "choices": ["First", "Other"], "hasOpenChoice": hasOpenChoice,
-                "display": display, "scale": 5,
-            ]
-            json["skipSubmitButton"] = skipSubmit
-            let question = try PostHogApi.jsonDecoder.decode(PostHogSurveyQuestion.self, from: JSONSerialization.data(withJSONObject: json))
-            return try #require(question.toDisplayQuestion())
-        }
+    @Suite("Test Surveys")
+    enum PostHogSurveysTest {
+        @Suite("Auto-submit on selection")
+        struct AutoSubmit {
+            private func displayQuestion(type: String, skipSubmit: Bool?, hasOpenChoice: Bool = false, display: String = "number") throws -> PostHogDisplaySurveyQuestion {
+                var json: [String: Any] = [
+                    "id": "auto-submit", "type": type, "question": "Choose",
+                    "choices": ["First", "Other"], "hasOpenChoice": hasOpenChoice,
+                    "display": display, "scale": 5,
+                ]
+                json["skipSubmitButton"] = skipSubmit
+                let question = try PostHogApi.jsonDecoder.decode(PostHogSurveyQuestion.self, from: JSONSerialization.data(withJSONObject: json))
+                return try #require(question.toDisplayQuestion())
+            }
 
-        #if os(iOS)
-            @Test("rating selection emits one answer immediately and clearing emits none", arguments: [true, false], ["number", "emoji"])
-            @available(iOS 15.0, *)
-            @MainActor
-            func ratingSelection(skipSubmit: Bool, display: String) throws {
+            #if os(iOS)
+                @Test("rating selection emits one answer immediately and clearing emits none", arguments: [true, false], ["number", "emoji"])
+                @MainActor
+                func ratingSelection(skipSubmit: Bool, display: String) throws {
+                    let question = try #require(displayQuestion(type: "rating", skipSubmit: skipSubmit, display: display) as? PostHogDisplayRatingQuestion)
+                    var responses: [Int?] = []
+                    let view = RatingQuestionView(question: question, onNextQuestion: { responses.append($0) })
+                    view.selection.wrappedValue = 4
+                    #expect(responses == (skipSubmit ? [4] : []))
+                    view.selection.wrappedValue = nil
+                    #expect(responses == (skipSubmit ? [4] : []))
+                }
+
+                @Test("single-choice selection emits the answer only when eligible", arguments: [true, false], [false, true])
+                @MainActor
+                func choiceSelection(skipSubmit: Bool, hasOpenChoice: Bool) throws {
+                    let question = try #require(displayQuestion(type: "single_choice", skipSubmit: skipSubmit, hasOpenChoice: hasOpenChoice) as? PostHogDisplayChoiceQuestion)
+                    var responses: [String?] = []
+                    let view = SingleChoiceQuestionView(question: question, onNextQuestion: { responses.append($0) })
+                    view.selection.wrappedValue = [0]
+                    let expected: [String?] = skipSubmit && !hasOpenChoice ? ["First"] : []
+                    #expect(responses == expected)
+                    view.selection.wrappedValue = []
+                    #expect(responses == expected)
+                }
+            #endif
+
+            @Test("rating auto-submit survives decoding and display mapping", arguments: [true, false, nil] as [Bool?], ["number", "emoji"])
+            func rating(skipSubmit: Bool?, display: String) throws {
                 let question = try #require(displayQuestion(type: "rating", skipSubmit: skipSubmit, display: display) as? PostHogDisplayRatingQuestion)
-                var responses: [Int?] = []
-                let view = RatingQuestionView(question: question, onNextQuestion: { responses.append($0) })
-                view.selection.wrappedValue = 4
-                #expect(responses == (skipSubmit ? [4] : []))
-                view.selection.wrappedValue = nil
-                #expect(responses == (skipSubmit ? [4] : []))
-            }
-
-            @Test("single-choice selection emits the answer only when eligible", arguments: [true, false], [false, true])
-            @available(iOS 15.0, *)
-            @MainActor
-            func choiceSelection(skipSubmit: Bool, hasOpenChoice: Bool) throws {
-                let question = try #require(displayQuestion(type: "single_choice", skipSubmit: skipSubmit, hasOpenChoice: hasOpenChoice) as? PostHogDisplayChoiceQuestion)
-                var responses: [String?] = []
-                let view = SingleChoiceQuestionView(question: question, onNextQuestion: { responses.append($0) })
-                view.selection.wrappedValue = [0]
-                let expected: [String?] = skipSubmit && !hasOpenChoice ? ["First"] : []
-                #expect(responses == expected)
-                view.selection.wrappedValue = []
-                #expect(responses == expected)
-            }
-        #endif
-
-        @Test("rating auto-submit survives decoding and display mapping", arguments: [true, false, nil] as [Bool?], ["number", "emoji"])
-        func rating(skipSubmit: Bool?, display: String) throws {
-            let question = try #require(displayQuestion(type: "rating", skipSubmit: skipSubmit, display: display) as? PostHogDisplayRatingQuestion)
-            #expect(question.skipSubmitButton == (skipSubmit == true))
-        }
-
-        @Test("only single choice without an open choice auto-submits", arguments: [true, false, nil] as [Bool?], [false, true])
-        func choices(skipSubmit: Bool?, hasOpenChoice: Bool) throws {
-            for type in ["single_choice", "multiple_choice"] {
-                let question = try #require(displayQuestion(type: type, skipSubmit: skipSubmit, hasOpenChoice: hasOpenChoice) as? PostHogDisplayChoiceQuestion)
                 #expect(question.skipSubmitButton == (skipSubmit == true))
-                #expect(question.shouldAutoSubmit == (skipSubmit == true && type == "single_choice" && !hasOpenChoice))
-            }
-        }
-    }
-
-    @Suite("Test decoding surveys from remote config")
-    struct TestDecodingSurveys {
-        @Test("survey decodes correctly")
-        func surveyDecodesCorrectly() throws {
-            let data = try loadFixture("fixture_survey_basic")
-            let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-            #expect(sut.id == "01947134-8a35-0000-549a-193b86fa2e44")
-            #expect(sut.name == "Core Web Vitals feature request")
-            #expect(sut.type == .popover)
-            #expect(sut.featureFlagKeys == [
-                PostHogSurveyFeatureFlagKeyValue(key: "flag1", value: "linked-flag-key"),
-                PostHogSurveyFeatureFlagKeyValue(key: "flag2", value: "survey-targeting-flag-key"),
-            ])
-            #expect(sut.targetingFlagKey == "survey-targeting-flag-key")
-            #expect(sut.internalTargetingFlagKey == "survey-targeting-88af4df282-custom")
-            #expect(sut.questions.count == 1)
-
-            if case let .open(question) = sut.questions[0] {
-                #expect(question.id == "300")
-                #expect(question.question == "What would you like to see in our Core Web Vitals product?")
-                #expect(question.description == "Core Web Vitals just launched and we're interested in hearing (reading?) from you on what you think we're missing with this product")
-                #expect(question.originalQuestionIndex == 0)
-                #expect(question.descriptionContentType == .text)
-            } else {
-                throw TestError("Expected basic question type")
             }
 
-            #expect(sut.conditions?.url == "core-web-vitals")
-            #expect(sut.appearance?.position == .right)
-            #expect(sut.appearance?.fontFamily == "system-ui")
-            #expect(sut.appearance?.whiteLabel == false)
-            #expect(sut.appearance?.borderColor == "#c9c6c6")
-            #expect(sut.appearance?.placeholder == "Start typing...")
-            #expect(sut.appearance?.backgroundColor == "#eeeded")
-            #expect(sut.appearance?.ratingButtonColor == "white")
-            #expect(sut.appearance?.submitButtonColor == "black")
-            #expect(sut.appearance?.submitButtonTextColor == "white")
-            #expect(sut.appearance?.thankYouMessageHeader == "Thank you for your feedback!")
-            #expect(sut.appearance?.displayThankYouMessage == true)
-            #expect(sut.appearance?.ratingButtonActiveColor == "black")
-            #expect(sut.appearance?.surveyPopupDelaySeconds == 5)
-            #expect(sut.startDate.map(ISO8601DateFormatter().string) == "2025-01-16T22:23:38Z")
-            #expect(sut.endDate == nil)
-            #expect(sut.currentIteration == 1)
-            #expect(sut.currentIterationStartDate.map(ISO8601DateFormatter().string) == "2024-12-12T18:58:22Z")
-        }
-
-        @Test("survey with unknown type decodes correctly")
-        func surveyWithUnknownTypeDecodesCorrectly() throws {
-            let data = try loadFixture("fixture_survey_unknown_type")
-            let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-            #expect(sut.id == "01947134-8a35-0000-549a-193b86fa2e44")
-            #expect(sut.name == "Core Web Vitals feature request")
-
-            // Verify that an unknown survey type is correctly captured
-            if case let .unknown(type) = sut.type {
-                #expect(type == "future_type_not_yet_supported")
-            } else {
-                throw TestError("Expected unknown survey type")
+            @Test("only single choice without an open choice auto-submits", arguments: [true, false, nil] as [Bool?], [false, true])
+            func choices(skipSubmit: Bool?, hasOpenChoice: Bool) throws {
+                for type in ["single_choice", "multiple_choice"] {
+                    let question = try #require(displayQuestion(type: type, skipSubmit: skipSubmit, hasOpenChoice: hasOpenChoice) as? PostHogDisplayChoiceQuestion)
+                    #expect(question.skipSubmitButton == (skipSubmit == true))
+                    #expect(question.shouldAutoSubmit == (skipSubmit == true && type == "single_choice" && !hasOpenChoice))
+                }
             }
-
-            // Verify that other properties are still correctly decoded
-            #expect(sut.questions.count == 1)
-            #expect(sut.conditions?.url == "core-web-vitals")
-            #expect(sut.appearance?.position == .right)
         }
 
-        @Test("survey with unknown question type decodes correctly")
-        func surveyWithUnknownQuestionTypeDecodesCorrectly() throws {
-            let data = try loadFixture("fixture_survey_unknown_question_type")
-            let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-            #expect(sut.id == "01947134-8a35-0000-549a-193b86fa2e44")
-            #expect(sut.name == "Core Web Vitals feature request")
-            #expect(sut.type == .popover)
-            #expect(sut.questions.count == 1)
-
-            // Verify that an unknown question type is correctly captured
-            if case let .unknown(type) = sut.questions[0] {
-                #expect(type == "future_question_type")
-            } else {
-                throw TestError("Expected unknown question type")
-            }
-
-            // Verify that other properties are still correctly decoded
-            #expect(sut.conditions?.url == "core-web-vitals")
-            #expect(sut.appearance?.position == .right)
-        }
-
-        @Suite("Survey question types decode correctly")
-        struct SurveyQuestionTypeDecodeTests {
-            @Test("basic question decodes correctly")
-            func basicQuestionDecodesCorrectly() throws {
-                let data = try loadFixture("fixture_survey_question_basic")
+        @Suite("Test decoding surveys from remote config")
+        struct TestDecodingSurveys {
+            @Test("survey decodes correctly")
+            func surveyDecodesCorrectly() throws {
+                let data = try loadFixture("fixture_survey_basic")
                 let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                #expect(sut.id == "01947134-8a35-0000-549a-193b86fa2e44")
+                #expect(sut.name == "Core Web Vitals feature request")
+                #expect(sut.type == .popover)
+                #expect(sut.featureFlagKeys == [
+                    PostHogSurveyFeatureFlagKeyValue(key: "flag1", value: "linked-flag-key"),
+                    PostHogSurveyFeatureFlagKeyValue(key: "flag2", value: "survey-targeting-flag-key"),
+                ])
+                #expect(sut.targetingFlagKey == "survey-targeting-flag-key")
+                #expect(sut.internalTargetingFlagKey == "survey-targeting-88af4df282-custom")
+                #expect(sut.questions.count == 1)
 
                 if case let .open(question) = sut.questions[0] {
+                    #expect(question.id == "300")
                     #expect(question.question == "What would you like to see in our Core Web Vitals product?")
                     #expect(question.description == "Core Web Vitals just launched and we're interested in hearing (reading?) from you on what you think we're missing with this product")
-                    #expect(question.descriptionContentType == .text)
-                    #expect(question.originalQuestionIndex == 0)
-                } else {
-                    throw TestError("Expected a basic question")
-                }
-            }
-
-            @Test("single-choice question decodes correctly")
-            func singleChoiceQuestionDecodesCorrectly() throws {
-                let data = try loadFixture("fixture_survey_question_single_choice")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-                if case let .singleChoice(question) = sut.questions[0] {
-                    #expect(question.choices == ["Heck yeah", "Nope, I'm good"])
-                    #expect(question.question == "Would you be interested in being part of a PostHog community event in your city?")
-                    #expect(question.buttonText == "Submit")
                     #expect(question.originalQuestionIndex == 0)
                     #expect(question.descriptionContentType == .text)
                 } else {
-                    throw TestError("Expected a single choice question")
+                    throw TestError("Expected basic question type")
+                }
+
+                #expect(sut.conditions?.url == "core-web-vitals")
+                #expect(sut.appearance?.position == .right)
+                #expect(sut.appearance?.fontFamily == "system-ui")
+                #expect(sut.appearance?.whiteLabel == false)
+                #expect(sut.appearance?.borderColor == "#c9c6c6")
+                #expect(sut.appearance?.placeholder == "Start typing...")
+                #expect(sut.appearance?.backgroundColor == "#eeeded")
+                #expect(sut.appearance?.ratingButtonColor == "white")
+                #expect(sut.appearance?.submitButtonColor == "black")
+                #expect(sut.appearance?.submitButtonTextColor == "white")
+                #expect(sut.appearance?.thankYouMessageHeader == "Thank you for your feedback!")
+                #expect(sut.appearance?.displayThankYouMessage == true)
+                #expect(sut.appearance?.ratingButtonActiveColor == "black")
+                #expect(sut.appearance?.surveyPopupDelaySeconds == 5)
+                #expect(sut.startDate.map(ISO8601DateFormatter().string) == "2025-01-16T22:23:38Z")
+                #expect(sut.endDate == nil)
+                #expect(sut.currentIteration == 1)
+                #expect(sut.currentIterationStartDate.map(ISO8601DateFormatter().string) == "2024-12-12T18:58:22Z")
+            }
+
+            @Test("survey with unknown type decodes correctly")
+            func surveyWithUnknownTypeDecodesCorrectly() throws {
+                let data = try loadFixture("fixture_survey_unknown_type")
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                #expect(sut.id == "01947134-8a35-0000-549a-193b86fa2e44")
+                #expect(sut.name == "Core Web Vitals feature request")
+
+                // Verify that an unknown survey type is correctly captured
+                if case let .unknown(type) = sut.type {
+                    #expect(type == "future_type_not_yet_supported")
+                } else {
+                    throw TestError("Expected unknown survey type")
+                }
+
+                // Verify that other properties are still correctly decoded
+                #expect(sut.questions.count == 1)
+                #expect(sut.conditions?.url == "core-web-vitals")
+                #expect(sut.appearance?.position == .right)
+            }
+
+            @Test("survey with unknown question type decodes correctly")
+            func surveyWithUnknownQuestionTypeDecodesCorrectly() throws {
+                let data = try loadFixture("fixture_survey_unknown_question_type")
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                #expect(sut.id == "01947134-8a35-0000-549a-193b86fa2e44")
+                #expect(sut.name == "Core Web Vitals feature request")
+                #expect(sut.type == .popover)
+                #expect(sut.questions.count == 1)
+
+                // Verify that an unknown question type is correctly captured
+                if case let .unknown(type) = sut.questions[0] {
+                    #expect(type == "future_question_type")
+                } else {
+                    throw TestError("Expected unknown question type")
+                }
+
+                // Verify that other properties are still correctly decoded
+                #expect(sut.conditions?.url == "core-web-vitals")
+                #expect(sut.appearance?.position == .right)
+            }
+
+            @Suite("Survey question types decode correctly")
+            struct SurveyQuestionTypeDecodeTests {
+                @Test("basic question decodes correctly")
+                func basicQuestionDecodesCorrectly() throws {
+                    let data = try loadFixture("fixture_survey_question_basic")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if case let .open(question) = sut.questions[0] {
+                        #expect(question.question == "What would you like to see in our Core Web Vitals product?")
+                        #expect(question.description == "Core Web Vitals just launched and we're interested in hearing (reading?) from you on what you think we're missing with this product")
+                        #expect(question.descriptionContentType == .text)
+                        #expect(question.originalQuestionIndex == 0)
+                    } else {
+                        throw TestError("Expected a basic question")
+                    }
+                }
+
+                @Test("single-choice question decodes correctly")
+                func singleChoiceQuestionDecodesCorrectly() throws {
+                    let data = try loadFixture("fixture_survey_question_single_choice")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if case let .singleChoice(question) = sut.questions[0] {
+                        #expect(question.choices == ["Heck yeah", "Nope, I'm good"])
+                        #expect(question.question == "Would you be interested in being part of a PostHog community event in your city?")
+                        #expect(question.buttonText == "Submit")
+                        #expect(question.originalQuestionIndex == 0)
+                        #expect(question.descriptionContentType == .text)
+                    } else {
+                        throw TestError("Expected a single choice question")
+                    }
+                }
+
+                @Test("multiple-choice question decodes correctly")
+                func multipleChoiceQuestionDecodesCorrectly() throws {
+                    let data = try loadFixture("fixture_survey_question_multiple_choice")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if case let .multipleChoice(question) = sut.questions[0] {
+                        #expect(question.choices == [
+                            "Meet new people",
+                            "Build stuff (hackathon style)",
+                            "Product growth hack (evolve your existing product, not start from scratch)",
+                            "Learn things (talks, discussions)",
+                            "Eat, drink and vibe (chill)",
+                            "Something else",
+                        ])
+                        #expect(question.question == "Let's say there's a meetup. What would you hope to get out of it? ")
+                        #expect(question.buttonText == "Submit")
+                        #expect(question.hasOpenChoice == true)
+                        #expect(question.originalQuestionIndex == 2)
+                        #expect(question.descriptionContentType == .text)
+                    } else {
+                        throw TestError("Expected a multiple choice question")
+                    }
+                }
+
+                @Test("link question decodes correctly")
+                func linkQuestionDecodesCorrectly() throws {
+                    let data = try loadFixture("fixture_survey_question_link")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if case let .link(question) = sut.questions[0] {
+                        #expect(question.link == "https://cal.com/david-posthog/user-interview")
+                        #expect(question.question == "Share your thoughts")
+                        #expect(question.buttonText == "Schedule")
+                        #expect(question.description == "We'd love to get your first impressions of the feature on a video call")
+                    } else {
+                        throw TestError("Expected a link question")
+                    }
+                }
+
+                @Test("rating question decodes correctly")
+                func ratingQuestionDecodesCorrectly() throws {
+                    let data = try loadFixture("fixture_survey_question_rating")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if case let .rating(question) = sut.questions[0] {
+                        #expect(question.scale == .tenPoint)
+                        #expect(question.display == .number)
+                        #expect(question.question == "How likely are you to recommend us to a friend?")
+                        #expect(question.lowerBoundLabel == "Unlikely")
+                        #expect(question.upperBoundLabel == "Very likely")
+                        #expect(question.originalQuestionIndex == 0)
+                        #expect(question.descriptionContentType == .text)
+                    } else {
+                        throw TestError("Expected a rating question")
+                    }
+                }
+
+                @Test("rating question decodes without bound labels")
+                func ratingQuestionDecodesWithoutBoundLabels() throws {
+                    let data = try loadFixture("fixture_survey_question_rating_no_bounds")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if case let .rating(question) = sut.questions[0] {
+                        #expect(question.scale == .tenPoint)
+                        #expect(question.display == .number)
+                        #expect(question.lowerBoundLabel == nil)
+                        #expect(question.upperBoundLabel == nil)
+                    } else {
+                        throw TestError("Expected a rating question")
+                    }
                 }
             }
 
-            @Test("multiple-choice question decodes correctly")
-            func multipleChoiceQuestionDecodesCorrectly() throws {
-                let data = try loadFixture("fixture_survey_question_multiple_choice")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+            @Suite("Question branching decodes correctly")
+            struct QuestionBranchingDecodesCorrectly {
+                @Test("next branching decodes correctly")
+                func nextBranchingDecodesCorrectly() throws {
+                    let data = try loadFixture("fixture_survey_branching_next")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
-                if case let .multipleChoice(question) = sut.questions[0] {
-                    #expect(question.choices == [
-                        "Meet new people",
-                        "Build stuff (hackathon style)",
-                        "Product growth hack (evolve your existing product, not start from scratch)",
-                        "Learn things (talks, discussions)",
-                        "Eat, drink and vibe (chill)",
-                        "Something else",
-                    ])
-                    #expect(question.question == "Let's say there's a meetup. What would you hope to get out of it? ")
-                    #expect(question.buttonText == "Submit")
-                    #expect(question.hasOpenChoice == true)
-                    #expect(question.originalQuestionIndex == 2)
-                    #expect(question.descriptionContentType == .text)
-                } else {
-                    throw TestError("Expected a multiple choice question")
+                    if case .next = sut.questions[0].branching {
+                        // nothing
+                    } else {
+                        throw TestError("Expected next branching")
+                    }
+                }
+
+                @Test("end branching decodes correctly")
+                func endBranchingDecodesCorrectly() throws {
+                    let data = try loadFixture("fixture_survey_branching_end")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if case .end = sut.questions[0].branching {
+                        // nothing
+                    } else {
+                        throw TestError("Expected end branching")
+                    }
+                }
+
+                @Test("specific question branching decodes correctly")
+                func specificQuestionBranchingDecodesCorrectly() throws {
+                    let data = try loadFixture("fixture_survey_branching_specific")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if case let .specificQuestion(index: index) = sut.questions[0].branching {
+                        #expect(index == 2)
+                    } else {
+                        throw TestError("Expected specific question branching")
+                    }
+                }
+
+                @Test("response-based branching decodes correctly")
+                func responseBasedBranchingDecodesCorrectly() throws {
+                    let data = try loadFixture("fixture_survey_branching_response_based")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if case let .responseBased(values) = sut.questions[0].branching {
+                        #expect(values["0"] as? Int == 1)
+                        #expect(values["1"] as? String == "end")
+                    } else {
+                        throw TestError("Expected response based branching")
+                    }
+                }
+
+                @Test("response-based with linkert branching decodes correctly")
+                func responseBasedWithLinkertBranchingDecodesCorrectly() throws {
+                    let data = try loadFixture("fixture_survey_branching_response_based_linkert")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if case let .responseBased(values) = sut.questions[0].branching {
+                        #expect(values["negative"] as? Int == 1)
+                        #expect(values["neutral"] as? Int == 2)
+                        #expect(values["positive"] as? Int == 3)
+                    } else {
+                        throw TestError("Expected response based branching")
+                    }
+                }
+
+                @Test("response-based with empty values branching decodes correctly")
+                func responseBasedWithEmptyValuesBranchingDecodesCorrectly() throws {
+                    let data = try loadFixture("fixture_survey_branching_response_based_empty")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if case let .responseBased(values) = sut.questions[0].branching {
+                        #expect(values.isEmpty)
+                    } else {
+                        throw TestError("Expected response based branching")
+                    }
                 }
             }
 
-            @Test("link question decodes correctly")
-            func linkQuestionDecodesCorrectly() throws {
-                let data = try loadFixture("fixture_survey_question_link")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+            @Suite("Question display conditions decodes correctly")
+            struct DisplayConditionsDecodesCorrectly {
+                @Test("event condition decodes correctly")
+                func eventConditionDecodesCorrectly() async throws {
+                    let data = try loadFixture("fixture_survey_conditions_event")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
-                if case let .link(question) = sut.questions[0] {
-                    #expect(question.link == "https://cal.com/david-posthog/user-interview")
-                    #expect(question.question == "Share your thoughts")
-                    #expect(question.buttonText == "Schedule")
-                    #expect(question.description == "We'd love to get your first impressions of the feature on a video call")
-                } else {
-                    throw TestError("Expected a link question")
+                    if let events = sut.conditions?.events {
+                        #expect(events.values == [PostHogEventCondition(name: "dashboard loading time")])
+                    } else {
+                        throw TestError("Expected event display condition")
+                    }
+                }
+
+                @Test("repeated event condition decodes correctly")
+                func repeatedEventConditionDecodesCorrectly() async throws {
+                    let data = try loadFixture("fixture_survey_conditions_event_repeated")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if let events = sut.conditions?.events {
+                        #expect(events.values == [PostHogEventCondition(name: "dashboard loading time")])
+                        #expect(events.repeatedActivation == true)
+                    } else {
+                        throw TestError("Expected repeated event display condition")
+                    }
+                }
+
+                @Test("event condition with property filters decodes correctly")
+                func eventConditionWithPropertyFiltersDecodesCorrectly() async throws {
+                    let data = try loadFixture("fixture_survey_conditions_event_property_filters")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if let events = sut.conditions?.events {
+                        #expect(events.values.count == 1)
+                        #expect(events.values[0].name == "purchase_completed")
+
+                        let filters = events.values[0].propertyFilters
+                        #expect(filters != nil)
+                        #expect(filters?["amount"]?.matchOperator == .gt)
+                        #expect(filters?["amount"]?.values == ["100"])
+                        #expect(filters?["category"]?.matchOperator == .exact)
+                        #expect(filters?["category"]?.values == ["electronics"])
+                    } else {
+                        throw TestError("Expected event display condition with property filters")
+                    }
+                }
+
+                @Test("device type condition decodes correctly")
+                func deviceTypeConditionDecodesCorrectly() async throws {
+                    let data = try loadFixture("fixture_survey_conditions_device_type")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if let types = sut.conditions?.deviceTypes {
+                        #expect(types == ["Mobile"])
+                    } else {
+                        throw TestError("Expected event display condition")
+                    }
+                }
+
+                @Test("url condition decodes correctly")
+                func urlConditionDecodesCorrectly() async throws {
+                    let data = try loadFixture("fixture_survey_conditions_url")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if let url = sut.conditions?.url {
+                        #expect(url == "ScreenName")
+                    } else {
+                        throw TestError("Expected url display condition")
+                    }
                 }
             }
 
-            @Test("rating question decodes correctly")
-            func ratingQuestionDecodesCorrectly() throws {
-                let data = try loadFixture("fixture_survey_question_rating")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+            @Suite("Url match types decode correctly")
+            struct UrlMatchTypeDecodesCorrectly {
+                @Test("exact url match type decodes correctly")
+                func exactUrlMatchTypeDecodesCorrectly() async throws {
+                    let data = try loadFixture("fixture_survey_url_match_type_exact")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
-                if case let .rating(question) = sut.questions[0] {
-                    #expect(question.scale == .tenPoint)
-                    #expect(question.display == .number)
-                    #expect(question.question == "How likely are you to recommend us to a friend?")
-                    #expect(question.lowerBoundLabel == "Unlikely")
-                    #expect(question.upperBoundLabel == "Very likely")
-                    #expect(question.originalQuestionIndex == 0)
-                    #expect(question.descriptionContentType == .text)
-                } else {
-                    throw TestError("Expected a rating question")
+                    if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
+                        #expect(url == "ScreenName")
+                        #expect(matchType == .exact)
+                    } else {
+                        throw TestError("Expected url match type")
+                    }
                 }
-            }
 
-            @Test("rating question decodes without bound labels")
-            func ratingQuestionDecodesWithoutBoundLabels() throws {
-                let data = try loadFixture("fixture_survey_question_rating_no_bounds")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+                @Test("is_not url match type decodes correctly")
+                func isNotRegexUrlMatchTypeDecodesCorrectly() async throws {
+                    let data = try loadFixture("fixture_survey_url_match_type_is_not")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
-                if case let .rating(question) = sut.questions[0] {
-                    #expect(question.scale == .tenPoint)
-                    #expect(question.display == .number)
-                    #expect(question.lowerBoundLabel == nil)
-                    #expect(question.upperBoundLabel == nil)
-                } else {
-                    throw TestError("Expected a rating question")
+                    if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
+                        #expect(url == "ScreenName")
+                        #expect(matchType == .isNot)
+                    } else {
+                        throw TestError("Expected url match type")
+                    }
+                }
+
+                @Test("icontains url match type decodes correctly")
+                func iContainsUrlMatchTypeDecodesCorrectly() async throws {
+                    let data = try loadFixture("fixture_survey_url_match_type_icontains")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
+                        #expect(url == "ScreenName")
+                        #expect(matchType == .iContains)
+                    } else {
+                        throw TestError("Expected url match type")
+                    }
+                }
+
+                @Test("not_icontains url match type decodes correctly")
+                func notIContainsUrlMatchTypeDecodesCorrectly() async throws {
+                    let data = try loadFixture("fixture_survey_url_match_type_not_icontains")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
+                        #expect(url == "ScreenName")
+                        #expect(matchType == .notIContains)
+                    } else {
+                        throw TestError("Expected url match type")
+                    }
+                }
+
+                @Test("regex url match type decodes correctly")
+                func regexUrlMatchTypeDecodesCorrectly() async throws {
+                    let data = try loadFixture("fixture_survey_url_match_type_regex")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
+                        #expect(url == "ScreenName")
+                        #expect(matchType == .regex)
+                    } else {
+                        throw TestError("Expected url match type")
+                    }
+                }
+
+                @Test("not_regex url match type decodes correctly")
+                func notRegexUrlMatchTypeDecodesCorrectly() async throws {
+                    let data = try loadFixture("fixture_survey_url_match_type_not_regex")
+                    let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                    if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
+                        #expect(url == "ScreenName")
+                        #expect(matchType == .notRegex)
+                    } else {
+                        throw TestError("Expected url match type")
+                    }
                 }
             }
         }
 
-        @Suite("Question branching decodes correctly")
-        struct QuestionBranchingDecodesCorrectly {
-            @Test("next branching decodes correctly")
-            func nextBranchingDecodesCorrectly() throws {
-                let data = try loadFixture("fixture_survey_branching_next")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+        @Suite("Test SurveyUrlMatchType match function")
+        struct TestSurveyUrlMatching {
+            static let regexMap: [(url: String, regex: String, shouldMatch: Bool)] = [
+                // url
+                (url: "https://example.com/survey/123", regex: "https://example.com/survey/(\\d+)", shouldMatch: true),
+                // screen name
+                (url: "MyScreenName", regex: "^My", shouldMatch: true),
+                // case sensitivity
+                (url: "myScreenName", regex: "^My", shouldMatch: false),
+                // special characters
+                (url: "User.Profile-Page/123", regex: "\\.[A-Za-z]+-[A-Za-z]+/\\d+", shouldMatch: true),
+                // empty strings
+                (url: "", regex: ".*", shouldMatch: true),
+                // word boundaries
+                (url: "UserProfile", regex: "\\bProfile\\b", shouldMatch: false),
+                (url: "User Profile", regex: "\\bProfile\\b", shouldMatch: true),
+            ]
 
-                if case .next = sut.questions[0].branching {
-                    // nothing
-                } else {
-                    throw TestError("Expected next branching")
-                }
+            @Test("matches regex correctly", arguments: regexMap)
+            func matchesRegex(url: String, regex: String, shouldMatch: Bool) {
+                let sut: PostHogSurveyMatchType = .regex
+                let matches = sut.matchFunction
+
+                #expect(matches([regex], url) == shouldMatch)
             }
 
-            @Test("end branching decodes correctly")
-            func endBranchingDecodesCorrectly() throws {
-                let data = try loadFixture("fixture_survey_branching_end")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+            @Test("matches not_regex correctly", arguments: regexMap)
+            func matchesNotRegex(url: String, regex: String, shouldMatch: Bool) {
+                let sut: PostHogSurveyMatchType = .notRegex
+                let matches = sut.matchFunction
 
-                if case .end = sut.questions[0].branching {
-                    // nothing
-                } else {
-                    throw TestError("Expected end branching")
-                }
+                #expect(matches([regex], url) != shouldMatch)
             }
 
-            @Test("specific question branching decodes correctly")
-            func specificQuestionBranchingDecodesCorrectly() throws {
-                let data = try loadFixture("fixture_survey_branching_specific")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+            @Test("matches icontains correctly")
+            func matchesIcontains() {
+                let sut: PostHogSurveyMatchType = .iContains
+                let matches = sut.matchFunction
 
-                if case let .specificQuestion(index: index) = sut.questions[0].branching {
-                    #expect(index == 2)
-                } else {
-                    throw TestError("Expected specific question branching")
-                }
+                #expect(matches(["Hello"], "hello") == true)
+                #expect(matches(["Hello"], "HeLLo") == true)
+                #expect(matches(["Hello"], "heLLo") == true)
+                #expect(matches(["PostHog"], "PostHogTest") == true)
+                #expect(matches(["Hello"], "PostHog") == false)
             }
 
-            @Test("response-based branching decodes correctly")
-            func responseBasedBranchingDecodesCorrectly() throws {
-                let data = try loadFixture("fixture_survey_branching_response_based")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+            @Test("matches not_icontains correctly")
+            func matchesNotIcontains() {
+                let sut: PostHogSurveyMatchType = .notIContains
+                let matches = sut.matchFunction
 
-                if case let .responseBased(values) = sut.questions[0].branching {
-                    #expect(values["0"] as? Int == 1)
-                    #expect(values["1"] as? String == "end")
-                } else {
-                    throw TestError("Expected response based branching")
-                }
+                #expect(matches(["Hello"], "hello") == false)
+                #expect(matches(["Hello"], "HeLLo") == false)
+                #expect(matches(["Hello"], "heLLo") == false)
+                #expect(matches(["PostHog"], "PostHogTest") == false)
+                #expect(matches(["Hello"], "PostHog") == true)
             }
 
-            @Test("response-based with linkert branching decodes correctly")
-            func responseBasedWithLinkertBranchingDecodesCorrectly() throws {
-                let data = try loadFixture("fixture_survey_branching_response_based_linkert")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+            @Test("matches exact correctly")
+            func matchesExact() {
+                let sut: PostHogSurveyMatchType = .exact
+                let matches = sut.matchFunction
 
-                if case let .responseBased(values) = sut.questions[0].branching {
-                    #expect(values["negative"] as? Int == 1)
-                    #expect(values["neutral"] as? Int == 2)
-                    #expect(values["positive"] as? Int == 3)
-                } else {
-                    throw TestError("Expected response based branching")
-                }
+                #expect(matches(["Hello"], "hello") == false)
+                #expect(matches(["HeLLo"], "hello") == false)
+                #expect(matches(["HeLlo"], "hello") == false)
+                #expect(matches(["Hello"], "Hello") == true)
+                #expect(matches(["Hello", "PostHog"], "Hello") == true)
             }
 
-            @Test("response-based with empty values branching decodes correctly")
-            func responseBasedWithEmptyValuesBranchingDecodesCorrectly() throws {
-                let data = try loadFixture("fixture_survey_branching_response_based_empty")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+            @Test("matches is_not correctly")
+            func matchesIsNot() {
+                let sut: PostHogSurveyMatchType = .isNot
+                let matches = sut.matchFunction
 
-                if case let .responseBased(values) = sut.questions[0].branching {
-                    #expect(values.isEmpty)
-                } else {
-                    throw TestError("Expected response based branching")
-                }
-            }
-        }
-
-        @Suite("Question display conditions decodes correctly")
-        struct DisplayConditionsDecodesCorrectly {
-            @Test("event condition decodes correctly")
-            func eventConditionDecodesCorrectly() async throws {
-                let data = try loadFixture("fixture_survey_conditions_event")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-                if let events = sut.conditions?.events {
-                    #expect(events.values == [PostHogEventCondition(name: "dashboard loading time")])
-                } else {
-                    throw TestError("Expected event display condition")
-                }
+                #expect(matches(["Hello"], "hello") == true)
+                #expect(matches(["Hello"], "HeLLo") == true)
+                #expect(matches(["Hello"], "heLLo") == true)
+                #expect(matches(["Hello"], "Hello") == false)
+                #expect(matches(["Hello", "PostHog"], "Hello") == false)
             }
 
-            @Test("repeated event condition decodes correctly")
-            func repeatedEventConditionDecodesCorrectly() async throws {
-                let data = try loadFixture("fixture_survey_conditions_event_repeated")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-                if let events = sut.conditions?.events {
-                    #expect(events.values == [PostHogEventCondition(name: "dashboard loading time")])
-                    #expect(events.repeatedActivation == true)
-                } else {
-                    throw TestError("Expected repeated event display condition")
-                }
-            }
-
-            @Test("event condition with property filters decodes correctly")
-            func eventConditionWithPropertyFiltersDecodesCorrectly() async throws {
-                let data = try loadFixture("fixture_survey_conditions_event_property_filters")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-                if let events = sut.conditions?.events {
-                    #expect(events.values.count == 1)
-                    #expect(events.values[0].name == "purchase_completed")
-
-                    let filters = events.values[0].propertyFilters
-                    #expect(filters != nil)
-                    #expect(filters?["amount"]?.matchOperator == .gt)
-                    #expect(filters?["amount"]?.values == ["100"])
-                    #expect(filters?["category"]?.matchOperator == .exact)
-                    #expect(filters?["category"]?.values == ["electronics"])
-                } else {
-                    throw TestError("Expected event display condition with property filters")
-                }
-            }
-
-            @Test("device type condition decodes correctly")
-            func deviceTypeConditionDecodesCorrectly() async throws {
-                let data = try loadFixture("fixture_survey_conditions_device_type")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-                if let types = sut.conditions?.deviceTypes {
-                    #expect(types == ["Mobile"])
-                } else {
-                    throw TestError("Expected event display condition")
-                }
-            }
-
-            @Test("url condition decodes correctly")
-            func urlConditionDecodesCorrectly() async throws {
-                let data = try loadFixture("fixture_survey_conditions_url")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-                if let url = sut.conditions?.url {
-                    #expect(url == "ScreenName")
-                } else {
-                    throw TestError("Expected url display condition")
-                }
+            @Test("matches gt and lt correctly")
+            func matchesGtLt() {
+                #expect(PostHogSurveyMatchType.gt.matchFunction(["100"], "150") == true)
+                #expect(PostHogSurveyMatchType.gt.matchFunction(["100"], "50") == false)
+                #expect(PostHogSurveyMatchType.lt.matchFunction(["100"], "50") == true)
+                #expect(PostHogSurveyMatchType.lt.matchFunction(["100"], "150") == false)
+                #expect(PostHogSurveyMatchType.gt.matchFunction(["100"], "not_a_number") == false)
             }
         }
 
-        @Suite("Url match types decode correctly")
-        struct UrlMatchTypeDecodesCorrectly {
-            @Test("exact url match type decodes correctly")
-            func exactUrlMatchTypeDecodesCorrectly() async throws {
-                let data = try loadFixture("fixture_survey_url_match_type_exact")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+        @Suite("Test matchPropertyFilters")
+        class TestMatchPropertyFilters {
+            let server: MockPostHogServer
+            let integration: PostHogSurveyIntegration
+            let postHog: PostHogSDK
 
-                if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
-                    #expect(url == "ScreenName")
-                    #expect(matchType == .exact)
-                } else {
-                    throw TestError("Expected url match type")
-                }
+            init() throws {
+                server = MockPostHogServer()
+                server.start()
+
+                let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
+                config._surveys = true
+                config.flushAt = 1
+                config.disableReachabilityForTesting = true
+                config.disableQueueTimerForTesting = true
+                config.captureApplicationLifecycleEvents = false
+
+                let storage = PostHogStorage(config)
+                storage.reset()
+
+                postHog = PostHogSDK.with(config)
+
+                PostHogSurveyIntegration.clearInstalls()
+                integration = PostHogSurveyIntegration()
+                let installOutcome = integration.install(postHog)
+                try #require(installOutcome == .installed)
             }
 
-            @Test("is_not url match type decodes correctly")
-            func isNotRegexUrlMatchTypeDecodesCorrectly() async throws {
-                let data = try loadFixture("fixture_survey_url_match_type_is_not")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-                if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
-                    #expect(url == "ScreenName")
-                    #expect(matchType == .isNot)
-                } else {
-                    throw TestError("Expected url match type")
-                }
+            deinit {
+                server.stop()
+                postHog.close()
+                postHog.reset()
             }
 
-            @Test("icontains url match type decodes correctly")
-            func iContainsUrlMatchTypeDecodesCorrectly() async throws {
-                let data = try loadFixture("fixture_survey_url_match_type_icontains")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-                if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
-                    #expect(url == "ScreenName")
-                    #expect(matchType == .iContains)
-                } else {
-                    throw TestError("Expected url match type")
-                }
+            @Test("returns true when no filters, false when property is missing")
+            func edgeCases() {
+                #expect(integration.testMatchPropertyFilters(nil, eventProperties: [:]) == true)
+                let filters = ["category": PostHogPropertyFilter(values: ["electronics"], matchOperator: .exact)]
+                #expect(integration.testMatchPropertyFilters(filters, eventProperties: [:]) == false)
             }
 
-            @Test("not_icontains url match type decodes correctly")
-            func notIContainsUrlMatchTypeDecodesCorrectly() async throws {
-                let data = try loadFixture("fixture_survey_url_match_type_not_icontains")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-                if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
-                    #expect(url == "ScreenName")
-                    #expect(matchType == .notIContains)
-                } else {
-                    throw TestError("Expected url match type")
-                }
-            }
-
-            @Test("regex url match type decodes correctly")
-            func regexUrlMatchTypeDecodesCorrectly() async throws {
-                let data = try loadFixture("fixture_survey_url_match_type_regex")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-                if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
-                    #expect(url == "ScreenName")
-                    #expect(matchType == .regex)
-                } else {
-                    throw TestError("Expected url match type")
-                }
-            }
-
-            @Test("not_regex url match type decodes correctly")
-            func notRegexUrlMatchTypeDecodesCorrectly() async throws {
-                let data = try loadFixture("fixture_survey_url_match_type_not_regex")
-                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
-
-                if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
-                    #expect(url == "ScreenName")
-                    #expect(matchType == .notRegex)
-                } else {
-                    throw TestError("Expected url match type")
-                }
+            @Test("icontains matches value against filter (case-insensitive)")
+            func icontainsOperatorWorks() {
+                let filters = ["query": PostHogPropertyFilter(values: ["product"], matchOperator: .iContains)]
+                #expect(integration.testMatchPropertyFilters(filters, eventProperties: ["query": "new PRODUCT features"]) == true)
+                #expect(integration.testMatchPropertyFilters(filters, eventProperties: ["query": "nothing here"]) == false)
             }
         }
-    }
 
-    @Suite("Test SurveyUrlMatchType match function")
-    struct TestSurveyUrlMatching {
-        static let regexMap: [(url: String, regex: String, shouldMatch: Bool)] = [
-            // url
-            (url: "https://example.com/survey/123", regex: "https://example.com/survey/(\\d+)", shouldMatch: true),
-            // screen name
-            (url: "MyScreenName", regex: "^My", shouldMatch: true),
-            // case sensitivity
-            (url: "myScreenName", regex: "^My", shouldMatch: false),
-            // special characters
-            (url: "User.Profile-Page/123", regex: "\\.[A-Za-z]+-[A-Za-z]+/\\d+", shouldMatch: true),
-            // empty strings
-            (url: "", regex: ".*", shouldMatch: true),
-            // word boundaries
-            (url: "UserProfile", regex: "\\bProfile\\b", shouldMatch: false),
-            (url: "User Profile", regex: "\\bProfile\\b", shouldMatch: true),
-        ]
+        @Suite("Test onEvent with property filters")
+        final class TestOnEventPropertyFilters {
+            let server: MockPostHogServer
+            let integration: PostHogSurveyIntegration
+            let postHog: PostHogSDK
 
-        @Test("matches regex correctly", arguments: regexMap)
-        func matchesRegex(url: String, regex: String, shouldMatch: Bool) {
-            let sut: PostHogSurveyMatchType = .regex
-            let matches = sut.matchFunction
+            init() throws {
+                server = MockPostHogServer()
+                server.start()
 
-            #expect(matches([regex], url) == shouldMatch)
+                let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
+                config._surveys = true
+                config.flushAt = 1
+                config.disableReachabilityForTesting = true
+                config.disableQueueTimerForTesting = true
+                config.disableRemoteConfigForTesting = true
+                config.captureApplicationLifecycleEvents = false
+
+                let storage = PostHogStorage(config)
+                storage.reset()
+
+                postHog = PostHogSDK.with(config)
+
+                PostHogSurveyIntegration.clearInstalls()
+                integration = PostHogSurveyIntegration()
+                let installOutcome = integration.install(postHog)
+                try #require(installOutcome == .installed)
+            }
+
+            deinit {
+                integration.uninstall(postHog)
+                postHog.close()
+                postHog.reset()
+                server.stop()
+            }
+
+            @Test("activates survey when event name and properties match")
+            func eventWithPropertiesActivatesSurvey() {
+                let condition = PostHogEventCondition(
+                    name: "purchase",
+                    propertyFilters: ["amount": PostHogPropertyFilter(values: ["100"], matchOperator: .gt)]
+                )
+                integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
+
+                integration.testOnEvent(event: PostHogEvent(event: "purchase", distinctId: "test", properties: ["amount": 150], timestamp: Date()))
+                #expect(integration.testIsEventActivated(surveyId: "survey-1") == true)
+            }
+
+            @Test("activates survey when event has no property filters (backward compat)")
+            func eventWithNoFiltersActivatesSurvey() {
+                let condition = PostHogEventCondition(name: "purchase")
+                integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
+
+                integration.testOnEvent(event: PostHogEvent(event: "purchase", distinctId: "test", properties: [:], timestamp: Date()))
+                #expect(integration.testIsEventActivated(surveyId: "survey-1") == true)
+            }
+
+            @Test("does not activate survey when one of multiple property filters fails")
+            func partialFilterMismatchPreventsActivation() {
+                let condition = PostHogEventCondition(
+                    name: "purchase",
+                    propertyFilters: [
+                        "amount": PostHogPropertyFilter(values: ["100"], matchOperator: .gt),
+                        "category": PostHogPropertyFilter(values: ["electronics"], matchOperator: .exact),
+                    ]
+                )
+                integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
+
+                integration.testOnEvent(event: PostHogEvent(event: "purchase", distinctId: "test", properties: ["amount": 150, "category": "clothing"], timestamp: Date()))
+                #expect(integration.testIsEventActivated(surveyId: "survey-1") == false)
+            }
         }
 
-        @Test("matches not_regex correctly", arguments: regexMap)
-        func matchesNotRegex(url: String, regex: String, shouldMatch: Bool) {
-            let sut: PostHogSurveyMatchType = .notRegex
-            let matches = sut.matchFunction
-
-            #expect(matches([regex], url) != shouldMatch)
-        }
-
-        @Test("matches icontains correctly")
-        func matchesIcontains() {
-            let sut: PostHogSurveyMatchType = .iContains
-            let matches = sut.matchFunction
-
-            #expect(matches(["Hello"], "hello") == true)
-            #expect(matches(["Hello"], "HeLLo") == true)
-            #expect(matches(["Hello"], "heLLo") == true)
-            #expect(matches(["PostHog"], "PostHogTest") == true)
-            #expect(matches(["Hello"], "PostHog") == false)
-        }
-
-        @Test("matches not_icontains correctly")
-        func matchesNotIcontains() {
-            let sut: PostHogSurveyMatchType = .notIContains
-            let matches = sut.matchFunction
-
-            #expect(matches(["Hello"], "hello") == false)
-            #expect(matches(["Hello"], "HeLLo") == false)
-            #expect(matches(["Hello"], "heLLo") == false)
-            #expect(matches(["PostHog"], "PostHogTest") == false)
-            #expect(matches(["Hello"], "PostHog") == true)
-        }
-
-        @Test("matches exact correctly")
-        func matchesExact() {
-            let sut: PostHogSurveyMatchType = .exact
-            let matches = sut.matchFunction
-
-            #expect(matches(["Hello"], "hello") == false)
-            #expect(matches(["HeLLo"], "hello") == false)
-            #expect(matches(["HeLlo"], "hello") == false)
-            #expect(matches(["Hello"], "Hello") == true)
-            #expect(matches(["Hello", "PostHog"], "Hello") == true)
-        }
-
-        @Test("matches is_not correctly")
-        func matchesIsNot() {
-            let sut: PostHogSurveyMatchType = .isNot
-            let matches = sut.matchFunction
-
-            #expect(matches(["Hello"], "hello") == true)
-            #expect(matches(["Hello"], "HeLLo") == true)
-            #expect(matches(["Hello"], "heLLo") == true)
-            #expect(matches(["Hello"], "Hello") == false)
-            #expect(matches(["Hello", "PostHog"], "Hello") == false)
-        }
-
-        @Test("matches gt and lt correctly")
-        func matchesGtLt() {
-            #expect(PostHogSurveyMatchType.gt.matchFunction(["100"], "150") == true)
-            #expect(PostHogSurveyMatchType.gt.matchFunction(["100"], "50") == false)
-            #expect(PostHogSurveyMatchType.lt.matchFunction(["100"], "50") == true)
-            #expect(PostHogSurveyMatchType.lt.matchFunction(["100"], "150") == false)
-            #expect(PostHogSurveyMatchType.gt.matchFunction(["100"], "not_a_number") == false)
-        }
-    }
-
-    @Suite("Test matchPropertyFilters")
-    class TestMatchPropertyFilters {
-        let server: MockPostHogServer
-        let integration: PostHogSurveyIntegration
-        let postHog: PostHogSDK
-
-        init() throws {
-            server = MockPostHogServer()
-            server.start()
-
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
-            config._surveys = true
-            config.flushAt = 1
-            config.disableReachabilityForTesting = true
-            config.disableQueueTimerForTesting = true
-            config.captureApplicationLifecycleEvents = false
-
-            let storage = PostHogStorage(config)
-            storage.reset()
-
-            postHog = PostHogSDK.with(config)
-
-            PostHogSurveyIntegration.clearInstalls()
-            integration = PostHogSurveyIntegration()
-            let installOutcome = integration.install(postHog)
-            try #require(installOutcome == .installed)
-        }
-
-        deinit {
-            server.stop()
-            postHog.close()
-            postHog.reset()
-        }
-
-        @Test("returns true when no filters, false when property is missing")
-        func edgeCases() {
-            #expect(integration.testMatchPropertyFilters(nil, eventProperties: [:]) == true)
-            let filters = ["category": PostHogPropertyFilter(values: ["electronics"], matchOperator: .exact)]
-            #expect(integration.testMatchPropertyFilters(filters, eventProperties: [:]) == false)
-        }
-
-        @Test("icontains matches value against filter (case-insensitive)")
-        func icontainsOperatorWorks() {
-            let filters = ["query": PostHogPropertyFilter(values: ["product"], matchOperator: .iContains)]
-            #expect(integration.testMatchPropertyFilters(filters, eventProperties: ["query": "new PRODUCT features"]) == true)
-            #expect(integration.testMatchPropertyFilters(filters, eventProperties: ["query": "nothing here"]) == false)
-        }
-    }
-
-    @Suite("Test onEvent with property filters")
-    final class TestOnEventPropertyFilters {
-        let server: MockPostHogServer
-        let integration: PostHogSurveyIntegration
-        let postHog: PostHogSDK
-
-        init() throws {
-            server = MockPostHogServer()
-            server.start()
-
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
-            config._surveys = true
-            config.flushAt = 1
-            config.disableReachabilityForTesting = true
-            config.disableQueueTimerForTesting = true
-            config.disableRemoteConfigForTesting = true
-            config.captureApplicationLifecycleEvents = false
-
-            let storage = PostHogStorage(config)
-            storage.reset()
-
-            postHog = PostHogSDK.with(config)
-
-            PostHogSurveyIntegration.clearInstalls()
-            integration = PostHogSurveyIntegration()
-            let installOutcome = integration.install(postHog)
-            try #require(installOutcome == .installed)
-        }
-
-        deinit {
-            integration.uninstall(postHog)
-            postHog.close()
-            postHog.reset()
-            server.stop()
-        }
-
-        @Test("activates survey when event name and properties match")
-        func eventWithPropertiesActivatesSurvey() {
-            let condition = PostHogEventCondition(
-                name: "purchase",
-                propertyFilters: ["amount": PostHogPropertyFilter(values: ["100"], matchOperator: .gt)]
-            )
-            integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
-
-            integration.testOnEvent(event: PostHogEvent(event: "purchase", distinctId: "test", properties: ["amount": 150], timestamp: Date()))
-            #expect(integration.testIsEventActivated(surveyId: "survey-1") == true)
-        }
-
-        @Test("activates survey when event has no property filters (backward compat)")
-        func eventWithNoFiltersActivatesSurvey() {
-            let condition = PostHogEventCondition(name: "purchase")
-            integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
-
-            integration.testOnEvent(event: PostHogEvent(event: "purchase", distinctId: "test", properties: [:], timestamp: Date()))
-            #expect(integration.testIsEventActivated(surveyId: "survey-1") == true)
-        }
-
-        @Test("does not activate survey when one of multiple property filters fails")
-        func partialFilterMismatchPreventsActivation() {
-            let condition = PostHogEventCondition(
-                name: "purchase",
-                propertyFilters: [
-                    "amount": PostHogPropertyFilter(values: ["100"], matchOperator: .gt),
-                    "category": PostHogPropertyFilter(values: ["electronics"], matchOperator: .exact),
-                ]
-            )
-            integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
-
-            integration.testOnEvent(event: PostHogEvent(event: "purchase", distinctId: "test", properties: ["amount": 150, "category": "clothing"], timestamp: Date()))
-            #expect(integration.testIsEventActivated(surveyId: "survey-1") == false)
-        }
-    }
-
-    @Suite("Test canActivateRepeatedly")
-    struct TestCanActivateRepeatedly {
-        private func getSut(
-            repeatedActivation: Bool?,
-            values: [PostHogEventCondition],
-            schedule: PostHogSurveySchedule? = nil
-        ) -> PostHogSurvey {
-            PostHogSurvey(
-                id: "id",
-                name: "name",
-                type: .popover,
-                questions: [],
-                featureFlagKeys: nil,
-                linkedFlagKey: nil,
-                targetingFlagKey: nil,
-                internalTargetingFlagKey: nil,
-                conditions: PostHogSurveyConditions(
-                    url: nil,
-                    urlMatchType: nil,
-                    selector: nil,
-                    deviceTypes: nil,
-                    deviceTypesMatchType: nil,
-                    seenSurveyWaitPeriodInDays: nil,
-                    events: PostHogSurveyEventConditions(
-                        repeatedActivation: repeatedActivation,
-                        values: values
+        @Suite("Test canActivateRepeatedly")
+        struct TestCanActivateRepeatedly {
+            private func getSut(
+                repeatedActivation: Bool?,
+                values: [PostHogEventCondition],
+                schedule: PostHogSurveySchedule? = nil
+            ) -> PostHogSurvey {
+                PostHogSurvey(
+                    id: "id",
+                    name: "name",
+                    type: .popover,
+                    questions: [],
+                    featureFlagKeys: nil,
+                    linkedFlagKey: nil,
+                    targetingFlagKey: nil,
+                    internalTargetingFlagKey: nil,
+                    conditions: PostHogSurveyConditions(
+                        url: nil,
+                        urlMatchType: nil,
+                        selector: nil,
+                        deviceTypes: nil,
+                        deviceTypesMatchType: nil,
+                        seenSurveyWaitPeriodInDays: nil,
+                        events: PostHogSurveyEventConditions(
+                            repeatedActivation: repeatedActivation,
+                            values: values
+                        ),
+                        linkedFlagVariant: nil,
+                        actions: nil
                     ),
-                    linkedFlagVariant: nil,
-                    actions: nil
-                ),
-                appearance: nil,
-                currentIteration: nil,
-                currentIterationStartDate: nil,
-                startDate: nil,
-                endDate: nil,
-                schedule: schedule,
-                translations: nil
-            )
-        }
-
-        @Test("returns false when survey has no events")
-        func returnsFalseWhenSurveyHasNoEvents() {
-            let sut = getSut(
-                repeatedActivation: true,
-                values: []
-            )
-
-            #expect(sut.canActivateRepeatedly == false)
-        }
-
-        @Test("returns true when survey has events and repeatedActivation is true")
-        func returnsTrueWhenSurveyHasEventsAndRepeatedActivationIsAlsoTrue() {
-            let sut = getSut(
-                repeatedActivation: true,
-                values: [
-                    PostHogEventCondition(name: "first event"),
-                    PostHogEventCondition(name: "second event"),
-                ]
-            )
-
-            #expect(sut.canActivateRepeatedly == true)
-        }
-
-        @Test("returns false when survey has events but repeatedActivation is false")
-        func returnsFalseWhenSurveyHasEventsButRepeatedActivationIsFalse() {
-            let sut = getSut(
-                repeatedActivation: false,
-                values: [
-                    PostHogEventCondition(name: "first event"),
-                    PostHogEventCondition(name: "second event"),
-                ]
-            )
-
-            #expect(sut.canActivateRepeatedly == false)
-        }
-
-        @Test("returns true when schedule is always, even without events")
-        func returnsTrueWhenScheduleIsAlways() {
-            let sut = getSut(
-                repeatedActivation: nil,
-                values: [],
-                schedule: .always
-            )
-
-            #expect(sut.canActivateRepeatedly == true)
-        }
-
-        @Test("returns false when schedule is once")
-        func returnsFalseWhenScheduleIsOnce() {
-            let sut = getSut(
-                repeatedActivation: nil,
-                values: [],
-                schedule: .once
-            )
-
-            #expect(sut.canActivateRepeatedly == false)
-        }
-
-        @Test("returns false when schedule is recurring")
-        func returnsFalseWhenScheduleIsRecurring() {
-            let sut = getSut(
-                repeatedActivation: nil,
-                values: [],
-                schedule: .recurring
-            )
-
-            #expect(sut.canActivateRepeatedly == false)
-        }
-
-        @Test("returns true when schedule is always, even with repeatedActivation false")
-        func returnsTrueWhenScheduleIsAlwaysRegardlessOfRepeatedActivation() {
-            let sut = getSut(
-                repeatedActivation: false,
-                values: [
-                    PostHogEventCondition(name: "first event"),
-                ],
-                schedule: .always
-            )
-
-            #expect(sut.canActivateRepeatedly == true)
-        }
-    }
-
-    @Suite("Test getActiveMatchingSurveys", .serialized)
-    class TestGetActiveSurveys {
-        let server: MockPostHogServer
-        let postHog: PostHogSDK
-
-        #if os(iOS)
-            final class SpySurveysDelegate: NSObject, PostHogSurveysDelegate {
-                var renderedSurveyIds: [String] = []
-                var onRender: (() -> Void)?
-
-                func renderSurvey(
-                    _ survey: PostHogDisplaySurvey,
-                    onSurveyShown _: @escaping OnPostHogSurveyShown,
-                    onSurveyResponse _: @escaping OnPostHogSurveyResponse,
-                    onSurveyClosed _: @escaping OnPostHogSurveyClosed
-                ) {
-                    renderedSurveyIds.append(survey.id)
-                    onRender?()
-                }
-
-                func cleanupSurveys() {}
+                    appearance: nil,
+                    currentIteration: nil,
+                    currentIterationStartDate: nil,
+                    startDate: nil,
+                    endDate: nil,
+                    schedule: schedule,
+                    translations: nil
+                )
             }
-        #endif
 
-        init() {
-            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9090")
-            config._surveys = true
+            @Test("returns false when survey has no events")
+            func returnsFalseWhenSurveyHasNoEvents() {
+                let sut = getSut(
+                    repeatedActivation: true,
+                    values: []
+                )
+
+                #expect(sut.canActivateRepeatedly == false)
+            }
+
+            @Test("returns true when survey has events and repeatedActivation is true")
+            func returnsTrueWhenSurveyHasEventsAndRepeatedActivationIsAlsoTrue() {
+                let sut = getSut(
+                    repeatedActivation: true,
+                    values: [
+                        PostHogEventCondition(name: "first event"),
+                        PostHogEventCondition(name: "second event"),
+                    ]
+                )
+
+                #expect(sut.canActivateRepeatedly == true)
+            }
+
+            @Test("returns false when survey has events but repeatedActivation is false")
+            func returnsFalseWhenSurveyHasEventsButRepeatedActivationIsFalse() {
+                let sut = getSut(
+                    repeatedActivation: false,
+                    values: [
+                        PostHogEventCondition(name: "first event"),
+                        PostHogEventCondition(name: "second event"),
+                    ]
+                )
+
+                #expect(sut.canActivateRepeatedly == false)
+            }
+
+            @Test("returns true when schedule is always, even without events")
+            func returnsTrueWhenScheduleIsAlways() {
+                let sut = getSut(
+                    repeatedActivation: nil,
+                    values: [],
+                    schedule: .always
+                )
+
+                #expect(sut.canActivateRepeatedly == true)
+            }
+
+            @Test("returns false when schedule is once")
+            func returnsFalseWhenScheduleIsOnce() {
+                let sut = getSut(
+                    repeatedActivation: nil,
+                    values: [],
+                    schedule: .once
+                )
+
+                #expect(sut.canActivateRepeatedly == false)
+            }
+
+            @Test("returns false when schedule is recurring")
+            func returnsFalseWhenScheduleIsRecurring() {
+                let sut = getSut(
+                    repeatedActivation: nil,
+                    values: [],
+                    schedule: .recurring
+                )
+
+                #expect(sut.canActivateRepeatedly == false)
+            }
+
+            @Test("returns true when schedule is always, even with repeatedActivation false")
+            func returnsTrueWhenScheduleIsAlwaysRegardlessOfRepeatedActivation() {
+                let sut = getSut(
+                    repeatedActivation: false,
+                    values: [
+                        PostHogEventCondition(name: "first event"),
+                    ],
+                    schedule: .always
+                )
+
+                #expect(sut.canActivateRepeatedly == true)
+            }
+        }
+
+        @Suite("Test getActiveMatchingSurveys", .serialized)
+        class TestGetActiveSurveys {
+            let server: MockPostHogServer
+            let postHog: PostHogSDK
+
             #if os(iOS)
-                config._surveysConfig.surveysDelegate = SpySurveysDelegate()
-            #endif
-            config.enableSwizzling = false
-            config.disableFlushOnBackgroundForTesting = true
-            config.disableRemoteConfigForTesting = true
-            let storage = PostHogStorage(config)
-            storage.reset()
-            postHog = PostHogSDK.with(config)
-            server = MockPostHogServer()
-            server.featureFlags = [
-                "linked-flag-enabled": true,
-                "linked-flag-disabled": false,
-                "survey-targeting-flag-enabled": true,
-                "survey-targeting-flag-disabled": false,
-                "internal-targeting-flag-enabled": true,
-                "internal-targeting-flag-disabled": false,
-            ]
-            server.start()
-        }
+                final class SpySurveysDelegate: NSObject, PostHogSurveysDelegate {
+                    var renderedSurveyIds: [String] = []
+                    var onRender: (() -> Void)?
 
-        deinit {
-            let storage = PostHogStorage(postHog.config)
-            postHog.close()
-            deleteSafely(storage.appFolderUrl)
-            server.stop()
-        }
-
-        let draftSurvey =
-            """
-            {
-                "id": "draft_id",
-                "name": "Draft Survey",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What is a completed survey?",
-                        "originalQuestionIndex": 0
+                    func renderSurvey(
+                        _ survey: PostHogDisplaySurvey,
+                        onSurveyShown _: @escaping OnPostHogSurveyShown,
+                        onSurveyResponse _: @escaping OnPostHogSurveyResponse,
+                        onSurveyClosed _: @escaping OnPostHogSurveyClosed
+                    ) {
+                        renderedSurveyIds.append(survey.id)
+                        onRender?()
                     }
-                ]
-            }
-            """
 
-        let activeSurvey =
-            """
-            {
-                "id": "active_id",
-                "name": "Active Survey",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What is a completed survey?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let completedSurvey =
-            """
-            {
-                "id": "completed_id",
-                "name": "Completed Survey",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What is a completed survey?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z",
-                "end_date": "2025-03-03T09:18:18.376000Z"
-            }
-            """
-
-        let surveyWithDesktopDevice =
-            """
-            {
-                "id": "desktop_id",
-                "name": "Active Survey",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What is a completed survey?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "conditions": { 
-                    "deviceTypes": ["Desktop"], 
-                    "deviceTypesMatchType": "icontains" 
-                },
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveyWithMobileDevice =
-            """
-            {
-                "id": "mobile_id",
-                "name": "Active Survey",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What is a completed survey?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "conditions": { 
-                    "deviceTypes": ["Mobile"], 
-                    "deviceTypesMatchType": "icontains" 
-                },
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveyWithSelectorCondition =
-            """
-            {
-                "id": "selector_id",
-                "name": "Web-only Survey (selector)",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What is a completed survey?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "conditions": {
-                    "selector": "#my-button"
-                },
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveyWithUrlCondition =
-            """
-            {
-                "id": "url_id",
-                "name": "Web-only Survey (url)",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What is a completed survey?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "conditions": {
-                    "url": "https://example.com/pricing",
-                    "urlMatchType": "icontains"
-                },
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveysWithFeatureFlags =
-            """
-            {
-                "name": "survey with feature flags",
-                "id": "survey-with-flags",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "feature_flag_keys": [
-                    { "key": "flag1", "value": "linked-flag-enabled" },
-                    { "key": "flag2", "value": "survey-targeting-flag-enabled" },
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            },
-            {
-                "name": "survey with disabled feature flags",
-                "id": "survey-with-disabled-flags",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "feature_flag_keys": [
-                    { "key": "flag1", "value": "linked-flag-disabled" },
-                    { "key": "flag2", "value": "survey-targeting-flag-disabled" },
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            },
-            {
-                "name": "survey without feature flags",
-                "id": "survey-without-flags",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveysWithMissingKeysAndValues =
-            """
-            {
-                "name": "survey with missing keys",
-                "id": "survey-with-missing-keys",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "feature_flag_keys": [
-                    { "key": "", "value": "linked-flag-enabled" },
-                    { "key": "", "value": "" },
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            },
-            {
-                "name": "survey with missing values",
-                "id": "survey-with-missing-values",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "feature_flag_keys": [
-                    { "key": "flag1", "value": "" },
-                    { "key": "flag2", "value": "" },
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveyWithEnabledAndDisabledFlags =
-            """
-            {
-                "name": "survey with disabled and enabled feature flags",
-                "id": "survey-with-mixed-flags",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "feature_flag_keys": [
-                    { "key": "flag1", "value": "linked-flag-disabled" },
-                    { "key": "flag2", "value": "linked-flag-enabled" },
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveyWithEnabledInternalTargetingFlag =
-            """
-            {
-                "name": "survey with internal flag enabled",
-                "id": "survey-with-internal-flag-enabled",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "internal_targeting_flag_key": "internal-targeting-flag-enabled",
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveyWithDisabledInternalTargetingFlag =
-            """
-            {
-                "name": "survey with internal flag disabled",
-                "id": "survey-with-internal-flag-disabled",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "internal_targeting_flag_key": "internal-targeting-flag-disabled",
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        private func getSut(surveys: [String]) -> PostHogSurveyIntegration {
-            server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
-            let sut = PostHogSurveyIntegration()
-            PostHogSurveyIntegration.clearInstalls()
-            let installOutcome = sut.install(postHog)
-            #expect(installOutcome == .installed)
-            return sut
-        }
-
-        private func parseSurveys(_ surveys: String) throws -> [[String: Any]] {
-            try #require(JSONSerialization.jsonObject(with: Data("[\(surveys)]".utf8)) as? [[String: Any]])
-        }
-
-        @Test("returns surveys that are active")
-        func returnsActiveSurveys() async {
-            let surveys: [String] = [
-                draftSurvey,
-                activeSurvey,
-                completedSurvey,
-            ]
-
-            let sut = getSut(surveys: surveys)
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
+                    func cleanupSurveys() {}
                 }
+            #endif
+
+            init() {
+                let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9090")
+                config._surveys = true
+                #if os(iOS)
+                    config._surveysConfig.surveysDelegate = SpySurveysDelegate()
+                #endif
+                config.enableSwizzling = false
+                config.disableFlushOnBackgroundForTesting = true
+                config.disableRemoteConfigForTesting = true
+                let storage = PostHogStorage(config)
+                storage.reset()
+                postHog = PostHogSDK.with(config)
+                server = MockPostHogServer()
+                server.featureFlags = [
+                    "linked-flag-enabled": true,
+                    "linked-flag-disabled": false,
+                    "survey-targeting-flag-enabled": true,
+                    "survey-targeting-flag-disabled": false,
+                    "internal-targeting-flag-enabled": true,
+                    "internal-targeting-flag-disabled": false,
+                ]
+                server.start()
             }
 
-            #expect(matchedSurveys.map(\.id) == ["active_id"])
-        }
+            deinit {
+                let storage = PostHogStorage(postHog.config)
+                postHog.close()
+                deleteSafely(storage.appFolderUrl)
+                server.stop()
+            }
 
-        @Test("refreshes cached surveys when remote config loads")
-        func refreshesCachedSurveysWhenRemoteConfigLoads() async throws {
-            let refreshedSurvey =
+            let draftSurvey =
+                """
+                {
+                    "id": "draft_id",
+                    "name": "Draft Survey",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What is a completed survey?",
+                            "originalQuestionIndex": 0
+                        }
+                    ]
+                }
+                """
+
+            let activeSurvey =
                 """
                 {
                     "id": "active_id",
-                    "name": "Refreshed Survey",
+                    "name": "Active Survey",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What is a completed survey?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let completedSurvey =
+                """
+                {
+                    "id": "completed_id",
+                    "name": "Completed Survey",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What is a completed survey?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z",
+                    "end_date": "2025-03-03T09:18:18.376000Z"
+                }
+                """
+
+            let surveyWithDesktopDevice =
+                """
+                {
+                    "id": "desktop_id",
+                    "name": "Active Survey",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What is a completed survey?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "conditions": {
+                        "deviceTypes": ["Desktop"],
+                        "deviceTypesMatchType": "icontains"
+                    },
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveyWithMobileDevice =
+                """
+                {
+                    "id": "mobile_id",
+                    "name": "Active Survey",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What is a completed survey?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "conditions": {
+                        "deviceTypes": ["Mobile"],
+                        "deviceTypesMatchType": "icontains"
+                    },
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveyWithSelectorCondition =
+                """
+                {
+                    "id": "selector_id",
+                    "name": "Web-only Survey (selector)",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What is a completed survey?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "conditions": {
+                        "selector": "#my-button"
+                    },
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveyWithUrlCondition =
+                """
+                {
+                    "id": "url_id",
+                    "name": "Web-only Survey (url)",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What is a completed survey?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "conditions": {
+                        "url": "https://example.com/pricing",
+                        "urlMatchType": "icontains"
+                    },
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveysWithFeatureFlags =
+                """
+                {
+                    "name": "survey with feature flags",
+                    "id": "survey-with-flags",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "feature_flag_keys": [
+                        { "key": "flag1", "value": "linked-flag-enabled" },
+                        { "key": "flag2", "value": "survey-targeting-flag-enabled" },
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                },
+                {
+                    "name": "survey with disabled feature flags",
+                    "id": "survey-with-disabled-flags",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "feature_flag_keys": [
+                        { "key": "flag1", "value": "linked-flag-disabled" },
+                        { "key": "flag2", "value": "survey-targeting-flag-disabled" },
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                },
+                {
+                    "name": "survey without feature flags",
+                    "id": "survey-without-flags",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveysWithMissingKeysAndValues =
+                """
+                {
+                    "name": "survey with missing keys",
+                    "id": "survey-with-missing-keys",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "feature_flag_keys": [
+                        { "key": "", "value": "linked-flag-enabled" },
+                        { "key": "", "value": "" },
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                },
+                {
+                    "name": "survey with missing values",
+                    "id": "survey-with-missing-values",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "feature_flag_keys": [
+                        { "key": "flag1", "value": "" },
+                        { "key": "flag2", "value": "" },
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveyWithEnabledAndDisabledFlags =
+                """
+                {
+                    "name": "survey with disabled and enabled feature flags",
+                    "id": "survey-with-mixed-flags",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "feature_flag_keys": [
+                        { "key": "flag1", "value": "linked-flag-disabled" },
+                        { "key": "flag2", "value": "linked-flag-enabled" },
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveyWithEnabledInternalTargetingFlag =
+                """
+                {
+                    "name": "survey with internal flag enabled",
+                    "id": "survey-with-internal-flag-enabled",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "internal_targeting_flag_key": "internal-targeting-flag-enabled",
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveyWithDisabledInternalTargetingFlag =
+                """
+                {
+                    "name": "survey with internal flag disabled",
+                    "id": "survey-with-internal-flag-disabled",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "internal_targeting_flag_key": "internal-targeting-flag-disabled",
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            private func getSut(surveys: [String]) -> PostHogSurveyIntegration {
+                server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
+                let sut = PostHogSurveyIntegration()
+                PostHogSurveyIntegration.clearInstalls()
+                let installOutcome = sut.install(postHog)
+                #expect(installOutcome == .installed)
+                return sut
+            }
+
+            private func parseSurveys(_ surveys: String) throws -> [[String: Any]] {
+                try #require(JSONSerialization.jsonObject(with: Data("[\(surveys)]".utf8)) as? [[String: Any]])
+            }
+
+            @Test("returns surveys that are active")
+            func returnsActiveSurveys() async {
+                let surveys: [String] = [
+                    draftSurvey,
+                    activeSurvey,
+                    completedSurvey,
+                ]
+
+                let sut = getSut(surveys: surveys)
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
+                }
+
+                #expect(matchedSurveys.map(\.id) == ["active_id"])
+            }
+
+            @Test("refreshes cached surveys when remote config loads")
+            func refreshesCachedSurveysWhenRemoteConfigLoads() async throws {
+                let refreshedSurvey =
+                    """
+                    {
+                        "id": "active_id",
+                        "name": "Refreshed Survey",
+                        "type": "popover",
+                        "questions": [
+                            {
+                                "id": "1",
+                                "type": "open",
+                                "question": "What do you think?",
+                                "originalQuestionIndex": 0
+                            }
+                        ],
+                        "conditions": {
+                            "events": {
+                                "values": [
+                                    { "name": "new-trigger" }
+                                ]
+                            }
+                        },
+                        "start_date": "2024-07-23T09:18:18.376000Z"
+                    }
+                    """
+                let initialSurvey = refreshedSurvey
+                    .replacingOccurrences(of: "Refreshed Survey", with: "Initial Survey")
+                    .replacingOccurrences(of: "new-trigger", with: "old-trigger")
+
+                let sut = getSut(surveys: [initialSurvey])
+                let initialSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(returning: $0)
+                    }
+                }
+                #expect(initialSurveys.isEmpty)
+
+                // Keep the test from presenting survey UI after activating an event.
+                sut.setShownSurvey(.testInstance(name: "Placeholder"))
+                sut.testOnEvent(event: PostHogEvent(
+                    event: "old-trigger",
+                    distinctId: "test",
+                    properties: [:],
+                    timestamp: Date()
+                ))
+                let activatedInitialSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys {
+                        continuation.resume(returning: $0)
+                    }
+                }
+                #expect(activatedInitialSurveys.map(\.name) == ["Initial Survey"])
+
+                server.remoteConfigSurveys = "[\(refreshedSurvey)]"
+                let remoteConfigLoaded = AsyncLatch()
+                let token = try #require(postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { _ in
+                    DispatchQueue.main.async {
+                        remoteConfigLoaded.signal()
+                    }
+                })
+                postHog.remoteConfig?.reloadRemoteConfig()
+                await remoteConfigLoaded.wait()
+
+                let surveysBeforeNewTrigger: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys {
+                        continuation.resume(returning: $0)
+                    }
+                }
+                #expect(surveysBeforeNewTrigger.isEmpty)
+
+                sut.testOnEvent(event: PostHogEvent(
+                    event: "new-trigger",
+                    distinctId: "test",
+                    properties: [:],
+                    timestamp: Date()
+                ))
+                let refreshedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys {
+                        continuation.resume(returning: $0)
+                    }
+                }
+                #expect(refreshedSurveys.map(\.name) == ["Refreshed Survey"])
+                _ = token
+            }
+
+            #if os(iOS)
+                @Test("defers showing surveys until a foreground window exists")
+                func defersShowingSurveysUntilForegroundWindowExists() async {
+                    let delegate = SpySurveysDelegate()
+                    postHog.config._surveysConfig.surveysDelegate = delegate
+                    let sut = getSut(surveys: [activeSurvey])
+                    sut.hasActiveSurveyWindow = { false }
+
+                    let matchingSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                        sut.getActiveMatchingSurveys(forceReload: true) {
+                            continuation.resume(returning: $0)
+                        }
+                    }
+                    await withCheckedContinuation { continuation in
+                        DispatchQueue.main.async { DispatchQueue.main.async { continuation.resume() } }
+                    }
+
+                    #expect(matchingSurveys.map(\.id) == ["active_id"])
+                    #expect(delegate.renderedSurveyIds.isEmpty)
+
+                    let rendered = AsyncLatch()
+                    delegate.onRender = { rendered.signal() }
+                    sut.hasActiveSurveyWindow = { true }
+                    DI.main.appLifecyclePublisher.onDidBecomeActive.invoke(())
+                    await rendered.wait()
+
+                    #expect(delegate.renderedSurveyIds == ["active_id"])
+                }
+
+                @Test("waits for fresh feature flags before showing refreshed surveys")
+                func waitsForFreshFeatureFlagsBeforeShowingRefreshedSurveys() async throws {
+                    server.featureFlags = ["survey-flag": true]
+                    await withCheckedContinuation { continuation in
+                        postHog.remoteConfig?.reloadFeatureFlags { _ in continuation.resume() }
+                    }
+
+                    let delegate = SpySurveysDelegate()
+                    postHog.config._surveysConfig.surveysDelegate = delegate
+                    postHog.config.preloadFeatureFlags = false
+                    let sut = getSut(surveys: [])
+                    sut.hasActiveSurveyWindow = { true }
+                    server.remoteConfigSurveys =
+                        """
+                        [{
+                            "id": "flagged_survey",
+                            "name": "Flagged Survey",
+                            "type": "popover",
+                            "questions": [{
+                                "id": "1",
+                                "type": "open",
+                                "question": "What do you think?",
+                                "originalQuestionIndex": 0
+                            }],
+                            "linked_flag_key": "survey-flag",
+                            "start_date": "2024-07-23T09:18:18.376000Z"
+                        }]
+                        """
+
+                    server.featureFlags = ["survey-flag": false]
+                    let featureFlagsLoaded = AsyncLatch()
+                    let flagsToken = try #require(postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { _ in
+                        featureFlagsLoaded.signal()
+                    })
+                    let remoteConfigLoaded = AsyncLatch()
+                    let remoteToken = try #require(postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { _ in
+                        DispatchQueue.main.async { DispatchQueue.main.async { remoteConfigLoaded.signal() } }
+                    })
+                    postHog.remoteConfig?.reloadRemoteConfig()
+                    await remoteConfigLoaded.wait()
+                    try #require(remoteConfigLoaded.isSignaled)
+                    #expect(delegate.renderedSurveyIds.isEmpty)
+
+                    await featureFlagsLoaded.wait()
+                    try #require(featureFlagsLoaded.isSignaled)
+                    #expect(delegate.renderedSurveyIds.isEmpty)
+                    _ = (sut, remoteToken, flagsToken)
+                }
+
+                @Test("does not use an older flag refresh for newer surveys")
+                func doesNotUseOlderFlagRefreshForNewerSurveys() async throws {
+                    let delegate = SpySurveysDelegate()
+                    postHog.config._surveysConfig.surveysDelegate = delegate
+                    let sut = getSut(surveys: [])
+                    sut.hasActiveSurveyWindow = { true }
+
+                    let survey: [String: Any] = [
+                        "id": "flagged_survey",
+                        "name": "Flagged Survey",
+                        "type": "popover",
+                        "questions": [[
+                            "id": "1",
+                            "type": "open",
+                            "question": "What do you think?",
+                            "originalQuestionIndex": 0,
+                        ]],
+                        "linked_flag_key": "survey-flag",
+                        "start_date": "2024-07-23T09:18:18.376000Z",
+                    ]
+                    let requestLock = NSLock()
+                    var requestCount = 0
+                    server.flagsResponseHandler = { _ in
+                        let index = requestLock.withLock {
+                            requestCount += 1
+                            return requestCount
+                        }
+                        let response = HTTPStubsResponse(
+                            jsonObject: [
+                                "featureFlags": ["survey-flag": index == 1],
+                                "featureFlagPayloads": [:],
+                                "flags": [:],
+                            ],
+                            statusCode: 200,
+                            headers: nil
+                        )
+                        if index == 1 { response.responseTime = 0.1 }
+                        return response
+                    }
+
+                    let flagsLoaded = AsyncLatch()
+                    let loadedLock = NSLock()
+                    var loadedCount = 0
+                    let flagsToken = try #require(postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { flags in
+                        guard flags != nil else { return }
+                        let isSecondLoad = loadedLock.withLock {
+                            loadedCount += 1
+                            return loadedCount == 2
+                        }
+                        if isSecondLoad { flagsLoaded.signal() }
+                    })
+
+                    postHog.remoteConfig?.onRemoteConfigLoaded.invoke(["surveys": [survey]])
+                    postHog.remoteConfig?.onRemoteConfigLoaded.invoke(["surveys": [survey]])
+                    postHog.remoteConfig?.reloadFeatureFlags()
+                    await flagsLoaded.wait()
+                    await withCheckedContinuation { continuation in
+                        DispatchQueue.main.async { DispatchQueue.main.async { continuation.resume() } }
+                    }
+
+                    #expect(requestLock.withLock { requestCount } == 2)
+                    #expect(loadedLock.withLock { loadedCount } == 2)
+                    #expect(delegate.renderedSurveyIds.isEmpty)
+                    _ = (sut, flagsToken)
+                }
+
+                @Test("renders surveys without flag conditions while flags load")
+                func rendersSurveysWithoutFlagsWhileFlagsLoad() async throws {
+                    let delegate = SpySurveysDelegate()
+                    postHog.config._surveysConfig.surveysDelegate = delegate
+                    let sut = getSut(surveys: [])
+                    sut.hasActiveSurveyWindow = { true }
+
+                    server.flagsResponseHandler = { _ in
+                        let response = HTTPStubsResponse(
+                            jsonObject: [
+                                "featureFlags": ["survey-flag": true],
+                                "featureFlagPayloads": [:],
+                                "flags": [:],
+                            ],
+                            statusCode: 200,
+                            headers: nil
+                        )
+                        response.responseTime = 0.2
+                        return response
+                    }
+
+                    let stateLock = NSLock()
+                    var featureFlagsLoaded = false
+                    var renderedBeforeFlagsLoaded = false
+                    let flagsLoaded = AsyncLatch()
+                    let flagsToken = try #require(postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { flags in
+                        guard flags != nil else { return }
+                        stateLock.withLock { featureFlagsLoaded = true }
+                        flagsLoaded.signal()
+                    })
+                    let rendered = AsyncLatch()
+                    delegate.onRender = {
+                        stateLock.withLock { renderedBeforeFlagsLoaded = !featureFlagsLoaded }
+                        rendered.signal()
+                    }
+
+                    let flaggedSurvey = activeSurvey
+                        .replacingOccurrences(of: "active_id", with: "flagged_survey")
+                        .replacingOccurrences(
+                            of: "\"start_date\"",
+                            with: "\"linked_flag_key\": \"survey-flag\", \"start_date\""
+                        )
+                    postHog.remoteConfig?.onRemoteConfigLoaded.invoke([
+                        "surveys": try parseSurveys("\(flaggedSurvey),\(activeSurvey)"),
+                    ])
+                    await rendered.wait()
+
+                    #expect(delegate.renderedSurveyIds == ["active_id"])
+                    #expect(stateLock.withLock { renderedBeforeFlagsLoaded })
+                    await flagsLoaded.wait()
+                    _ = (sut, flagsToken)
+                }
+
+                @Test("recovers survey rendering after a feature flag refresh failure")
+                func recoversSurveyRenderingAfterFeatureFlagRefreshFailure() async throws {
+                    let delegate = SpySurveysDelegate()
+                    postHog.config._surveysConfig.surveysDelegate = delegate
+                    postHog.config.preloadFeatureFlags = false
+                    let sut = getSut(surveys: [])
+                    sut.hasActiveSurveyWindow = { true }
+                    server.remoteConfigSurveys =
+                        """
+                        [{
+                            "id": "flagged_survey",
+                            "name": "Flagged Survey",
+                            "type": "popover",
+                            "questions": [{
+                                "id": "1",
+                                "type": "open",
+                                "question": "What do you think?",
+                                "originalQuestionIndex": 0
+                            }],
+                            "linked_flag_key": "survey-flag",
+                            "start_date": "2024-07-23T09:18:18.376000Z"
+                        }]
+                        """
+                    server.flagsResponseHandler = { _ in
+                        HTTPStubsResponse(jsonObject: [:], statusCode: 200, headers: nil)
+                    }
+
+                    let failed = AsyncLatch()
+                    let flagsToken = try #require(postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { flags in
+                        if flags == nil { failed.signal() }
+                    })
+                    postHog.remoteConfig?.reloadRemoteConfig()
+                    await failed.wait()
+                    try #require(failed.isSignaled)
+                    #expect(delegate.renderedSurveyIds.isEmpty)
+
+                    server.flagsResponseHandler = nil
+                    server.featureFlags = ["survey-flag": true]
+                    let rendered = AsyncLatch()
+                    delegate.onRender = { rendered.signal() }
+                    postHog.remoteConfig?.reloadFeatureFlags()
+                    await rendered.wait()
+
+                    #expect(delegate.renderedSurveyIds == ["flagged_survey"])
+                    _ = (sut, flagsToken)
+                }
+            #endif
+
+            @Test("returns surveys that match device type")
+            func returnsSurveysThatMatchDeviceType() async {
+                let surveys: [String] = [
+                    draftSurvey,
+                    activeSurvey,
+                    completedSurvey,
+                    surveyWithDesktopDevice,
+                    surveyWithMobileDevice,
+                ]
+
+                let sut = getSut(surveys: surveys)
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
+                }
+
+                if let currentDeviceType = PostHogContext.deviceType?.lowercased() {
+                    #expect(matchedSurveys.map(\.id) == ["active_id", "\(currentDeviceType)_id"])
+                } else {
+                    #expect(matchedSurveys.map(\.id) == ["active_id"])
+                }
+            }
+
+            @Test("does not return web-only surveys with a CSS selector condition")
+            func doesNotReturnSurveysWithSelectorCondition() async {
+                let surveys: [String] = [
+                    activeSurvey,
+                    surveyWithSelectorCondition,
+                ]
+
+                let sut = getSut(surveys: surveys)
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
+                }
+
+                #expect(matchedSurveys.map(\.id) == ["active_id"])
+            }
+
+            @Test("does not return web-only surveys with a URL condition")
+            func doesNotReturnSurveysWithUrlCondition() async {
+                let surveys: [String] = [
+                    activeSurvey,
+                    surveyWithUrlCondition,
+                ]
+
+                let sut = getSut(surveys: surveys)
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
+                }
+
+                #expect(matchedSurveys.map(\.id) == ["active_id"])
+            }
+
+            @Test("returns only surveys with enabled feature flags")
+            func returnsOnlySurveysWithEnabledFeatureFlags() async throws {
+                let sut = getSut(surveys: [surveysWithFeatureFlags])
+                // Seed surveys separately so this matching test does not race the remote-config listener's own flag refresh.
+                let surveys = sut.decodeSurveys(from: [
+                    "surveys": try parseSurveys(surveysWithFeatureFlags),
+                ])
+                sut.updateSurveyCache(surveys, events: [:])
+                await withCheckedContinuation { continuation in
+                    postHog.remoteConfig?.reloadFeatureFlags { _ in
+                        continuation.resume()
+                    }
+                }
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys {
+                        continuation.resume(with: .success($0))
+                    }
+                }
+
+                #expect(matchedSurveys.map(\.id).contains("survey-with-flags"))
+                #expect(matchedSurveys.map(\.id).contains("survey-without-flags"))
+                #expect(!matchedSurveys.map(\.id).contains("survey-with-disabled-flags"))
+            }
+
+            @Test("matches the linked flag variant without bypassing other targeting", arguments: [
+                ("linked-blue", "blue", true),
+                ("linked-blue", "red", false),
+                ("linked-blue", "Blue", false),
+                ("linked-flag-enabled", "blue", false),
+                ("linked-flag-disabled", "blue", false),
+                ("missing-flag", "blue", false),
+                ("linked-blue", "any", true),
+                ("linked-flag-enabled", "any", true),
+                ("linked-flag-disabled", "any", false),
+                ("missing-flag", "any", false),
+                ("linked-blue", nil, true),
+                ("linked-blue", "", true),
+                (nil, "blue", true),
+                ("", "blue", true),
+            ] as [(String?, String?, Bool)])
+            func matchesLinkedFlagVariant(linkedKey: String?, variant: String?, matches: Bool) async throws {
+                server.featureFlags?["linked-blue"] = "blue"
+                var survey = try #require(try parseSurveys(activeSurvey).first)
+                survey["linked_flag_key"] = linkedKey
+                survey["conditions"] = variant.map { ["linkedFlagVariant": $0] } ?? [:]
+                var blockedSurvey = survey
+                blockedSurvey["id"] = "blocked"
+                blockedSurvey["targeting_flag_key"] = "survey-targeting-flag-disabled"
+
+                let sut = getSut(surveys: [])
+                let surveys = sut.decodeSurveys(from: ["surveys": [survey, blockedSurvey]])
+                sut.updateSurveyCache(surveys, events: [:])
+                await withCheckedContinuation { continuation in
+                    postHog.remoteConfig?.reloadFeatureFlags { _ in continuation.resume() }
+                }
+                let matched: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys { continuation.resume(returning: $0) }
+                }
+                #expect(matched.map(\.id) == (matches ? ["active_id"] : []))
+            }
+
+            @Test("Should not return surveys when any feature flag is disabled")
+            func shouldFilterOutSurveysWhenAnyFlagIsDisabled() async {
+                let sut = getSut(surveys: [surveyWithEnabledAndDisabledFlags])
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
+                }
+
+                #expect(matchedSurveys.isEmpty)
+            }
+
+            @Test("does not require flag evaluation for surveys with missing keys or values")
+            func doesNotRequireFlagsForMissingKeysOrValues() throws {
+                let surveys = PostHogSurveyIntegration().decodeSurveys(from: [
+                    "surveys": try parseSurveys(surveysWithMissingKeysAndValues),
+                ])
+
+                try #require(surveys.count == 2)
+                #expect(surveys.allSatisfy { !$0.requiresFeatureFlagEvaluation })
+            }
+
+            @Test("skips checking flags for surveys with missing keys or values ")
+            func shouldIgnoreSurveysWithMissingFeatureFlagsKeysOrValues() async {
+                let sut = getSut(surveys: [surveysWithMissingKeysAndValues])
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
+                }
+
+                #expect(matchedSurveys.map(\.id).contains("survey-with-missing-keys"))
+                #expect(matchedSurveys.map(\.id).contains("survey-with-missing-values"))
+            }
+
+            @Test("returns surveys that match internal targeting flags")
+            func returnsSurveysThatMatchInternalTargetingFlags() async throws {
+                let sut = getSut(surveys: [surveyWithEnabledInternalTargetingFlag])
+                let surveys = sut.decodeSurveys(from: [
+                    "surveys": try parseSurveys(surveyWithEnabledInternalTargetingFlag),
+                ])
+                sut.updateSurveyCache(surveys, events: [:])
+                await withCheckedContinuation { continuation in
+                    postHog.remoteConfig?.reloadFeatureFlags { _ in
+                        continuation.resume()
+                    }
+                }
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys {
+                        continuation.resume(with: .success($0))
+                    }
+                }
+
+                #expect(matchedSurveys.map(\.id) == ["survey-with-internal-flag-enabled"])
+            }
+        }
+
+        @Suite("Test survey wait period", .serialized)
+        class TestSurveyWaitPeriod {
+            let server: MockPostHogServer
+            let postHog: PostHogSDK
+            let storage: PostHogStorage
+
+            init() {
+                let config = PostHogConfig(projectToken: "test_survey_wait_period", host: "http://localhost:9090")
+                config._surveys = true
+                #if os(iOS)
+                    config._surveysConfig.surveysDelegate = TestGetActiveSurveys.SpySurveysDelegate()
+                #endif
+                config.enableSwizzling = false
+                config.disableFlushOnBackgroundForTesting = true
+                postHog = PostHogSDK.with(config)
+                storage = PostHogStorage(config)
+                storage.reset()
+                server = MockPostHogServer()
+                server.start()
+            }
+
+            deinit {
+                server.stop()
+                postHog.close()
+                postHog.reset()
+            }
+
+            let activeSurveyNoWaitPeriod =
+                """
+                {
+                    "id": "no-wait-period",
+                    "name": "Survey without wait period",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let activeSurveyWithWaitPeriod =
+                """
+                {
+                    "id": "with-wait-period",
+                    "name": "Survey with wait period",
                     "type": "popover",
                     "questions": [
                         {
@@ -1244,1318 +1799,763 @@ enum PostHogSurveysTest {
                         }
                     ],
                     "conditions": {
-                        "events": {
-                            "values": [
-                                { "name": "new-trigger" }
-                            ]
-                        }
+                        "seenSurveyWaitPeriodInDays": 7
                     },
                     "start_date": "2024-07-23T09:18:18.376000Z"
                 }
                 """
-            let initialSurvey = refreshedSurvey
-                .replacingOccurrences(of: "Refreshed Survey", with: "Initial Survey")
-                .replacingOccurrences(of: "new-trigger", with: "old-trigger")
 
-            let sut = getSut(surveys: [initialSurvey])
-            let initialSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(returning: $0)
-                }
+            private func getSut(surveys: [String]) -> PostHogSurveyIntegration {
+                server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
+                let sut = PostHogSurveyIntegration()
+                PostHogSurveyIntegration.clearInstalls()
+                let installOutcome = sut.install(postHog)
+                #expect(installOutcome == .installed)
+                return sut
             }
-            #expect(initialSurveys.isEmpty)
 
-            // Keep the test from presenting survey UI after activating an event.
-            sut.setShownSurvey(.testInstance(name: "Placeholder"))
-            sut.testOnEvent(event: PostHogEvent(
-                event: "old-trigger",
-                distinctId: "test",
-                properties: [:],
-                timestamp: Date()
-            ))
-            let activatedInitialSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys {
-                    continuation.resume(returning: $0)
-                }
-            }
-            #expect(activatedInitialSurveys.map(\.name) == ["Initial Survey"])
+            @Test("survey without wait period is not filtered")
+            func surveyWithoutWaitPeriodIsNotFiltered() async {
+                let sut = getSut(surveys: [activeSurveyNoWaitPeriod])
 
-            server.remoteConfigSurveys = "[\(refreshedSurvey)]"
-            let remoteConfigLoaded = AsyncLatch()
-            let token = try #require(postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { _ in
-                DispatchQueue.main.async {
-                    remoteConfigLoaded.signal()
-                }
-            })
-            postHog.remoteConfig?.reloadRemoteConfig()
-            await remoteConfigLoaded.wait()
+                // Set last seen date to recently
+                storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(Date()))
 
-            let surveysBeforeNewTrigger: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys {
-                    continuation.resume(returning: $0)
-                }
-            }
-            #expect(surveysBeforeNewTrigger.isEmpty)
-
-            sut.testOnEvent(event: PostHogEvent(
-                event: "new-trigger",
-                distinctId: "test",
-                properties: [:],
-                timestamp: Date()
-            ))
-            let refreshedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys {
-                    continuation.resume(returning: $0)
-                }
-            }
-            #expect(refreshedSurveys.map(\.name) == ["Refreshed Survey"])
-            _ = token
-        }
-
-        #if os(iOS)
-            @Test("defers showing surveys until a foreground window exists")
-            func defersShowingSurveysUntilForegroundWindowExists() async {
-                let delegate = SpySurveysDelegate()
-                postHog.config._surveysConfig.surveysDelegate = delegate
-                let sut = getSut(surveys: [activeSurvey])
-                sut.hasActiveSurveyWindow = { false }
-
-                let matchingSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
                     sut.getActiveMatchingSurveys(forceReload: true) {
-                        continuation.resume(returning: $0)
+                        continuation.resume(with: .success($0))
                     }
                 }
-                await withCheckedContinuation { continuation in
-                    DispatchQueue.main.async { DispatchQueue.main.async { continuation.resume() } }
-                }
 
-                #expect(matchingSurveys.map(\.id) == ["active_id"])
-                #expect(delegate.renderedSurveyIds.isEmpty)
-
-                let rendered = AsyncLatch()
-                delegate.onRender = { rendered.signal() }
-                sut.hasActiveSurveyWindow = { true }
-                DI.main.appLifecyclePublisher.onDidBecomeActive.invoke(())
-                await rendered.wait()
-
-                #expect(delegate.renderedSurveyIds == ["active_id"])
+                #expect(matchedSurveys.map(\.id) == ["no-wait-period"])
             }
 
-            @Test("waits for fresh feature flags before showing refreshed surveys")
-            func waitsForFreshFeatureFlagsBeforeShowingRefreshedSurveys() async throws {
-                server.featureFlags = ["survey-flag": true]
-                await withCheckedContinuation { continuation in
-                    postHog.remoteConfig?.reloadFeatureFlags { _ in continuation.resume() }
-                }
+            @Test("survey with wait period passes when no survey was previously seen")
+            func surveyWithWaitPeriodPassesWhenNoPreviouslySeen() async {
+                let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
 
-                let delegate = SpySurveysDelegate()
-                postHog.config._surveysConfig.surveysDelegate = delegate
-                postHog.config.preloadFeatureFlags = false
-                let sut = getSut(surveys: [])
-                sut.hasActiveSurveyWindow = { true }
-                server.remoteConfigSurveys =
-                    """
-                    [{
-                        "id": "flagged_survey",
-                        "name": "Flagged Survey",
-                        "type": "popover",
-                        "questions": [{
-                            "id": "1",
-                            "type": "open",
-                            "question": "What do you think?",
-                            "originalQuestionIndex": 0
-                        }],
-                        "linked_flag_key": "survey-flag",
-                        "start_date": "2024-07-23T09:18:18.376000Z"
-                    }]
-                    """
-
-                server.featureFlags = ["survey-flag": false]
-                let featureFlagsLoaded = AsyncLatch()
-                let flagsToken = try #require(postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { _ in
-                    featureFlagsLoaded.signal()
-                })
-                let remoteConfigLoaded = AsyncLatch()
-                let remoteToken = try #require(postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { _ in
-                    DispatchQueue.main.async { DispatchQueue.main.async { remoteConfigLoaded.signal() } }
-                })
-                postHog.remoteConfig?.reloadRemoteConfig()
-                await remoteConfigLoaded.wait()
-                try #require(remoteConfigLoaded.isSignaled)
-                #expect(delegate.renderedSurveyIds.isEmpty)
-
-                await featureFlagsLoaded.wait()
-                try #require(featureFlagsLoaded.isSignaled)
-                #expect(delegate.renderedSurveyIds.isEmpty)
-                _ = (sut, remoteToken, flagsToken)
-            }
-
-            @Test("does not use an older flag refresh for newer surveys")
-            func doesNotUseOlderFlagRefreshForNewerSurveys() async throws {
-                let delegate = SpySurveysDelegate()
-                postHog.config._surveysConfig.surveysDelegate = delegate
-                let sut = getSut(surveys: [])
-                sut.hasActiveSurveyWindow = { true }
-
-                let survey: [String: Any] = [
-                    "id": "flagged_survey",
-                    "name": "Flagged Survey",
-                    "type": "popover",
-                    "questions": [[
-                        "id": "1",
-                        "type": "open",
-                        "question": "What do you think?",
-                        "originalQuestionIndex": 0,
-                    ]],
-                    "linked_flag_key": "survey-flag",
-                    "start_date": "2024-07-23T09:18:18.376000Z",
-                ]
-                let requestLock = NSLock()
-                var requestCount = 0
-                server.flagsResponseHandler = { _ in
-                    let index = requestLock.withLock {
-                        requestCount += 1
-                        return requestCount
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
                     }
-                    let response = HTTPStubsResponse(
-                        jsonObject: [
-                            "featureFlags": ["survey-flag": index == 1],
-                            "featureFlagPayloads": [:],
-                            "flags": [:],
-                        ],
-                        statusCode: 200,
-                        headers: nil
-                    )
-                    if index == 1 { response.responseTime = 0.1 }
-                    return response
                 }
 
-                let flagsLoaded = AsyncLatch()
-                let loadedLock = NSLock()
-                var loadedCount = 0
-                let flagsToken = try #require(postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { flags in
-                    guard flags != nil else { return }
-                    let isSecondLoad = loadedLock.withLock {
-                        loadedCount += 1
-                        return loadedCount == 2
+                #expect(matchedSurveys.map(\.id) == ["with-wait-period"])
+            }
+
+            @Test("survey with wait period is filtered when period has not elapsed")
+            func surveyWithWaitPeriodIsFilteredWhenNotElapsed() async {
+                let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
+
+                // Set last seen date to 1 day ago (wait period is 7 days)
+                let oneDayAgo = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+                storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(oneDayAgo))
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
                     }
-                    if isSecondLoad { flagsLoaded.signal() }
-                })
-
-                postHog.remoteConfig?.onRemoteConfigLoaded.invoke(["surveys": [survey]])
-                postHog.remoteConfig?.onRemoteConfigLoaded.invoke(["surveys": [survey]])
-                postHog.remoteConfig?.reloadFeatureFlags()
-                await flagsLoaded.wait()
-                await withCheckedContinuation { continuation in
-                    DispatchQueue.main.async { DispatchQueue.main.async { continuation.resume() } }
                 }
 
-                #expect(requestLock.withLock { requestCount } == 2)
-                #expect(loadedLock.withLock { loadedCount } == 2)
-                #expect(delegate.renderedSurveyIds.isEmpty)
-                _ = (sut, flagsToken)
+                #expect(matchedSurveys.isEmpty)
             }
 
-            @Test("renders surveys without flag conditions while flags load")
-            func rendersSurveysWithoutFlagsWhileFlagsLoad() async throws {
-                let delegate = SpySurveysDelegate()
-                postHog.config._surveysConfig.surveysDelegate = delegate
-                let sut = getSut(surveys: [])
-                sut.hasActiveSurveyWindow = { true }
+            @Test("survey with wait period passes when period has elapsed")
+            func surveyWithWaitPeriodPassesWhenElapsed() async {
+                let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
 
-                server.flagsResponseHandler = { _ in
-                    let response = HTTPStubsResponse(
-                        jsonObject: [
-                            "featureFlags": ["survey-flag": true],
-                            "featureFlagPayloads": [:],
-                            "flags": [:],
-                        ],
-                        statusCode: 200,
-                        headers: nil
-                    )
-                    response.responseTime = 0.2
-                    return response
-                }
+                // Set last seen date to 10 days ago (wait period is 7 days)
+                let tenDaysAgo = Calendar.current.date(byAdding: .day, value: -10, to: Date())!
+                storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(tenDaysAgo))
 
-                let stateLock = NSLock()
-                var featureFlagsLoaded = false
-                var renderedBeforeFlagsLoaded = false
-                let flagsLoaded = AsyncLatch()
-                let flagsToken = try #require(postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { flags in
-                    guard flags != nil else { return }
-                    stateLock.withLock { featureFlagsLoaded = true }
-                    flagsLoaded.signal()
-                })
-                let rendered = AsyncLatch()
-                delegate.onRender = {
-                    stateLock.withLock { renderedBeforeFlagsLoaded = !featureFlagsLoaded }
-                    rendered.signal()
-                }
-
-                let flaggedSurvey = activeSurvey
-                    .replacingOccurrences(of: "active_id", with: "flagged_survey")
-                    .replacingOccurrences(
-                        of: "\"start_date\"",
-                        with: "\"linked_flag_key\": \"survey-flag\", \"start_date\""
-                    )
-                postHog.remoteConfig?.onRemoteConfigLoaded.invoke([
-                    "surveys": try parseSurveys("\(flaggedSurvey),\(activeSurvey)"),
-                ])
-                await rendered.wait()
-
-                #expect(delegate.renderedSurveyIds == ["active_id"])
-                #expect(stateLock.withLock { renderedBeforeFlagsLoaded })
-                await flagsLoaded.wait()
-                _ = (sut, flagsToken)
-            }
-
-            @Test("recovers survey rendering after a feature flag refresh failure")
-            func recoversSurveyRenderingAfterFeatureFlagRefreshFailure() async throws {
-                let delegate = SpySurveysDelegate()
-                postHog.config._surveysConfig.surveysDelegate = delegate
-                postHog.config.preloadFeatureFlags = false
-                let sut = getSut(surveys: [])
-                sut.hasActiveSurveyWindow = { true }
-                server.remoteConfigSurveys =
-                    """
-                    [{
-                        "id": "flagged_survey",
-                        "name": "Flagged Survey",
-                        "type": "popover",
-                        "questions": [{
-                            "id": "1",
-                            "type": "open",
-                            "question": "What do you think?",
-                            "originalQuestionIndex": 0
-                        }],
-                        "linked_flag_key": "survey-flag",
-                        "start_date": "2024-07-23T09:18:18.376000Z"
-                    }]
-                    """
-                server.flagsResponseHandler = { _ in
-                    HTTPStubsResponse(jsonObject: [:], statusCode: 200, headers: nil)
-                }
-
-                let failed = AsyncLatch()
-                let flagsToken = try #require(postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { flags in
-                    if flags == nil { failed.signal() }
-                })
-                postHog.remoteConfig?.reloadRemoteConfig()
-                await failed.wait()
-                try #require(failed.isSignaled)
-                #expect(delegate.renderedSurveyIds.isEmpty)
-
-                server.flagsResponseHandler = nil
-                server.featureFlags = ["survey-flag": true]
-                let rendered = AsyncLatch()
-                delegate.onRender = { rendered.signal() }
-                postHog.remoteConfig?.reloadFeatureFlags()
-                await rendered.wait()
-
-                #expect(delegate.renderedSurveyIds == ["flagged_survey"])
-                _ = (sut, flagsToken)
-            }
-        #endif
-
-        @Test("returns surveys that match device type")
-        func returnsSurveysThatMatchDeviceType() async {
-            let surveys: [String] = [
-                draftSurvey,
-                activeSurvey,
-                completedSurvey,
-                surveyWithDesktopDevice,
-                surveyWithMobileDevice,
-            ]
-
-            let sut = getSut(surveys: surveys)
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            if let currentDeviceType = PostHogContext.deviceType?.lowercased() {
-                #expect(matchedSurveys.map(\.id) == ["active_id", "\(currentDeviceType)_id"])
-            } else {
-                #expect(matchedSurveys.map(\.id) == ["active_id"])
-            }
-        }
-
-        @Test("does not return web-only surveys with a CSS selector condition")
-        func doesNotReturnSurveysWithSelectorCondition() async {
-            let surveys: [String] = [
-                activeSurvey,
-                surveyWithSelectorCondition,
-            ]
-
-            let sut = getSut(surveys: surveys)
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            #expect(matchedSurveys.map(\.id) == ["active_id"])
-        }
-
-        @Test("does not return web-only surveys with a URL condition")
-        func doesNotReturnSurveysWithUrlCondition() async {
-            let surveys: [String] = [
-                activeSurvey,
-                surveyWithUrlCondition,
-            ]
-
-            let sut = getSut(surveys: surveys)
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            #expect(matchedSurveys.map(\.id) == ["active_id"])
-        }
-
-        @Test("returns only surveys with enabled feature flags")
-        func returnsOnlySurveysWithEnabledFeatureFlags() async throws {
-            let sut = getSut(surveys: [surveysWithFeatureFlags])
-            // Seed surveys separately so this matching test does not race the remote-config listener's own flag refresh.
-            let surveys = sut.decodeSurveys(from: [
-                "surveys": try parseSurveys(surveysWithFeatureFlags),
-            ])
-            sut.updateSurveyCache(surveys, events: [:])
-            await withCheckedContinuation { continuation in
-                postHog.remoteConfig?.reloadFeatureFlags { _ in
-                    continuation.resume()
-                }
-            }
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            #expect(matchedSurveys.map(\.id).contains("survey-with-flags"))
-            #expect(matchedSurveys.map(\.id).contains("survey-without-flags"))
-            #expect(!matchedSurveys.map(\.id).contains("survey-with-disabled-flags"))
-        }
-
-        @Test("matches the linked flag variant without bypassing other targeting", arguments: [
-            ("linked-blue", "blue", true),
-            ("linked-blue", "red", false),
-            ("linked-blue", "Blue", false),
-            ("linked-flag-enabled", "blue", false),
-            ("linked-flag-disabled", "blue", false),
-            ("missing-flag", "blue", false),
-            ("linked-blue", "any", true),
-            ("linked-flag-enabled", "any", true),
-            ("linked-flag-disabled", "any", false),
-            ("missing-flag", "any", false),
-            ("linked-blue", nil, true),
-            ("linked-blue", "", true),
-            (nil, "blue", true),
-            ("", "blue", true),
-        ] as [(String?, String?, Bool)])
-        func matchesLinkedFlagVariant(linkedKey: String?, variant: String?, matches: Bool) async throws {
-            server.featureFlags?["linked-blue"] = "blue"
-            var survey = try #require(try parseSurveys(activeSurvey).first)
-            survey["linked_flag_key"] = linkedKey
-            survey["conditions"] = variant.map { ["linkedFlagVariant": $0] } ?? [:]
-            var blockedSurvey = survey
-            blockedSurvey["id"] = "blocked"
-            blockedSurvey["targeting_flag_key"] = "survey-targeting-flag-disabled"
-
-            let sut = getSut(surveys: [])
-            let surveys = sut.decodeSurveys(from: ["surveys": [survey, blockedSurvey]])
-            sut.updateSurveyCache(surveys, events: [:])
-            await withCheckedContinuation { continuation in
-                postHog.remoteConfig?.reloadFeatureFlags { _ in continuation.resume() }
-            }
-            let matched: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys { continuation.resume(returning: $0) }
-            }
-            #expect(matched.map(\.id) == (matches ? ["active_id"] : []))
-        }
-
-        @Test("Should not return surveys when any feature flag is disabled")
-        func shouldFilterOutSurveysWhenAnyFlagIsDisabled() async {
-            let sut = getSut(surveys: [surveyWithEnabledAndDisabledFlags])
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            #expect(matchedSurveys.isEmpty)
-        }
-
-        @Test("does not require flag evaluation for surveys with missing keys or values")
-        func doesNotRequireFlagsForMissingKeysOrValues() throws {
-            let surveys = PostHogSurveyIntegration().decodeSurveys(from: [
-                "surveys": try parseSurveys(surveysWithMissingKeysAndValues),
-            ])
-
-            try #require(surveys.count == 2)
-            #expect(surveys.allSatisfy { !$0.requiresFeatureFlagEvaluation })
-        }
-
-        @Test("skips checking flags for surveys with missing keys or values ")
-        func shouldIgnoreSurveysWithMissingFeatureFlagsKeysOrValues() async {
-            let sut = getSut(surveys: [surveysWithMissingKeysAndValues])
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            #expect(matchedSurveys.map(\.id).contains("survey-with-missing-keys"))
-            #expect(matchedSurveys.map(\.id).contains("survey-with-missing-values"))
-        }
-
-        @Test("returns surveys that match internal targeting flags")
-        func returnsSurveysThatMatchInternalTargetingFlags() async throws {
-            let sut = getSut(surveys: [surveyWithEnabledInternalTargetingFlag])
-            let surveys = sut.decodeSurveys(from: [
-                "surveys": try parseSurveys(surveyWithEnabledInternalTargetingFlag),
-            ])
-            sut.updateSurveyCache(surveys, events: [:])
-            await withCheckedContinuation { continuation in
-                postHog.remoteConfig?.reloadFeatureFlags { _ in
-                    continuation.resume()
-                }
-            }
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            #expect(matchedSurveys.map(\.id) == ["survey-with-internal-flag-enabled"])
-        }
-    }
-
-    @Suite("Test survey wait period", .serialized)
-    class TestSurveyWaitPeriod {
-        let server: MockPostHogServer
-        let postHog: PostHogSDK
-        let storage: PostHogStorage
-
-        init() {
-            let config = PostHogConfig(projectToken: "test_survey_wait_period", host: "http://localhost:9090")
-            config._surveys = true
-            #if os(iOS)
-                config._surveysConfig.surveysDelegate = TestGetActiveSurveys.SpySurveysDelegate()
-            #endif
-            config.enableSwizzling = false
-            config.disableFlushOnBackgroundForTesting = true
-            postHog = PostHogSDK.with(config)
-            storage = PostHogStorage(config)
-            storage.reset()
-            server = MockPostHogServer()
-            server.start()
-        }
-
-        deinit {
-            server.stop()
-            postHog.close()
-            postHog.reset()
-        }
-
-        let activeSurveyNoWaitPeriod =
-            """
-            {
-                "id": "no-wait-period",
-                "name": "Survey without wait period",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What do you think?",
-                        "originalQuestionIndex": 0
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
                     }
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
+                }
 
-        let activeSurveyWithWaitPeriod =
-            """
-            {
-                "id": "with-wait-period",
-                "name": "Survey with wait period",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What do you think?",
-                        "originalQuestionIndex": 0
+                #expect(matchedSurveys.map(\.id) == ["with-wait-period"])
+            }
+
+            @Test("survey without wait period is not affected by last seen date")
+            func surveyWithoutWaitPeriodNotAffectedByLastSeenDate() async {
+                let sut = getSut(surveys: [activeSurveyNoWaitPeriod, activeSurveyWithWaitPeriod])
+
+                // Set last seen date to 1 day ago (wait period is 7 days)
+                let oneDayAgo = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+                storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(oneDayAgo))
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
                     }
-                ],
-                "conditions": {
-                    "seenSurveyWaitPeriodInDays": 7
-                },
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        private func getSut(surveys: [String]) -> PostHogSurveyIntegration {
-            server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
-            let sut = PostHogSurveyIntegration()
-            PostHogSurveyIntegration.clearInstalls()
-            let installOutcome = sut.install(postHog)
-            #expect(installOutcome == .installed)
-            return sut
-        }
-
-        @Test("survey without wait period is not filtered")
-        func surveyWithoutWaitPeriodIsNotFiltered() async {
-            let sut = getSut(surveys: [activeSurveyNoWaitPeriod])
-
-            // Set last seen date to recently
-            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(Date()))
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
                 }
-            }
 
-            #expect(matchedSurveys.map(\.id) == ["no-wait-period"])
-        }
-
-        @Test("survey with wait period passes when no survey was previously seen")
-        func surveyWithWaitPeriodPassesWhenNoPreviouslySeen() async {
-            let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            #expect(matchedSurveys.map(\.id) == ["with-wait-period"])
-        }
-
-        @Test("survey with wait period is filtered when period has not elapsed")
-        func surveyWithWaitPeriodIsFilteredWhenNotElapsed() async {
-            let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
-
-            // Set last seen date to 1 day ago (wait period is 7 days)
-            let oneDayAgo = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(oneDayAgo))
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            #expect(matchedSurveys.isEmpty)
-        }
-
-        @Test("survey with wait period passes when period has elapsed")
-        func surveyWithWaitPeriodPassesWhenElapsed() async {
-            let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
-
-            // Set last seen date to 10 days ago (wait period is 7 days)
-            let tenDaysAgo = Calendar.current.date(byAdding: .day, value: -10, to: Date())!
-            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(tenDaysAgo))
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            #expect(matchedSurveys.map(\.id) == ["with-wait-period"])
-        }
-
-        @Test("survey without wait period is not affected by last seen date")
-        func surveyWithoutWaitPeriodNotAffectedByLastSeenDate() async {
-            let sut = getSut(surveys: [activeSurveyNoWaitPeriod, activeSurveyWithWaitPeriod])
-
-            // Set last seen date to 1 day ago (wait period is 7 days)
-            let oneDayAgo = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(oneDayAgo))
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            // Only the survey without wait period should pass
-            #expect(matchedSurveys.map(\.id) == ["no-wait-period"])
-        }
-    }
-
-    @Suite("Test conditional branching", .serialized)
-    class TestConfitionalBranchingLogic {
-        let postHog: PostHogSDK
-        let server = MockPostHogServer()
-
-        init() {
-            server.start()
-            let config = PostHogConfig(projectToken: "test_survey_branching", host: "http://localhost:9090")
-            config._surveys = true
-            config.enableSwizzling = false
-            config.disableRemoteConfigForTesting = true
-            config.disableQueueTimerForTesting = true
-            config.disableFlushOnBackgroundForTesting = true
-            config.captureApplicationLifecycleEvents = false
-            config.setBeforeSend { _ in nil }
-            PostHogStorage(config).reset()
-            postHog = PostHogSDK.with(config)
-        }
-
-        deinit {
-            postHog.close()
-            server.stop()
-        }
-
-        private func getSut() -> PostHogSurveyIntegration {
-            let sut = PostHogSurveyIntegration()
-            PostHogSurveyIntegration.clearInstalls()
-            #expect(sut.install(postHog) == .installed)
-            sut.stop()
-            return sut
-        }
-
-        @Test("returns next question index when no branching")
-        func returnsNextQuestionIndexWhenNoBranching() throws {
-            let sut = getSut()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .open(.testInstance(question: "q1")),
-                    .open(.testInstance(question: "q2")),
-                    .open(.testInstance(question: "q3")),
-                ]
-            )
-
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
-                #expect(nextIndex == 1)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
-            }
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 1, response: .openEnded("response 2")) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
-            }
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 3")) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == true)
-            } else {
-                throw TestError("Expected next question state")
+                // Only the survey without wait period should pass
+                #expect(matchedSurveys.map(\.id) == ["no-wait-period"])
             }
         }
 
-        @Test("completes survey with single question")
-        func completesSurveyWithSingleQuestion() throws {
-            let sut = getSut()
+        @Suite("Test conditional branching", .serialized)
+        class TestConfitionalBranchingLogic {
+            let postHog: PostHogSDK
+            let server = MockPostHogServer()
 
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .open(.testInstance(question: "q1")),
-                ]
-            )
-
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response")) {
-                #expect(nextIndex == 0)
-                #expect(isCompleted == true)
-            } else {
-                throw TestError("Expected next question state")
-            }
-        }
-
-        @Test("ends survey when branching is end")
-        func endsSurveyWhenBranchingIsEnd() throws {
-            let sut = getSut()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .open(.testInstance(question: "q1", branching: .end)),
-                    .open(.testInstance(question: "q2")),
-                ]
-            )
-
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response")) {
-                #expect(nextIndex == 0)
-                #expect(isCompleted == true)
-            } else {
-                throw TestError("Expected next question state")
-            }
-        }
-
-        @Test("jumps to specific question when branching to specific question")
-        func jumpsToSpecificQuestionWhenBranchingToSpecificQuestion() throws {
-            let sut = getSut()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .rating(.testInstance(
-                        question: "q1",
-                        display: .number,
-                        scale: .tenPoint,
-                        branching: .specificQuestion(index: 2)
-                    )),
-                    .open(.testInstance(question: "q2")),
-                    .open(.testInstance(question: "q3")),
-                    .open(.testInstance(question: "q4")),
-                ]
-            )
-
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(7)) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
+            init() {
+                server.start()
+                let config = PostHogConfig(projectToken: "test_survey_branching", host: "http://localhost:9090")
+                config._surveys = true
+                config.enableSwizzling = false
+                config.disableRemoteConfigForTesting = true
+                config.disableQueueTimerForTesting = true
+                config.disableFlushOnBackgroundForTesting = true
+                config.captureApplicationLifecycleEvents = false
+                config.setBeforeSend { _ in nil }
+                PostHogStorage(config).reset()
+                postHog = PostHogSDK.with(config)
             }
 
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 2")) {
-                #expect(nextIndex == 3)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
+            deinit {
+                postHog.close()
+                server.stop()
             }
 
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 3, response: .openEnded("response 3")) {
-                #expect(nextIndex == 3)
-                #expect(isCompleted == true)
-            } else {
-                throw TestError("Expected next question state")
-            }
-        }
-
-        @Test("jumps to last question when branching is out of bounds")
-        func jumpsToLastQuestionWhenBranchingOutOfBounds() throws {
-            let sut = getSut()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .open(.testInstance(question: "q1", branching: .specificQuestion(index: 5))),
-                    .open(.testInstance(question: "q2")),
-                    .open(.testInstance(question: "q3")),
-                ]
-            )
-
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
+            private func getSut() -> PostHogSurveyIntegration {
+                let sut = PostHogSurveyIntegration()
+                PostHogSurveyIntegration.clearInstalls()
+                #expect(sut.install(postHog) == .installed)
+                sut.stop()
+                return sut
             }
 
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 2")) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == true)
-            } else {
-                throw TestError("Expected next question state")
-            }
-        }
+            @Test("returns next question index when no branching")
+            func returnsNextQuestionIndexWhenNoBranching() throws {
+                let sut = getSut()
 
-        @Test("handles single choice response based branching")
-        func handlesSingleChoiceResponseBasedBranching() throws {
-            let sut = getSut()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .singleChoice(.testInstance(
-                        question: "How satisfied are you with our product?",
-                        choices: ["Very Dissatisfied", "Dissatisfied", "Neutral", "Satisfied", "Very Satisfied"],
-                        branching: .responseBased(responseValues: [
-                            "0": 1, // Very Dissatisfied -> Detractor path
-                            "1": 1, // Dissatisfied -> Detractor path
-                            "2": 2, // Neutral -> Neutral path
-                            "3": 3, // Satisfied -> Promoter path
-                            "4": 3, // Very Satisfied -> Promoter path
-                        ])
-                    )),
-                    .open(.testInstance(question: "detractor", branching: .specificQuestion(index: 4))), // Detractor path
-                    .open(.testInstance(question: "neutral", branching: .specificQuestion(index: 4))), // Neutral path
-                    .open(.testInstance(question: "promoter", branching: .specificQuestion(index: 4))), // Promoter path
-                    .open(.testInstance(question: "Final")), // Final question
-                ]
-            )
-
-            // Test Very Satisfied/Satisfied path (promoter)
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Very Satisfied")) {
-                #expect(nextIndex == 3)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
-            }
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 3, response: .openEnded("Great product!")) {
-                #expect(nextIndex == 4)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
-            }
-
-            // Test Neutral path
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Neutral")) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
-            }
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("It's okay")) {
-                #expect(nextIndex == 4)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
-            }
-
-            // Test Dissatisfied/Very Dissatisfied path (detractor)
-            sut.setShownSurvey(survey)
-
-            let detractor = try #require(sut.getNextQuestion(index: 0, response: .singleChoice("Very Dissatisfied")))
-            #expect(detractor.0 == 1)
-            #expect(detractor.1 == false)
-
-            let final = try #require(sut.getNextQuestion(index: 1, response: .openEnded("Needs work")))
-            #expect(final.0 == 4)
-            #expect(final.1 == false)
-
-            let completed = try #require(sut.getNextQuestion(index: 4, response: .openEnded("Yes")))
-            #expect(completed.0 == 4)
-            #expect(completed.1 == true)
-        }
-
-        @Test("handles rating response based branching for scale 3")
-        func handlesRatingResponseBasedBranchingForScale3() throws {
-            let sut = getSut()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .rating(.testInstance(
-                        question: "rating question",
-                        display: .emoji,
-                        scale: .threePoint,
-                        branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
-                    )),
-                    .open(.testInstance(question: "q2")),
-                    .open(.testInstance(question: "q3")),
-                    .open(.testInstance(question: "q4")),
-                ]
-            )
-
-            sut.setShownSurvey(survey)
-
-            for rating in 1 ... 3 {
-                sut.setShownSurvey(survey)
-                let (nextIndex, isCompleted) = try #require(sut.getNextQuestion(index: 0, response: .rating(rating)))
-                #expect(nextIndex == rating)
-                #expect(isCompleted == false)
-            }
-        }
-
-        @Test("handles rating response based branching for scale 5")
-        func handlesRatingResponseBasedBranchingForScale5() throws {
-            let sut = getSut()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .rating(.testInstance(
-                        question: "rating question",
-                        display: .emoji,
-                        scale: .fivePoint,
-                        branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
-                    )),
-                    .open(.testInstance(question: "q2")),
-                    .open(.testInstance(question: "q3")),
-                    .open(.testInstance(question: "q4")),
-                ]
-            )
-
-            for (rating, expectedIndex) in [(1, 1), (2, 1), (3, 2), (4, 3), (5, 3)] {
-                sut.setShownSurvey(survey)
-                let (nextIndex, isCompleted) = try #require(sut.getNextQuestion(index: 0, response: .rating(rating)))
-                #expect(nextIndex == expectedIndex)
-                #expect(isCompleted == false)
-            }
-        }
-
-        @Test("handles rating response based branching for scale 7")
-        func handlesRatingResponseBasedBranchingForScale7() throws {
-            let sut = getSut()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .rating(.testInstance(
-                        question: "rating question",
-                        display: .number,
-                        scale: .sevenPoint,
-                        branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
-                    )),
-                    .open(.testInstance(question: "q2")),
-                    .open(.testInstance(question: "q3")),
-                    .open(.testInstance(question: "q4")),
-                ]
-            )
-
-            sut.setShownSurvey(survey)
-
-            for (rating, expectedIndex) in [(1, 1), (2, 1), (3, 1), (4, 2), (5, 3), (6, 3), (7, 3)] {
-                sut.setShownSurvey(survey)
-                let (nextIndex, isCompleted) = try #require(sut.getNextQuestion(index: 0, response: .rating(rating)))
-                #expect(nextIndex == expectedIndex)
-                #expect(isCompleted == false)
-            }
-        }
-
-        @Test("handles NPS rating response based branching for scale 10")
-        func handlesNPSRatingResponseBasedBranchingForScale10() throws {
-            let sut = getSut()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .rating(.testInstance(
-                        question: "q1",
-                        display: .number,
-                        scale: .tenPoint,
-                        branching: .responseBased(responseValues: ["detractors": 1, "passives": 2, "promoters": 3])
-                    )),
-                    .open(.testInstance(question: "question_detractors", branching: .end)), // Detractors path
-                    .open(.testInstance(question: "question_passives", branching: .end)), // Passives path
-                    .open(.testInstance(question: "question_promoters", branching: .end)), // Promoters path
-                ]
-            )
-
-            sut.setShownSurvey(survey)
-
-            for (rating, expectedIndex) in [(0, 1), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 2), (8, 2), (9, 3), (10, 3)] {
-                sut.setShownSurvey(survey)
-                let (nextIndex, isCompleted) = try #require(sut.getNextQuestion(index: 0, response: .rating(rating)))
-                #expect(nextIndex == expectedIndex)
-                #expect(isCompleted == false)
-            }
-        }
-    }
-
-    @Suite("Test resilient survey list decoding")
-    struct TestResilientSurveyListDecoding {
-        @Test("atomic array decode fails when one survey is malformed")
-        func atomicArrayDecodeFailsOnMalformedEntry() throws {
-            let data = try loadFixture("fixture_surveys_array_with_malformed")
-
-            // Documents Swift's atomic [Decodable] behavior: a single malformed
-            // element throws and drops the entire array. This is the root cause
-            // of issue #611 and the reason decodeSurveys decodes per-element.
-            #expect(throws: DecodingError.self) {
-                _ = try PostHogApi.jsonDecoder.decode([PostHogSurvey].self, from: data)
-            }
-        }
-
-        @Test("per-element decoding skips malformed entries and keeps valid ones")
-        func perElementDecodingSkipsMalformedEntries() throws {
-            let data = try loadFixture("fixture_surveys_array_with_malformed")
-            let rawArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
-            let arrayItems = try #require(rawArray)
-
-            let decoded = PostHogSurveyIntegration().decodeSurveys(from: ["surveys": arrayItems])
-
-            #expect(decoded.count == 1)
-            #expect(decoded.first?.id == "valid-survey-id")
-        }
-    }
-
-    @Suite("Test survey to display model mapping")
-    struct TestSurveyToDisplayMapping {
-        private func makeAppearance(
-            delay: TimeInterval?,
-            displayIntroScreen: Bool? = nil,
-            introScreenHeader: String? = nil,
-            introScreenDescription: String? = nil,
-            introScreenDescriptionContentType: PostHogSurveyTextContentType? = nil,
-            introScreenButtonText: String? = nil
-        ) -> PostHogSurveyAppearance {
-            PostHogSurveyAppearance(
-                position: nil, fontFamily: nil, backgroundColor: nil,
-                submitButtonColor: nil, submitButtonText: nil, submitButtonTextColor: nil,
-                textColor: nil, descriptionTextColor: nil, ratingButtonColor: nil,
-                ratingButtonActiveColor: nil, ratingButtonHoverColor: nil,
-                inputBackground: nil, inputTextColor: nil, whiteLabel: nil,
-                autoDisappear: nil, displayThankYouMessage: nil,
-                thankYouMessageHeader: nil, thankYouMessageDescription: nil,
-                thankYouMessageDescriptionContentType: nil,
-                thankYouMessageCloseButtonText: nil,
-                displayIntroScreen: displayIntroScreen,
-                introScreenHeader: introScreenHeader,
-                introScreenDescription: introScreenDescription,
-                introScreenDescriptionContentType: introScreenDescriptionContentType,
-                introScreenButtonText: introScreenButtonText,
-                borderColor: nil,
-                placeholder: nil, shuffleQuestions: nil,
-                surveyPopupDelaySeconds: delay,
-                widgetType: nil, widgetSelector: nil, widgetLabel: nil, widgetColor: nil
-            )
-        }
-
-        @Test("maps surveyPopupDelaySeconds to display survey appearance")
-        func mapsPopupDelaySecondsToDisplayAppearance() {
-            let survey = PostHogSurvey.testInstance(
-                name: "delay-mapped",
-                appearance: makeAppearance(delay: 7)
-            )
-
-            let displaySurvey = survey.toDisplaySurvey()
-
-            #expect(displaySurvey.appearance?.surveyPopupDelaySeconds == 7)
-        }
-
-        @Test("keeps popup delay nil on display survey appearance when missing")
-        func keepsPopupDelayNilWhenMissing() {
-            let survey = PostHogSurvey.testInstance(
-                name: "delay-missing",
-                appearance: makeAppearance(delay: nil)
-            )
-
-            let displaySurvey = survey.toDisplaySurvey()
-
-            #expect(displaySurvey.appearance?.surveyPopupDelaySeconds == nil)
-        }
-
-        @Test("maps intro screen fields to display survey appearance")
-        func mapsIntroScreenFieldsToDisplayAppearance() {
-            let survey = PostHogSurvey.testInstance(
-                name: "intro-mapped",
-                appearance: makeAppearance(
-                    delay: nil,
-                    displayIntroScreen: true,
-                    introScreenHeader: "Welcome!",
-                    introScreenDescription: "Two quick questions.",
-                    introScreenDescriptionContentType: .text,
-                    introScreenButtonText: "Get started"
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .open(.testInstance(question: "q1")),
+                        .open(.testInstance(question: "q2")),
+                        .open(.testInstance(question: "q3")),
+                    ]
                 )
-            )
 
-            let displaySurvey = survey.toDisplaySurvey()
+                sut.setShownSurvey(survey)
 
-            #expect(displaySurvey.appearance?.displayIntroScreen == true)
-            #expect(displaySurvey.appearance?.introScreenHeader == "Welcome!")
-            #expect(displaySurvey.appearance?.introScreenDescription == "Two quick questions.")
-            #expect(displaySurvey.appearance?.introScreenDescriptionContentType == .text)
-            #expect(displaySurvey.appearance?.introScreenButtonText == "Get started")
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
+                    #expect(nextIndex == 1)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 1, response: .openEnded("response 2")) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 3")) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == true)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+            }
+
+            @Test("completes survey with single question")
+            func completesSurveyWithSingleQuestion() throws {
+                let sut = getSut()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .open(.testInstance(question: "q1")),
+                    ]
+                )
+
+                sut.setShownSurvey(survey)
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response")) {
+                    #expect(nextIndex == 0)
+                    #expect(isCompleted == true)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+            }
+
+            @Test("ends survey when branching is end")
+            func endsSurveyWhenBranchingIsEnd() throws {
+                let sut = getSut()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .open(.testInstance(question: "q1", branching: .end)),
+                        .open(.testInstance(question: "q2")),
+                    ]
+                )
+
+                sut.setShownSurvey(survey)
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response")) {
+                    #expect(nextIndex == 0)
+                    #expect(isCompleted == true)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+            }
+
+            @Test("jumps to specific question when branching to specific question")
+            func jumpsToSpecificQuestionWhenBranchingToSpecificQuestion() throws {
+                let sut = getSut()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .rating(.testInstance(
+                            question: "q1",
+                            display: .number,
+                            scale: .tenPoint,
+                            branching: .specificQuestion(index: 2)
+                        )),
+                        .open(.testInstance(question: "q2")),
+                        .open(.testInstance(question: "q3")),
+                        .open(.testInstance(question: "q4")),
+                    ]
+                )
+
+                sut.setShownSurvey(survey)
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(7)) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 2")) {
+                    #expect(nextIndex == 3)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 3, response: .openEnded("response 3")) {
+                    #expect(nextIndex == 3)
+                    #expect(isCompleted == true)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+            }
+
+            @Test("jumps to last question when branching is out of bounds")
+            func jumpsToLastQuestionWhenBranchingOutOfBounds() throws {
+                let sut = getSut()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .open(.testInstance(question: "q1", branching: .specificQuestion(index: 5))),
+                        .open(.testInstance(question: "q2")),
+                        .open(.testInstance(question: "q3")),
+                    ]
+                )
+
+                sut.setShownSurvey(survey)
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 2")) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == true)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+            }
+
+            @Test("handles single choice response based branching")
+            func handlesSingleChoiceResponseBasedBranching() throws {
+                let sut = getSut()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .singleChoice(.testInstance(
+                            question: "How satisfied are you with our product?",
+                            choices: ["Very Dissatisfied", "Dissatisfied", "Neutral", "Satisfied", "Very Satisfied"],
+                            branching: .responseBased(responseValues: [
+                                "0": 1, // Very Dissatisfied -> Detractor path
+                                "1": 1, // Dissatisfied -> Detractor path
+                                "2": 2, // Neutral -> Neutral path
+                                "3": 3, // Satisfied -> Promoter path
+                                "4": 3, // Very Satisfied -> Promoter path
+                            ])
+                        )),
+                        .open(.testInstance(question: "detractor", branching: .specificQuestion(index: 4))), // Detractor path
+                        .open(.testInstance(question: "neutral", branching: .specificQuestion(index: 4))), // Neutral path
+                        .open(.testInstance(question: "promoter", branching: .specificQuestion(index: 4))), // Promoter path
+                        .open(.testInstance(question: "Final")), // Final question
+                    ]
+                )
+
+                // Test Very Satisfied/Satisfied path (promoter)
+                sut.setShownSurvey(survey)
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Very Satisfied")) {
+                    #expect(nextIndex == 3)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 3, response: .openEnded("Great product!")) {
+                    #expect(nextIndex == 4)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                // Test Neutral path
+                sut.setShownSurvey(survey)
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Neutral")) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("It's okay")) {
+                    #expect(nextIndex == 4)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                // Test Dissatisfied/Very Dissatisfied path (detractor)
+                sut.setShownSurvey(survey)
+
+                let detractor = try #require(sut.getNextQuestion(index: 0, response: .singleChoice("Very Dissatisfied")))
+                #expect(detractor.0 == 1)
+                #expect(detractor.1 == false)
+
+                let final = try #require(sut.getNextQuestion(index: 1, response: .openEnded("Needs work")))
+                #expect(final.0 == 4)
+                #expect(final.1 == false)
+
+                let completed = try #require(sut.getNextQuestion(index: 4, response: .openEnded("Yes")))
+                #expect(completed.0 == 4)
+                #expect(completed.1 == true)
+            }
+
+            @Test("handles rating response based branching for scale 3")
+            func handlesRatingResponseBasedBranchingForScale3() throws {
+                let sut = getSut()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .rating(.testInstance(
+                            question: "rating question",
+                            display: .emoji,
+                            scale: .threePoint,
+                            branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
+                        )),
+                        .open(.testInstance(question: "q2")),
+                        .open(.testInstance(question: "q3")),
+                        .open(.testInstance(question: "q4")),
+                    ]
+                )
+
+                sut.setShownSurvey(survey)
+
+                for rating in 1 ... 3 {
+                    sut.setShownSurvey(survey)
+                    let (nextIndex, isCompleted) = try #require(sut.getNextQuestion(index: 0, response: .rating(rating)))
+                    #expect(nextIndex == rating)
+                    #expect(isCompleted == false)
+                }
+            }
+
+            @Test("handles rating response based branching for scale 5")
+            func handlesRatingResponseBasedBranchingForScale5() throws {
+                let sut = getSut()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .rating(.testInstance(
+                            question: "rating question",
+                            display: .emoji,
+                            scale: .fivePoint,
+                            branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
+                        )),
+                        .open(.testInstance(question: "q2")),
+                        .open(.testInstance(question: "q3")),
+                        .open(.testInstance(question: "q4")),
+                    ]
+                )
+
+                for (rating, expectedIndex) in [(1, 1), (2, 1), (3, 2), (4, 3), (5, 3)] {
+                    sut.setShownSurvey(survey)
+                    let (nextIndex, isCompleted) = try #require(sut.getNextQuestion(index: 0, response: .rating(rating)))
+                    #expect(nextIndex == expectedIndex)
+                    #expect(isCompleted == false)
+                }
+            }
+
+            @Test("handles rating response based branching for scale 7")
+            func handlesRatingResponseBasedBranchingForScale7() throws {
+                let sut = getSut()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .rating(.testInstance(
+                            question: "rating question",
+                            display: .number,
+                            scale: .sevenPoint,
+                            branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
+                        )),
+                        .open(.testInstance(question: "q2")),
+                        .open(.testInstance(question: "q3")),
+                        .open(.testInstance(question: "q4")),
+                    ]
+                )
+
+                sut.setShownSurvey(survey)
+
+                for (rating, expectedIndex) in [(1, 1), (2, 1), (3, 1), (4, 2), (5, 3), (6, 3), (7, 3)] {
+                    sut.setShownSurvey(survey)
+                    let (nextIndex, isCompleted) = try #require(sut.getNextQuestion(index: 0, response: .rating(rating)))
+                    #expect(nextIndex == expectedIndex)
+                    #expect(isCompleted == false)
+                }
+            }
+
+            @Test("handles NPS rating response based branching for scale 10")
+            func handlesNPSRatingResponseBasedBranchingForScale10() throws {
+                let sut = getSut()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .rating(.testInstance(
+                            question: "q1",
+                            display: .number,
+                            scale: .tenPoint,
+                            branching: .responseBased(responseValues: ["detractors": 1, "passives": 2, "promoters": 3])
+                        )),
+                        .open(.testInstance(question: "question_detractors", branching: .end)), // Detractors path
+                        .open(.testInstance(question: "question_passives", branching: .end)), // Passives path
+                        .open(.testInstance(question: "question_promoters", branching: .end)), // Promoters path
+                    ]
+                )
+
+                sut.setShownSurvey(survey)
+
+                for (rating, expectedIndex) in [(0, 1), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 2), (8, 2), (9, 3), (10, 3)] {
+                    sut.setShownSurvey(survey)
+                    let (nextIndex, isCompleted) = try #require(sut.getNextQuestion(index: 0, response: .rating(rating)))
+                    #expect(nextIndex == expectedIndex)
+                    #expect(isCompleted == false)
+                }
+            }
         }
 
-        @Test("defaults displayIntroScreen to false on display survey appearance when missing")
-        func defaultsDisplayIntroScreenToFalseWhenMissing() {
-            let survey = PostHogSurvey.testInstance(
-                name: "intro-missing",
-                appearance: makeAppearance(delay: nil)
-            )
+        @Suite("Test resilient survey list decoding")
+        struct TestResilientSurveyListDecoding {
+            @Test("atomic array decode fails when one survey is malformed")
+            func atomicArrayDecodeFailsOnMalformedEntry() throws {
+                let data = try loadFixture("fixture_surveys_array_with_malformed")
 
-            let displaySurvey = survey.toDisplaySurvey()
+                // Documents Swift's atomic [Decodable] behavior: a single malformed
+                // element throws and drops the entire array. This is the root cause
+                // of issue #611 and the reason decodeSurveys decodes per-element.
+                #expect(throws: DecodingError.self) {
+                    _ = try PostHogApi.jsonDecoder.decode([PostHogSurvey].self, from: data)
+                }
+            }
 
-            #expect(displaySurvey.appearance?.displayIntroScreen == false)
-            #expect(displaySurvey.appearance?.introScreenHeader == nil)
-            #expect(displaySurvey.appearance?.introScreenButtonText == nil)
+            @Test("per-element decoding skips malformed entries and keeps valid ones")
+            func perElementDecodingSkipsMalformedEntries() throws {
+                let data = try loadFixture("fixture_surveys_array_with_malformed")
+                let rawArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+                let arrayItems = try #require(rawArray)
+
+                let decoded = PostHogSurveyIntegration().decodeSurveys(from: ["surveys": arrayItems])
+
+                #expect(decoded.count == 1)
+                #expect(decoded.first?.id == "valid-survey-id")
+            }
         }
 
-        @Test(
-            "rating display nil-coalesces missing bound labels to empty string",
-            arguments: [
-                (lower: String?.none, upper: String?.none, expectedLower: "", expectedUpper: ""),
-                (lower: String?.none, upper: "Very likely", expectedLower: "", expectedUpper: "Very likely"),
-                (lower: "Not likely", upper: String?.none, expectedLower: "Not likely", expectedUpper: ""),
-            ]
-        )
-        func ratingDisplayDefaultsMissingBoundLabelsToEmptyString(
-            lower: String?,
-            upper: String?,
-            expectedLower: String,
-            expectedUpper: String
-        ) throws {
-            let ratingQuestion = PostHogRatingSurveyQuestion(
-                id: "r-1",
-                question: "How likely?",
-                description: nil,
-                descriptionContentType: nil,
-                optional: nil,
-                buttonText: nil,
-                originalQuestionIndex: 0,
-                branching: nil,
-                translations: nil,
-                display: .number,
-                scale: .tenPoint,
-                lowerBoundLabel: lower,
-                upperBoundLabel: upper
+        @Suite("Test survey to display model mapping")
+        struct TestSurveyToDisplayMapping {
+            private func makeAppearance(
+                delay: TimeInterval?,
+                displayIntroScreen: Bool? = nil,
+                introScreenHeader: String? = nil,
+                introScreenDescription: String? = nil,
+                introScreenDescriptionContentType: PostHogSurveyTextContentType? = nil,
+                introScreenButtonText: String? = nil
+            ) -> PostHogSurveyAppearance {
+                PostHogSurveyAppearance(
+                    position: nil, fontFamily: nil, backgroundColor: nil,
+                    submitButtonColor: nil, submitButtonText: nil, submitButtonTextColor: nil,
+                    textColor: nil, descriptionTextColor: nil, ratingButtonColor: nil,
+                    ratingButtonActiveColor: nil, ratingButtonHoverColor: nil,
+                    inputBackground: nil, inputTextColor: nil, whiteLabel: nil,
+                    autoDisappear: nil, displayThankYouMessage: nil,
+                    thankYouMessageHeader: nil, thankYouMessageDescription: nil,
+                    thankYouMessageDescriptionContentType: nil,
+                    thankYouMessageCloseButtonText: nil,
+                    displayIntroScreen: displayIntroScreen,
+                    introScreenHeader: introScreenHeader,
+                    introScreenDescription: introScreenDescription,
+                    introScreenDescriptionContentType: introScreenDescriptionContentType,
+                    introScreenButtonText: introScreenButtonText,
+                    borderColor: nil,
+                    placeholder: nil, shuffleQuestions: nil,
+                    surveyPopupDelaySeconds: delay,
+                    widgetType: nil, widgetSelector: nil, widgetLabel: nil, widgetColor: nil
+                )
+            }
+
+            @Test("maps surveyPopupDelaySeconds to display survey appearance")
+            func mapsPopupDelaySecondsToDisplayAppearance() {
+                let survey = PostHogSurvey.testInstance(
+                    name: "delay-mapped",
+                    appearance: makeAppearance(delay: 7)
+                )
+
+                let displaySurvey = survey.toDisplaySurvey()
+
+                #expect(displaySurvey.appearance?.surveyPopupDelaySeconds == 7)
+            }
+
+            @Test("keeps popup delay nil on display survey appearance when missing")
+            func keepsPopupDelayNilWhenMissing() {
+                let survey = PostHogSurvey.testInstance(
+                    name: "delay-missing",
+                    appearance: makeAppearance(delay: nil)
+                )
+
+                let displaySurvey = survey.toDisplaySurvey()
+
+                #expect(displaySurvey.appearance?.surveyPopupDelaySeconds == nil)
+            }
+
+            @Test("maps intro screen fields to display survey appearance")
+            func mapsIntroScreenFieldsToDisplayAppearance() {
+                let survey = PostHogSurvey.testInstance(
+                    name: "intro-mapped",
+                    appearance: makeAppearance(
+                        delay: nil,
+                        displayIntroScreen: true,
+                        introScreenHeader: "Welcome!",
+                        introScreenDescription: "Two quick questions.",
+                        introScreenDescriptionContentType: .text,
+                        introScreenButtonText: "Get started"
+                    )
+                )
+
+                let displaySurvey = survey.toDisplaySurvey()
+
+                #expect(displaySurvey.appearance?.displayIntroScreen == true)
+                #expect(displaySurvey.appearance?.introScreenHeader == "Welcome!")
+                #expect(displaySurvey.appearance?.introScreenDescription == "Two quick questions.")
+                #expect(displaySurvey.appearance?.introScreenDescriptionContentType == .text)
+                #expect(displaySurvey.appearance?.introScreenButtonText == "Get started")
+            }
+
+            @Test("defaults displayIntroScreen to false on display survey appearance when missing")
+            func defaultsDisplayIntroScreenToFalseWhenMissing() {
+                let survey = PostHogSurvey.testInstance(
+                    name: "intro-missing",
+                    appearance: makeAppearance(delay: nil)
+                )
+
+                let displaySurvey = survey.toDisplaySurvey()
+
+                #expect(displaySurvey.appearance?.displayIntroScreen == false)
+                #expect(displaySurvey.appearance?.introScreenHeader == nil)
+                #expect(displaySurvey.appearance?.introScreenButtonText == nil)
+            }
+
+            @Test(
+                "rating display nil-coalesces missing bound labels to empty string",
+                arguments: [
+                    (lower: String?.none, upper: String?.none, expectedLower: "", expectedUpper: ""),
+                    (lower: String?.none, upper: "Very likely", expectedLower: "", expectedUpper: "Very likely"),
+                    (lower: "Not likely", upper: String?.none, expectedLower: "Not likely", expectedUpper: ""),
+                ]
             )
-            let survey = PostHogSurvey.testInstance(
-                name: "rating-no-bounds",
-                questions: [.rating(ratingQuestion)]
-            )
-
-            let displaySurvey = survey.toDisplaySurvey()
-            let displayQuestion = try #require(displaySurvey.questions.first as? PostHogDisplayRatingQuestion)
-
-            #expect(displayQuestion.lowerBoundLabel == expectedLower)
-            #expect(displayQuestion.upperBoundLabel == expectedUpper)
-        }
-    }
-}
-
-func loadFixture(_ name: String) throws -> Data {
-    let url = Bundle.test.url(forResource: name, withExtension: "json")
-    return try Data(contentsOf: url!)
-}
-
-private extension PostHogSurvey {
-    static func testInstance(
-        id: String = UUID().uuidString,
-        name: String,
-        type: PostHogSurveyType = .popover,
-        questions: [PostHogSurveyQuestion] = [
-            .open(
-                PostHogOpenSurveyQuestion(
-                    id: "",
-                    question: "Some question",
-                    description: "Some description",
+            func ratingDisplayDefaultsMissingBoundLabelsToEmptyString(
+                lower: String?,
+                upper: String?,
+                expectedLower: String,
+                expectedUpper: String
+            ) throws {
+                let ratingQuestion = PostHogRatingSurveyQuestion(
+                    id: "r-1",
+                    question: "How likely?",
+                    description: nil,
                     descriptionContentType: nil,
                     optional: nil,
                     buttonText: nil,
-                    originalQuestionIndex: nil,
+                    originalQuestionIndex: 0,
                     branching: nil,
-                    translations: nil
+                    translations: nil,
+                    display: .number,
+                    scale: .tenPoint,
+                    lowerBoundLabel: lower,
+                    upperBoundLabel: upper
                 )
-            ),
-        ],
-        featureFlagKeys: [PostHogSurveyFeatureFlagKeyValue]? = nil,
-        linkedFlagKey: String? = nil,
-        targetingFlagKey: String? = nil,
-        internalTargetingFlagKey: String? = nil,
-        conditions: PostHogSurveyConditions? = nil,
-        appearance: PostHogSurveyAppearance? = nil,
-        currentIteration: Int? = nil,
-        currentIterationStartDate: Date? = nil,
-        startDate: Date? = nil,
-        endDate: Date? = nil,
-        schedule: PostHogSurveySchedule? = nil
-    ) -> PostHogSurvey {
-        PostHogSurvey(
-            id: id,
-            name: name,
-            type: type,
-            questions: questions,
-            featureFlagKeys: featureFlagKeys,
-            linkedFlagKey: linkedFlagKey,
-            targetingFlagKey: targetingFlagKey,
-            internalTargetingFlagKey: internalTargetingFlagKey,
-            conditions: conditions,
-            appearance: appearance,
-            currentIteration: currentIteration,
-            currentIterationStartDate: currentIterationStartDate,
-            startDate: startDate,
-            endDate: endDate,
-            schedule: schedule,
-            translations: nil
-        )
-    }
-}
+                let survey = PostHogSurvey.testInstance(
+                    name: "rating-no-bounds",
+                    questions: [.rating(ratingQuestion)]
+                )
 
-private extension PostHogOpenSurveyQuestion {
-    static func testInstance(
-        question: String,
-        branching: PostHogSurveyQuestionBranching? = nil
-    ) -> PostHogOpenSurveyQuestion {
-        PostHogOpenSurveyQuestion(
-            id: "",
-            question: question,
-            description: "",
-            descriptionContentType: nil,
-            optional: nil,
-            buttonText: nil,
-            originalQuestionIndex: nil,
-            branching: branching,
-            translations: nil
-        )
-    }
-}
+                let displaySurvey = survey.toDisplaySurvey()
+                let displayQuestion = try #require(displaySurvey.questions.first as? PostHogDisplayRatingQuestion)
 
-private extension PostHogMultipleSurveyQuestion {
-    static func testInstance(
-        question: String,
-        choices: [String],
-        branching: PostHogSurveyQuestionBranching? = nil
-    ) -> PostHogMultipleSurveyQuestion {
-        PostHogMultipleSurveyQuestion(
-            id: "",
-            question: question,
-            description: "",
-            descriptionContentType: nil,
-            optional: nil,
-            buttonText: nil,
-            originalQuestionIndex: nil,
-            branching: branching,
-            translations: nil,
-            choices: choices,
-            hasOpenChoice: false,
-            shuffleOptions: nil
-        )
+                #expect(displayQuestion.lowerBoundLabel == expectedLower)
+                #expect(displayQuestion.upperBoundLabel == expectedUpper)
+            }
+        }
     }
-}
 
-private extension PostHogRatingSurveyQuestion {
-    static func testInstance(
-        question: String,
-        display: PostHogSurveyRatingDisplayType,
-        scale: PostHogSurveyRatingScale,
-        branching: PostHogSurveyQuestionBranching? = nil
-    ) -> PostHogRatingSurveyQuestion {
-        PostHogRatingSurveyQuestion(
-            id: "",
-            question: question,
-            description: "",
-            descriptionContentType: nil,
-            optional: nil,
-            buttonText: nil,
-            originalQuestionIndex: nil,
-            branching: branching,
-            translations: nil,
-            display: display,
-            scale: scale,
-            lowerBoundLabel: "",
-            upperBoundLabel: ""
-        )
+    func loadFixture(_ name: String) throws -> Data {
+        let url = Bundle.test.url(forResource: name, withExtension: "json")
+        return try Data(contentsOf: url!)
     }
-}
+
+    private extension PostHogSurvey {
+        static func testInstance(
+            id: String = UUID().uuidString,
+            name: String,
+            type: PostHogSurveyType = .popover,
+            questions: [PostHogSurveyQuestion] = [
+                .open(
+                    PostHogOpenSurveyQuestion(
+                        id: "",
+                        question: "Some question",
+                        description: "Some description",
+                        descriptionContentType: nil,
+                        optional: nil,
+                        buttonText: nil,
+                        originalQuestionIndex: nil,
+                        branching: nil,
+                        translations: nil
+                    )
+                ),
+            ],
+            featureFlagKeys: [PostHogSurveyFeatureFlagKeyValue]? = nil,
+            linkedFlagKey: String? = nil,
+            targetingFlagKey: String? = nil,
+            internalTargetingFlagKey: String? = nil,
+            conditions: PostHogSurveyConditions? = nil,
+            appearance: PostHogSurveyAppearance? = nil,
+            currentIteration: Int? = nil,
+            currentIterationStartDate: Date? = nil,
+            startDate: Date? = nil,
+            endDate: Date? = nil,
+            schedule: PostHogSurveySchedule? = nil
+        ) -> PostHogSurvey {
+            PostHogSurvey(
+                id: id,
+                name: name,
+                type: type,
+                questions: questions,
+                featureFlagKeys: featureFlagKeys,
+                linkedFlagKey: linkedFlagKey,
+                targetingFlagKey: targetingFlagKey,
+                internalTargetingFlagKey: internalTargetingFlagKey,
+                conditions: conditions,
+                appearance: appearance,
+                currentIteration: currentIteration,
+                currentIterationStartDate: currentIterationStartDate,
+                startDate: startDate,
+                endDate: endDate,
+                schedule: schedule,
+                translations: nil
+            )
+        }
+    }
+
+    private extension PostHogOpenSurveyQuestion {
+        static func testInstance(
+            question: String,
+            branching: PostHogSurveyQuestionBranching? = nil
+        ) -> PostHogOpenSurveyQuestion {
+            PostHogOpenSurveyQuestion(
+                id: "",
+                question: question,
+                description: "",
+                descriptionContentType: nil,
+                optional: nil,
+                buttonText: nil,
+                originalQuestionIndex: nil,
+                branching: branching,
+                translations: nil
+            )
+        }
+    }
+
+    private extension PostHogMultipleSurveyQuestion {
+        static func testInstance(
+            question: String,
+            choices: [String],
+            branching: PostHogSurveyQuestionBranching? = nil
+        ) -> PostHogMultipleSurveyQuestion {
+            PostHogMultipleSurveyQuestion(
+                id: "",
+                question: question,
+                description: "",
+                descriptionContentType: nil,
+                optional: nil,
+                buttonText: nil,
+                originalQuestionIndex: nil,
+                branching: branching,
+                translations: nil,
+                choices: choices,
+                hasOpenChoice: false,
+                shuffleOptions: nil
+            )
+        }
+    }
+
+    private extension PostHogRatingSurveyQuestion {
+        static func testInstance(
+            question: String,
+            display: PostHogSurveyRatingDisplayType,
+            scale: PostHogSurveyRatingScale,
+            branching: PostHogSurveyQuestionBranching? = nil
+        ) -> PostHogRatingSurveyQuestion {
+            PostHogRatingSurveyQuestion(
+                id: "",
+                question: question,
+                description: "",
+                descriptionContentType: nil,
+                optional: nil,
+                buttonText: nil,
+                originalQuestionIndex: nil,
+                branching: branching,
+                translations: nil,
+                display: display,
+                scale: scale,
+                lowerBoundLabel: "",
+                upperBoundLabel: ""
+            )
+        }
+    }
+#endif

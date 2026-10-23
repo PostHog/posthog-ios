@@ -29,6 +29,8 @@ jobs:
             command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=ios | xcpretty
           - platform: macos-spm
             command: set -o pipefail && xcrun swift build --arch arm64
+          - platform: spm-no-traits
+            command: make buildSdkSpmNoTraits buildTestsSpmTraitsIOS
           - platform: macos
             command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=macos | xcpretty
           - platform: tvos
@@ -65,10 +67,10 @@ jobs:
       - name: Check public API snapshot
         run: make apiCheck
 
-  build-sdk-swift53-compat:
+  build-sdk-min-toolchain:
     needs: detect-markdown-only
-    runs-on: macos-14-xlarge
-    name: Build SDK (Swift 5 compatibility on Xcode 15.4 with CocoaPods)
+    runs-on: macos-15-xlarge
+    name: Build SDK (minimum toolchain, Xcode 26.0.1)
     steps:
       - name: Complete markdown-only PR check
         if: needs.detect-markdown-only.outputs.markdown_only == 'true'
@@ -78,12 +80,18 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
-          xcode-version: '15.4'
+          xcode-version: '26.0.1'
       - name: Print toolchain versions
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: |
           xcodebuild -version
           xcrun swift --version
+      - name: Build SDK via Swift Package Manager
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        run: make buildSdkSpm
+      - name: Build SDK via Swift Package Manager with package traits off
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        run: make buildSdkSpmNoTraits
       - name: Install CocoaPods
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: gem install cocoapods

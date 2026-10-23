@@ -1,5 +1,5 @@
 import Foundation
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 
 #if os(iOS) && !targetEnvironment(macCatalyst) && compiler(>=6.4)

@@ -60,6 +60,49 @@
         /// Default: false
         @objc public var screenshotModeBackgroundCapture: Bool = false
 
+        /// Render screenshots on the GPU instead of with `drawHierarchy` when `screenshotMode` is enabled.
+        ///
+        /// Each capture copies the window's layer tree and renders the copy into a Metal texture, so
+        /// the main thread only builds the copy, and masks are measured from the same layer state the
+        /// pixels come from.
+        ///
+        /// Not captured exactly:
+        /// - Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped
+        ///   "Metal content" placeholder.
+        /// - Video and camera previews stay blank, as they do today.
+        /// - Liquid Glass is approximated without refraction: sheets, alerts and dialogs as a blur of what's
+        ///   behind them, smaller glass as a flat fill in its shape. Tinted glass keeps its tint. The labels and
+        ///   icons on it are reproduced.
+        ///
+        /// Captures fall back to the default path when the device has no Metal or a render fails.
+        /// Takes precedence over `screenshotModeBackgroundCapture` when both are enabled.
+        ///
+        /// While recording, the app keeps roughly 25–30 MB more memory resident on average (GPU memory held
+        /// by Metal and Core Animation); peak memory is about the same as the default capture (iPhone 17 Pro).
+        ///
+        /// Experimental. iOS only.
+        /// Default: false
+        @objc public var screenshotModeGPUCapture: Bool = false
+
+        /// Pixels per point of `screenshotModeGPUCapture` screenshots, like UIKit's `UIScreen.scale`: 1.0 is one
+        /// pixel per point, 0.5 half that. Clamped to 0.1 and, when capturing, to the screen's native scale; NaN
+        /// and infinity reset it to the default. Masked and unmasked screenshots have the same size.
+        /// Applies to GPU capture only.
+        ///
+        /// Experimental.
+        /// Default: 1.0
+        @objc public var screenshotScale: CGFloat = PostHogSessionReplayConfig.defaultScreenshotScale {
+            didSet {
+                screenshotScale = screenshotScale.isFinite ? max(screenshotScale, 0.1) : Self.defaultScreenshotScale
+            }
+        }
+
+        static let defaultScreenshotScale: CGFloat = 1
+
+        func screenshotPixelScale(nativeScale: CGFloat) -> CGFloat {
+            min(screenshotScale, nativeScale)
+        }
+
         /// Debouncer delay used to reduce the number of snapshots captured and reduce performance impact
         /// This is used for capturing the view as a wireframe or screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact

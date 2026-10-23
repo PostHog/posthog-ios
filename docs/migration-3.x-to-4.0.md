@@ -143,5 +143,6 @@ When the event is sent, the SDK removes each one from `properties` and uses it f
 - After a failed send, the wait before the next one doubles from 1 second up to 30 seconds, with up to 25% random jitter. In 3.x it grew by 1 second per failure. This applies to events, session replay and logs.
 - Event, session replay and log retries have no limit, as in 3.x: queued records stay until they're delivered or a full queue evicts them (`maxQueueSize`, or `logs.maxBufferSize` for logs).
 - `maxRetries` is renamed to `pushNotificationSubscriptionMaxRetries`, with no deprecated alias. Since 3.73.0 it has only limited push-notification subscription retries.
+- A request carries at most `maxBatchSize` events and about 5 MiB, and the SDK sends as soon as about 5 MiB of events is queued, even before `flushAt` is reached. In 3.x, batches were limited by event count only.
 - A 413 still splits the batch into smaller requests.
 - After a 404 fallback, `/batch` keeps the 3.x retry rules.

@@ -28,15 +28,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
 
-      # TEMPORARY (July 2026): runner images mid-rollout ship different preinstalled SwiftFormat
-      # versions; 0.61 fails to parse the wrapIfStatementBodies disable in .swiftformat (rule added
-      # in 0.62). Remove once all macos-26 runners ship SwiftFormat >= 0.62.
-      - name: Upgrade SwiftFormat if it predates configured rules
+      # Runner images ship whatever SwiftFormat is current, and new releases add rules that fail
+      # unchanged code, so pin the version .swiftformat is written for.
+      - name: Install pinned SwiftFormat
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        env:
+          SWIFTFORMAT_VERSION: 0.62.1
+          SWIFTFORMAT_SHA256: 7cb1cb1fae04932047c7015441c543848e8e60e1572d808d080e0a1f1661114a
         run: |
-          if ! swiftformat --rules | grep -q wrapIfStatementBodies; then
-            brew update && brew upgrade swiftformat
-          fi
+          curl -fsSL -o "$RUNNER_TEMP/swiftformat.zip" \
+            "https://github.com/nicklockwood/SwiftFormat/releases/download/$SWIFTFORMAT_VERSION/swiftformat.zip"
+          echo "$SWIFTFORMAT_SHA256  $RUNNER_TEMP/swiftformat.zip" | shasum -a 256 -c -
+          unzip -oq "$RUNNER_TEMP/swiftformat.zip" -d "$RUNNER_TEMP/swiftformat"
+          echo "$RUNNER_TEMP/swiftformat" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/swiftformat/swiftformat" --version
 
       - name: Check formatting
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'

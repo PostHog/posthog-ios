@@ -980,6 +980,8 @@
             if let image = view as? UIImageView {
                 if isImageViewSensitive(image) {
                     maskableWidgets.append(.init(view, in: window))
+                    // subviews can draw outside the image view's bounds, so its mask may not cover them
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren)
                     return
                 }
             }
@@ -1113,14 +1115,16 @@
                 }
             }
 
-            if !view.subviews.isEmpty {
-                for child in view.subviews {
-                    if !child.isVisibleForMasking() {
-                        continue
-                    }
+            findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskDescendants)
+        }
 
-                    findMaskableWidgets(child, window, &maskableWidgets, maskDescendants)
+        private func findMaskableWidgets(inSubviewsOf view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: Bool) {
+            for child in view.subviews {
+                if !child.isVisibleForMasking() {
+                    continue
                 }
+
+                findMaskableWidgets(child, window, &maskableWidgets, maskChildren)
             }
         }
 
@@ -1411,25 +1415,23 @@
         }
 
         private func isImageViewSensitive(_ view: UIImageView) -> Bool {
-            // if there's no image, there's nothing to mask
-            guard let image = view.image else { return false }
+            // UIKit can draw any of these depending on highlight and animation state, and an
+            // animating view may have no `image`. Masking fails closed if any of them is private.
+            let sources = [view.image, view.highlightedImage].compactMap { $0 }
+                + (view.animationImages ?? []) + (view.highlightedAnimationImages ?? [])
+
+            if sources.isEmpty {
+                return false
+            }
 
             // sensitive, regardless
             if view.isNoCapture() {
                 return true
             }
 
-            // asset images are probably not sensitive
-            if isAssetsImage(image) {
-                return false
-            }
-
-            // symbols are probably not sensitive
-            if image.isSymbolImage {
-                return false
-            }
-
+            // asset images and symbols are probably not sensitive
             return config?.sessionReplayConfig.maskAllImages == true
+                && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) }
         }
 
         private func toWireframe(_ view: UIView) -> RRWireframe? {

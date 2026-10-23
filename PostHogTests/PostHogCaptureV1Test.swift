@@ -609,6 +609,20 @@ final class PostHogCaptureV1OptionsTest {
         #expect(sent["options"] as? [String: AnyHashable] == ["process_person_profile": true, "product_tour_id": "edited-tour"])
     }
 
+    @Test("a personless $set doesn't suppress the same properties set later with person processing")
+    func personlessSetDoesNotDeduplicate() async throws {
+        let sut = makeSDK(personProfiles: .always, flushAt: 2)
+        defer { sut.close() }
+
+        server.reset(batchCount: 1)
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"], options: ["process_person_profile": false])
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"])
+        let events = try await getServerEvents(server)
+
+        #expect(events.map(\.event) == ["$set", "$set"])
+        #expect(events.last?.options["process_person_profile"] == nil)
+    }
+
     @Test("an event beforeSend returns again still gets a new UUID")
     func beforeSendReturningEarlierEventGetsNewUuid() async throws {
         var kept: PostHogEvent?

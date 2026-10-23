@@ -44,10 +44,13 @@ class FeatureFlagsModel: ObservableObject {
     @Published var isReloading: Bool = false
 
     init() {
-        NotificationCenter.default.addObserver(self, selector: #selector(reloaded), name: PostHogSDK.didReceiveFeatureFlags, object: nil)
+        // onFeatureFlags calls back on the main thread.
+        PostHogSDK.shared.onFeatureFlags { [weak self] _ in
+            MainActor.assumeIsolated { self?.reloaded() }
+        }
     }
 
-    @objc func reloaded() {
+    func reloaded() {
         boolValue = PostHogSDK.shared.isFeatureEnabled("4535-funnel-bar-viz")
         stringValue = PostHogSDK.shared.getFeatureFlag("multivariant") as? String
         payloadValue = PostHogSDK.shared.getFeatureFlagResult("multivariant")?.payload as? [String: String]

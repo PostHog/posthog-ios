@@ -1077,6 +1077,9 @@
                 }
             }
 
+            /// SwiftUI: `.drawingGroup()` and `Canvas` content (up to iOS 18)
+            if maskFlattenedContent(view, drawnBy: view, window, &maskableWidgets) { return }
+
             // SwiftUI iOS 26 (new SwiftUI rendering engine in Xcode 26)
             //
             // Note: prior to iOS 26, primitive views like Text, Image, Button were drawn
@@ -1158,6 +1161,9 @@
                         maskableWidgets.append(.init(sublayer, in: window))
                     }
                 }
+
+                // `.drawingGroup()` and `Canvas` layers
+                maskFlattenedContent(sublayer, drawnBy: view, window, &maskableWidgets)
 
                 // Recursively check sublayers
                 if let sublayers = sublayer.sublayers, !sublayers.isEmpty {
@@ -2028,6 +2034,41 @@
             }
 
             findMaskableWidgets(cover, window, &maskableWidgets, maskChildren)
+        }
+    }
+
+    // MARK: - Flattened SwiftUI content
+
+    private extension PostHogReplayIntegration {
+        /// `.drawingGroup()` and `Canvas` flatten their content (text, images, shapes) into one RenderBox surface
+        static let swiftUIFlattenedContentTypes = [
+            "_TtC7SwiftUIP33_863CCF9D49B535DAEB1C7D61BEE53B5914RBDrawingLayer", // iOS 26+
+            "SwiftUI.RBDrawingView", // up to iOS 18
+        ].compactMap(NSClassFromString)
+
+        /// Masks `content`, a view or a layer drawn by `view`, when it is a `.drawingGroup()` or `Canvas`
+        /// surface. Returns whether a mask was added.
+        @discardableResult
+        func maskFlattenedContent(_ content: NSObject, drawnBy view: UIView, _ window: UIWindow,
+                                  _ maskableWidgets: inout [MaskedRegion]) -> Bool
+        {
+            guard Self.swiftUIFlattenedContentTypes.contains(where: content.isKind(of:)) else {
+                return false
+            }
+
+            // The flattened surface can't be inspected and may hold text, images or both,
+            // so mask the whole of it when either category is masked
+            let replayConfig = config?.sessionReplayConfig
+            guard replayConfig?.maskAllTextInputs == true || replayConfig?.maskAllImages == true || view.isNoCapture() else {
+                return false
+            }
+
+            if let layer = content as? CALayer {
+                maskableWidgets.append(.init(layer, in: window))
+            } else if let contentView = content as? UIView {
+                maskableWidgets.append(.init(contentView, in: window))
+            }
+            return true
         }
     }
 

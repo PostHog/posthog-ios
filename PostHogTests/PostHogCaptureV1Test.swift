@@ -852,7 +852,7 @@ final class PostHogCaptureAiTest {
         server.stop()
     }
 
-    private func makeSDK(beforeSend: BeforeSendBlock? = nil) -> PostHogSDK {
+    private func makeSDK(configure: (PostHogConfig) -> Void = { _ in }, beforeSend: BeforeSendBlock? = nil) -> PostHogSDK {
         let config = PostHogConfig(projectToken: "phc_ai_\(UUID().uuidString)", host: "http://localhost:9001")
         config.flushAt = 1
         config.preloadFeatureFlags = false
@@ -865,6 +865,7 @@ final class PostHogCaptureAiTest {
             config.setBeforeSend(beforeSend)
         }
         server.batchProjectToken = config.projectToken
+        configure(config)
         return PostHogSDK.with(config)
     }
 
@@ -884,7 +885,7 @@ final class PostHogCaptureAiTest {
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer \(sut.config.projectToken)")
         #expect(request.value(forHTTPHeaderField: "PostHog-Attempt") == "1")
         #expect(request.value(forHTTPHeaderField: "PostHog-Request-Id") != nil)
-        #expect(request.timeoutInterval == PostHogApi.aiTimeout)
+        #expect(request.timeoutInterval == 60)
         let event = try #require(server.parsePostHogEvents(request).first)
         #expect(event.event == "$ai_generation")
         #expect(event.uuid.postHogUuidString == uuid)
@@ -898,7 +899,7 @@ final class PostHogCaptureAiTest {
         await waitUntil { self.server.batchRequests.count == 1 }
         let batchRequest = try #require(server.batchRequests.first)
         #expect(server.parsePostHogEvents(batchRequest).map(\.event) == ["$ai_generation"])
-        #expect(batchRequest.timeoutInterval < PostHogApi.aiTimeout)
+        #expect(batchRequest.timeoutInterval < 60)
         #expect(server.aiRequests.count == 1)
     }
 
@@ -911,6 +912,72 @@ final class PostHogCaptureAiTest {
         #expect(sut.captureAi("$ai_generation", properties: ["$ai_input": String(repeating: "a", count: aiMaxEventBytes)]) == nil)
         sut.optOut()
         #expect(sut.captureAi("$ai_generation") == nil)
+    }
+
+    @Test("AI requests use captureAiTimeout and captureAiCompression, and analytics requests don't")
+    func usesAiRequestSettings() async throws {
+        let sut = makeSDK { config in
+            config.captureAiTimeout = 90
+            config.captureAiCompression = .none
+        }
+        defer { sut.close() }
+
+        sut.captureAi("$ai_generation")
+        await waitUntil { self.server.aiRequests.count == 1 }
+        let request = try #require(server.aiRequests.first)
+        #expect(request.timeoutInterval == 90)
+        #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
+        let batch = server.parseRequest(request, gzip: false)?["batch"] as? [[String: Any]]
+        #expect(batch?.map { $0["event"] as? String } == ["$ai_generation"])
+
+        sut.capture("signed_up")
+        await waitUntil { self.server.batchRequests.count == 1 }
+        let batchRequest = try #require(server.batchRequests.first)
+        #expect(batchRequest.timeoutInterval < 90)
+        #expect(batchRequest.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
+    }
+
+    @Test("AI settings of 0 or less use their defaults, and captureAiMaxEventBytes can't exceed 8 MiB")
+    func aiSettingLimits() {
+        let config = PostHogConfig(projectToken: "phc_ai_settings")
+        #expect(config.effectiveCaptureAiMaxQueueSize == 100)
+        #expect(config.effectiveCaptureAiTimeout == 60)
+        #expect(config.captureAiMaxStoredEventBytes == aiMaxEventBytes)
+
+        config.captureAiMaxQueueSize = 3
+        config.captureAiTimeout = 5
+        config.captureAiMaxEventBytes = 1024
+        #expect(QueueEndpoint.ai(api: PostHogApi(config)).maxQueueSize(config) == 3)
+        #expect(config.effectiveCaptureAiTimeout == 5)
+        #expect(config.captureAiMaxStoredEventBytes == 1024 + aiEventEnvelopeBytes)
+
+        config.captureAiMaxQueueSize = 0
+        config.captureAiTimeout = -1
+        config.captureAiMaxEventBytes = 0
+        #expect(config.effectiveCaptureAiMaxQueueSize == 100)
+        #expect(config.effectiveCaptureAiTimeout == 60)
+        #expect(config.captureAiMaxStoredEventBytes == aiMaxEventBytes)
+
+        config.captureAiMaxEventBytes = 100 * 1024 * 1024
+        #expect(config.captureAiMaxStoredEventBytes == aiMaxEventBytes)
+    }
+
+    @Test("drops an AI event over a lowered captureAiMaxEventBytes")
+    func dropsEventOverConfiguredLimit() {
+        let config = PostHogConfig(projectToken: "phc_ai_lowered", host: "http://localhost:9001")
+        config.captureAiMaxEventBytes = 1024
+        let storage = PostHogStorage(config)
+        let queue = PostHogQueue(config, storage, .ai(api: PostHogApi(config)), nil)
+        defer {
+            queue.stop()
+            queue.clear()
+            deleteSafely(storage.appFolderUrl)
+        }
+
+        let overLimit = String(repeating: "a", count: 1024 + aiEventEnvelopeBytes)
+        #expect(!queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user", properties: ["$ai_input": overLimit])))
+        #expect(queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user", properties: ["$ai_input": "short"])))
+        #expect(queue.depth == 1)
     }
 
     @Test("a 404 from the AI endpoint drops the batch without falling back to /batch")

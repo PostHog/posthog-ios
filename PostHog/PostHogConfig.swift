@@ -34,6 +34,9 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
         static let flushIntervalSeconds: TimeInterval = 30
         static let pushNotificationSubscriptionMaxRetries: Int = 3
         static let featureFlagRequestMaxRetries: Int = 1
+        static let captureAiMaxQueueSize: Int = 100
+        static let captureAiTimeout: TimeInterval = 60
+        static let captureAiMaxEventBytes: Int = 8 * 1024 * 1024
     }
 
     /// Network connectivity mode required before queued data may be flushed.
@@ -474,6 +477,32 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     ///
     /// Default: `.gzip`.
     @objc public var compression: PostHogCompression = .gzip
+
+    /// How the SDK compresses `captureAi` request bodies, separately from `compression`.
+    ///
+    /// Default: `.gzip`.
+    @objc public var captureAiCompression: PostHogCompression = .gzip
+
+    /// Maximum number of `captureAi` events kept in their on-disk queue before older events are dropped.
+    ///
+    /// AI events can be megabytes, so this is lower than `maxQueueSize`. The queue also keeps at most
+    /// 50 MiB of AI events, whatever this is set to. A value of `0` or less uses the default.
+    /// Default: `100`.
+    @objc public var captureAiMaxQueueSize: Int = Defaults.captureAiMaxQueueSize
+
+    /// How long, in seconds, a `captureAi` request can go without network activity before it times out.
+    ///
+    /// AI requests can carry several MB, so this is longer than for other requests, which time out
+    /// after 10 seconds. A value of `0` or less uses the default.
+    /// Default: `60`.
+    @objc public var captureAiTimeout: TimeInterval = Defaults.captureAiTimeout
+
+    /// Maximum size, in bytes, of a `captureAi` event's properties. The SDK drops a larger event.
+    ///
+    /// Use it to lower the limit. PostHog drops AI events over 8 MiB, so a larger value, or a value of
+    /// `0` or less, uses 8 MiB.
+    /// Default: `8388608` (8 MiB).
+    @objc public var captureAiMaxEventBytes: Int = Defaults.captureAiMaxEventBytes
 
     // only internal
     var disableReachabilityForTesting: Bool = false

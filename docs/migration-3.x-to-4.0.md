@@ -30,6 +30,7 @@ You need to change something if your app does any of these:
 | --- | --- | --- |
 | Analytics events | `/batch` | `/i/v1/analytics/events`, or `/batch` after a 404 (see below) |
 | Session replay | `/s/` | `/s/`, unchanged |
+| AI events (`captureAi`) | – | `/i/v1/ai/events` (see [AI events](#ai-events)) |
 | Logs | `/i/v1/logs` | `/i/v1/logs`, unchanged |
 | Feature flags | `/flags` | `/flags`, unchanged |
 
@@ -134,6 +135,24 @@ When the event is sent, the SDK removes each one from `properties` and uses it f
 - Other option keys are sent unchanged, and PostHog ignores keys it doesn't know.
 - Events still queued on disk by 3.x are sent to capture v1 after the update, with their legacy properties moved to options.
 - After a 404 fallback to `/batch`, the SDK puts each option back into its legacy property.
+
+## AI events
+
+4.0 adds `captureAi`, which sends AI events, such as `$ai_generation`, to PostHog's AI endpoint (`/i/v1/ai/events`) instead of the analytics endpoint.
+It takes the same arguments as `capture`, and the events go through the same `beforeSend` hooks.
+
+```swift
+PostHogSDK.shared.captureAi("$ai_generation", properties: ["$ai_model": "gpt-5", "$ai_trace_id": traceId])
+```
+
+In Objective-C, use `captureAiWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:`.
+
+- An AI event can be up to 8 MiB. The SDK drops a larger event, and `captureAi` returns `nil`.
+- PostHog drops an event sent with `captureAi` whose name doesn't start with `$ai_`. `capture` never sends events to the AI endpoint, even ones named `$ai_*`.
+- AI requests time out after 60 seconds without network activity. Other requests still time out after 10 seconds.
+- AI events are queued on disk separately from other events. Up to 100 events and 50 MiB are kept, and the oldest are dropped first. `maxQueueSize` doesn't apply.
+- AI events use `flushAt`, `maxBatchSize`, `flushIntervalSeconds` and `compression`, like other events. A request carries up to about 5 MiB, as for analytics events (see [Retries](#retries)).
+- The SDK sends AI events unchanged. It doesn't redact or truncate prompts, outputs or media, so use `beforeSend` to remove anything you don't want to send.
 
 ## Retries
 

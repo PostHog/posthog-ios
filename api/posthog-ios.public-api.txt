@@ -276,7 +276,6 @@ PostHog | PostHogSDK.capturePushNotificationOpened(response:) | method | @objc f
 PostHog | PostHogSDK.capturePushNotificationOpened(title:subtitle:body:payload:action:) | method | @objc func capturePushNotificationOpened(title: String? = nil, subtitle: String? = nil, body: String? = nil, payload: [AnyHashable : Any]? = nil, action: String? = nil) | c:@M@PostHog@objc(cs)PostHogSDK(im)capturePushNotificationOpenedWithTitle:subtitle:body:payload:action:
 PostHog | PostHogSDK.close() | method | @objc func close() | c:@M@PostHog@objc(cs)PostHogSDK(im)close
 PostHog | PostHogSDK.debug(_:) | method | @objc func debug(_ enabled: Bool = true) | c:@M@PostHog@objc(cs)PostHogSDK(im)debug:
-PostHog | PostHogSDK.didReceiveFeatureFlags | type.property | @objc static let didReceiveFeatureFlags: Notification.Name | c:@CM@PostHog@objc(cs)PostHogSDK(cpy)didReceiveFeatureFlags
 PostHog | PostHogSDK.didStartNotification | type.property | @objc static let didStartNotification: Notification.Name | c:@CM@PostHog@objc(cs)PostHogSDK(cpy)didStartNotification
 PostHog | PostHogSDK.endSession() | method | @objc func endSession() | c:@M@PostHog@objc(cs)PostHogSDK(im)endSession
 PostHog | PostHogSDK.flush() | method | @objc func flush() | c:@M@PostHog@objc(cs)PostHogSDK(im)flush

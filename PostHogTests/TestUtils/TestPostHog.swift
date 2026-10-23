@@ -42,8 +42,7 @@ func waitFlagsRequest(_ server: MockPostHogServer) {
 
 // Waits for *this* SDK's feature flags to finish loading. `lastRequestId` can already be non-nil
 // (restored from disk or an earlier load), so waiting on it would pass before the fresh response lands.
-// The global `didReceiveFeatureFlags` notification (posted object: nil for every load) could likewise
-// be satisfied by a prior, still-draining SUT. So observe this instance's `onFeatureFlagsLoaded` —
+// So observe this instance's `onFeatureFlagsLoaded` —
 // which fires only after the response is stored — subscribed before the request so it can't be missed.
 func waitForFeatureFlagsLoaded(_ server: MockPostHogServer, _ sut: PostHogSDK) {
     let flagsLoaded = XCTestExpectation(description: "feature flags loaded")

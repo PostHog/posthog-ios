@@ -2170,8 +2170,10 @@ let maxRetryDelay = 30.0
         let userPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]
         // Presence, not content: sanitizing can empty a non-empty input (a `UUID` or `Data` value
         // is dropped), and that empty `$set` is still queued, so it needs a marker too.
+        // A personless event doesn't update the person, so it neither marks nor matches a hash.
         if event.event == PostHogKnownUnsafeEditableEvent.set.rawValue || event.event == PostHogKnownUnsafeEditableEvent.identify.rawValue,
            userProperties != nil || userPropertiesSetOnce != nil,
+           event.options["process_person_profile"] as? Bool != false,
            let storageManager = config.storageManager
         {
             let hash = getPersonPropertiesHash(

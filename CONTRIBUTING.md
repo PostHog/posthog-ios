@@ -2,6 +2,10 @@
 
 If you would like to contribute code to `posthog-ios` you can do so through GitHub by forking the repository and opening a pull request against `main`.
 
+## Commit signing
+
+This repo requires all commits to be signed. To configure commit signing, see the [PostHog handbook](https://posthog.com/handbook/engineering/security#commit-signing). Set `commit.gpgsign` to `true` in your git config so that every commit is signed, not only the ones you sign by hand.
+
 ## Development guide
 
 Use the repository's `make` wrappers rather than invoking `swift` or `xcodebuild` directly; [Makefile](Makefile) owns the commands and options.

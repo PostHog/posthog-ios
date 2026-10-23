@@ -32,7 +32,7 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
         #endif
         static let maxBatchSize: Int = 50
         static let flushIntervalSeconds: TimeInterval = 30
-        static let maxRetries: Int = 3
+        static let pushNotificationSubscriptionMaxRetries: Int = 3
         static let featureFlagRequestMaxRetries: Int = 1
     }
 
@@ -86,7 +86,7 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     /// Use `maxQueueSize` for events and replay, and `logs.maxBufferSize` for logs.
     ///
     /// Default: `3`.
-    @objc public var maxRetries: Int = Defaults.maxRetries
+    @objc public var pushNotificationSubscriptionMaxRetries: Int = Defaults.pushNotificationSubscriptionMaxRetries
 
     /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.
     /// Defaults to 1. Set to 0 to disable feature flag request retries.
@@ -460,7 +460,10 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     @objc public var urlSessionConfiguration: URLSessionConfiguration?
 
     /// Custom headers to send with every request to the PostHog API.
-    /// Useful for reverse-proxy setups that require authentication, e.g. an `Authorization` header.
+    /// Useful for reverse-proxy setups that require authentication, e.g. an `X-Proxy-Token` header.
+    ///
+    /// Event capture requests always send `Authorization: Bearer <projectToken>`, which replaces any
+    /// `Authorization` header set here, so authenticate your proxy with a different header.
     /// Read once when the SDK is set up; changes after setup are ignored.
     @objc public var requestHeaders: [String: String]?
 

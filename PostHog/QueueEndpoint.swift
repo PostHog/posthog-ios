@@ -7,7 +7,7 @@ import Foundation
 
 /// Per-wire spec consumed by the generic `PostHogQueue<Record>`.
 ///
-/// Encapsulates everything that differs between the events `/batch`, replay
+/// Encapsulates everything that differs between the events `/i/v1/analytics/events`, replay
 /// `/snapshot`, and logs `/i/v1/logs` endpoints — disk codec, payload assembly,
 /// retriable status set — so the queue itself stays record-type-agnostic.
 /// Implemented as a struct of closures rather than a protocol with
@@ -59,6 +59,9 @@ struct QueueEndpoint<Record> {
     /// Short label for this record used in queue debug logs. Events return
     /// the event name; snapshots / logs return a generic label.
     let describe: (Record) -> String
+    /// Stable ID that a response can use to name a record, so a partial
+    /// result can keep just that record queued. Events: the event UUID.
+    var recordId: ((Record) -> String)?
 
     /// Whether a later record can share a request with the first record.
     /// When set, the queue sends only a compatible FIFO prefix.
@@ -78,8 +81,9 @@ struct QueueEndpoint<Record> {
     /// since that case is universal.
     let isRetriableStatusCode: (Int) -> Bool
     /// Upper bound applied to a parsed `Retry-After` header before it floors
-    /// the backoff: the wait is `max(backoff, min(retryAfter, maximum))`.
-    /// `nil` honors the header unbounded; events and replay keep that, logs
-    /// sets `logsMaxRetryAfterSeconds`.
+    /// the jittered backoff: the wait is `max(backoff, min(retryAfter, maximum))`.
+    /// The queue never lets `maximum` exceed `maxRetryDelay`; `nil` means that
+    /// ceiling alone applies. Events and replay keep `nil`, logs sets
+    /// `logsMaxRetryAfterSeconds`.
     var maxRetryAfterSeconds: TimeInterval?
 }

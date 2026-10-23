@@ -103,11 +103,12 @@ class RequestInterceptor: URLProtocol {
         // Only intercept requests to the mock server (not to real PostHog endpoints)
         guard let url = request.url else { return false }
 
-        // Intercept /batch and /e/ endpoints, but not /flags/ or /config
+        // Intercept capture endpoints, but not /flags/ or /config
         let urlString = url.absoluteString
-        if urlString.contains("/batch") || urlString.contains("/e/") || urlString.contains("/s/"),
-           !urlString.contains("/flags"),
-           !urlString.contains("/config")
+        if urlString.contains("/i/v1/analytics/events") || urlString.contains("/batch")
+            || urlString.contains("/e/") || urlString.contains("/s/"),
+            !urlString.contains("/flags"),
+            !urlString.contains("/config")
         {
             print("[INTERCEPTOR] Can handle: \(urlString)")
             return true

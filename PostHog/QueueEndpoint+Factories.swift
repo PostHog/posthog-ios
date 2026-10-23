@@ -23,15 +23,14 @@ func isCaptureV1RetriableStatusCode(_ code: Int) -> Bool {
     [408, 500, 502, 503, 504].contains(code)
 }
 
-/// PostHog's AI endpoint drops events whose properties exceed 8 MiB. The
-/// stored event also holds its envelope, so allow 64 KiB on top, as
-/// posthog-python and posthog-go do.
-let aiMaxEventBytes = 8 * 1024 * 1024 + 64 * 1024
+/// The stored event also holds its envelope, so allow 64 KiB on top of the
+/// properties limit, as posthog-python and posthog-go do.
+let aiEventEnvelopeBytes = 64 * 1024
+/// Stored-size limit for an AI event at the default `captureAiMaxEventBytes`.
+let aiMaxEventBytes = PostHogConfig.Defaults.captureAiMaxEventBytes + aiEventEnvelopeBytes
 /// Soft request size for the capture V1 analytics and AI endpoints, matching
 /// the other PostHog SDKs and well under capture V1's 10 MiB request limit.
 let captureV1MaxBatchBytes = 5 * 1024 * 1024
-/// AI events can be megabytes, so keep fewer of them on disk than analytics events.
-let aiMaxQueueSize = 100
 /// Disk budget for queued AI events; the oldest are dropped first.
 let aiMaxQueueBytes = 50 * 1024 * 1024
 
@@ -69,21 +68,22 @@ extension QueueEndpoint where Record == PostHogEvent {
     /// `captureAi`. Same retry policy as capture V1, with no `/batch` fallback.
     /// Batches by bytes as well as count, since AI events can be megabytes.
     static func ai(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
-        QueueEndpoint<PostHogEvent>(
+        let maxEventBytes = api.config.captureAiMaxStoredEventBytes
+        return QueueEndpoint<PostHogEvent>(
             storageKey: .aiQueue,
             oldStorageKeys: [],
             dispatchQueueLabel: "com.posthog.AiQueue",
             initialCap: { $0.maxBatchSize },
             initialFlushAt: { $0.flushAt },
-            maxQueueSize: { _ in aiMaxQueueSize },
+            maxQueueSize: { $0.effectiveCaptureAiMaxQueueSize },
             flushIntervalSeconds: { $0.flushIntervalSeconds },
             rateCapMax: { _ in 0 },
             rateCapWindowSeconds: { _ in 0 },
             encode: { event in
                 guard let data = toJSONData(event.toJSON()) else { return nil }
                 // Name and size only: AI properties can hold prompts and media.
-                if data.count > aiMaxEventBytes {
-                    hedgeLog("Dropping AI event '\(event.event)' of \(data.count) bytes, over the \(aiMaxEventBytes) byte limit.")
+                if data.count > maxEventBytes {
+                    hedgeLog("Dropping AI event '\(event.event)' of \(data.count) bytes, over the \(maxEventBytes) byte limit.")
                     return nil
                 }
                 return data
@@ -175,5 +175,25 @@ extension QueueEndpoint where Record == PostHogLogRecord {
             },
             maxRetryAfterSeconds: logsMaxRetryAfterSeconds
         )
+    }
+}
+
+extension PostHogConfig {
+    /// `captureAiMaxQueueSize`, or its default when it isn't positive.
+    var effectiveCaptureAiMaxQueueSize: Int {
+        captureAiMaxQueueSize > 0 ? captureAiMaxQueueSize : Defaults.captureAiMaxQueueSize
+    }
+
+    /// `captureAiTimeout`, or its default when it isn't positive.
+    var effectiveCaptureAiTimeout: TimeInterval {
+        captureAiTimeout > 0 ? captureAiTimeout : Defaults.captureAiTimeout
+    }
+
+    /// Stored-size limit for an AI event: `captureAiMaxEventBytes`, capped at
+    /// PostHog's 8 MiB, plus the envelope allowance.
+    var captureAiMaxStoredEventBytes: Int {
+        let limit = Defaults.captureAiMaxEventBytes
+        let bytes = captureAiMaxEventBytes > 0 ? min(captureAiMaxEventBytes, limit) : limit
+        return bytes + aiEventEnvelopeBytes
     }
 }

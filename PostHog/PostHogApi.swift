@@ -51,15 +51,13 @@ func processUploadResponse(
 class PostHogApi {
     static var gzipData: (Data) throws -> Data = { try $0.gzipped() }
 
-    private let config: PostHogConfig
+    let config: PostHogConfig
 
     /// Snapshot at init; treated as immutable after setup.
     private let customRequestHeaders: [String: String]
 
     // default is 60s but we do 10s
     private let defaultTimeout: TimeInterval = 10
-    /// AI batches can be several MB, so give them longer than other requests.
-    static let aiTimeout: TimeInterval = 60
 
     /// Shared so connection pool, TLS state, and HTTP/2 streams survive
     /// between calls instead of being torn down per request.
@@ -141,9 +139,10 @@ class PostHogApi {
     ]
 
     private func requestAndPayload(
-        url: URL, data: Data, endpointName: String, httpMethod: String = "POST", timeout: TimeInterval? = nil
+        url: URL, data: Data, endpointName: String, httpMethod: String = "POST", timeout: TimeInterval? = nil,
+        compression: PostHogCompression? = nil
     ) -> (URLRequest, Data) {
-        guard config.compression == .gzip else {
+        guard (compression ?? config.compression) == .gzip else {
             return (getURLRequest(url, httpMethod: httpMethod, timeout: timeout), data)
         }
         do {
@@ -264,8 +263,13 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let timeout = path == Self.captureV1AiPath ? Self.aiTimeout : nil
-        var (request, payload) = requestAndPayload(url: url, data: data, endpointName: "capture", timeout: timeout)
+        // AI batches can be several MB, so they get their own timeout and compression.
+        let isAi = path == Self.captureV1AiPath
+        var (request, payload) = requestAndPayload(
+            url: url, data: data, endpointName: "capture",
+            timeout: isAi ? config.effectiveCaptureAiTimeout : nil,
+            compression: isAi ? config.captureAiCompression : nil
+        )
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(config.projectToken)", forHTTPHeaderField: "Authorization")
         request.setValue("\(postHogSdkName)/\(postHogVersion)", forHTTPHeaderField: "PostHog-Sdk-Info")

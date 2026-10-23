@@ -34,6 +34,10 @@ PostHog | PostHogConfig.PostHogDataMode.init(rawValue:) | init | init?(rawValue:
 PostHog | PostHogConfig.PostHogDataMode.wifi | enum.case | case wifi | s:7PostHog0aB6ConfigC0aB8DataModeO4wifiyA2EmF
 PostHog | PostHogConfig.appGroupIdentifier | property | @objc var appGroupIdentifier: String? | c:@M@PostHog@objc(cs)PostHogConfig(py)appGroupIdentifier
 PostHog | PostHogConfig.bootstrap | property | @objc var bootstrap: PostHogBootstrapConfig? | c:@M@PostHog@objc(cs)PostHogConfig(py)bootstrap
+PostHog | PostHogConfig.captureAiCompression | property | @objc var captureAiCompression: PostHogCompression | c:@M@PostHog@objc(cs)PostHogConfig(py)captureAiCompression
+PostHog | PostHogConfig.captureAiMaxEventBytes | property | @objc var captureAiMaxEventBytes: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)captureAiMaxEventBytes
+PostHog | PostHogConfig.captureAiMaxQueueSize | property | @objc var captureAiMaxQueueSize: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)captureAiMaxQueueSize
+PostHog | PostHogConfig.captureAiTimeout | property | @objc var captureAiTimeout: TimeInterval | c:@M@PostHog@objc(cs)PostHogConfig(py)captureAiTimeout
 PostHog | PostHogConfig.captureApplicationLifecycleEvents | property | @objc var captureApplicationLifecycleEvents: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureApplicationLifecycleEvents
 PostHog | PostHogConfig.captureAutocaptureElementText | property | @objc var captureAutocaptureElementText: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureAutocaptureElementText
 PostHog | PostHogConfig.captureElementInteractions | property | @objc var captureElementInteractions: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureElementInteractions

@@ -1541,15 +1541,15 @@ let maxRetryDelay = 30.0
     /// Takes the same arguments as `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`
     /// and goes through the same `beforeSend` hooks. The event is queued on disk separately from other
     /// events and sent unchanged: the SDK doesn't redact or truncate prompts, outputs or media.
-    /// An event over 8 MiB is dropped. PostHog drops an event sent here whose name doesn't start
-    /// with `$ai_`, and the SDK logs a debug message when it's given one. `capture` never sends events
-    /// here, even ones named `$ai_*`.
+    /// An event over `captureAiMaxEventBytes` (8 MiB by default) is dropped. PostHog drops an event
+    /// sent here whose name doesn't start with `$ai_`, and the SDK logs a debug message when it's
+    /// given one. `capture` never sends events here, even ones named `$ai_*`.
     ///
-    /// AI events use `flushAt`, `maxBatchSize`, `flushIntervalSeconds` and `compression` from
-    /// `PostHogConfig`, like other events. These limits are fixed and can't be configured:
+    /// AI events use `flushAt`, `maxBatchSize` and `flushIntervalSeconds` from `PostHogConfig`, like
+    /// other events, and `captureAiCompression`, `captureAiMaxQueueSize` and `captureAiTimeout` instead
+    /// of `compression`, `maxQueueSize` and the 10-second timeout. These limits are fixed:
     /// - Requests carry up to about 5 MiB of events, and the SDK sends as soon as that much is queued.
-    /// - Requests time out after 60 seconds without network activity, instead of 10.
-    /// - Up to 100 events and 50 MiB are kept on disk. Beyond that, the oldest are dropped.
+    /// - Up to 50 MiB of AI events are kept on disk. Beyond that, the oldest are dropped.
     ///
     /// - Parameters:
     ///   - event: AI event name, such as `$ai_generation`.
@@ -1563,7 +1563,7 @@ let maxRetryDelay = 30.0
     ///     `capture`'s `options`.
     ///
     /// - Returns: The event's UUID, or `nil` if the event wasn't queued: for example, the SDK is
-    ///   opted out or disabled, `beforeSend` dropped it, or it's over 8 MiB.
+    ///   opted out or disabled, `beforeSend` dropped it, or it's over `captureAiMaxEventBytes`.
     @discardableResult
     @objc(captureAiWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)
     public func captureAi(_ event: String,

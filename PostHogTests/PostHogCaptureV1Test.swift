@@ -546,14 +546,19 @@ final class PostHogCaptureV1OptionsTest {
         return try #require((server.parseRequest(request)?["batch"] as? [[String: Any]])?.first)
     }
 
-    @Test("the SDK's process_person_profile beats a caller property but not a caller option")
+    @Test("a caller's process_person_profile property or option beats the SDK's, a registered one doesn't")
     func processPersonProfilePrecedence() async throws {
         let sut = makeSDK(personProfiles: .never)
         defer { sut.close() }
 
         var sent = try await captureAndSend(sut) { $0.capture("test", properties: ["$process_person_profile": true]) }
-        #expect((sent["options"] as? [String: Any])?["process_person_profile"] as? Bool == false)
+        #expect((sent["options"] as? [String: Any])?["process_person_profile"] as? Bool == true)
         #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
+
+        sut.register(["$process_person_profile": true])
+        sent = try await captureAndSend(sut) { $0.capture("test") }
+        sut.unregister("$process_person_profile")
+        #expect((sent["options"] as? [String: Any])?["process_person_profile"] as? Bool == false)
 
         sent = try await captureAndSend(sut) {
             $0.capture("test", options: ["process_person_profile": true, "cookieless_mode": true])
@@ -575,9 +580,9 @@ final class PostHogCaptureV1OptionsTest {
         #expect((sent["options"] as? [String: Any])?.isEmpty == true)
         #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
 
-        // A caller property still can't override the SDK's state, so nothing is sent for it.
+        // A caller property overrides the SDK's state for that event, sent as the option.
         sent = try await captureAndSend(processed) { $0.capture("test", properties: ["$process_person_profile": false]) }
-        #expect((sent["options"] as? [String: Any])?.isEmpty == true)
+        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
         #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
     }
 

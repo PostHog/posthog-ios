@@ -1267,31 +1267,38 @@ final class PostHogSDKTests {
         sut.close()
     }
 
-    @Test("caller can't override $is_identified")
-    func callerCannotOverrideIsIdentified() throws {
-        let sut = getSut(flushAt: 2)
+    @Test("a caller $is_identified overrides the SDK's, a registered one doesn't")
+    func callerOverridesIsIdentified() throws {
+        let sut = getSut(flushAt: 3)
 
         sut.identify("user")
-        sut.capture("event", properties: ["$is_identified": false])
+        sut.capture("caller", properties: ["$is_identified": false])
+        sut.register(["$is_identified": false])
+        sut.capture("registered")
 
-        let event = try #require(getBatchedEvents(server).first { $0.event == "event" })
-        #expect(event.properties["$is_identified"] as? Bool == true)
+        let events = getBatchedEvents(server)
+        #expect(events.first { $0.event == "caller" }?.properties["$is_identified"] as? Bool == false)
+        #expect(events.first { $0.event == "registered" }?.properties["$is_identified"] as? Bool == true)
 
         sut.reset()
         sut.close()
     }
 
-    @Test("caller can't override SDK debug properties")
-    func callerCannotOverrideSdkDebugProperties() throws {
-        let sut = getSut()
+    @Test("caller debug properties override the SDK's, registered ones don't")
+    func callerOverridesSdkDebugProperties() throws {
+        let sut = getSut(flushAt: 2)
 
-        sut.capture("event", properties: ["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
+        sut.capture("caller", properties: ["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
+        sut.register(["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
+        sut.capture("registered")
 
-        let event = try #require(getBatchedEvents(server).first)
-        let recordingStatus = try #require(event.properties["$recording_status"] as? String)
-        let pendingQueueSize = try #require(event.properties["$sdk_debug_pending_queue_size"] as? Int)
-        #expect(recordingStatus != "bogus")
-        #expect(pendingQueueSize != -1)
+        let events = getBatchedEvents(server)
+        let caller = try #require(events.first { $0.event == "caller" })
+        #expect(caller.properties["$recording_status"] as? String == "bogus")
+        #expect(caller.properties["$sdk_debug_pending_queue_size"] as? Int == -1)
+        let registered = try #require(events.first { $0.event == "registered" })
+        #expect(registered.properties["$recording_status"] as? String != "bogus")
+        #expect(registered.properties["$sdk_debug_pending_queue_size"] as? Int != -1)
 
         sut.reset()
         sut.close()

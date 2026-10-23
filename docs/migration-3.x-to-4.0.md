@@ -20,6 +20,7 @@ You need to change something if your app does any of these:
 - sets `projectToken` to a personal API key (`phx_...`)
 - sets `$lib` or `$lib_version` and expects PostHog to store that value
 - reads `$session_id` or `$window_id` from the raw request body, for example in a proxy
+- passes `$is_identified`, `$geoip_disable`, `$process_person_profile` or `$recording_status` in event properties and expects the SDK's value to win
 - sets `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` to a value PostHog can't read, such as `"maybe"`
 - relies on 429 responses being retried, or on a `Retry-After` longer than 30 seconds
 
@@ -78,6 +79,20 @@ The SDK removes `$lib` and `$lib_version` from the properties it sends to captur
 A value you set in properties, in a super property or in `beforeSend` doesn't reach PostHog.
 `beforeSend` still sees the SDK's value.
 
+## Property precedence
+
+An event's properties are merged in this order, and later values win:
+
+1. registered super properties (`register`)
+2. SDK context, such as `$os`, `$app_version` and `$screen_name`
+3. SDK-owned values: `$is_identified`, `$geoip_disable` when `disableGeoIp` is on, and the session replay debug properties (`$recording_status` and the `$sdk_debug_*` keys)
+4. the properties you pass to `capture` or another event-sending method
+5. `beforeSend`
+
+In 3.x, the SDK-owned values in step 3 were set after your properties, so you couldn't override them for one event.
+In 4.0 a value you pass wins, for example `capture("signed_up", properties: ["$geoip_disable": false])` sends that event with GeoIP enabled even when `disableGeoIp` is on.
+A registered super property still can't override them.
+
 ## Session and window IDs
 
 Capture v1 sends `$session_id` and `$window_id` as top-level `session_id` and `window_id` fields, not as properties.
@@ -115,7 +130,7 @@ When the event is sent, the SDK removes each one from `properties` and uses it f
 | `$product_tour_id` | `product_tour_id` |
 
 - An option you pass to any of these methods or set in `beforeSend` wins over its legacy property. An option set to `NSNull()` counts as unset, so the legacy property fills it.
-- The SDK ignores a `$process_person_profile` property you pass or register. When `personProfiles` turns person processing off, the SDK sets the `process_person_profile` option to `false`. Otherwise it sends neither, because PostHog processes person profiles by default. To change person processing for one event, pass the `process_person_profile` option.
+- When `personProfiles` turns person processing off, the SDK sets the `process_person_profile` option to `false`. Otherwise it sends neither, because PostHog processes person profiles by default. To change person processing for one event, pass the `process_person_profile` option or the `$process_person_profile` property. The SDK ignores a registered `$process_person_profile`.
 - The SDK sends option values as given. PostHog reads common forms of a value, such as `"false"` or `0` for a boolean, and drops an event whose option value it can't read.
 - Other option keys are sent unchanged, and PostHog ignores keys it doesn't know.
 - Events still queued on disk by 3.x are sent to capture v1 after the update, with their legacy properties moved to options.

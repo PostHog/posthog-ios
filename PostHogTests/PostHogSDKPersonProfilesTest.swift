@@ -66,14 +66,14 @@ final class PostHogSDKPersonProfilesTest {
         sut.close()
     }
 
-    @Test("a caller $process_person_profile property can't override the SDK")
-    func callerCannotOverrideProcessPersonProfile() throws {
+    @Test("a caller $process_person_profile property overrides the SDK")
+    func callerOverridesProcessPersonProfile() throws {
         let sut = getSut(personProfiles: .never)
 
         sut.capture("test event", properties: ["$process_person_profile": true])
 
         let event = try #require(getBatchedEvents(server).first)
-        #expect(event.options["process_person_profile"] as? Bool == false)
+        #expect(event.options["process_person_profile"] as? Bool == true)
 
         sut.reset()
         sut.close()

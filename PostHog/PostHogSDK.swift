@@ -615,10 +615,13 @@ let maxRetryDelay = 30.0
     }
 
     /// Adds `process_person_profile: false` when the SDK doesn't process person profiles for this
-    /// event, unless the caller set that option. Nothing is added otherwise: PostHog processes
-    /// person profiles by default.
-    private func personProcessingOptions(_ options: [String: Any]?) -> [String: Any]? {
+    /// event, unless the caller set that option or the legacy `$process_person_profile` property.
+    /// Nothing is added otherwise: PostHog processes person profiles by default.
+    private func personProcessingOptions(_ options: [String: Any]?, properties: [String: Any]) -> [String: Any]? {
         guard !hasPersonProcessing() else { return options }
+        if let legacy = properties["$process_person_profile"], !(legacy is NSNull) {
+            return options
+        }
         var options = options ?? [:]
         if options["process_person_profile"] == nil || options["process_person_profile"] is NSNull {
             options["process_person_profile"] = false
@@ -782,32 +785,17 @@ let maxRetryDelay = 30.0
             props["distinct_id"] = distinctId
         }
 
-        // Caller-supplied properties win over registered super properties and SDK context.
-        // A blank caller value for a key the SDK filled in above is treated as absent.
-        var callerProps = properties ?? [:]
-        for key in ["$session_id", "$screen_name", "distinct_id"] where props[key] != nil {
-            if let value = callerProps[key] as? String, !Self.isBlank(value) {
-                continue
-            }
-            callerProps.removeValue(forKey: key)
-        }
-        // A caller-supplied $groups adds to the registered and per-call groups instead of replacing them.
-        if let callerGroups = callerProps["$groups"] as? [String: String], let currentGroups = props["$groups"] as? [String: String] {
-            callerProps["$groups"] = currentGroups.merging(callerGroups) { _, new in new }
-        }
-        props.merge(callerProps) { _, new in new }
-
-        // After the caller merge so the SDK's person-processing state, geoip opt-out and debug
-        // values can't be overridden per event, matching posthog-js and posthog-android.
+        // SDK-owned values are defaults: they overwrite registered super properties and SDK context,
+        // and the caller's properties below override them for one event.
         if appendSharedProps {
             if let isIdentified = config.storageManager?.isIdentified() {
                 props["$is_identified"] = isIdentified
             }
 
             // Person processing is sent as the `process_person_profile` option, only when it's off
-            // (see `personProcessingOptions`). The legacy property is dropped so a caller or super
-            // property can't override the SDK's state with it; the option can. The crash-context
-            // snapshot stores only properties, so it keeps the property, which the send hoists.
+            // (see `personProcessingOptions`). A registered legacy property is dropped; a caller's is
+            // kept and wins over the SDK's option when the send hoists it. The crash-context snapshot
+            // stores only properties, so it keeps the property, which the send hoists.
             props.removeValue(forKey: "$process_person_profile")
             if readOnlySession, !hasPersonProcessing() {
                 props["$process_person_profile"] = false
@@ -848,6 +836,21 @@ let maxRetryDelay = 30.0
                 props["$sdk_debug_pending_queue_size"] = depth
             }
         }
+
+        // Caller-supplied properties win over registered super properties, SDK context and SDK-owned values.
+        // A blank caller value for a key the SDK filled in above is treated as absent.
+        var callerProps = properties ?? [:]
+        for key in ["$session_id", "$screen_name", "distinct_id"] where props[key] != nil {
+            if let value = callerProps[key] as? String, !Self.isBlank(value) {
+                continue
+            }
+            callerProps.removeValue(forKey: key)
+        }
+        // A caller-supplied $groups adds to the registered and per-call groups instead of replacing them.
+        if let callerGroups = callerProps["$groups"] as? [String: String], let currentGroups = props["$groups"] as? [String: String] {
+            callerProps["$groups"] = currentGroups.merging(callerGroups) { _, new in new }
+        }
+        props.merge(callerProps) { _, new in new }
 
         return props
     }
@@ -1113,7 +1116,7 @@ let maxRetryDelay = 30.0
                 event: eventName,
                 distinctId: distinctId,
                 properties: properties,
-                options: personProcessingOptions(sanitizeDictionary(options))
+                options: personProcessingOptions(sanitizeDictionary(options), properties: properties)
             ) else {
                 return
             }
@@ -1490,9 +1493,9 @@ let maxRetryDelay = 30.0
     ///
     ///     These replace the `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and
     ///     `$product_tour_id` properties. Those properties still work: they are removed from the
-    ///     event's properties and used as the option, unless you set that option here. The SDK
-    ///     ignores a `$process_person_profile` property, so pass the `process_person_profile` option
-    ///     to override it. Other keys are sent unchanged and ignored by PostHog. PostHog drops an
+    ///     event's properties and used as the option, unless you set that option here. A
+    ///     `$process_person_profile` property you pass here overrides the SDK's default, but a
+    ///     registered one is ignored. Other keys are sent unchanged and ignored by PostHog. PostHog drops an
     ///     event whose option value it can't read.
     ///     `beforeSend` can change them through `PostHogEvent.options`.
     @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)
@@ -1785,7 +1788,7 @@ let maxRetryDelay = 30.0
         // Snapshots and pre-built crash events don't carry the SDK's person-processing option.
         let eventOptions = skipBuildProperties || isSnapshotEvent
             ? sanitizeDictionary(options)
-            : personProcessingOptions(sanitizeDictionary(options))
+            : personProcessingOptions(sanitizeDictionary(options), properties: finalProperties)
 
         // Sanitize is now called in buildEvent
         let posthogEvent = buildEvent(
@@ -1895,7 +1898,7 @@ let maxRetryDelay = 30.0
             event: eventName,
             distinctId: distinctId,
             properties: properties,
-            options: personProcessingOptions(sanitizeDictionary(options))
+            options: personProcessingOptions(sanitizeDictionary(options), properties: properties)
         ) else {
             return
         }
@@ -1985,7 +1988,7 @@ let maxRetryDelay = 30.0
 
         let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: personProcessingOptions(nil)) else {
+        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: personProcessingOptions(nil, properties: properties)) else {
             return
         }
 
@@ -2046,7 +2049,7 @@ let maxRetryDelay = 30.0
             event: eventName,
             distinctId: distinctId,
             properties: properties,
-            options: personProcessingOptions(sanitizeDictionary(options))
+            options: personProcessingOptions(sanitizeDictionary(options), properties: properties)
         ) else {
             return
         }
@@ -2117,7 +2120,7 @@ let maxRetryDelay = 30.0
             event: eventName,
             distinctId: distinctId,
             properties: properties,
-            options: personProcessingOptions(sanitizeDictionary(options))
+            options: personProcessingOptions(sanitizeDictionary(options), properties: properties)
         ) else {
             return
         }

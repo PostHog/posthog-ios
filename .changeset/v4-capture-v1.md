@@ -11,5 +11,6 @@
 - After a failed send, the wait before the next one now doubles from 1 second up to 30 seconds, with up to 25% random jitter, instead of growing by 1 second per failure. This applies to events, session replay and logs, and queued records are still kept until they're delivered.
 - `maxRetries` is renamed to `pushNotificationSubscriptionMaxRetries`, because it only limits push-notification subscription retries. Event, session replay and log retries still have no limit.
 - The `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` properties are sent as capture options, and PostHog drops an event whose option value it can't read.
+- Properties you pass on an event now also override the SDK's `$is_identified`, `$process_person_profile`, `$geoip_disable` and session replay debug values. Registered super properties still can't, and `beforeSend` still has the final say.
 
 See the [migration guide](https://github.com/PostHog/posthog-ios/blob/main/docs/migration-3.x-to-4.0.md) for what to check before you upgrade.

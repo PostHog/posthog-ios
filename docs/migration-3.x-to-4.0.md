@@ -28,7 +28,7 @@ You need to change something if your app does any of these:
 
 | Data | 3.x | 4.0 |
 | --- | --- | --- |
-| Analytics events | `/batch` | `/i/v1/analytics/events`, or `/batch` after a 404 (see below) |
+| Analytics events | `/batch` | `/i/v1/analytics/events` |
 | Session replay | `/s/` | `/s/`, unchanged |
 | AI events (`captureAi`) | – | `/i/v1/ai/events` (see [AI events](#ai-events)) |
 | Logs | `/i/v1/logs` | `/i/v1/logs`, unchanged |
@@ -43,11 +43,10 @@ In 3.x, the SDK started and PostHog rejected every event with a 401. Use your pr
 
 ### Hosts without capture v1
 
-If you use a reverse proxy, forward `/i/v1/analytics/events` before you upgrade.
+If you use a reverse proxy or self-host PostHog, make sure `/i/v1/analytics/events` is served before you upgrade.
 PostHog Cloud (`us.i.posthog.com`, `eu.i.posthog.com`) serves it.
 
-When `/i/v1/analytics/events` returns 404, the SDK resends that batch to `/batch` and keeps using `/batch` until the app restarts.
-Any other error status, such as 403 or 405, drops the events.
+The SDK doesn't fall back to `/batch`. A 404, or any other error status that isn't retried, such as 403 or 405, drops the events.
 
 ### Redirects
 
@@ -137,7 +136,6 @@ When the event is sent, the SDK removes each one from `properties` and uses it f
 - The SDK sends option values as given. PostHog reads common forms of a value, such as `"false"` or `0` for a boolean, and drops an event whose option value it can't read.
 - Other option keys are sent unchanged, and PostHog ignores keys it doesn't know.
 - Events still queued on disk by 3.x are sent to capture v1 after the update, with their legacy properties moved to options.
-- After a 404 fallback to `/batch`, the SDK puts each option back into its legacy property.
 
 ## AI events
 
@@ -168,4 +166,3 @@ In Objective-C, use `captureAiWithEvent:distinctId:properties:userProperties:use
 - `maxRetries` is renamed to `pushNotificationSubscriptionMaxRetries`, with no deprecated alias. Since 3.73.0 it has only limited push-notification subscription retries.
 - A request carries at most `maxBatchSize` events and about 5 MiB, and the SDK sends as soon as about 5 MiB of events is queued, even before `flushAt` is reached. In 3.x, batches were limited by event count only.
 - A 413 still splits the batch into smaller requests.
-- After a 404 fallback, `/batch` keeps the 3.x retry rules.

@@ -51,7 +51,7 @@ func processUploadResponse(
 class PostHogApi {
     static var gzipData: (Data) throws -> Data = { try $0.gzipped() }
 
-    private let config: PostHogConfig
+    let config: PostHogConfig
 
     /// Snapshot at init; treated as immutable after setup.
     private let customRequestHeaders: [String: String]
@@ -68,7 +68,8 @@ class PostHogApi {
     /// Guards the capture V1 state below. In memory only: a new request ID
     /// after an app restart is fine, since the server only logs it.
     private let captureV1Lock = NSLock()
-    private var captureV1PendingRetry: CaptureV1RequestIdentity?
+    // Keyed by endpoint path, so analytics and AI retries keep separate identities.
+    private var captureV1PendingRetry: [String: CaptureV1RequestIdentity] = [:]
     // Set when V1 returns 404 so the rest of this session uses `/batch`.
     // Remove with /batch.
     private var captureV1Unavailable = false
@@ -107,10 +108,10 @@ class PostHogApi {
 
     /// `gzipped: true` adds `Content-Encoding: gzip` for upload endpoints
     /// (/batch, /s/, /i/v1/logs) whose bodies are gzipped.
-    private func getURLRequest(_ url: URL, gzipped: Bool = false, httpMethod: String = "POST") -> URLRequest {
+    private func getURLRequest(_ url: URL, gzipped: Bool = false, httpMethod: String = "POST", timeout: TimeInterval? = nil) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = httpMethod
-        request.timeoutInterval = defaultTimeout
+        request.timeoutInterval = timeout ?? defaultTimeout
         applyCustomHeaders(&request)
         if gzipped {
             request.setValue("gzip", forHTTPHeaderField: "Content-Encoding")
@@ -137,15 +138,18 @@ class PostHogApi {
         "posthog-sdk-info", "posthog-attempt", "posthog-request-id", "posthog-request-timestamp",
     ]
 
-    private func requestAndPayload(url: URL, data: Data, endpointName: String, httpMethod: String = "POST") -> (URLRequest, Data) {
-        guard config.compression == .gzip else {
-            return (getURLRequest(url, httpMethod: httpMethod), data)
+    private func requestAndPayload(
+        url: URL, data: Data, endpointName: String, httpMethod: String = "POST", timeout: TimeInterval? = nil,
+        compression: PostHogCompression? = nil
+    ) -> (URLRequest, Data) {
+        guard (compression ?? config.compression) == .gzip else {
+            return (getURLRequest(url, httpMethod: httpMethod, timeout: timeout), data)
         }
         do {
-            return (getURLRequest(url, gzipped: true, httpMethod: httpMethod), try Self.gzipData(data))
+            return (getURLRequest(url, gzipped: true, httpMethod: httpMethod, timeout: timeout), try Self.gzipData(data))
         } catch {
             hedgeLog("Error gzipping the \(endpointName) body, sending it uncompressed: \(error).")
-            return (getURLRequest(url, httpMethod: httpMethod), data)
+            return (getURLRequest(url, httpMethod: httpMethod, timeout: timeout), data)
         }
     }
 
@@ -227,14 +231,27 @@ class PostHogApi {
         guard usesCaptureV1 else {
             return batch(events: events, completion: completion)
         }
+        postCaptureV1(path: Self.captureV1AnalyticsPath, events: events, completion: completion)
+    }
 
-        guard let url = getEndpointURL("/i/v1/analytics/events", relativeTo: config.host) else {
+    /// POSTs AI events to the capture V1 AI endpoint (`/i/v1/ai/events`).
+    /// Same wire format and per-event results as `captureV1`, but a 404 is
+    /// terminal: AI events never fall back to `/batch`.
+    func captureAi(events: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {
+        postCaptureV1(path: Self.captureV1AiPath, events: events, completion: completion)
+    }
+
+    static let captureV1AnalyticsPath = "/i/v1/analytics/events"
+    static let captureV1AiPath = "/i/v1/ai/events"
+
+    private func postCaptureV1(path: String, events: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {
+        guard let url = getEndpointURL(path, relativeTo: config.host) else {
             hedgeLog("Malformed capture URL error.")
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
         let uuids = events.map(\.uuid.postHogUuidString)
-        let identity = nextCaptureV1Identity(uuids: Set(uuids))
+        let identity = nextCaptureV1Identity(path: path, uuids: Set(uuids))
 
         let toSend: [String: Any] = [
             "created_at": identity.createdAt,
@@ -246,7 +263,13 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        var (request, payload) = requestAndPayload(url: url, data: data, endpointName: "capture")
+        // AI batches can be several MB, so they get their own timeout and compression.
+        let isAi = path == Self.captureV1AiPath
+        var (request, payload) = requestAndPayload(
+            url: url, data: data, endpointName: "capture",
+            timeout: isAi ? config.effectiveCaptureAiTimeout : nil,
+            compression: isAi ? config.captureAiCompression : nil
+        )
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(config.projectToken)", forHTTPHeaderField: "Authorization")
         request.setValue("\(postHogSdkName)/\(postHogVersion)", forHTTPHeaderField: "PostHog-Sdk-Info")
@@ -259,10 +282,10 @@ class PostHogApi {
                 guard let self else { return completion(info) }
 
                 // iOS-only fallback for hosts without capture V1. Remove with /batch.
-                if info.statusCode == 404 {
+                if info.statusCode == 404, path == Self.captureV1AnalyticsPath {
                     let firstFallback = self.captureV1Lock.withLock {
                         defer { self.captureV1Unavailable = true }
-                        self.captureV1PendingRetry = nil
+                        self.captureV1PendingRetry[path] = nil
                         return !self.captureV1Unavailable
                     }
                     if firstFallback {
@@ -271,7 +294,7 @@ class PostHogApi {
                     return self.batch(events: events, completion: completion)
                 }
 
-                completion(self.captureV1Result(info, data: data, uuids: uuids, identity: identity))
+                completion(self.captureV1Result(info, path: path, data: data, uuids: uuids, identity: identity))
             }
         }.resume()
     }
@@ -279,9 +302,9 @@ class PostHogApi {
     /// Reuses the request ID with the next attempt number when `uuids` is the
     /// set of events the previous request left to retry. Otherwise starts a new
     /// request at attempt 1.
-    private func nextCaptureV1Identity(uuids: Set<String>) -> CaptureV1RequestIdentity {
+    private func nextCaptureV1Identity(path: String, uuids: Set<String>) -> CaptureV1RequestIdentity {
         captureV1Lock.withLock {
-            if let pending = captureV1PendingRetry, pending.uuids == uuids {
+            if let pending = captureV1PendingRetry[path], pending.uuids == uuids {
                 return CaptureV1RequestIdentity(
                     uuids: uuids, requestId: pending.requestId, attempt: pending.attempt + 1, createdAt: pending.createdAt
                 )
@@ -296,6 +319,7 @@ class PostHogApi {
     /// the next request retries under the same identity.
     func captureV1Result(
         _ info: PostHogUploadInfo,
+        path: String,
         data: Data?,
         uuids: [String],
         identity: CaptureV1RequestIdentity
@@ -335,7 +359,7 @@ class PostHogApi {
         }
 
         captureV1Lock.withLock {
-            captureV1PendingRetry = retryUuids.isEmpty ? nil : CaptureV1RequestIdentity(
+            captureV1PendingRetry[path] = retryUuids.isEmpty ? nil : CaptureV1RequestIdentity(
                 uuids: retryUuids, requestId: identity.requestId, attempt: identity.attempt, createdAt: identity.createdAt
             )
         }

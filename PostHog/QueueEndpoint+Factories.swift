@@ -23,9 +23,21 @@ func isCaptureV1RetriableStatusCode(_ code: Int) -> Bool {
     [408, 500, 502, 503, 504].contains(code)
 }
 
+/// The stored event also holds its envelope, so allow 64 KiB on top of the
+/// properties limit, as posthog-python and posthog-go do.
+let aiEventEnvelopeBytes = 64 * 1024
+/// Stored-size limit for an AI event at the default `captureAiMaxEventBytes`.
+let aiMaxEventBytes = PostHogConfig.Defaults.captureAiMaxEventBytes + aiEventEnvelopeBytes
+/// Soft request size for the capture V1 analytics and AI endpoints, matching
+/// the other PostHog SDKs and well under capture V1's 10 MiB request limit.
+let captureV1MaxBatchBytes = 5 * 1024 * 1024
+/// Disk budget for queued AI events; the oldest are dropped first.
+let aiMaxQueueBytes = 50 * 1024 * 1024
+
 extension QueueEndpoint where Record == PostHogEvent {
     /// Analytics events endpoint: capture V1 (`/i/v1/analytics/events`), or
-    /// `/batch` after V1 returned 404 this session.
+    /// `/batch` after V1 returned 404 this session. Batches by bytes as well
+    /// as count, so a batch of large events stays under the request limit.
     static func batch(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
         QueueEndpoint<PostHogEvent>(
             storageKey: .queue,
@@ -41,6 +53,7 @@ extension QueueEndpoint where Record == PostHogEvent {
             decode: { data in PostHogEvent.fromJSON(data) },
             describe: { event in "event '\(event.event)'" },
             recordId: { event in event.uuid.postHogUuidString },
+            maxBatchBytes: captureV1MaxBatchBytes,
             send: { events, completion in
                 api.captureV1(events: events, completion: completion)
             },
@@ -48,6 +61,42 @@ extension QueueEndpoint where Record == PostHogEvent {
                 // The /batch fallback keeps the /batch policy. Remove with /batch.
                 api.usesCaptureV1 ? isCaptureV1RetriableStatusCode(code) : isEventsRetriableStatusCode(code)
             }
+        )
+    }
+
+    /// Capture V1 AI endpoint (`/i/v1/ai/events`) for events sent with
+    /// `captureAi`. Same retry policy as capture V1, with no `/batch` fallback.
+    /// Batches by bytes as well as count, since AI events can be megabytes.
+    static func ai(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
+        let maxEventBytes = api.config.captureAiMaxStoredEventBytes
+        return QueueEndpoint<PostHogEvent>(
+            storageKey: .aiQueue,
+            oldStorageKeys: [],
+            dispatchQueueLabel: "com.posthog.AiQueue",
+            initialCap: { $0.maxBatchSize },
+            initialFlushAt: { $0.flushAt },
+            maxQueueSize: { $0.effectiveCaptureAiMaxQueueSize },
+            flushIntervalSeconds: { $0.flushIntervalSeconds },
+            rateCapMax: { _ in 0 },
+            rateCapWindowSeconds: { _ in 0 },
+            encode: { event in
+                guard let data = toJSONData(event.toJSON()) else { return nil }
+                // Name and size only: AI properties can hold prompts and media.
+                if data.count > maxEventBytes {
+                    hedgeLog("Dropping AI event '\(event.event)' of \(data.count) bytes, over the \(maxEventBytes) byte limit.")
+                    return nil
+                }
+                return data
+            },
+            decode: { data in PostHogEvent.fromJSON(data) },
+            describe: { event in "AI event '\(event.event)'" },
+            recordId: { event in event.uuid.postHogUuidString },
+            maxBatchBytes: captureV1MaxBatchBytes,
+            maxQueueBytes: aiMaxQueueBytes,
+            send: { events, completion in
+                api.captureAi(events: events, completion: completion)
+            },
+            isRetriableStatusCode: isCaptureV1RetriableStatusCode
         )
     }
 
@@ -126,5 +175,25 @@ extension QueueEndpoint where Record == PostHogLogRecord {
             },
             maxRetryAfterSeconds: logsMaxRetryAfterSeconds
         )
+    }
+}
+
+extension PostHogConfig {
+    /// `captureAiMaxQueueSize`, or its default when it isn't positive.
+    var effectiveCaptureAiMaxQueueSize: Int {
+        captureAiMaxQueueSize > 0 ? captureAiMaxQueueSize : Defaults.captureAiMaxQueueSize
+    }
+
+    /// `captureAiTimeout`, or its default when it isn't positive.
+    var effectiveCaptureAiTimeout: TimeInterval {
+        captureAiTimeout > 0 ? captureAiTimeout : Defaults.captureAiTimeout
+    }
+
+    /// Stored-size limit for an AI event: `captureAiMaxEventBytes`, capped at
+    /// PostHog's 8 MiB, plus the envelope allowance.
+    var captureAiMaxStoredEventBytes: Int {
+        let limit = Defaults.captureAiMaxEventBytes
+        let bytes = captureAiMaxEventBytes > 0 ? min(captureAiMaxEventBytes, limit) : limit
+        return bytes + aiEventEnvelopeBytes
     }
 }

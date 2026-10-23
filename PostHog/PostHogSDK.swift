@@ -85,6 +85,11 @@ let maxRetryDelay = 30.0
     }
 
     private(set) var logsQueue: PostHogQueue<PostHogLogRecord>?
+    private var _aiQueue: PostHogQueue<PostHogEvent>?
+    private(set) var aiQueue: PostHogQueue<PostHogEvent>? {
+        get { setupLock.withLock { _aiQueue } }
+        set { setupLock.withLock { _aiQueue = newValue } }
+    }
     private(set) var storage: PostHogStorage?
     private var surveyIdentityGeneration: String?
     #if !os(watchOS)
@@ -288,10 +293,12 @@ let maxRetryDelay = 30.0
                 queue = PostHogQueue(config, theStorage, .batch(api: api), reachability)
                 replayQueue = PostHogReplayQueue(config, theStorage, api, reachability)
                 logsQueue = PostHogQueue(config, theStorage, logsEndpoint, reachability)
+                aiQueue = PostHogQueue(config, theStorage, .ai(api: api), reachability)
             #else
                 queue = PostHogQueue(config, theStorage, .batch(api: api))
                 replayQueue = PostHogReplayQueue(config, theStorage, api)
                 logsQueue = PostHogQueue(config, theStorage, logsEndpoint)
+                aiQueue = PostHogQueue(config, theStorage, .ai(api: api))
             #endif
 
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
@@ -302,6 +309,9 @@ let maxRetryDelay = 30.0
 
             logsQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                              disableQueueTimerForTesting: config.disableQueueTimerForTesting)
+
+            aiQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
+                           disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
             // Create session manager instance for this PostHogSDK instance
             sessionManager.setup(config: config)
@@ -857,8 +867,8 @@ let maxRetryDelay = 30.0
         return props
     }
 
-    /// Trigger an immediate flush of every queue — events, session-replay
-    /// snapshots, and structured logs.
+    /// Trigger an immediate flush of every queue — events, AI events,
+    /// session-replay snapshots, and structured logs.
     @objc public func flush() {
         if !isEnabled() {
             return
@@ -867,6 +877,7 @@ let maxRetryDelay = 30.0
         queue?.flush()
         replayQueue?.flush()
         logsQueue?.flush()
+        aiQueue?.flush()
         pushSubscriptionHandler?.retryIfNeeded()
     }
 
@@ -1523,6 +1534,64 @@ let maxRetryDelay = 30.0
         )
     }
 
+    /// Captures an AI observability event, such as `$ai_generation`, `$ai_span`, `$ai_trace` or
+    /// `$ai_embedding`, and sends it to PostHog's AI endpoint, which accepts much larger events than
+    /// `capture`.
+    ///
+    /// Takes the same arguments as `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`
+    /// and goes through the same `beforeSend` hooks. The event is queued on disk separately from other
+    /// events and sent unchanged: the SDK doesn't redact or truncate prompts, outputs or media.
+    /// An event over `captureAiMaxEventBytes` (8 MiB by default) is dropped. PostHog drops an event
+    /// sent here whose name doesn't start with `$ai_`, and the SDK logs a debug message when it's
+    /// given one. `capture` never sends events here, even ones named `$ai_*`.
+    ///
+    /// AI events use `flushAt`, `maxBatchSize` and `flushIntervalSeconds` from `PostHogConfig`, like
+    /// other events, and `captureAiCompression`, `captureAiMaxQueueSize` and `captureAiTimeout` instead
+    /// of `compression`, `maxQueueSize` and the 10-second timeout. These limits are fixed:
+    /// - Requests carry up to about 5 MiB of events, and the SDK sends as soon as that much is queued.
+    /// - Up to 50 MiB of AI events are kept on disk. Beyond that, the oldest are dropped.
+    ///
+    /// - Parameters:
+    ///   - event: AI event name, such as `$ai_generation`.
+    ///   - distinctId: Optional distinct ID override. Defaults to the current SDK distinct ID.
+    ///   - properties: Event properties attached only to this event.
+    ///   - userProperties: Person properties to set. Existing values are overwritten.
+    ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
+    ///   - groups: Group type/key pairs to attach to this event.
+    ///   - timestamp: Optional event timestamp. Defaults to the current time.
+    ///   - options: Optional settings that tell PostHog how to process this event. Same keys as
+    ///     `capture`'s `options`.
+    ///
+    /// - Returns: The event's UUID, or `nil` if the event wasn't queued: for example, the SDK is
+    ///   opted out or disabled, `beforeSend` dropped it, or it's over `captureAiMaxEventBytes`.
+    @discardableResult
+    @objc(captureAiWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)
+    public func captureAi(_ event: String,
+                          distinctId: String? = nil,
+                          properties: [String: Any]? = nil,
+                          userProperties: [String: Any]? = nil,
+                          userPropertiesSetOnce: [String: Any]? = nil,
+                          groups: [String: String]? = nil,
+                          timestamp: Date? = nil,
+                          options: [String: Any]? = nil) -> String?
+    {
+        if !event.hasPrefix("$ai_") {
+            hedgeLog("captureAi event '\(event)' doesn't start with '$ai_', so PostHog will drop it. Use capture for non-AI events.")
+        }
+
+        return captureInternal(
+            event,
+            distinctId: distinctId,
+            properties: properties,
+            userProperties: userProperties,
+            userPropertiesSetOnce: userPropertiesSetOnce,
+            groups: groups,
+            timestamp: timestamp,
+            options: options,
+            aiLane: true
+        )
+    }
+
     // A separate Swift name keeps this out of Swift overload resolution.
 
     /// Captures a custom event for an explicit distinct ID and timestamp from Objective-C.
@@ -1699,6 +1768,8 @@ let maxRetryDelay = 30.0
     /// - Parameters:
     ///   - skipBuildProperties: When true, skips buildProperties call and uses properties as-is.
     ///     Used by crash reporting to capture events with pre-built crash-time context.
+    /// - Returns: The queued event's UUID, or `nil` when the event isn't queued.
+    @discardableResult
     func captureInternal(
         _ event: String,
         distinctId: String? = nil,
@@ -1710,18 +1781,19 @@ let maxRetryDelay = 30.0
         options: [String: Any]? = nil,
         skipBuildProperties: Bool = false,
         propertyAllowlist: Set<String>? = nil,
-        deduplicatePersonProperties: Bool = false
-    ) {
+        deduplicatePersonProperties: Bool = false,
+        aiLane: Bool = false
+    ) -> String? {
         if !isEnabled() {
-            return
+            return nil
         }
 
         if isOptOutState() {
-            return
+            return nil
         }
 
-        guard let queue else {
-            return
+        guard let queue = aiLane ? aiQueue : queue else {
+            return nil
         }
 
         // $exception_list only ever comes from the caller, so raw properties are sufficient here
@@ -1731,11 +1803,11 @@ let maxRetryDelay = 30.0
                PostHogErrorTrackingAutoCaptureIntegration.exceptionListMatchesIgnoredTypes(properties ?? [:], ignoredTypes: ignored)
             {
                 hedgeLog("$exception skipped: exception type is in errorTrackingConfig.ignoredExceptionTypes")
-                return
+                return nil
             }
         }
 
-        var isSnapshotEvent = event == "$snapshot"
+        var isSnapshotEvent = !aiLane && event == "$snapshot"
         let eventTimestamp = timestamp ?? now()
         // A blank distinct ID falls back to the current one, like nil, instead of PostHog dropping the event.
         let eventDistinctId = distinctId.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? getDistinctId()
@@ -1802,16 +1874,17 @@ let maxRetryDelay = 30.0
         )
 
         guard let posthogEvent else {
-            return
+            return nil
         }
 
-        // Reevaluate if this is a snapshot event because the event might have been updated by the beforeSend hook
-        isSnapshotEvent = posthogEvent.event == "$snapshot"
+        // Reevaluate if this is a snapshot event because the event might have been updated by the beforeSend hook.
+        // The AI lane always uses its own queue.
+        isSnapshotEvent = !aiLane && posthogEvent.event == "$snapshot"
 
         // if this is a $snapshot event and $session_id is missing, don't process then event
         if isSnapshotEvent, posthogEvent.properties["$session_id"] == nil {
             releaseClaimIfCarried(posthogEvent)
-            return
+            return nil
         }
 
         // Automatically set person properties for feature flags during capture event
@@ -1824,9 +1897,10 @@ let maxRetryDelay = 30.0
             releaseClaimIfCarried(posthogEvent)
             replayQueue?.add(posthogEvent)
             onEventCaptured.invoke(posthogEvent)
-        } else {
-            queueEvent(posthogEvent, queue: queue, deduplicatePersonProperties: deduplicatePersonProperties)
+            return replayQueue == nil ? nil : posthogEvent.uuid.postHogUuidString
         }
+        let stored = queueEvent(posthogEvent, queue: queue, deduplicatePersonProperties: deduplicatePersonProperties)
+        return stored ? posthogEvent.uuid.postHogUuidString : nil
     }
 
     /// Records a screen view by capturing a `$screen` event.
@@ -2176,7 +2250,9 @@ let maxRetryDelay = 30.0
         return resultEvent
     }
 
-    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>, deduplicatePersonProperties: Bool = false) {
+    /// Returns whether the event was stored in `queue`.
+    @discardableResult
+    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>, deduplicatePersonProperties: Bool = false) -> Bool {
         let storedInQueue: Bool
         let userProperties = event.properties["$set"] as? [String: Any]
         let userPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]
@@ -2209,7 +2285,7 @@ let maxRetryDelay = 30.0
                 releaseClaimIfCarried(event)
                 // Only a suppressed duplicate skips the callback below: subscribers such as replay
                 // triggers and event-activated surveys don't depend on this queue reaching disk.
-                return
+                return false
             }
             storedInQueue = stored
         } else {
@@ -2223,6 +2299,7 @@ let maxRetryDelay = 30.0
             }
         }
         onEventCaptured.invoke(event)
+        return storedInQueue
     }
 
     /// Associates subsequent events with a group.
@@ -3108,7 +3185,7 @@ let maxRetryDelay = 30.0
 
     /// Shuts down this SDK instance and clears its in-memory state.
     ///
-    /// Starts sending queued events, session replay snapshots, and logs (up to one batch each) and returns without
+    /// Starts sending queued events, AI events, session replay snapshots, and logs (up to one batch each) and returns without
     /// waiting for delivery. Anything not sent, for example while offline, stays on disk and is sent after the next
     /// setup. Integrations are uninstalled, and this instance must be set up again before reuse.
     @objc public func close() {
@@ -3121,16 +3198,19 @@ let maxRetryDelay = 30.0
             PostHogSDK.projectTokens.remove(config.projectToken)
 
             queue?.flush()
+            aiQueue?.flush()
             replayQueue?.flush()
             logsQueue?.flush()
 
             queue?.stop()
             replayQueue?.stop()
             logsQueue?.stop()
+            aiQueue?.stop()
 
             queue = nil
             replayQueue = nil
             logsQueue = nil
+            aiQueue = nil
             pushSubscriptionHandler = nil
             #if os(iOS)
                 startSessionRecordingOnOptIn = true

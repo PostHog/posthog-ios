@@ -15,16 +15,28 @@ class PostHogFileBackedQueue {
 
     let queue: URL
     private let maxSize: Int?
+    /// FIFO limit on the total size of the stored files, on top of `maxSize`.
+    /// The newest entry is always kept, even when it's larger on its own.
+    private let maxBytes: Int?
     private var items = [String]()
+    /// File sizes by id, tracked only when `maxBytes` is set. Guarded by `itemsLock`.
+    private var sizes = [String: Int]()
+    private var totalBytes = 0
     private let itemsLock = NSLock()
 
     var depth: Int {
         itemsLock.withLock { items.count }
     }
 
-    init(queue: URL, oldQueues: [URL] = [], maxSize: Int? = nil) {
+    /// Total size of the stored files. Tracked only when `maxBytes` is set, 0 otherwise.
+    var byteCount: Int {
+        itemsLock.withLock { totalBytes }
+    }
+
+    init(queue: URL, oldQueues: [URL] = [], maxSize: Int? = nil, maxBytes: Int? = nil) {
         self.queue = queue
         self.maxSize = maxSize.map { max(1, $0) }
+        self.maxBytes = maxBytes.map { max(1, $0) }
         setup(oldQueues: oldQueues)
     }
 
@@ -60,14 +72,16 @@ class PostHogFileBackedQueue {
         peekEntries(count).map(\.data)
     }
 
-    func peekEntries(_ count: Int) -> [Entry] {
-        loadEntries(count)
+    /// Reads up to `count` entries, oldest first. With `maxBytes`, stops after the
+    /// entry that reaches it, so large entries aren't all held in memory at once.
+    func peekEntries(_ count: Int, maxBytes: Int? = nil) -> [Entry] {
+        loadEntries(count, maxBytes: maxBytes)
     }
 
     func delete(index: Int) {
         let removed: String? = itemsLock.withLock {
             guard index < items.count else { return nil }
-            return items.remove(at: index)
+            return untrack(items.remove(at: index))
         }
 
         if let removed {
@@ -84,6 +98,7 @@ class PostHogFileBackedQueue {
         let removed: [String] = itemsLock.withLock {
             let removed = items.filter { ids.contains($0) }
             items.removeAll { ids.contains($0) }
+            removed.forEach { untrack($0) }
             return removed
         }
 
@@ -93,32 +108,34 @@ class PostHogFileBackedQueue {
     }
 
     /// Persists one entry and optionally enforces a FIFO capacity in the same
-    /// critical section. Returning an evicted id lets the queue report
+    /// critical section. Returning the evicted ids lets the queue report
     /// backpressure without racing a separate depth check against other adds.
     @discardableResult
-    func add(_ contents: Data, maxSize: Int? = nil) -> (success: Bool, evicted: String?) {
+    func add(_ contents: Data, maxSize: Int? = nil) -> (success: Bool, evicted: [String]) {
         do {
             let filename = UUID.v7String()
             let effectiveMaxSize = maxSize.map { max(1, $0) } ?? self.maxSize
-            var evicted: String?
+            var evicted = [String]()
 
             try itemsLock.withLock {
                 try contents.write(to: queue.appendingPathComponent(filename))
 
                 if let effectiveMaxSize, items.count >= effectiveMaxSize {
-                    evicted = items.removeFirst()
-                    if let evicted {
-                        deleteSafely(queue.appendingPathComponent(evicted))
-                    }
+                    evicted.append(untrack(items.removeFirst()))
                 }
 
                 items.append(filename)
+                track(filename, size: contents.count)
+                evicted += evictOverByteLimit()
             }
 
+            for id in evicted {
+                deleteSafely(queue.appendingPathComponent(id))
+            }
             return (true, evicted)
         } catch {
             hedgeLog("Could not write file \(error)")
-            return (false, nil)
+            return (false, [])
         }
     }
 
@@ -148,7 +165,15 @@ class PostHogFileBackedQueue {
             let sortedItems = try FileManager.default.contentsOfDirectory(at: queue, sortedBy: .creationDateKey)
             let overflow = maxSize.map { max(0, sortedItems.count - $0) } ?? 0
             items = Array(sortedItems.dropFirst(overflow))
-            return Array(sortedItems.prefix(overflow))
+            sizes = [:]
+            totalBytes = 0
+            if maxBytes != nil {
+                for item in items {
+                    let attributes = try? FileManager.default.attributesOfItem(atPath: queue.appendingPathComponent(item).path)
+                    track(item, size: (attributes?[.size] as? NSNumber)?.intValue ?? 0)
+                }
+            }
+            return Array(sortedItems.prefix(overflow)) + evictOverByteLimit()
         }
 
         for item in dropped {
@@ -159,9 +184,10 @@ class PostHogFileBackedQueue {
         }
     }
 
-    private func loadEntries(_ count: Int) -> [Entry] {
+    private func loadEntries(_ count: Int, maxBytes: Int? = nil) -> [Entry] {
         var results = [Entry]()
         var skipped = Set<String>()
+        var loadedBytes = 0
 
         let itemsCopy = itemsLock.withLock { items }
 
@@ -176,6 +202,7 @@ class PostHogFileBackedQueue {
                 let contents = try Data(contentsOf: itemURL)
 
                 results.append(Entry(id: item, data: contents))
+                loadedBytes += contents.count
             } catch {
                 if isTemporarilyUnavailable(error) {
                     hedgeLog("File \(itemURL) is temporarily unavailable, will retry \(error)")
@@ -188,13 +215,16 @@ class PostHogFileBackedQueue {
                 skipped.insert(item)
             }
 
-            if results.count == count {
+            if results.count == count || maxBytes.map({ loadedBytes >= $0 }) == true {
                 break
             }
         }
 
         if !skipped.isEmpty {
-            itemsLock.withLock { items.removeAll { skipped.contains($0) } }
+            itemsLock.withLock {
+                items.removeAll { skipped.contains($0) }
+                skipped.forEach { untrack($0) }
+            }
         }
 
         return results
@@ -216,11 +246,38 @@ class PostHogFileBackedQueue {
         return false
     }
 
+    /// Caller must hold `itemsLock`.
+    private func track(_ id: String, size: Int) {
+        guard maxBytes != nil else { return }
+        sizes[id] = size
+        totalBytes += size
+    }
+
+    /// Caller must hold `itemsLock`. Returns `id` for chaining.
+    @discardableResult
+    private func untrack(_ id: String) -> String {
+        if let size = sizes.removeValue(forKey: id) {
+            totalBytes -= size
+        }
+        return id
+    }
+
+    /// Drops the oldest items until the total fits `maxBytes`, keeping the
+    /// newest. Caller must hold `itemsLock` and delete the returned files.
+    private func evictOverByteLimit() -> [String] {
+        guard let maxBytes else { return [] }
+        var evicted = [String]()
+        while totalBytes > maxBytes, items.count > 1 {
+            evicted.append(untrack(items.removeFirst()))
+        }
+        return evicted
+    }
+
     private func deleteFiles(_ count: Int) {
         for _ in 0 ..< count {
             let removed: String? = itemsLock.withLock {
                 guard !items.isEmpty else { return nil }
-                return items.remove(at: 0) // We always remove from the top of the queue
+                return untrack(items.remove(at: 0)) // We always remove from the top of the queue
             }
 
             guard let removed else { return }

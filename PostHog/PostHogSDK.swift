@@ -181,6 +181,12 @@ let maxRetryDelay = 30.0
                 return
             }
 
+            // PostHog rejects a personal API key for capture with a 401, and every event would be dropped.
+            if config.projectToken.hasPrefix("phx_") {
+                hedgeLog("PostHog SDK will be disabled because projectToken is a personal API key (phx_...), not a project token (phc_...).")
+                return
+            }
+
             if PostHogSDK.projectTokens.contains(config.projectToken) {
                 hedgeLog("Project token: \(config.projectToken) already has a PostHog instance.")
             } else {

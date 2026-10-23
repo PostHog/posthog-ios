@@ -15,6 +15,7 @@ You need to change something if your app does any of these:
 - sends events through a proxy that redirects capture requests, other than with a 307 or 308 to the same origin as `host`
 - captures events with an empty event name, or with an event name or distinct ID over 200 bytes
 - sets an empty distinct ID in `beforeSend`
+- sets `projectToken` to a personal API key (`phx_...`)
 - sets `$lib` or `$lib_version` and expects PostHog to store that value
 - reads `$session_id` or `$window_id` from the raw request body, for example in a proxy
 - sets `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` to a value PostHog can't read, such as `"maybe"`
@@ -32,6 +33,9 @@ You need to change something if your app does any of these:
 Capture v1 requests send the project token in an `Authorization: Bearer <projectToken>` header instead of an `api_key` body field.
 This header replaces any `Authorization` header you set in `PostHogConfig.requestHeaders`, so authenticate your proxy with a different header, such as `X-Proxy-Token`.
 Other requests still send your `Authorization` header.
+
+A personal API key (`phx_...`) in `projectToken` now disables the SDK at setup, as an empty token does, and logs why when `debug` is on.
+In 3.x, the SDK started and PostHog rejected every event with a 401. Use your project token (`phc_...`).
 
 ### Hosts without capture v1
 

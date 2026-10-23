@@ -633,6 +633,15 @@ final class PostHogCaptureV1OptionsTest {
         #expect(sent["distinct_id"] as? String == sut.getDistinctId())
     }
 
+    @Test("a personal API key disables the SDK at setup")
+    func personalApiKeyDisablesSdk() {
+        let sut = PostHogSDK.with(PostHogConfig(projectToken: "phx_personal", host: "http://localhost:9001"))
+        defer { sut.close() }
+
+        // A disabled SDK has no storage, so it has no distinct ID.
+        #expect(sut.getDistinctId() == "")
+    }
+
     @Test("an event beforeSend returns again still gets a new UUID")
     func beforeSendReturningEarlierEventGetsNewUuid() async throws {
         var kept: PostHogEvent?

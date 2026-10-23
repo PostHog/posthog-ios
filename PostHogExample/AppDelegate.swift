@@ -54,19 +54,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
 //        PostHogSDK.shared.identify("Manoel")
 
-        let defaultCenter = NotificationCenter.default
-
         #if os(iOS) || os(tvOS) || os(visionOS)
-            defaultCenter.addObserver(self,
-                                      selector: #selector(receiveFeatureFlags),
-                                      name: PostHogSDK.didReceiveFeatureFlags,
-                                      object: nil)
+            PostHogSDK.shared.onFeatureFlags { [weak self] _ in
+                self?.receiveFeatureFlags()
+            }
         #endif
 
         return true
     }
 
-    @objc func receiveFeatureFlags() {
+    func receiveFeatureFlags() {
         print("user receiveFeatureFlags callback")
         #if DEBUG
             let testFlag = PostHogSDK.shared.getFeatureFlag("bool-value")

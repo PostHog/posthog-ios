@@ -42,12 +42,17 @@ class FeatureFlagsModel: ObservableObject {
     @Published var stringValue: String?
     @Published var payloadValue: [String: String]?
     @Published var isReloading: Bool = false
+    private var featureFlagsSubscription: PostHogFeatureFlagsSubscription?
 
     init() {
         // onFeatureFlags calls back on the main thread.
-        PostHogSDK.shared.onFeatureFlags { [weak self] _ in
+        featureFlagsSubscription = PostHogSDK.shared.onFeatureFlags { [weak self] _ in
             MainActor.assumeIsolated { self?.reloaded() }
         }
+    }
+
+    deinit {
+        featureFlagsSubscription?.unsubscribe()
     }
 
     func reloaded() {

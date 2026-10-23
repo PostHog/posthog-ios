@@ -77,7 +77,7 @@ If you identify users with a long ID, such as a JWT or a long email address, sho
 PostHog sets `$lib` and `$lib_version` from the `PostHog-Sdk-Info` request header, for example `posthog-ios/4.0.0`.
 The SDK removes `$lib` and `$lib_version` from the properties it sends to capture v1.
 A value you set in properties, in a super property or in `beforeSend` doesn't reach PostHog.
-`beforeSend` still sees the SDK's value.
+The SDK removes them when it sends the event, so `beforeSend` still sees them.
 
 ## Property precedence
 
@@ -99,6 +99,7 @@ A string value, including an empty string, is sent unchanged.
 Any other value is removed and not sent, and the SDK logs a warning that names the key and the value's JSON type, never the value.
 A null value counts as unset and is removed without a warning.
 In PostHog, the events still have `$session_id` and `$window_id`, so insights, filters and session replay work as before.
+A registered `$session_id` now overrides the SDK's session ID (see [Property precedence](#property-precedence)), which can detach events from their session replay.
 
 ## Event options
 

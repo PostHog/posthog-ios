@@ -546,7 +546,7 @@ final class PostHogCaptureV1OptionsTest {
         return try #require((server.parseRequest(request)?["batch"] as? [[String: Any]])?.first)
     }
 
-    @Test("a caller's process_person_profile property or option beats the SDK's, a registered one doesn't")
+    @Test("registered and caller process_person_profile properties and options beat the SDK's")
     func processPersonProfilePrecedence() async throws {
         let sut = makeSDK(personProfiles: .never)
         defer { sut.close() }
@@ -558,7 +558,7 @@ final class PostHogCaptureV1OptionsTest {
         sut.register(["$process_person_profile": true])
         sent = try await captureAndSend(sut) { $0.capture("test") }
         sut.unregister("$process_person_profile")
-        #expect((sent["options"] as? [String: Any])?["process_person_profile"] as? Bool == false)
+        #expect((sent["options"] as? [String: Any])?["process_person_profile"] as? Bool == true)
 
         sent = try await captureAndSend(sut) {
             $0.capture("test", options: ["process_person_profile": true, "cookieless_mode": true])

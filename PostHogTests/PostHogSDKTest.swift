@@ -525,24 +525,6 @@ final class PostHogSDKTests {
             sut.close()
         }
 
-        @Test("SDK-computed debug keys win over a same-named registered super property")
-        func sdkComputedDebugKeysWinOverRegisteredSuperProperty() throws {
-            server.reset(batchCount: 1)
-            let sut = getSut()
-            sut.register(["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
-
-            sut.capture("test event")
-
-            let events = getBatchedEvents(server)
-            let props = try #require(events.first).properties
-            #expect(props["$recording_status"] as? String == "disabled")
-            let pendingQueueSize = try #require(props["$sdk_debug_pending_queue_size"] as? Int)
-            #expect(pendingQueueSize != -1)
-
-            sut.reset()
-            sut.close()
-        }
-
     #else
         @Test("reports disabled recording status with no replay keys on non-iOS platforms")
         func reportsDisabledRecordingStatusOnNonIOSPlatforms() throws {
@@ -1267,38 +1249,38 @@ final class PostHogSDKTests {
         sut.close()
     }
 
-    @Test("a caller $is_identified overrides the SDK's, a registered one doesn't")
-    func callerOverridesIsIdentified() throws {
+    @Test("a registered $is_identified overrides the SDK's, and a caller one overrides both")
+    func registeredAndCallerOverrideIsIdentified() throws {
         let sut = getSut(flushAt: 3)
 
         sut.identify("user")
-        sut.capture("caller", properties: ["$is_identified": false])
         sut.register(["$is_identified": false])
         sut.capture("registered")
+        sut.capture("caller", properties: ["$is_identified": true])
 
         let events = getBatchedEvents(server)
-        #expect(events.first { $0.event == "caller" }?.properties["$is_identified"] as? Bool == false)
-        #expect(events.first { $0.event == "registered" }?.properties["$is_identified"] as? Bool == true)
+        #expect(events.first { $0.event == "registered" }?.properties["$is_identified"] as? Bool == false)
+        #expect(events.first { $0.event == "caller" }?.properties["$is_identified"] as? Bool == true)
 
         sut.reset()
         sut.close()
     }
 
-    @Test("caller debug properties override the SDK's, registered ones don't")
-    func callerOverridesSdkDebugProperties() throws {
+    @Test("registered debug properties override the SDK's, and caller ones override both")
+    func registeredAndCallerOverrideSdkDebugProperties() throws {
         let sut = getSut(flushAt: 2)
 
-        sut.capture("caller", properties: ["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
-        sut.register(["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
+        sut.register(["$recording_status": "registered", "$sdk_debug_pending_queue_size": -1])
         sut.capture("registered")
+        sut.capture("caller", properties: ["$recording_status": "caller", "$sdk_debug_pending_queue_size": -2])
 
         let events = getBatchedEvents(server)
-        let caller = try #require(events.first { $0.event == "caller" })
-        #expect(caller.properties["$recording_status"] as? String == "bogus")
-        #expect(caller.properties["$sdk_debug_pending_queue_size"] as? Int == -1)
         let registered = try #require(events.first { $0.event == "registered" })
-        #expect(registered.properties["$recording_status"] as? String != "bogus")
-        #expect(registered.properties["$sdk_debug_pending_queue_size"] as? Int != -1)
+        #expect(registered.properties["$recording_status"] as? String == "registered")
+        #expect(registered.properties["$sdk_debug_pending_queue_size"] as? Int == -1)
+        let caller = try #require(events.first { $0.event == "caller" })
+        #expect(caller.properties["$recording_status"] as? String == "caller")
+        #expect(caller.properties["$sdk_debug_pending_queue_size"] as? Int == -2)
 
         sut.reset()
         sut.close()

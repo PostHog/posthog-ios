@@ -623,6 +623,16 @@ final class PostHogCaptureV1OptionsTest {
         #expect(events.last?.options["process_person_profile"] == nil)
     }
 
+    @Test("a blank distinctId argument uses the current distinct ID", arguments: ["", "  "])
+    func blankDistinctIdFallsBack(distinctId: String) async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+
+        let sent = try await captureAndSend(sut) { $0.capture("test", distinctId: distinctId) }
+
+        #expect(sent["distinct_id"] as? String == sut.getDistinctId())
+    }
+
     @Test("an event beforeSend returns again still gets a new UUID")
     func beforeSendReturningEarlierEventGetsNewUuid() async throws {
         var kept: PostHogEvent?

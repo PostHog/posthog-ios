@@ -13,7 +13,8 @@ You need to change something if your app does any of these:
 - sends events to a self-hosted PostHog or a reverse proxy that doesn't serve `/i/v1/analytics/events`
 - authenticates its proxy with an `Authorization` header in `requestHeaders`
 - sends events through a proxy that redirects capture requests, other than with a 307 or 308 to the same origin as `host`
-- captures events with an empty event name or distinct ID, or with either over 200 bytes
+- captures events with an empty event name, or with an event name or distinct ID over 200 bytes
+- sets an empty distinct ID in `beforeSend`
 - sets `$lib` or `$lib_version` and expects PostHog to store that value
 - reads `$session_id` or `$window_id` from the raw request body, for example in a proxy
 - sets `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` to a value PostHog can't read, such as `"maybe"`
@@ -54,7 +55,8 @@ The SDK doesn't check these before sending. PostHog drops the event, and the SDK
 With `debug` on, the SDK logs how many events were dropped.
 
 - An event with an empty event name is dropped, for example `capture("")`.
-- An event with an empty or whitespace-only distinct ID is dropped, for example `capture("signed_up", distinctId: "")`.
+- An event with an empty or whitespace-only distinct ID is dropped, for example one `beforeSend` sets to `""`.
+  An empty or whitespace-only `distinctId` argument isn't dropped: like `nil`, it uses the current distinct ID.
 - An event whose name is over 200 UTF-8 bytes is dropped. Legacy capture had no limit on event name length.
 - An event whose distinct ID is over 200 UTF-8 bytes is dropped. Legacy capture shortened the ID to 200 characters and kept the event.
 

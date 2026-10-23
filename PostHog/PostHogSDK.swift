@@ -1439,7 +1439,7 @@ let maxRetryDelay = 30.0
     ///
     /// - Parameters:
     ///   - event: Event name to capture.
-    ///   - distinctId: Optional distinct ID override. Defaults to the current SDK distinct ID.
+    ///   - distinctId: Optional distinct ID override. Defaults to the current SDK distinct ID when nil, empty or whitespace-only.
     ///   - properties: Event properties attached only to this event.
     ///   - userProperties: Person properties to set. Existing values are overwritten.
     ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
@@ -1465,7 +1465,7 @@ let maxRetryDelay = 30.0
     ///
     /// - Parameters:
     ///   - event: Event name to capture.
-    ///   - distinctId: Optional distinct ID override. Defaults to the current SDK distinct ID.
+    ///   - distinctId: Optional distinct ID override. Defaults to the current SDK distinct ID when nil, empty or whitespace-only.
     ///   - properties: Event properties attached only to this event.
     ///   - userProperties: Person properties to set. Existing values are overwritten.
     ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
@@ -1518,7 +1518,7 @@ let maxRetryDelay = 30.0
     ///
     /// - Parameters:
     ///   - event: Event name to capture.
-    ///   - distinctId: Optional distinct ID override. Defaults to the current SDK distinct ID.
+    ///   - distinctId: Optional distinct ID override. Defaults to the current SDK distinct ID when nil, empty or whitespace-only.
     ///   - properties: Event properties attached only to this event.
     ///   - userProperties: Person properties to set. Existing values are overwritten.
     ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
@@ -1726,7 +1726,8 @@ let maxRetryDelay = 30.0
 
         var isSnapshotEvent = event == "$snapshot"
         let eventTimestamp = timestamp ?? now()
-        let eventDistinctId = distinctId ?? getDistinctId()
+        // A blank distinct ID falls back to the current one, like nil, instead of PostHog dropping the event.
+        let eventDistinctId = distinctId.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? getDistinctId()
 
         // if the user isn't identified but passed userProperties, userPropertiesSetOnce or groups,
         // we should still enable person processing since this is intentional

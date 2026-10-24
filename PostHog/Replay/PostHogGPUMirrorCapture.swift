@@ -29,6 +29,8 @@
             private(set) var portalSources: [PostHogPortalSource]
             /// Every copy in the mirror, for masking them in place. Emptied by `freeze`.
             private(set) var copies: PostHogInlineMask.CopyMap
+            /// The window's copy, whose bounds are window coordinates; nil after `freeze`.
+            var rootCopy: CALayer? { stage == .built ? root : nil }
             private var stage = FrameStage.built
 
             fileprivate init(target: Target, root: CALayer, walk: Walk) {
@@ -169,6 +171,19 @@
             case known(toWindow: CGAffineTransform, visible: CGRect)
             /// Not modelled (a 3D, flipped or sublayer transform above, or inside a mask): nothing below is culled.
             case unknown
+
+            var isKnown: Bool {
+                if case .known = self { return true }
+                return false
+            }
+        }
+
+        /// What `place` found: whether the layer's own bounds reach the visible area, its bounds-to-window map (nil
+        /// when its transform isn't affine) and its sublayers' space.
+        private struct Placed {
+            let ownVisible: Bool
+            let toWindow: CGAffineTransform?
+            let children: Space
         }
 
         /// nil when the device has no Metal; callers keep the `drawHierarchy` path.
@@ -422,13 +437,16 @@
 
             var ownVisible = true
             var childSpace = rootChildSpace ?? .unknown
-            if case let .known(toWindow, visible) = parent {
-                guard let placed = place(geometry, info: info, parentToWindow: toWindow, visible: visible) else {
+            // The root's bounds are window coordinates.
+            var toWindow: CGAffineTransform? = childSpace.isKnown ? .identity : nil
+            if case let .known(parentToWindow, visible) = parent {
+                guard let placed = place(geometry, info: info, parentToWindow: parentToWindow, visible: visible) else {
                     walk.culled.insert(ObjectIdentifier(source))
                     return nil
                 }
                 childSpace = placed.children
                 ownVisible = placed.ownVisible
+                toWindow = placed.toWindow
             }
 
             if info.portal {
@@ -436,6 +454,7 @@
                 return mirrorPortal(source, presentation: presentation, info: info, walk: &walk)
             }
 
+            let firstCopy = walk.copies.count
             let children = mirrorChildren(of: source, info: info, space: childSpace, walk: &walk)
             if !ownVisible, children.isEmpty {
                 walk.culled.insert(ObjectIdentifier(source))
@@ -443,9 +462,20 @@
             }
 
             let presentation = (animating || !info.presentationSafe) ? geometry : (source.presentation() ?? source)
-            let copy = makeCopy(of: source, presentation: presentation, info: info, walk: &walk)
+            let placement = toWindow.map { PostHogInlineMask.Placement(toWindow: $0, hasPlainSublayers: childSpace.isKnown) }
+            let copy = makeCopy(of: source, presentation: presentation, info: info, placement: placement, walk: &walk)
             if !children.isEmpty { copy.sublayers = children }
+            // Placed from the model, copied from the presentation: where they differ (a change not yet committed),
+            // this subtree's copies don't sit where the placement says.
+            if placement != nil, presentation !== geometry, !Self.hasSameGeometry(presentation, geometry) {
+                walk.copies.forgetPlacements(from: firstCopy)
+            }
             return copy
+        }
+
+        private static func hasSameGeometry(_ lhs: CALayer, _ rhs: CALayer) -> Bool {
+            lhs.position == rhs.position && lhs.bounds == rhs.bounds && lhs.anchorPoint == rhs.anchorPoint
+                && CATransform3DEqualToTransform(lhs.transform, rhs.transform) && CATransform3DEqualToTransform(lhs.sublayerTransform, rhs.sublayerTransform)
         }
 
         private func mirrorChildren(of source: CALayer, info: ClassInfo, space: Space, walk: inout Walk) -> [CALayer] {
@@ -515,7 +545,9 @@
             }
         }
 
-        private func makeCopy(of source: CALayer, presentation: CALayer, info: ClassInfo, walk: inout Walk) -> CALayer {
+        private func makeCopy(of source: CALayer, presentation: CALayer, info: ClassInfo, placement: PostHogInlineMask.Placement? = nil,
+                              walk: inout Walk) -> CALayer
+        {
             // CARenderer drops a glass background's whole subtree, so it's copied as a plain layer without its filters.
             let glassBackground = info.copiesWithInitLayer && PostHogGlassStandIn.isGlassBackground(source)
             let copy = (info.copiesWithInitLayer && !glassBackground ? initLayerCopy(source) : nil) ?? plainCopy(presentation, kind: info.kind)
@@ -524,7 +556,7 @@
                 copiesMadeForTesting += 1
             #endif
             if walk.portalsInProgress.isEmpty, source.delegate is UIView { walk.viewCopies[ObjectIdentifier(source)] = copy }
-            walk.copies.record(copy, of: source)
+            walk.copies.record(copy, of: source, placement: placement)
             copyGeometry(from: presentation, source: source, to: copy)
             copyStyle(from: presentation, to: copy)
             copyContents(from: presentation, source: source, info: info, scale: walk.scale, to: copy)
@@ -556,9 +588,9 @@
         /// The layer's place in window coordinates. nil when its subtree is left out of the frame: it clips to a
         /// rect outside the visible area, or sits far outside it. Otherwise whether its own bounds reach the
         /// visible area, and the space its sublayers live in. Anything it can't model is kept, not culled.
-        private func place(_ layer: CALayer, info: ClassInfo, parentToWindow: CGAffineTransform, visible clip: CGRect) -> (ownVisible: Bool, children: Space)? {
+        private func place(_ layer: CALayer, info: ClassInfo, parentToWindow: CGAffineTransform, visible clip: CGRect) -> Placed? {
             guard CATransform3DIsAffine(layer.transform) else {
-                return (true, .unknown)
+                return Placed(ownVisible: true, toWindow: nil, children: .unknown)
             }
             let bounds = layer.bounds
             let anchor = layer.anchorPoint
@@ -582,9 +614,10 @@
             // Sublayers sit in bounds coordinates, then sublayerTransform and geometry flipping apply; culling
             // below stops rather than modelling either.
             guard CATransform3DIsIdentity(layer.sublayerTransform), !layer.isGeometryFlipped else {
-                return (reaches, .unknown)
+                return Placed(ownVisible: reaches, toWindow: toWindow, children: .unknown)
             }
-            return (reaches, .known(toWindow: toWindow, visible: layer.masksToBounds ? clip.intersection(frame) : clip))
+            let visibleToChildren = layer.masksToBounds ? clip.intersection(frame) : clip
+            return Placed(ownVisible: reaches, toWindow: toWindow, children: .known(toWindow: toWindow, visible: visibleToChildren))
         }
 
         /// The rect the layer draws its own pixels in (not its sublayers'), in its bounds coordinates, as the

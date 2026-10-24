@@ -1815,7 +1815,7 @@
             var regions: [MaskedRegion] = []
             findMaskableWidgets(under: source.view, in: window, &regions, [])
             if hasUnsettledReporter {
-                regions.append(MaskedRegion(source.view, rect: source.view.toPresentationRect(window), inlineEligible: false))
+                regions.append(MaskedRegion(source.view, rect: source.view.toPresentationRect(window), inline: .rectOnly))
             }
             guard let elsewhere = source.elsewhere else { return regions }
             let hasReporter = hasUnsettledReporter || reporters.contains { ($0.object as? UIView)?.isDescendant(of: source.view) == true }
@@ -1823,7 +1823,7 @@
                 return regions + regions.map { MaskedRegion($0.object, rect: $0.rect.applying(map)) }
             }
             if hasReporter || !regions.isEmpty {
-                regions.append(MaskedRegion(source.view, rect: elsewhere.portalRect, inlineEligible: false))
+                regions.append(MaskedRegion(source.view, rect: elsewhere.portalRect, inline: .rectOnly))
             }
             return regions
         }

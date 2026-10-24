@@ -3,8 +3,9 @@
     import UIKit
 
     /// Masks a GPU capture's mirror in place, between the mask walk and `freeze`: text as `*`, drawn off main (bars
-    /// until drawn), images blurred, any other content black. `postHogMask()` reporters, whole-portal regions and
-    /// objects with no copy go to the rect pass. Main thread.
+    /// until drawn), images blurred, any other content black. A `postHogMask()` reporter masks its SwiftUI host's
+    /// content under its extent the same way. Whatever can't be placed, whole portals and objects with no copy use the
+    /// rect pass. Main thread.
     final class PostHogInlineMask {
         /// How copies of a class are redacted, before the instance it applies to is known.
         enum Tag {
@@ -48,6 +49,21 @@
                 }
             }
 
+            /// Text inputs, whose caret and selection are chrome that gives away glyph widths.
+            var isTextInput: Bool {
+                switch self {
+                case .textField, .textView: return true
+                case .label, .unreadableText, .image, .opaque, .container: return false
+                }
+            }
+
+            /// Text inputs and opaque views are replaced whole, since a cover would show their caret, selection or
+            /// subviews around it.
+            var allowsCover: Bool {
+                if case .opaque = self { return false }
+                return !isTextInput
+            }
+
             /// Images keep their shared contents for the blur; everything else loses them.
             var keepsContents: Bool {
                 if case .image = self { return true }
@@ -80,7 +96,7 @@
         /// Every copy a mirror made, with its source, in build order. One source can have several copies: where it
         /// sits and under each portal that shows it.
         struct CopyMap {
-            private var pairs: [(source: CALayer, copy: CALayer)] = []
+            private var pairs: [CopyMapEntry] = []
 
             var count: Int { pairs.count }
 
@@ -88,32 +104,58 @@
                 pairs.reserveCapacity(capacity)
             }
 
-            mutating func record(_ copy: CALayer, of source: CALayer) {
-                pairs.append((source, copy))
+            mutating func record(_ copy: CALayer, of source: CALayer, placement: Placement?) {
+                pairs.append(CopyMapEntry(source: source, copy: copy, placement: placement))
             }
 
-            fileprivate func index() -> CopyIndex {
+            /// Drops the placement of every copy recorded from `index` on.
+            mutating func forgetPlacements(from index: Int) {
+                for position in index ..< pairs.count {
+                    pairs[position].placement = nil
+                }
+            }
+
+            func index() -> CopyIndex {
                 var index = CopyIndex()
                 index.bySource.reserveCapacity(pairs.count)
-                index.sources.reserveCapacity(pairs.count)
-                for (source, copy) in pairs {
-                    index.bySource[ObjectIdentifier(source), default: []].append(copy)
-                    index.sources[ObjectIdentifier(copy)] = source
+                index.byCopy.reserveCapacity(pairs.count)
+                for entry in pairs {
+                    index.bySource[ObjectIdentifier(entry.source), default: []].append(entry.copy)
+                    index.byCopy[ObjectIdentifier(entry.copy)] = (entry.source, entry.placement)
                 }
                 return index
             }
         }
 
-        fileprivate struct CopyIndex {
-            var bySource: [ObjectIdentifier: [CALayer]] = [:]
-            var sources: [ObjectIdentifier: CALayer] = [:]
+        fileprivate struct CopyMapEntry {
+            let source: CALayer
+            let copy: CALayer
+            var placement: Placement?
+        }
+
+        /// Where the mirror placed a copy, as it culled: from its bounds to the window (the root copy's bounds).
+        struct Placement {
+            let toWindow: CGAffineTransform
+            /// Whether its sublayers sit in its bounds unchanged (no sublayer transform, not flipped).
+            let hasPlainSublayers: Bool
+        }
+
+        struct CopyIndex {
+            fileprivate var bySource: [ObjectIdentifier: [CALayer]] = [:]
+            fileprivate var byCopy: [ObjectIdentifier: (source: CALayer, placement: Placement?)] = [:]
 
             func copies(of source: CALayer) -> [CALayer] {
                 bySource[ObjectIdentifier(source)] ?? []
             }
 
             func source(of copy: CALayer) -> CALayer? {
-                sources[ObjectIdentifier(copy)]
+                byCopy[ObjectIdentifier(copy)]?.source
+            }
+
+            /// nil for a copy the mirror couldn't place (3D or flipped geometry above it, or through a portal), and for
+            /// layers it added that aren't copies.
+            func placement(of copy: CALayer) -> Placement? {
+                byCopy[ObjectIdentifier(copy)]?.placement ?? nil
             }
         }
 
@@ -134,6 +176,8 @@
         var textBudget: CFTimeInterval = 0.001
 
         private var tags: [ClassPair: Tag] = [:]
+        /// Per-class cache for `extentHost(of:)`.
+        var hostingClasses: [ObjectIdentifier: Bool] = [:]
 
         /// `*` bitmaps by signature, drawn on `drawQueue`; guarded by `lock`, as is `drawnOrder`, oldest first.
         private var entries: [TextSignature: TextEntry] = [:]
@@ -171,8 +215,21 @@
             private(set) var textCacheHitsForTesting = 0
             private(set) var textBarsForTesting = 0
             private(set) var lastInlineRegionCountForTesting = 0
+            struct ExtentStatsForTesting {
+                /// Extents masked inline in the last capture, and how many ignored paint order.
+                var count = 0
+                var unordered = 0
+                /// Copies partly under an extent that were replaced whole.
+                var replaced = 0
+                /// Main-thread time spent on extents.
+                var milliseconds: Double = 0
+            }
+
+            var extentStatsForTesting = ExtentStatsForTesting()
             /// Off leaves every region to the rect pass.
             var isEnabledForTesting = true
+            /// Off leaves reporter extents to the rect pass.
+            var isExtentEnabledForTesting = true
 
             var textDrawsForTesting: Int {
                 lock.withLock { drawsForTesting }
@@ -228,6 +285,7 @@
         {
             #if TESTING
                 lastInlineRegionCountForTesting = 0
+                extentStatsForTesting = .init()
                 guard isEnabledForTesting else { return regions }
             #endif
             guard !regions.isEmpty else { return regions }
@@ -236,15 +294,23 @@
             defer { CATransaction.commit() }
             let remaining = withoutActuallyEscaping(tag) { tag in
                 withoutActuallyEscaping(isBackdrop) { isBackdrop in
-                    var pass = Pass(mask: self, index: frame.copies.index(), portals: PortalIndex(frame.portalSources), scale: frame.scale, tag: tag,
-                                    isBackdrop: isBackdrop)
+                    var pass = Pass(mask: self, index: frame.copies.index(), portals: PortalIndex(frame.portalSources), scale: frame.scale,
+                                    root: frame.rootCopy, tag: tag, isBackdrop: isBackdrop)
                     var handled: [ObjectIdentifier: Bool] = [:]
-                    return regions.filter { region in
-                        guard region.inlineEligible else { return true }
+                    var inline = Set(regions.indices.filter { index in
+                        let region = regions[index]
+                        guard region.inline == .owned else { return false }
                         let owns = handled[region.owner] ?? pass.redact(region.object)
                         handled[region.owner] = owns
-                        return !owns
-                    }
+                        return owns
+                    })
+                    #if TESTING
+                        let extentStart = CACurrentMediaTime()
+                        defer { extentStatsForTesting.milliseconds = (CACurrentMediaTime() - extentStart) * 1000 }
+                    #endif
+                    // After the owned regions, so what they masked is left as it is.
+                    inline.formUnion(pass.redactExtents(regions))
+                    return regions.enumerated().filter { !inline.contains($0.offset) }.map(\.element)
                 }
             }
             #if TESTING
@@ -267,7 +333,7 @@
 
         /// The frame's portal sources, each with the layers above it, so finding the ones under a masked object costs a
         /// set lookup per source.
-        private struct PortalIndex {
+        fileprivate struct PortalIndex {
             private var sources: [(layer: CALayer, ancestors: Set<ObjectIdentifier>)] = []
 
             init(_ portalSources: [PostHogPortalSource]) {
@@ -288,16 +354,17 @@
             }
         }
 
-        private struct Pass {
+        struct Pass {
             let mask: PostHogInlineMask
             let index: CopyIndex
-            let portals: PortalIndex
+            fileprivate let portals: PortalIndex
             let scale: CGFloat
+            let root: CALayer?
             let tag: (AnyClass?, AnyClass) -> Tag
             let isBackdrop: (CALayer) -> Bool
             var visited: Set<ObjectIdentifier> = []
-            var signatures: [ObjectIdentifier: TextSignature?] = [:]
-            var spent: CFTimeInterval = 0
+            fileprivate var signatures: [ObjectIdentifier: TextSignature?] = [:]
+            fileprivate var spent: CFTimeInterval = 0
 
             /// Redacts every copy of `object`, and every copy of a portal source under it (a portal draws those
             /// outside the object's own copies). False when it has no copy, so its pixels aren't the mirror's to mask.
@@ -322,17 +389,36 @@
             }
 
             private mutating func redactTree(_ copy: CALayer, source: CALayer?, kind known: Kind?) {
-                guard visited.insert(ObjectIdentifier(copy)).inserted else { return }
-                let kind = known ?? source.map { mask.kind(of: $0, tag: tag) } ?? .container
+                guard !visited.contains(ObjectIdentifier(copy)) else { return }
+                guard !redactOwnContent(copy, source: source, as: known ?? kind(of: copy, source: source)) else { return }
+                for sublayer in copy.sublayers ?? [] {
+                    redactTree(sublayer, source: index.source(of: sublayer), kind: nil)
+                }
+            }
+
+            /// How a copy is redacted: text layers, whose strings aren't read, are `*` rows; anything else by its source.
+            func kind(of copy: CALayer, source: CALayer?) -> Kind {
+                if copy is CATextLayer {
+                    return .unreadableText(source.flatMap(PostHogGlassStandIn.nearestView)?.traitCollection ?? UITraitCollection.current)
+                }
+                return source.map { mask.kind(of: $0, tag: tag) } ?? .container
+            }
+
+            /// Redacts one copy's own content as `kind`, or fills it black when `replacingWhole`, and marks it done.
+            /// Whether its sublayers were hidden, as kinds that replace their subtree do.
+            mutating func redactOwnContent(_ copy: CALayer, source: CALayer?, as kind: Kind, replacingWhole: Bool = false) -> Bool {
+                visited.insert(ObjectIdentifier(copy))
                 if kind.dropsDescendants {
                     // Before the redaction, which can add bars of its own.
                     copy.sublayers?.forEach { $0.isHidden = true }
                 }
-                redactCopy(copy, source: source, as: kind)
-                guard !kind.dropsDescendants else { return }
-                for sublayer in copy.sublayers ?? [] {
-                    redactTree(sublayer, source: index.source(of: sublayer), kind: nil)
+                if replacingWhole {
+                    _ = PostHogInlineMask.stripContent(copy, keepingContents: false)
+                    PostHogInlineMask.fillBlack(copy)
+                } else {
+                    redactCopy(copy, source: source, as: kind)
                 }
+                return kind.dropsDescendants
             }
 
             /// Redacts one copy's own content in place.

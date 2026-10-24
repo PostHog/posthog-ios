@@ -3,9 +3,9 @@
     import UIKit
 
     /// Masks a GPU capture's mirror in place, between the mask walk and `freeze`: text as `*`, drawn off main (bars
-    /// until drawn), images blurred, any other content black. A `postHogMask()` reporter masks its SwiftUI host's
-    /// content under its extent the same way. Whatever can't be placed, whole portals and objects with no copy use the
-    /// rect pass. Main thread.
+    /// until drawn), images blurred, any other content black. A `postHogMask()` reporter masks everything painted under
+    /// its extent before it: content the same way, chrome black. Whatever can't be placed, whole portals and objects
+    /// with no copy use the rect pass. Main thread.
     final class PostHogInlineMask {
         /// How copies of a class are redacted, before the instance it applies to is known.
         enum Tag {
@@ -144,6 +144,8 @@
             fileprivate var bySource: [ObjectIdentifier: [CALayer]] = [:]
             fileprivate var byCopy: [ObjectIdentifier: (source: CALayer, placement: Placement?)] = [:]
 
+            var count: Int { byCopy.count }
+
             func copies(of source: CALayer) -> [CALayer] {
                 bySource[ObjectIdentifier(source)] ?? []
             }
@@ -176,8 +178,6 @@
         var textBudget: CFTimeInterval = 0.001
 
         private var tags: [ClassPair: Tag] = [:]
-        /// Per-class cache for `extentHost(of:)`.
-        var hostingClasses: [ObjectIdentifier: Bool] = [:]
 
         /// `*` bitmaps by signature, drawn on `drawQueue`; guarded by `lock`, as is `drawnOrder`, oldest first.
         private var entries: [TextSignature: TextEntry] = [:]
@@ -413,8 +413,7 @@
                     copy.sublayers?.forEach { $0.isHidden = true }
                 }
                 if replacingWhole {
-                    _ = PostHogInlineMask.stripContent(copy, keepingContents: false)
-                    PostHogInlineMask.fillBlack(copy)
+                    PostHogInlineMask.blackOut(copy, [.content, .fill])
                 } else {
                     redactCopy(copy, source: source, as: kind)
                 }
@@ -431,9 +430,9 @@
                 let hadContent = PostHogInlineMask.stripContent(copy, keepingContents: kind.keepsContents)
                 switch kind {
                 case .container:
-                    if hadContent { PostHogInlineMask.fillBlack(copy) }
+                    if hadContent { PostHogInlineMask.blackOut(copy, .fill) }
                 case .opaque:
-                    PostHogInlineMask.fillBlack(copy)
+                    PostHogInlineMask.blackOut(copy, .fill)
                 case .image:
                     redactImage(copy, hadContent: hadContent)
                 case .unreadableText:
@@ -448,7 +447,7 @@
             private func redactImage(_ copy: CALayer, hadContent: Bool) {
                 guard hadContent else { return }
                 if mask.imageBlur != .verified || !PostHogInlineMask.applyBlur(to: copy) {
-                    PostHogInlineMask.fillBlack(copy)
+                    PostHogInlineMask.blackOut(copy, .fill)
                 }
             }
 
@@ -465,7 +464,7 @@
                     PostHogInlineMask.setContents(image, on: copy, scale: scale)
                     return
                 case .empty?:
-                    if fallbackToBlack { PostHogInlineMask.fillBlack(copy) }
+                    if fallbackToBlack { PostHogInlineMask.blackOut(copy, .fill) }
                     return
                 case .drawing?:
                     break
@@ -476,7 +475,7 @@
                     spent += CACurrentMediaTime() - start
                     guard let text else {
                         mask.recordEmpty(signature)
-                        if fallbackToBlack { PostHogInlineMask.fillBlack(copy) }
+                        if fallbackToBlack { PostHogInlineMask.blackOut(copy, .fill) }
                         return
                     }
                     mask.enqueue(text, for: signature, scale: scale)
@@ -492,7 +491,7 @@
 
         /// Removes everything the copy draws besides chrome: contents (unless kept for the blur), shape paths, text,
         /// shadows, filters, compositing and masks (a mask can be glyph-shaped). Whether it drew content of its own.
-        private static func stripContent(_ copy: CALayer, keepingContents: Bool) -> Bool {
+        static func stripContent(_ copy: CALayer, keepingContents: Bool) -> Bool {
             var hadContent = copy.contents != nil
             if hadContent, !keepingContents { copy.contents = nil }
             if let shape = copy as? CAShapeLayer, shape.path != nil {
@@ -511,9 +510,41 @@
             return hadContent
         }
 
-        private static func fillBlack(_ copy: CALayer) {
-            copy.contents = nil
-            copy.backgroundColor = UIColor.black.cgColor
+        /// What `blackOut` turns black.
+        struct BlackOut: OptionSet {
+            let rawValue: Int
+            /// Content, filters, blends and masks removed first (`stripContent`), so nothing can tint or spread the black.
+            static let content = BlackOut(rawValue: 1 << 0)
+            /// The whole bounds black, contents dropped.
+            static let fill = BlackOut(rawValue: 1 << 1)
+            /// Visible background and gradient colours black, the shape kept.
+            static let colors = BlackOut(rawValue: 1 << 2)
+            /// Border black and shadow off: Core Animation draws both past anything placed under the sublayers.
+            static let edges = BlackOut(rawValue: 1 << 3)
+        }
+
+        static let black = UIColor.black.cgColor
+
+        static func blackOut(_ copy: CALayer, _ parts: BlackOut) {
+            if parts.contains(.content) { _ = stripContent(copy, keepingContents: false) }
+            if parts.contains(.fill) {
+                copy.contents = nil
+                copy.backgroundColor = black
+            }
+            if parts.contains(.colors) {
+                if isVisible(copy.backgroundColor) { copy.backgroundColor = black }
+                if let gradient = copy as? CAGradientLayer, let colors = gradient.colors, !colors.isEmpty {
+                    gradient.colors = colors.map { _ in black }
+                }
+            }
+            if parts.contains(.edges) {
+                if copy.borderWidth > 0 { copy.borderColor = black }
+                if copy.shadowOpacity != 0 { copy.shadowOpacity = 0 }
+            }
+        }
+
+        static func isVisible(_ color: CGColor?) -> Bool {
+            color.map { $0.alpha > 0 } ?? false
         }
 
         private static func setContents(_ image: CGImage, on copy: CALayer, scale: CGFloat) {

@@ -296,8 +296,8 @@
             #expect(pixels.count(where: { $0.red > 150 && $0.green < 120 && $0.blue > 150 }) == 0)
         }
 
-        @Test("Masks the walk doesn't make are unchanged: ph-no-mask stays visible, postHogMask reporters stay rects")
-        func noMaskAndReportersAreUnchanged() async throws {
+        @Test("ph-no-mask stays visible, and a postHogMask reporter's extent is masked in the mirror instead of as a rect")
+        func noMaskStaysVisibleAndReportersMaskInline() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
             let visible = secretLabel(CGRect(x: 10, y: 20, width: 180, height: 40))
@@ -309,9 +309,12 @@
             fixture.window.layoutIfNeeded()
 
             let result = try await capture(fixture)
-            #expect(result.inlineRegionCount == 0)
-            #expect(result.rectRegions == [reporter.frame])
-            #expect(try Pixels(result.image).count(in: visible.frame, where: Self.isMagenta) > 50)
+            #expect(result.inlineRegionCount == 1)
+            #expect(result.rectRegions.isEmpty)
+            let pixels = try Pixels(result.image)
+            #expect(pixels.count(in: visible.frame, where: Self.isMagenta) > 50)
+            // The window's white background under the extent.
+            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 100 * 60)
         }
 
         // MARK: - Portals

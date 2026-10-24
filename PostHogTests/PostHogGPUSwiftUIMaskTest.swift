@@ -33,6 +33,20 @@
         }
     }
 
+    /// A magenta UIKit view with a magenta layer border: colour with no content.
+    private struct ColorBox: UIViewRepresentable {
+        func makeUIView(context _: Context) -> UIView {
+            let view = UIView()
+            view.backgroundColor = .magenta
+            view.layer.borderWidth = 4
+            view.layer.borderColor = UIColor.magenta.cgColor
+            view.layer.cornerRadius = 6
+            return view
+        }
+
+        func updateUIView(_: UIView, context _: Context) {}
+    }
+
     private struct ImageViewRepresentable: UIViewRepresentable {
         let image: UIImage
 
@@ -58,8 +72,8 @@
             .background(RoundedRectangle(cornerRadius: 12).fill(yellow))
     }
 
-    /// `postHogMask()` on the GPU path: content under a reporter's extent is masked in the mirror, chrome kept. Magenta
-    /// pixel tests, rect pass included.
+    /// `postHogMask()` on the GPU path: everything painted under a reporter's extent before it is masked in the mirror,
+    /// chrome included. Magenta pixel tests, rect pass included.
     @Suite("Replay GPU SwiftUI masking", .serialized)
     @MainActor
     struct PostHogGPUSwiftUIMaskTest: GPUCaptureTesting {
@@ -75,9 +89,9 @@
             return fixture
         }
 
-        private func show(_ content: some View, in fixture: GPUCaptureFixture) async {
+        private func show(_ content: some View, in fixture: GPUCaptureFixture, background: UIColor = .white) async {
             let controller = UIHostingController(rootView: content)
-            controller.view.backgroundColor = .white
+            controller.view.backgroundColor = background
             fixture.window.rootViewController = controller
             fixture.window.layoutIfNeeded()
             // SwiftUI lays out and draws over the next few turns, and reporters must finish their first layout.
@@ -85,13 +99,27 @@
             fixture.window.layoutIfNeeded()
         }
 
-        /// The masked frame once `*` are drawn, with nothing left to the rect pass and no magenta, and the first
-        /// reporter's extent.
-        private func captureMasked(_ fixture: GPUCaptureFixture,
+        /// The masked frame once `*` are drawn, and the first reporter's extent. Both that frame and the first (text as
+        /// bars) leave nothing to the rect pass, replace no copy whole, and show no magenta: anywhere, or only inside the
+        /// extent when `insideExtentOnly`.
+        private func captureMasked(_ fixture: GPUCaptureFixture, insideExtentOnly: Bool = false,
                                    sourceLocation: SourceLocation = #_sourceLocation) async throws -> (pixels: Pixels, extent: CGRect)
         {
-            let pixels = try await expectFullyMasked(captureStars(fixture), sourceLocation: sourceLocation)
-            return (pixels, try #require(reporterRects(in: fixture.window).first, sourceLocation: sourceLocation))
+            let extent = try #require(reporterRects(in: fixture.window).first, sourceLocation: sourceLocation)
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            var pixels: Pixels?
+            for drawn in [false, true] {
+                if drawn { fixture.mask.waitForTextDrawsForTesting() }
+                let result = try await capture(fixture)
+                let frame = try Pixels(result.image)
+                #expect(result.rectRegions.isEmpty, "regions left to the rect pass", sourceLocation: sourceLocation)
+                #expect(fixture.mask.extentStatsForTesting.replaced == 0, "copies replaced whole", sourceLocation: sourceLocation)
+                #expect(frame.count(in: insideExtentOnly ? extent : nil, where: Self.isMagenta) == 0, "source pixels left",
+                        sourceLocation: sourceLocation)
+                pixels = frame
+            }
+            return (try #require(pixels), extent)
         }
 
         private func reporters(in window: UIWindow) -> [PostHogMaskReporterUIView] {
@@ -118,6 +146,7 @@
         private static let isGreen = near(.green, within: 75)
         private static let isYellow = near(RGBA(red: 255, green: 255, blue: 0, alpha: 255), within: 25)
         private static let isWhite = near(.white, within: 25)
+        private static let isGroupedBackground = near(RGBA(red: 242, green: 242, blue: 247, alpha: 255), within: 4)
 
         /// Control frame with reporters off: proves the masked content rendered, so the masking tests can't pass on
         /// nothing.
@@ -180,13 +209,13 @@
             #expect(fixture.mask.extentStatsForTesting.replaced == 0)
             #expect(pixels.count(in: extent, where: Self.isStar) > 30)
             #expect(pixels.count(where: Self.isGreen) > 50)
-            // Not the rect pass's black block.
-            #expect(pixels.count(in: extent, where: Self.isBlack) < Int(extent.width * extent.height) / 4)
+            // The host's white background under the extent is masked too.
+            #expect(pixels.count(in: extent, where: Self.isWhite) == 0)
         }
 
         @available(iOS 14.0, *)
-        @Test("S2: a masked card keeps its background and corners while its text is masked and its photo blurred")
-        func maskedCardKeepsChrome() async throws {
+        @Test("S2: a masked card's background is black, its text `*` and its photo blurred")
+        func maskedCardMasksChrome() async throws {
             let fixture = try await makeSwiftUIFixture()
             defer { fixture.close() }
             let frames = FrameStore()
@@ -206,14 +235,11 @@
             #expect(pixels.maxNeighbourStep(in: icon) <= 12)
             let middle = pixels[Int(icon.midX), Int(icon.midY)]
             #expect(middle.red > 60 && middle.green < 40 && middle.blue > 60, "\(middle)")
-            // The card's background is chrome: most of the card is still yellow.
-            #expect(pixels.count(in: extent, where: Self.isYellow) > Int(extent.width * extent.height) / 2)
+            #expect(pixels.count(in: extent, where: Self.isYellow) == 0)
             #expect(pixels.count(in: extent, where: Self.isStar) > 30)
-            // Its rounded corners stay outside the card's yellow.
-            #expect(!Self.isYellow(pixels[Int(extent.minX) + 1, Int(extent.minY) + 1]))
         }
 
-        @Test("S2 with the walk's own masking on: the card is masked once, chrome kept, nothing left to the rect pass")
+        @Test("S2 with the walk's own masking on: the card is masked, background included, nothing left to the rect pass")
         func maskedCardWithAutoMasking() async throws {
             let fixture = try await makeSwiftUIFixture()
             defer { fixture.close() }
@@ -226,14 +252,11 @@
             }.postHogMask(), in: fixture)
 
             let (pixels, extent) = try await captureMasked(fixture)
-            // Before iOS 26 the walk masks the card's shape view itself, as on the default path.
-            if #available(iOS 26.0, *) {
-                #expect(pixels.count(in: extent, where: Self.isYellow) > Int(extent.width * extent.height) / 2)
-            }
+            #expect(pixels.count(in: extent, where: Self.isYellow) == 0)
         }
 
-        @Test("S3: a masked List row is masked inside its cell's host, and the row background stays")
-        func maskedListRowKeepsBackground() async throws {
+        @Test("S3: a masked List row is masked with its row background, and the list outside it is untouched")
+        func maskedListRow() async throws {
             let fixture = try await makeSwiftUIFixture()
             defer { fixture.close() }
             let checker = try checkerboard(CGSize(width: 32, height: 32))
@@ -255,8 +278,10 @@
             try expectPlacementsAgree(fixture)
 
             let (pixels, extent) = try await captureMasked(fixture)
-            #expect(pixels.count(in: extent, where: Self.isYellow) > 100)
+            #expect(pixels.count(in: extent, where: Self.isYellow) == 0)
+            #expect(pixels.count(where: Self.isYellow) > 100, "the row background outside the extent")
             #expect(pixels.count(where: Self.isGreen) > 100)
+            #expect(pixels.count(where: Self.isGroupedBackground) > 1000, "the list background")
         }
 
         @Test("A copy whose geometry has an uncommitted change keeps no recorded placement: the copy sits where it was committed")
@@ -274,6 +299,69 @@
             let copies = try expectPlacementsAgree(fixture)
             let copy = try #require(copies.copies(of: moved).first)
             #expect(copies.placement(of: copy) == nil)
+        }
+
+        @Test("Colour without content inside an extent is black: a filled Circle, a rounded background and a bordered view")
+        func colorOnlyLayersInsideAreBlack() async throws {
+            let fixture = try await makeSwiftUIFixture()
+            defer { fixture.close() }
+            await show(VStack(spacing: 12) {
+                Circle().fill(magenta).frame(width: 40, height: 40)
+                Color.clear.frame(width: 80, height: 30).background(magenta).cornerRadius(8)
+                ColorBox().frame(width: 60, height: 30)
+            }.padding().postHogMask(), in: fixture)
+            try await expectVisibleUnmasked(fixture, minimum: 1000)
+
+            let (pixels, extent) = try await captureMasked(fixture)
+            #expect(pixels.count(in: extent, where: Self.isBlack) > Int(extent.width * extent.height) / 2)
+        }
+
+        @available(iOS 14.0, *)
+        @Test("A coloured, bordered view partly under an extent is covered over it, border included, and keeps its colour outside it")
+        func colorLayerPartlyInsideIsCovered() async throws {
+            let fixture = try await makeSwiftUIFixture()
+            defer { fixture.close() }
+            let frames = FrameStore()
+            await show(ZStack {
+                ColorBox().frame(width: 160, height: 100).frameTag("box", frames)
+                Color.clear.frame(width: 80, height: 60).postHogMask().offset(x: 80)
+            }, in: fixture)
+            let box = try #require(frames.frames["box"])
+            let extent = try #require(reporterRects(in: fixture.window).first)
+            // Over the box's right border and past it.
+            try #require(extent.minX < box.maxX - 4 && extent.maxX > box.maxX, "\(extent) vs \(box)")
+            try await expectVisibleUnmasked(fixture, minimum: 1000)
+
+            let (pixels, _) = try await captureMasked(fixture, insideExtentOnly: true)
+            #expect(pixels.count(where: Self.isMagenta) > 4000, "covered, not replaced whole")
+        }
+
+        @Test("UIKit views painted after the reporter stay visible over its extent, those painted before it are masked")
+        func otherViewsFollowPaintOrder() async throws {
+            let fixture = try await makeSwiftUIFixture()
+            defer { fixture.close() }
+            await show(boldText("Secret name", size: 28, color: green).postHogMask(), in: fixture, background: .clear)
+            let extent = try #require(reporterRects(in: fixture.window).first)
+            // Under the hosting view's container, so painted before the reporter, and wider than the extent.
+            let below = UIView(frame: extent.insetBy(dx: -30, dy: -10))
+            below.backgroundColor = .magenta
+            fixture.window.insertSubview(below, at: 0)
+            // Over it: a UIKit view, and a second SwiftUI host.
+            let above = UIView(frame: CGRect(x: extent.minX + 4, y: extent.minY + 4, width: 30, height: extent.height - 8))
+            above.backgroundColor = .blue
+            let sibling = UIHostingController(rootView: Color(red: 1, green: 1, blue: 0))
+            sibling.view.frame = CGRect(x: extent.maxX - 34, y: extent.minY + 4, width: 30, height: extent.height - 8)
+            fixture.window.addSubview(above)
+            fixture.window.addSubview(sibling.view)
+            try await expectVisibleUnmasked(fixture, minimum: 500)
+
+            let (pixels, _) = try await captureMasked(fixture, insideExtentOnly: true)
+            #expect(fixture.mask.extentStatsForTesting.unordered == 0)
+            #expect(pixels.count(where: Self.isMagenta) > 500, "covered over the extent, not replaced whole")
+            for (view, isColor) in [(above, Self.near(.blue, within: 25)), (sibling.view!, Self.isYellow)] {
+                let area = view.frame.insetBy(dx: 1, dy: 1).integral
+                #expect(pixels.count(in: area, where: isColor) > Int(area.width * area.height * 0.9))
+            }
         }
 
         @Test("S4: a masked TextField's text is `*`, with no rect left")
@@ -393,22 +481,17 @@
 
         // MARK: - Fallbacks and the default path
 
-        @Test("A reporter outside any SwiftUI host can't be scoped: it stays a rect, painted black")
-        func unscopedReporterStaysRect() async throws {
+        @Test("A reporter with no copy in the mirror (left out as far off screen) keeps its rect")
+        func uncopiedReporterStaysRect() async throws {
             let fixture = try await makeSwiftUIFixture()
             defer { fixture.close() }
-            let content = UIView(frame: CGRect(x: 30, y: 50, width: 140, height: 60))
-            content.layer.contents = try magentaContents(content.bounds.size)
-            // Larger than the content: the rect pass rounds its corners.
-            let reporter = PostHogMaskReporterUIView(frame: content.frame.insetBy(dx: -10, dy: -10))
-            fixture.window.addSubview(content)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 1200, y: 50, width: 100, height: 60))
             fixture.window.addSubview(reporter)
             fixture.window.layoutIfNeeded()
 
             let result = try await capture(fixture)
             #expect(result.rectRegions == [reporter.frame])
             #expect(fixture.mask.extentStatsForTesting.count == 0)
-            #expect(try Pixels(result.image).count(where: Self.isMagenta) == 0)
         }
 
         @Test("With GPU capture off, a masked card is still one black rect and no mirror is built")

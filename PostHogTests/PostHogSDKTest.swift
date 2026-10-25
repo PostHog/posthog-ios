@@ -1235,6 +1235,30 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("per-call userProperties, userPropertiesSetOnce and groups, and group() groups, win over registered ones")
+    func perCallTypedValuesWinOverRegistered() throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.group(type: "project", key: "stored")
+        sut.register([
+            "$set": ["plan": "registered"],
+            "$set_once": ["source": "registered"],
+            "$groups": ["company": "registered", "team": "registered"],
+        ])
+        sut.capture("event",
+                    userProperties: ["plan": "caller"],
+                    userPropertiesSetOnce: ["source": "caller"],
+                    groups: ["company": "caller"])
+
+        let event = try #require(getBatchedEvents(server).first { $0.event == "event" })
+        #expect(event.properties["$set"] as? [String: String] == ["plan": "caller"])
+        #expect(event.properties["$set_once"] as? [String: String] == ["source": "caller"])
+        #expect(event.properties["$groups"] as? [String: String] == ["project": "stored", "company": "caller"])
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("blank or non-string caller $session_id keeps the SDK session", arguments: ["", "  ", 1] as [AnyHashable])
     func invalidCallerSessionIdKeepsSdkSession(sessionId: AnyHashable) throws {
         let sut = getSut()

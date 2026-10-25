@@ -567,14 +567,6 @@ let maxRetryDelay = 30.0
     private func dynamicContext() -> [String: Any] {
         var properties: [String: Any] = [:]
 
-        var groups: [String: String]?
-        groupsLock.withLock {
-            groups = getGroups()
-        }
-        if groups != nil, !groups!.isEmpty {
-            properties["$groups"] = groups!
-        }
-
         guard let flags = remoteConfig?.getFeatureFlags() as? [String: Any] else {
             return properties
         }
@@ -738,18 +730,6 @@ let maxRetryDelay = 30.0
                 props = props.merging(dynamicCtx ?? [:]) { current, _ in current }
             }
             props = props.merging(localDynamicCtx) { current, _ in current }
-            if userProperties != nil {
-                props["$set"] = (userProperties ?? [:])
-            }
-            if userPropertiesSetOnce != nil {
-                props["$set_once"] = (userPropertiesSetOnce ?? [:])
-            }
-            if groups != nil {
-                // $groups are also set via the dynamicContext
-                let currentGroups = props["$groups"] as? [String: String] ?? [:]
-                let mergedGroups = currentGroups.merging(groups ?? [:]) { _, new in new }
-                props["$groups"] = mergedGroups
-            }
 
             // Only stamp if the caller didn't supply a non-empty value. Whitespace-only
             // caller values are treated as absent (almost always accidental).
@@ -837,6 +817,22 @@ let maxRetryDelay = 30.0
         // Registered super properties win over everything the SDK set above.
         if appendSharedProps {
             props.merge(getRegisteredProperties()) { _, new in new }
+
+            // Per-call values, and groups set with `group()`, win over registered ones.
+            if userProperties != nil {
+                props["$set"] = (userProperties ?? [:])
+            }
+            if userPropertiesSetOnce != nil {
+                props["$set_once"] = (userPropertiesSetOnce ?? [:])
+            }
+            var mergedGroups: [String: String] = [:]
+            groupsLock.withLock {
+                mergedGroups = getGroups()
+            }
+            mergedGroups.merge(groups ?? [:]) { _, new in new }
+            if !mergedGroups.isEmpty {
+                props["$groups"] = mergedGroups
+            }
         }
 
         // Caller-supplied properties win over registered super properties and SDK-set values.

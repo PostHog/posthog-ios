@@ -88,6 +88,9 @@ An event's properties are merged in this order, and later values win:
 3. the properties you pass to `capture` or another event-sending method
 4. `beforeSend`
 
+Per-call `userProperties` and `userPropertiesSetOnce` are applied between steps 2 and 3, so they win over a registered `$set` or `$set_once`, as in 3.x.
+Groups set with `group()` and per-call `groups` are applied there too, and replace a registered `$groups`.
+
 In 3.x, the SDK's own values won over super properties, and `$is_identified`, `$process_person_profile`, `$geoip_disable` and the session replay debug properties also won over the properties you pass.
 In 4.0 a value you register or pass wins, for example `capture("signed_up", properties: ["$geoip_disable": false])` sends that event with GeoIP enabled even when `disableGeoIp` is on.
 

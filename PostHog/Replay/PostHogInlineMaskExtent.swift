@@ -24,24 +24,24 @@
             private let root: CALayer
             private let reporterCopies: Set<ObjectIdentifier>
             /// Where each reporter copy sits in paint order.
-            private var reporterIndices: [ObjectIdentifier: Int] = [:]
-            /// Entries with a non-zero `zPosition`, which reorders them against their siblings.
-            private var layered: [Int] = []
+            private var reporters: [ObjectIdentifier: Int] = [:]
+            /// Entries with a non-zero `zPosition`. It reorders only among siblings, since copies flatten their subtree.
+            private var layered: [(index: Int, parent: Int?)] = []
 
             /// nil when the root lands nowhere finite, so no extent can be located in it.
             init?(root: CALayer, copies: CopyIndex, reporterCopies: Set<ObjectIdentifier>) {
                 self.root = root
                 self.reporterCopies = reporterCopies
                 entries.reserveCapacity(copies.count)
-                let frame = collect(root, copies: copies)
+                let frame = collect(root, parent: nil, copies: copies)
                 guard !frame.isNull, frame.minX.isFinite, frame.minY.isFinite, frame.width.isFinite, frame.height.isFinite else { return nil }
             }
 
-            /// Entries `rect` reaches in paint order, up to the reporter's own copy unless a `zPosition` reorders them.
-            /// `ordered` is false when it did, or when the reporter's copy isn't drawn here.
-            func entries(reachedBy rect: CGRect, reporter: Set<ObjectIdentifier>) -> (indices: [Int], ordered: Bool) {
-                let reporterIndex = reporter.compactMap { reporterIndices[$0] }.min()
-                let reordered = layered.contains { entries[$0].subtreeFrame.intersects(rect) }
+            /// Entries `rect` reaches in paint order, up to the reporter's own copy unless a `zPosition` can reorder
+            /// them against it. `ordered` is false when it can, or when the reporter's copy isn't drawn here.
+            func entries(reachedBy rect: CGRect, reporter copies: Set<ObjectIdentifier>) -> (indices: [Int], ordered: Bool) {
+                let reporterIndex = copies.compactMap { reporters[$0] }.min()
+                let reordered = reporterIndex.map { reporter in layered.contains { canReorder($0, against: reporter, in: rect) } } ?? false
                 let end = reordered ? entries.count : reporterIndex ?? entries.count
                 var indices: [Int] = []
                 var index = 0
@@ -57,18 +57,31 @@
                 return (indices, reporterIndex != nil && !reordered)
             }
 
+            /// A `zPosition` moves a layer only among its siblings. So it changes what's painted before the reporter only
+            /// when its parent is on the reporter's branch: it's the branch itself, or a sibling of it whose subtree
+            /// reaches the extent. Anywhere else, it reorders a subtree that's wholly before or after the reporter.
+            private func canReorder(_ layered: (index: Int, parent: Int?), against reporter: Int, in rect: CGRect) -> Bool {
+                guard let parent = layered.parent, isOnBranch(parent, of: reporter) else { return false }
+                return isOnBranch(layered.index, of: reporter) || entries[layered.index].subtreeFrame.intersects(rect)
+            }
+
+            /// Whether the entry is the reporter or one of its ancestors: in pre-order, the reporter lies in its subtree.
+            private func isOnBranch(_ index: Int, of reporter: Int) -> Bool {
+                index <= reporter && reporter < entries[index].subtreeEnd
+            }
+
             /// Appends the layer and its visible subtree in pre-order, and returns the subtree's frame.
-            private mutating func collect(_ layer: CALayer, copies: CopyIndex) -> CGRect {
+            private mutating func collect(_ layer: CALayer, parent: Int?, copies: CopyIndex) -> CGRect {
                 let placement = copies.placement(of: layer)
                 let frame = placement.map { layer.bounds.applying($0.toWindow) } ?? layer.convert(layer.bounds, to: root)
                 let index = entries.count
                 entries.append(ExtentEntry(copy: layer, frame: frame, coverable: placement.flatMap { $0.hasPlainSublayers ? $0.toWindow : nil },
                                            subtreeFrame: frame, subtreeEnd: index + 1))
-                if reporterCopies.contains(ObjectIdentifier(layer)) { reporterIndices[ObjectIdentifier(layer)] = index }
-                if layer.zPosition != 0 { layered.append(index) }
+                if reporterCopies.contains(ObjectIdentifier(layer)) { reporters[ObjectIdentifier(layer)] = index }
+                if layer.zPosition != 0 { layered.append((index, parent)) }
                 var subtreeFrame = frame
                 for sublayer in layer.sublayers ?? [] where !sublayer.isHidden {
-                    subtreeFrame = subtreeFrame.union(collect(sublayer, copies: copies))
+                    subtreeFrame = subtreeFrame.union(collect(sublayer, parent: index, copies: copies))
                 }
                 entries[index].subtreeFrame = subtreeFrame
                 entries[index].subtreeEnd = entries.count
@@ -80,7 +93,7 @@
         enum ExtentTreatment {
             /// Its content, as the walk masks it.
             case redact(Kind)
-            /// A backdrop draws what's behind it: hidden.
+            /// A backdrop draws what's behind it: covered over the extent, or hidden.
             case backdrop
             /// Colour of its own and nothing else to mask (or already masked): black.
             case color(strippingFirst: Bool)
@@ -184,26 +197,33 @@
                 let kind: PostHogInlineMask.Kind
                 switch treatment {
                 case .backdrop:
-                    copy.isHidden = true
-                    visited.insert(ObjectIdentifier(copy))
-                    skipUntil = entry.subtreeEnd
+                    if coverOrHide(backdrop: entry, under: rect) { skipUntil = entry.subtreeEnd }
                     continue
                 case let .redact(redacted): kind = redacted
                 case .color: kind = .container
                 }
                 let isPartial = !inside.contains(entry.frame)
                 if isPartial, coverPartially(entry, under: rect, kind: kind) { continue }
-                if case let .color(strippingFirst) = treatment {
-                    visited.insert(ObjectIdentifier(copy))
-                    PostHogInlineMask.blackOut(copy, strippingFirst ? [.content, .colors, .edges] : [.colors, .edges])
-                } else {
-                    if redactOwnContent(copy, source: source, as: kind, replacingWhole: isPartial) { skipUntil = entry.subtreeEnd }
-                    PostHogInlineMask.blackOut(copy, [.colors, .edges])
-                }
+                if maskWhole(entry, source: source, treatment: treatment, kind: kind, replacing: isPartial) { skipUntil = entry.subtreeEnd }
                 #if TESTING
                     if isPartial { mask.extentStatsForTesting.replaced += 1 }
                 #endif
             }
+        }
+
+        /// Masks the whole copy: black, or its content as the walk does. Whether its subtree was hidden with it.
+        private mutating func maskWhole(_ entry: PostHogInlineMask.ExtentEntry, source: CALayer?, treatment: PostHogInlineMask.ExtentTreatment,
+                                        kind: PostHogInlineMask.Kind, replacing: Bool) -> Bool
+        {
+            let copy = entry.copy
+            guard case let .color(strippingFirst) = treatment else {
+                let hid = redactOwnContent(copy, source: source, as: kind, replacingWhole: replacing)
+                PostHogInlineMask.blackOut(copy, [.colors, .edges])
+                return hid
+            }
+            visited.insert(ObjectIdentifier(copy))
+            PostHogInlineMask.blackOut(copy, strippingFirst ? [.content, .colors, .edges] : [.colors, .edges])
+            return false
         }
 
         /// nil when the copy shows nothing of its own. Copies already masked keep their redaction and only lose their
@@ -215,6 +235,15 @@
             let kind = kind(of: copy, source: source)
             if PostHogInlineMask.drawsContent(copy) || kind.isTextInput { return .redact(kind) }
             return drawsColor ? .color(strippingFirst: true) : nil
+        }
+
+        /// Covers a backdrop over the extent rather than hiding it, which would take its sublayers outside the extent
+        /// with it. Where no cover can be placed, hides it. Whether its subtree was hidden with it.
+        private mutating func coverOrHide(backdrop entry: PostHogInlineMask.ExtentEntry, under rect: CGRect) -> Bool {
+            guard !coverPartially(entry, under: rect, kind: .container) else { return false }
+            entry.copy.isHidden = true
+            visited.insert(ObjectIdentifier(entry.copy))
+            return true
         }
 
         /// Covers the part of a partly reached copy under `rect`; false when only replacing it whole is safe.

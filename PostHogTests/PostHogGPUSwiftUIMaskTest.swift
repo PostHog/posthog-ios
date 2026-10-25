@@ -34,6 +34,39 @@
     }
 
     /// A magenta UIKit view with a magenta layer border: colour with no content.
+    /// A masked card with a medium sheet over its lower part, the sheet's content green.
+    @available(iOS 16.0, *)
+    private struct SheetOverMaskedCard: View {
+        @State var isPresented = false
+
+        var body: some View {
+            VStack {
+                card {
+                    Circle().fill(magenta).frame(width: 50, height: 50)
+                    boldText("Visa ending 4242", color: magenta)
+                    Color.clear.frame(height: 160)
+                }.postHogMask()
+                Spacer()
+            }
+            .padding()
+            .sheet(isPresented: $isPresented) {
+                VStack(spacing: 16) {
+                    boldText("Sheet content", color: green)
+                    green.frame(height: 40)
+                    Spacer()
+                }
+                .padding()
+                .presentationDetents([.medium])
+            }
+            .onAppear {
+                // A window outside a scene never finishes a presentation's animation.
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) { isPresented = true }
+            }
+        }
+    }
+
     private struct ColorBox: UIViewRepresentable {
         func makeUIView(context _: Context) -> UIView {
             let view = UIView()
@@ -480,6 +513,45 @@
         }
 
         // MARK: - Fallbacks and the default path
+
+        @available(iOS 16.0, *)
+        @Test("A sheet presented over a masked card keeps its content: the sheet is painted after the reporter")
+        func sheetOverExtentStaysVisible() async throws {
+            let fixture = try await makeSwiftUIFixture()
+            defer { fixture.close() }
+            fixture.window.makeKey()
+            await show(SheetOverMaskedCard(), in: fixture)
+            // Captures skip a frame while the sheet's presentation animates in.
+            let root = try #require(fixture.window.rootViewController)
+            await waitUntil(timeout: 5) { root.presentedViewController.map { $0.transitionCoordinator == nil } ?? false }
+            try #require(root.presentedViewController != nil, "the sheet didn't present")
+
+            let (pixels, _) = try await captureMasked(fixture, insideExtentOnly: true)
+            #expect(fixture.mask.extentStatsForTesting.unordered == 0)
+            #expect(pixels.count(where: Self.isGreen) > 3000, "the sheet's content")
+        }
+
+        @Test("A backdrop under an extent is covered over it, not hidden: its sublayers outside the extent stay")
+        func backdropUnderExtentKeepsItsSublayers() async throws {
+            let fixture = try await makeSwiftUIFixture()
+            defer { fixture.close() }
+            await show(boldText("Secret name", size: 28, color: magenta).postHogMask(), in: fixture, background: .clear)
+            let extent = try #require(reporterRects(in: fixture.window).first)
+            let backdropClass = try #require(NSClassFromString("CABackdropLayer") as? CALayer.Type)
+            // Under the host, so painted before the reporter, and reaching well past the extent.
+            let backdrop = backdropClass.init()
+            backdrop.frame = extent.insetBy(dx: -10, dy: -60)
+            let content = CALayer()
+            content.frame = backdrop.bounds
+            content.backgroundColor = UIColor.green.cgColor
+            backdrop.addSublayer(content)
+            fixture.window.layer.insertSublayer(backdrop, at: 0)
+            try await expectVisibleUnmasked(fixture)
+
+            let (pixels, _) = try await captureMasked(fixture)
+            #expect(pixels.count(in: extent, where: Self.isGreen) == 0)
+            #expect(pixels.count(where: Self.isGreen) > 4000, "the backdrop's sublayer outside the extent")
+        }
 
         @Test("A reporter with no copy in the mirror (left out as far off screen) keeps its rect")
         func uncopiedReporterStaysRect() async throws {

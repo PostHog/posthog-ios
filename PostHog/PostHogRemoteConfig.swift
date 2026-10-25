@@ -339,10 +339,11 @@ class PostHogRemoteConfig {
             // Snapshots queued before the limit still flush to the cached endpoint.
             guard !Self.isMobileRecordingsQuotaLimited(cachedRemoteConfig) else { return }
 
+            let gateConfig = Self.linkedFlagFreeConfig(sessionReplay)
             let exposure = sessionReplayLock.withLock { () -> (String?, Any?) in
-                let decision = isRecordingActive(featureFlags ?? [:], sessionReplay)
+                let decision = isRecordingActive(featureFlags ?? [:], gateConfig)
                 sessionReplayFlagActive = decision.active
-                sessionReplayLinkedFlagConfigured = Self.hasLinkedFlag(sessionReplay)
+                sessionReplayLinkedFlagConfigured = Self.hasLinkedFlag(gateConfig)
                 #if os(iOS)
                     recordingSampleRate = parseSampleRate(sessionReplay["sampleRate"])
                     recordingMinimumDuration = parseMinimumDuration(sessionReplay["minimumDurationMilliseconds"])
@@ -359,6 +360,19 @@ class PostHogRemoteConfig {
     /// (so a plain `!= nil` check is wrong). Mirrors the shapes `isRecordingActive` evaluates.
     private static func hasLinkedFlag(_ sessionRecording: [String: Any]) -> Bool {
         sessionRecording["linkedFlag"] is String || sessionRecording["linkedFlag"] is [String: Any]
+    }
+
+    /// The server keeps sending the v1 `linkedFlag` next to v2 trigger groups for older SDKs.
+    /// posthog-js ignores it under v2, so it must not gate recording here either.
+    private static func linkedFlagFreeConfig(_ sessionRecording: [String: Any]) -> [String: Any] {
+        #if os(iOS)
+            if parseTriggerGroupsConfig(sessionRecording) != nil {
+                var config = sessionRecording
+                config.removeValue(forKey: "linkedFlag")
+                return config
+            }
+        #endif
+        return sessionRecording
     }
 
     /// `sessionRecording` is shared with web, so the server reports the mobile replay quota only here.
@@ -625,9 +639,10 @@ class PostHogRemoteConfig {
         /// sample rate, minimum duration). The caller must already hold `sessionReplayLock`.
         /// The linked-flag exposure is returned so the caller can report it after releasing the lock.
         private func applySessionRecordingConfigLocked(_ recordingConfig: [String: Any], featureFlags: [String: Any]) -> (flagKey: String?, flagValue: Any?) {
-            let decision = isRecordingActive(featureFlags, recordingConfig)
+            let gateConfig = Self.linkedFlagFreeConfig(recordingConfig)
+            let decision = isRecordingActive(featureFlags, gateConfig)
             sessionReplayFlagActive = decision.active
-            sessionReplayLinkedFlagConfigured = Self.hasLinkedFlag(recordingConfig)
+            sessionReplayLinkedFlagConfigured = Self.hasLinkedFlag(gateConfig)
             recordingSampleRate = parseSampleRate(recordingConfig["sampleRate"])
             recordingMinimumDuration = parseMinimumDuration(recordingConfig["minimumDurationMilliseconds"])
             applyTriggerGroupsConfigLocked(recordingConfig)
@@ -636,8 +651,10 @@ class PostHogRemoteConfig {
 
         private func applyTriggerGroupsConfigLocked(_ recordingConfig: [String: Any]) {
             let parsed = parseTriggerGroupsConfig(recordingConfig)
-            sessionRecordingTriggerGroups = parsed
+            // Push the groups before publishing them, so a reader that sees v2 in effect never
+            // evaluates an evaluator still holding no or stale groups.
             triggerGroupsEvaluator.onConfig(parsed?.groups ?? [])
+            sessionRecordingTriggerGroups = parsed
         }
 
         /// Parses and validates a sample rate value which may come as a String (from the API JSON)
@@ -664,8 +681,9 @@ class PostHogRemoteConfig {
             return value
         }
 
+        /// Nil while v2 trigger groups are in effect: per-group sampling replaces the v1 rate.
         func getRecordingSampleRate() -> Double? {
-            sessionReplayLock.withLock { recordingSampleRate }
+            sessionReplayLock.withLock { sessionRecordingTriggerGroups == nil ? recordingSampleRate : nil }
         }
 
         /// Parses and validates a minimum duration value which may come as a Number (from the API JSON)
@@ -696,8 +714,11 @@ class PostHogRemoteConfig {
             sessionReplayLock.withLock { recordingMinimumDuration }
         }
 
+        /// While true, the v2 trigger groups replace the v1 recording gates.
+        /// Always false under React Native: the JS layer evaluates the groups and starts replay itself.
         func hasSessionRecordingTriggerGroups() -> Bool {
-            sessionReplayLock.withLock { sessionRecordingTriggerGroups != nil }
+            guard postHogSdkName != "posthog-react-native" else { return false }
+            return sessionReplayLock.withLock { sessionRecordingTriggerGroups != nil }
         }
 
         func onSessionRecordingTriggerEvent(sessionId: String, eventName: String, properties: [String: Any]?) -> Bool {
@@ -750,14 +771,7 @@ class PostHogRemoteConfig {
             guard hasSessionRecordingTriggerGroups() else { return nil }
             // Read flags before the evaluator lock: config is pushed under sessionReplayLock, so the reverse order deadlocks.
             let flags = getFeatureFlags()
-            let personProperties = getPersonPropertiesForFlags()
-            return triggerGroupsEvaluator.evaluate(
-                sessionId: sessionId,
-                flags: flags,
-                personProperties: personProperties,
-                // React Native captures events in JS, so they never reach this evaluator.
-                eventLegsReliable: postHogSdkName != "posthog-react-native"
-            )
+            return triggerGroupsEvaluator.evaluate(sessionId: sessionId, flags: flags)
         }
     #endif
 
@@ -1372,7 +1386,7 @@ class PostHogRemoteConfig {
             let sessionRecording = remoteConfigLock.withLock {
                 getCachedRemoteConfig()?["sessionRecording"] as? [String: Any]
             }
-            return sessionRecording.map(Self.hasLinkedFlag) ?? false
+            return sessionRecording.map { Self.hasLinkedFlag(Self.linkedFlagFreeConfig($0)) } ?? false
         }
 
         /// Reads `configured` and `activated` under one lock acquisition so both describe the same config generation.

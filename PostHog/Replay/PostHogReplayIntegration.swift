@@ -496,23 +496,6 @@
             }
         }
 
-        private func reevaluateTriggerGroups() {
-            guard let postHog else { return }
-            guard postHog.remoteConfig?.hasSessionRecordingTriggerGroups() == true else { return }
-
-            updateCachedMinimumDuration()
-
-            if shouldWaitForEventTriggers() {
-                if isEnabled {
-                    hedgeLog("[Session Replay] Trigger groups pending. Stopping until one activates.")
-                    stopRecording()
-                }
-                return
-            }
-
-            reevaluateSampling()
-        }
-
         /// Called when session ID changes. Handles view reset, buffer clearing,
         /// sampling re-evaluation, and trigger state management.
         private func handleSessionChanged() {
@@ -1772,6 +1755,27 @@
             // Wireframe mode always stays on main thread
             generateSnapshot(window, screenName, postHog: postHog, timestampDate: Date())
         }
+    }
+
+    // MARK: - Event triggers
+
+    extension PostHogReplayIntegration {
+        private func reevaluateTriggerGroups() {
+            guard let postHog else { return }
+            guard postHog.remoteConfig?.hasSessionRecordingTriggerGroups() == true else { return }
+
+            updateCachedMinimumDuration()
+
+            if shouldWaitForEventTriggers() {
+                if isEnabled {
+                    hedgeLog("[Session Replay] Trigger groups pending. Stopping until one activates.")
+                    stopRecording()
+                }
+                return
+            }
+
+            reevaluateSampling()
+        }
 
         private func handleEventCaptured(event: String) {
             guard let postHog else { return }
@@ -1809,8 +1813,7 @@
         }
 
         private func handleTriggerGroupsEventCaptured(event: PostHogEvent) {
-            guard isNotReactNative(),
-                  let postHog,
+            guard let postHog,
                   postHog.remoteConfig?.hasSessionRecordingTriggerGroups() == true,
                   let sessionId = postHog.sessionManager.getSessionId(readOnly: true)
             else { return }

@@ -149,12 +149,14 @@ struct PostHogTriggerPropertyFiltersTests {
 private func filter(key: String = "plan",
                     operator: String? = nil,
                     value: Any? = "pro",
-                    type: String? = nil) -> PostHogTriggerPropertyFilter {
+                    type: String? = nil) -> PostHogTriggerPropertyFilter
+{
     PostHogTriggerPropertyFilter(key: key, type: type, filterOperator: `operator`, value: value)
 }
 
 private func match(filter: PostHogTriggerPropertyFilter,
                    event: [String: Any?]?,
-                   person: [String: Any?]? = nil) -> Bool {
+                   person: [String: Any?]? = nil) -> Bool
+{
     matchTriggerPropertyFilters([filter], event, person)
 }

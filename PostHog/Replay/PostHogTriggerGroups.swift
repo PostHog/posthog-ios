@@ -24,12 +24,18 @@ enum PostHogTriggerMatchType {
     case all
 }
 
+/// A leg counts as configured when the raw config has it, even if none of its entries parse: like
+/// posthog-js, an unparseable condition then never matches instead of dropping out and letting the
+/// group record every session.
 struct PostHogTriggerConditions {
     let matchType: PostHogTriggerMatchType
     let events: [PostHogTriggerEvent]
     let urls: [NSRegularExpression]
     let flag: PostHogTriggerFlag?
     let properties: [PostHogTriggerPropertyFilter]
+    let hasEventsLeg: Bool
+    let hasUrlsLeg: Bool
+    let hasFlagLeg: Bool
 }
 
 struct PostHogTriggerEvent {
@@ -66,7 +72,7 @@ func parseTriggerGroupsConfig(_ sessionRecording: [String: Any]) -> PostHogTrigg
         return PostHogTriggerGroup(
             id: id,
             name: map["name"] as? String ?? "",
-            sampleRate: (map["sampleRate"] as? NSNumber)?.doubleValue,
+            sampleRate: parseTriggerGroupSampleRate(map["sampleRate"]),
             minDurationMs: (map["minDurationMs"] as? NSNumber)?.int64Value,
             conditions: parseTriggerConditions(map["conditions"])
         )
@@ -77,14 +83,27 @@ func parseTriggerGroupsConfig(_ sessionRecording: [String: Any]) -> PostHogTrigg
     return PostHogTriggerGroupsConfig(groups: groups)
 }
 
+/// The API can send the rate as a string. One that doesn't parse samples out, as it does on web
+/// (NaN never passes the threshold); only a missing rate samples in.
+private func parseTriggerGroupSampleRate(_ raw: Any?) -> Double? {
+    if let string = raw as? String {
+        return Double(string) ?? 0
+    }
+    return (raw as? NSNumber)?.doubleValue
+}
+
 private func parseTriggerConditions(_ conditions: Any?) -> PostHogTriggerConditions {
     let map = conditions as? [String: Any]
+    let rawFlag = map?["flag"]
     return PostHogTriggerConditions(
         matchType: map?["matchType"] as? String == "any" ? .any : .all,
         events: parseTriggerEvents(map?["events"]),
         urls: parseTriggerUrls(map?["urls"]),
-        flag: parseTriggerFlag(map?["flag"]),
-        properties: parseTriggerPropertyFilters(map?["properties"])
+        flag: parseTriggerFlag(rawFlag),
+        properties: parseTriggerPropertyFilters(map?["properties"]),
+        hasEventsLeg: !(map?["events"] as? [Any] ?? []).isEmpty,
+        hasUrlsLeg: !(map?["urls"] as? [Any] ?? []).isEmpty,
+        hasFlagLeg: !(rawFlag as? String ?? "").isEmpty || rawFlag is [String: Any]
     )
 }
 

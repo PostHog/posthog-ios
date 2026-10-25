@@ -55,7 +55,8 @@ class PostHogTriggerGroupsEvaluator {
     func onEvent(sessionId: String,
                  eventName: String,
                  eventProperties: [String: Any?]?,
-                 personProperties: [String: Any?]?) -> Bool {
+                 personProperties: [String: Any?]?) -> Bool
+    {
         lock.withLock {
             resetActivationForNewSessionLocked(sessionId)
 
@@ -91,11 +92,11 @@ class PostHogTriggerGroupsEvaluator {
         }
     }
 
-    func evaluate(sessionId: String,
-                  flags: [String: Any]?,
-                  personProperties: [String: Any]? = nil,
-                  eventLegsReliable: Bool = true) -> PostHogTriggerGroupsDecision {        lock.withLock {
-            resetActivationForNewSessionLocked(sessionId)
+    /// Read-only for activation: a caller holding a stale session id must not wipe the current
+    /// session's activated groups. Only `onEvent` moves activation to a new session.
+    func evaluate(sessionId: String, flags: [String: Any]?) -> PostHogTriggerGroupsDecision {
+        lock.withLock {
+            let activatedSession = activationSessionId == sessionId
 
             var shouldRecord = false
             var hasPendingGroups = false
@@ -103,7 +104,7 @@ class PostHogTriggerGroupsEvaluator {
             var matchedGroups: [PostHogTriggerGroupMatch] = []
 
             for group in groups {
-                switch groupStatusLocked(group, flags: flags, eventLegsReliable: eventLegsReliable) {
+                switch groupStatusLocked(group, flags: flags, activatedSession: activatedSession) {
                 case .activated:
                     let sampled = samplingDecisionLocked(group, sessionId: sessionId)
                     matchedGroups.append(PostHogTriggerGroupMatch(id: group.id, name: group.name, sampled: sampled))
@@ -132,42 +133,43 @@ class PostHogTriggerGroupsEvaluator {
 
     private func groupStatusLocked(_ group: PostHogTriggerGroup,
                                    flags: [String: Any]?,
-                                   eventLegsReliable: Bool) -> PostHogTriggerStatus {
+                                   activatedSession: Bool) -> PostHogTriggerStatus
+    {
         let conditions = group.conditions
-        let hasEvents = !conditions.events.isEmpty
-        let hasUrls = !conditions.urls.isEmpty
-        let hasFlag = conditions.flag != nil
+        let hasEvents = conditions.hasEventsLeg
+        let hasUrls = conditions.hasUrlsLeg
+        let hasFlag = conditions.hasFlagLeg
 
         if !hasEvents && !hasUrls && !hasFlag { return .activated }
 
         let eventLeg: PostHogTriggerStatus
-        if !hasEvents || !eventLegsReliable {
+        if !hasEvents {
             eventLeg = .disabled
-        } else if eventActivatedGroupIds.contains(group.id) {
+        } else if activatedSession, eventActivatedGroupIds.contains(group.id) {
             eventLeg = .activated
         } else {
             eventLeg = .pending
         }
 
         let screenLeg: PostHogTriggerStatus
-        if !hasUrls || !eventLegsReliable {
+        if !hasUrls {
             screenLeg = .disabled
-        } else if screenActivatedGroupIds.contains(group.id) {
+        } else if activatedSession, screenActivatedGroupIds.contains(group.id) {
             screenLeg = .activated
         } else {
             screenLeg = .pending
         }
 
-        let flagLeg = Self.flagLegStatus(conditions.flag, flags: flags)
+        let flagLeg = hasFlag ? Self.flagLegStatus(conditions.flag, flags: flags) : .disabled
 
         return conditions.matchType == .any
             ? Self.orTriggerStatus(eventLeg, screenLeg, flagLeg)
             : Self.andTriggerStatus(eventLeg, screenLeg, flagLeg)
     }
 
+    /// A configured flag leg that didn't parse never matches.
     private static func flagLegStatus(_ flag: PostHogTriggerFlag?, flags: [String: Any]?) -> PostHogTriggerStatus {
-        guard let flag else { return .disabled }
-        guard let flags else { return .pending }
+        guard let flag, let flags else { return .pending }
 
         let value = flags[flag.flag]
         let matches: Bool
@@ -200,7 +202,8 @@ class PostHogTriggerGroupsEvaluator {
     private static func matchesEventLeg(_ conditions: PostHogTriggerConditions,
                                         eventName: String,
                                         eventProperties: [String: Any?]?,
-                                        personProperties: [String: Any?]?) -> Bool {
+                                        personProperties: [String: Any?]?) -> Bool
+    {
         let namedEntries = conditions.events.filter { $0.name == eventName }
         if namedEntries.isEmpty { return false }
 
@@ -220,7 +223,7 @@ class PostHogTriggerGroupsEvaluator {
             return stored.sampled
         }
 
-        let sampled = group.sampleRate.map { sampleOnTriggerProperty(sessionId + group.id, $0) } ?? true
+        let sampled = group.sampleRate.map { sampleOnProperty(sessionId + group.id, $0) } ?? true
 
         samplingDecisions[group.id] = StoredSamplingDecision(sessionId: sessionId, sampleRate: group.sampleRate, sampled: sampled)
         return sampled
@@ -236,20 +239,4 @@ class PostHogTriggerGroupsEvaluator {
 
     private static let screenEventName = "$screen"
     private static let screenNameProperty = "$screen_name"
-}
-
-/// Same hash and threshold as posthog-js `sampleOnProperty`.
-func sampleOnTriggerProperty(_ input: String, _ percent: Double) -> Bool {
-    let clampedPercent = min(max(percent * 100, 0), 100)
-    return Double(simpleTriggerHash(input) % 100) < clampedPercent
-}
-
-func simpleTriggerHash(_ str: String) -> Int64 {
-    var hash: Int32 = 0
-    for codeUnit in str.utf16 {
-        hash = (hash &<< 5) &- hash &+ Int32(codeUnit) // hash = hash * 31 + code unit, wrapping
-    }
-    // JS Math.abs returns a double, so Int32.min maps to 2147483648 rather than to itself;
-    // UInt32.magnitude holds both that and every other |hash| without trapping.
-    return Int64(hash.magnitude)
 }

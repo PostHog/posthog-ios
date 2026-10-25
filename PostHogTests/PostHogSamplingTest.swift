@@ -27,6 +27,23 @@ class PostHogSamplingTests {
         }
     }
 
+    @Test("simpleHash matches the web helper, including negative hashes")
+    func simpleHashMatchesWebHelper() {
+        // java "abc".hashCode() == 96354
+        #expect(simpleHash("abc") == 96_354)
+        // java "posthog".hashCode() == -391202912; js Math.abs of the int32 yields 391202912
+        #expect(simpleHash("posthog") == 391_202_912)
+    }
+
+    @Test("sampling uses the hash bucket like the web helper")
+    func samplingUsesHashBucket() {
+        // java "session-1group-1".hashCode() == 365459561; 365459561 % 100 == 61
+        #expect(!sampleOnProperty("session-1group-1", 0.61))
+        #expect(sampleOnProperty("session-1group-1", 0.62))
+        #expect(sampleOnProperty("session-1group-1", 1.0))
+        #expect(!sampleOnProperty("session-1group-1", 0.0))
+    }
+
     @Test("simpleHash produces distinct values for different inputs")
     func simpleHashDistinct() {
         let hash1 = simpleHash("session-1")
@@ -184,6 +201,22 @@ class PostHogSamplingTests {
             let sut = getSut(storage: storage)
 
             #expect(sut.getRecordingSampleRate() == 0.0)
+        }
+
+        @Test("v2 trigger groups replace the v1 sample rate")
+        func triggerGroupsReplaceSampleRate() {
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": [
+                "sampleRate": "0.5",
+                "version": 2,
+                "triggerGroups": [["id": "unconditional", "sampleRate": 1, "conditions": ["matchType": "any"]]],
+            ]])
+
+            let sut = getSut(storage: storage)
+
+            #expect(sut.getRecordingSampleRate() == nil)
         }
 
         @Test("ignores invalid sample rate above 1.0 from cache")

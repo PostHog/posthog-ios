@@ -48,7 +48,8 @@ struct PostHogTriggerGroupsTests {
         #expect(group.minDurationMs == 5000)
         #expect(group.conditions.matchType == .any)
         #expect(group.conditions.events.map(\.name) == ["purchase"])
-        #expect(group.conditions.events.allSatisfy { $0.properties.isEmpty })
+        let eventPropertiesEmpty = group.conditions.events.allSatisfy(\.properties.isEmpty)
+        #expect(eventPropertiesEmpty)
         #expect(group.conditions.urls.map(\.pattern) == ["^/checkout"])
         #expect(group.conditions.flag?.flag == "replay-flag")
         #expect(group.conditions.flag?.variant == "beta")
@@ -101,7 +102,7 @@ struct PostHogTriggerGroupsTests {
         ))
 
         let urls = try #require(config.groups.single()).conditions.urls
-        #expect(urls.map { $0.pattern } == ["^/checkout"])
+        #expect(urls.map(\.pattern) == ["^/checkout"])
         #expect(matchingScreen(urls[0], "/checkout/step-2"))
         #expect(!matchingScreen(urls[0], "/home"))
     }
@@ -120,28 +121,28 @@ struct PostHogTriggerGroupsTests {
         #expect(try #require(noFlagName.groups.single()).conditions.flag == nil)
     }
 
-    @Test("a missing or non-number sample rate parses to nil")
-    func missingOrInvalidSampleRateParsesToNil() throws {
-        let config = try requireConfig([group(id: "g1", sampleRate: nil), group(id: "g2", sampleRate: "0.5")])
-        #expect(try #require(config.groups.first).sampleRate == nil)
-        #expect(try #require(config.groups.last).sampleRate == nil)
+    @Test("a missing sample rate parses to nil, a string rate parses and garbage samples out")
+    func sampleRateParsing() throws {
+        let config = try requireConfig([
+            group(id: "g1", sampleRate: nil),
+            group(id: "g2", sampleRate: "0.5"),
+            group(id: "g3", sampleRate: "abc"),
+        ])
+        #expect(config.groups[0].sampleRate == nil)
+        #expect(config.groups[1].sampleRate == 0.5)
+        #expect(config.groups[2].sampleRate == 0)
     }
 
-    @Test("simple hash matches the web helper")
-    func simpleHashMatchesWebHelper() {
-        // java "abc".hashCode() == 96354
-        #expect(simpleTriggerHash("abc") == 96_354)
-        // java "posthog".hashCode() == -391202912; js Math.abs of the int32 yields 391202912
-        #expect(simpleTriggerHash("posthog") == 391_202_912)
-    }
-
-    @Test("sampling uses the hash bucket like the web helper")
-    func samplingUsesHashBucket() {
-        // java "session-1group-1".hashCode() == 365459561; 365459561 % 100 == 61
-        #expect(!sampleOnTriggerProperty("session-1group-1", 0.61))
-        #expect(sampleOnTriggerProperty("session-1group-1", 0.62))
-        #expect(sampleOnTriggerProperty("session-1group-1", 1.0))
-        #expect(!sampleOnTriggerProperty("session-1group-1", 0.0))
+    @Test("a configured leg stays configured even when none of its entries parse")
+    func unparseableLegsStayConfigured() throws {
+        let config = try requireConfig(group(conditions: [
+            "urls": [["url": "([invalid", "matching": "regex"]],
+            "events": [["properties": [Any]()]],
+            "flag": ["variant": "beta"],
+        ]))
+        let conditions = try #require(config.groups.single()).conditions
+        #expect(conditions.urls.isEmpty && conditions.events.isEmpty && conditions.flag == nil)
+        #expect(conditions.hasUrlsLeg && conditions.hasEventsLeg && conditions.hasFlagLeg)
     }
 }
 
@@ -169,7 +170,8 @@ func group(id: String = "g1",
            name: String = "Group 1",
            sampleRate: Any? = 1.0,
            minDurationMs: Any? = nil,
-           conditions: [String: Any] = [:]) -> [String: Any] {
+           conditions: [String: Any] = [:]) -> [String: Any]
+{
     [
         "id": id,
         "name": name,

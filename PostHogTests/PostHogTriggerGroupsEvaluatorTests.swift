@@ -42,7 +42,7 @@ struct PostHogTriggerGroupsEvaluatorTests {
     }
 
     private func decide(sessionId: String = "session-1", flags: [String: Any]? = [:]) -> PostHogTriggerGroupsDecision {
-        evaluator.evaluate(sessionId: sessionId, flags: flags, personProperties: nil)
+        evaluator.evaluate(sessionId: sessionId, flags: flags)
     }
 
     @Test("any combines activated legs and ignores disabled legs")
@@ -387,19 +387,29 @@ struct PostHogTriggerGroupsEvaluatorTests {
         #expect(decide().shouldRecord)
     }
 
-    @Test("unreliable event legs are disabled so they neither record nor wait")
-    func unreliableEventLegsAreDisabled() {
-        // React Native captures events in JS, so the event/screen legs can never fire natively:
-        // this group has no other leg, so it resolves to disabled instead of pending forever.
-        configure([group(id: "g1", conditions: eventLeg(["name": "purchase"]))])
-
-        var decision = evaluator.evaluate(sessionId: "session-1", flags: ["replay-flag": false], personProperties: nil, eventLegsReliable: false)
+    @Test("an unparseable condition keeps the group pending instead of recording every session")
+    func unparseableConditionStaysPending() {
+        configure([group(id: "g1", conditions: ["urls": [["url": "([invalid", "matching": "regex"]]])])
+        var decision = decide()
         #expect(!decision.shouldRecord)
-        #expect(!decision.hasPendingGroups)
+        #expect(decision.hasPendingGroups)
 
-        // flag legs still decide under unreliable event legs
-        configure([group(id: "g2", conditions: ["matchType": "any", "flag": "replay-flag"])])
-        decision = evaluator.evaluate(sessionId: "session-1", flags: ["replay-flag": true], personProperties: nil, eventLegsReliable: false)
-        #expect(decision.shouldRecord)
+        // under all, the broken leg still has to match, so the event alone does not record
+        var conditions = eventLeg(["name": "purchase"])
+        conditions["urls"] = [["url": "/checkout", "matching": "exact"]]
+        configure([group(id: "g2", conditions: conditions)])
+        #expect(onEvent(event: "purchase"))
+        decision = decide()
+        #expect(!decision.shouldRecord)
+        #expect(decision.hasPendingGroups)
+    }
+
+    @Test("evaluating a stale session does not wipe the current session's activation")
+    func staleSessionEvaluationKeepsActivation() {
+        configure([group(id: "g1", conditions: eventLeg(["name": "purchase"]))])
+        #expect(onEvent(sessionId: "session-2", event: "purchase"))
+
+        #expect(!decide(sessionId: "session-1").shouldRecord)
+        #expect(decide(sessionId: "session-2").shouldRecord)
     }
 }

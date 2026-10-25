@@ -10,7 +10,8 @@ import Foundation
 
 func matchTriggerPropertyFilters(_ filters: [PostHogTriggerPropertyFilter]?,
                                  _ eventProperties: [String: Any?]?,
-                                 _ personProperties: [String: Any?]?) -> Bool {
+                                 _ personProperties: [String: Any?]?) -> Bool
+{
     guard let filters, !filters.isEmpty else { return true }
 
     return filters.allSatisfy { filter in

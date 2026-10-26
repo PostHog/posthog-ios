@@ -1,5 +1,11 @@
 ## Next
 
+## 3.92.5
+
+### Patch Changes
+
+- 91dffb3: Mask SwiftUI `.drawingGroup()` and `Canvas` content in screenshot session replay when `maskAllTextInputs` or `maskAllImages` is enabled. Previously, text and images in a drawing group or Canvas were uploaded unmasked. This also masks Swift Charts, which draw through the same surface; apply `postHogNoMask()` to a chart to keep it visible.
+
 ## 3.92.4
 
 ### Patch Changes

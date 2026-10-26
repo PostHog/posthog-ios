@@ -378,7 +378,7 @@
             /// The window rects of masked images, for the blur after the render.
             var images: [CGRect] = []
             /// Where each backdrop may sample in the window, found on the first masked image.
-            private var backdropReaches: [CGRect]?
+            fileprivate var backdropReaches: [CGRect]?
             fileprivate var signatures: [ObjectIdentifier: TextSignature?] = [:]
             fileprivate var spent: CFTimeInterval = 0
 

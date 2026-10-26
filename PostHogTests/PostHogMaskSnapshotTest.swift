@@ -517,7 +517,7 @@
             var entries: [Scenario] = [
                 Scenario(title: "Masked card with chrome",
                          option: ".postHogMask() on a card (background, circle, photo, text)",
-                         expected: "card black (SwiftUI text's * rows draw in black over it), photo blurred; label above visible",
+                         expected: "card black, photo included (SwiftUI text's * rows draw in black over it); label above visible",
                          configure: Self.explicitMasksOnly)
                 {
                     VStack(spacing: 16) {

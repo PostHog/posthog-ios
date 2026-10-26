@@ -95,6 +95,8 @@
         enum ExtentTreatment {
             /// Its content, as the walk masks it.
             case redact(Kind)
+            /// An image, or a copy the walk kept for the blur: black, never blurred.
+            case image
             /// A backdrop draws what's behind it: covered over the extent, or hidden.
             case backdrop
             /// Colour of its own and nothing else to mask (or already masked): black.
@@ -197,9 +199,10 @@
             return Set(reporters.map(\.region))
         }
 
-        /// Masks what the extent reaches before the reporter, whichever view drew it: content as the walk does, colour
-        /// black. Partly inside, the layer is covered over the extent, or replaced whole when it can't be. Later paint
-        /// is kept. Each copy's other copies, where a portal shows its source again, are masked the same way.
+        /// Masks what the extent reaches before the reporter, whichever view drew it: content as the walk does, except
+        /// images, which go black, and colour black. Partly inside, the layer is covered over the extent, or replaced
+        /// whole when it can't be. Later paint is kept. Each copy's other copies, where a portal shows its source again,
+        /// are masked the same way.
         private mutating func redactExtent(_ rect: CGRect, in tree: PostHogInlineMask.ExtentTree, reporter: Set<ObjectIdentifier>) {
             let reached = tree.entries(reachedBy: rect, reporter: reporter)
             #if TESTING
@@ -214,19 +217,15 @@
                 let source = index.source(of: copy)
                 guard let treatment = extentTreatment(of: copy, source: source) else { continue }
                 let others = source.map { index.copies(of: $0).filter { $0 !== copy } } ?? []
+                let isPartial = !inside.contains(entry.frame)
                 let kind: PostHogInlineMask.Kind
                 switch treatment {
-                case .backdrop:
-                    if !coverPartially(entry, under: rect, kind: .container, others: others) {
-                        // Hidden only where no cover can be placed: hiding takes its sublayers, outside the extent too.
-                        ([copy] + others).forEach { hide($0) }
-                        skipUntil = entry.subtreeEnd
-                    }
+                case .backdrop, .image:
+                    if maskUnredacted(entry, as: treatment, partly: isPartial, under: rect, others: others) { skipUntil = entry.subtreeEnd }
                     continue
                 case let .redact(redacted): kind = redacted
                 case .color: kind = .container
                 }
-                let isPartial = !inside.contains(entry.frame)
                 if isPartial, coverPartially(entry, under: rect, kind: kind, others: others) { continue }
                 if maskWhole(copy, others: others, treatment: treatment, kind: kind, replacing: isPartial) {
                     skipUntil = entry.subtreeEnd
@@ -235,6 +234,21 @@
                     if isPartial { mask.extentStatsForTesting.replaced += 1 }
                 #endif
             }
+        }
+
+        /// Masks a backdrop or an image, which the walk's redaction doesn't: a backdrop is covered over the extent, or
+        /// hidden, and an image goes black. Whether the copy's subtree was hidden.
+        private mutating func maskUnredacted(_ entry: PostHogInlineMask.ExtentEntry, as treatment: PostHogInlineMask.ExtentTreatment,
+                                             partly: Bool, under rect: CGRect, others: [CALayer]) -> Bool
+        {
+            if case .image = treatment {
+                blackOutImage(entry, partly: partly, under: rect, others: others)
+                return false
+            }
+            guard !coverPartially(entry, under: rect, kind: .container, others: others) else { return false }
+            // Hidden only where no cover can be placed: hiding takes its sublayers, outside the extent too.
+            ([entry.copy] + others).forEach { hide($0) }
+            return true
         }
 
         /// Masks the whole copy and each other copy of its source not masked yet. Whether `copy`'s subtree was hidden.
@@ -263,14 +277,42 @@
         }
 
         /// nil when the copy shows nothing of its own. Copies already masked keep their redaction and only lose their
-        /// colour; filters stay, since their redaction may have set them (an image's blur).
+        /// colour, except an image kept for the blur, which goes black.
         private func extentTreatment(of copy: CALayer, source: CALayer?) -> PostHogInlineMask.ExtentTreatment? {
             let drawsColor = PostHogInlineMask.drawsColor(copy)
-            if visited.contains(ObjectIdentifier(copy)) { return drawsColor ? .color(strippingFirst: false) : nil }
+            if visited.contains(ObjectIdentifier(copy)) {
+                if isKeptForBlur(copy, source: source) { return .image }
+                return drawsColor ? .color(strippingFirst: false) : nil
+            }
             if isBackdrop(copy) { return .backdrop }
             let kind = kind(of: copy, source: source)
+            if case .image = kind, copy.contents != nil { return .image }
             if PostHogInlineMask.drawsContent(copy) || kind.isTextInput { return .redact(kind) }
             return drawsColor ? .color(strippingFirst: true) : nil
+        }
+
+        /// An image whose contents are kept: once visited, it's queued for the blur.
+        private func isKeptForBlur(_ copy: CALayer, source: CALayer?) -> Bool {
+            guard copy.contents != nil, case .image = kind(of: copy, source: source) else { return false }
+            return true
+        }
+
+        /// Blacks out an image and its other copies. Partly inside, it's covered over the extent instead, unless a copy
+        /// is queued for the blur, which would spread the rest of the image over the cover.
+        private mutating func blackOutImage(_ entry: PostHogInlineMask.ExtentEntry, partly: Bool, under rect: CGRect, others: [CALayer]) {
+            let copies = [entry.copy] + others
+            if partly, !copies.contains(where: { visited.contains(ObjectIdentifier($0)) && isKeptForBlur($0, source: index.source(of: $0)) }),
+               coverPartially(entry, under: rect, kind: .container, others: others)
+            {
+                return
+            }
+            #if TESTING
+                if partly { mask.extentStatsForTesting.replaced += 1 }
+            #endif
+            for copy in copies {
+                visited.insert(ObjectIdentifier(copy))
+                PostHogInlineMask.blackOut(copy, [.content, .fill, .colors, .edges])
+            }
         }
 
         /// Covers the part of a partly reached copy under `rect`, and the same part of its other copies; false when only

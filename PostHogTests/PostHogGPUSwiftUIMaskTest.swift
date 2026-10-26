@@ -134,8 +134,8 @@
 
         /// The masked frame once `*` are drawn, and the first reporter's extent. Both that frame and the first (text as
         /// bars) leave nothing to the rect pass, replace no copy whole, and show no magenta: anywhere, or only inside the
-        /// extent when `insideExtentOnly`.
-        private func captureMasked(_ fixture: GPUCaptureFixture, insideExtentOnly: Bool = false,
+        /// extent when `insideExtentOnly`. Both are all black over `blackIn`.
+        private func captureMasked(_ fixture: GPUCaptureFixture, insideExtentOnly: Bool = false, blackIn black: CGRect? = nil,
                                    sourceLocation: SourceLocation = #_sourceLocation) async throws -> (pixels: Pixels, extent: CGRect)
         {
             let extent = try #require(reporterRects(in: fixture.window).first, sourceLocation: sourceLocation)
@@ -150,6 +150,9 @@
                 #expect(fixture.mask.extentStatsForTesting.replaced == 0, "copies replaced whole", sourceLocation: sourceLocation)
                 #expect(frame.count(in: insideExtentOnly ? extent : nil, where: Self.isMagenta) == 0, "source pixels left",
                         sourceLocation: sourceLocation)
+                if let black {
+                    #expect(frame.count(in: black) { !Self.isBlack($0) } == 0, "not black", sourceLocation: sourceLocation)
+                }
                 pixels = frame
             }
             return (try #require(pixels), extent)
@@ -247,7 +250,7 @@
         }
 
         @available(iOS 14.0, *)
-        @Test("S2: a masked card's background is black, its text `*` and its photo blurred")
+        @Test("S2: a masked card's background is black, its text `*` and its photo black")
         func maskedCardMasksChrome() async throws {
             let fixture = try await makeSwiftUIFixture()
             defer { fixture.close() }
@@ -263,28 +266,28 @@
             let control = try await expectVisibleUnmasked(fixture)
             try #require(control.maxNeighbourStep(in: icon) > 150, "the photo didn't render sharp")
 
-            let (pixels, extent) = try await captureMasked(fixture)
-            // Blurred to colour blobs: no detail at the checkerboard's scale, and not blacked out.
-            #expect(pixels.maxNeighbourStep(in: icon) <= Self.blurredMaxStep)
-            let middle = pixels[Int(icon.midX), Int(icon.midY)]
-            #expect(middle.red > 60 && middle.green < 40 && middle.blue > 60, "\(middle)")
+            // Black, not blurred: an image inside an extent keeps none of its colours.
+            let (pixels, extent) = try await captureMasked(fixture, blackIn: icon)
             #expect(pixels.count(in: extent, where: Self.isYellow) == 0)
             #expect(pixels.count(in: extent, where: Self.isStar) > 30)
         }
 
-        @Test("S2 with the walk's own masking on: the card is masked, background included, nothing left to the rect pass")
+        @available(iOS 14.0, *)
+        @Test("S2 with the walk's own masking on: the card is masked, background included, its image black though the walk blurs it")
         func maskedCardWithAutoMasking() async throws {
             let fixture = try await makeSwiftUIFixture()
             defer { fixture.close() }
             fixture.config.maskAllTextInputs = true
             fixture.config.maskAllImages = true
+            let frames = FrameStore()
             let checker = try checkerboard(CGSize(width: 40, height: 40))
             await show(card {
-                Image(uiImage: checker)
+                Image(uiImage: checker).frameTag("image", frames)
                 boldText("Card holder", color: magenta)
             }.postHogMask(), in: fixture)
+            let image = try #require(frames.frames["image"])
 
-            let (pixels, extent) = try await captureMasked(fixture)
+            let (pixels, extent) = try await captureMasked(fixture, blackIn: image.insetBy(dx: 1, dy: 1))
             #expect(pixels.count(in: extent, where: Self.isYellow) == 0)
         }
 
@@ -367,6 +370,50 @@
 
             let (pixels, _) = try await captureMasked(fixture, insideExtentOnly: true)
             #expect(pixels.count(where: Self.isMagenta) > 4000, "covered, not replaced whole")
+        }
+
+        @available(iOS 14.0, *)
+        @Test("An image partly under an extent is black over it and keeps its pixels outside it")
+        func imagePartlyInsideIsCovered() async throws {
+            let fixture = try await makeSwiftUIFixture()
+            defer { fixture.close() }
+            let frames = FrameStore()
+            let (image, extent) = try await showImagePartlyUnderExtent(in: fixture, frames: frames)
+            try await expectVisibleUnmasked(fixture, minimum: 1000)
+
+            let (pixels, _) = try await captureMasked(fixture, insideExtentOnly: true, blackIn: extent.intersection(image).insetBy(dx: 1, dy: 1))
+            #expect(pixels.count(in: image, where: Self.isMagenta) > 4000, "covered, not replaced whole")
+        }
+
+        @available(iOS 14.0, *)
+        @Test("An image the walk queued for the blur, partly under an extent, is black whole: the blur would spread it over a cover")
+        func blurredImagePartlyInsideIsBlackWhole() async throws {
+            let fixture = try await makeSwiftUIFixture()
+            defer { fixture.close() }
+            let frames = FrameStore()
+            let (image, _) = try await showImagePartlyUnderExtent(in: fixture, frames: frames)
+            try await expectVisibleUnmasked(fixture, minimum: 1000)
+            fixture.config.maskAllImages = true
+
+            let result = try await capture(fixture)
+            let pixels = try Pixels(result.image)
+            #expect(result.rectRegions.isEmpty)
+            #expect(fixture.mask.extentStatsForTesting.replaced == 1)
+            #expect(pixels.count(in: image.insetBy(dx: 1, dy: 1)) { !Self.isBlack($0) } == 0)
+        }
+
+        /// A magenta checkerboard image with an extent over its right part and past it, painted after it.
+        @available(iOS 14.0, *)
+        private func showImagePartlyUnderExtent(in fixture: GPUCaptureFixture, frames: FrameStore) async throws -> (image: CGRect, extent: CGRect) {
+            let checker = try checkerboard(CGSize(width: 160, height: 80))
+            await show(ZStack {
+                Image(uiImage: checker).frameTag("image", frames)
+                Color.clear.frame(width: 80, height: 60).postHogMask().offset(x: 80)
+            }, in: fixture)
+            let image = try #require(frames.frames["image"])
+            let extent = try #require(reporterRects(in: fixture.window).first)
+            try #require(extent.minX < image.maxX - 4 && extent.maxX > image.maxX, "\(extent) vs \(image)")
+            return (image, extent)
         }
 
         @Test("UIKit views painted after the reporter stay visible over its extent, those painted before it are masked")

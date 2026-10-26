@@ -516,6 +516,28 @@
             #expect(pixels.count(in: portalRect, where: Self.isBlack) == 160 * 60)
         }
 
+        @Test("An image under a postHogMask overlay is black, and so is the copy a portal shows elsewhere")
+        func portalOfImageUnderExtentIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let source = try UIImageView(image: checkerboard(CGSize(width: 180, height: 60)))
+            source.frame = CGRect(x: 10, y: 20, width: 180, height: 60)
+            // ph-no-mask so only the overlay masks it.
+            source.accessibilityIdentifier = "ph-no-mask"
+            let reporter = PostHogMaskReporterUIView(frame: source.frame)
+            fixture.window.addSubview(source)
+            fixture.window.addSubview(reporter)
+            let portalRect = CGRect(x: 10, y: 180, width: 180, height: 60)
+            fixture.window.layer.addSublayer(try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false))
+            fixture.window.layoutIfNeeded()
+
+            let result = try await capture(fixture)
+            let pixels = try Pixels(result.image)
+            #expect(result.rectRegions.isEmpty)
+            #expect(pixels.count(where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: portalRect.insetBy(dx: 2, dy: 2)) { !Self.isBlack($0) } == 0)
+        }
+
         @Test("A postHogMask overlay beside a portal's source, not inside it, masks the copy the portal shows elsewhere",
               arguments: [true, false])
         func siblingReporterMasksPortalShownElsewhere(extentInline: Bool) async throws {

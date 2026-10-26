@@ -13,6 +13,10 @@
 //    - Verify (CI, required, pinned OS runtime):     make maskSnapshots
 //        → on mismatch writes __MaskSnapshotFailures__/case_N.{expected,actual,diff}.png and fails.
 //    - Refresh after an intentional masking change:  make recordMaskSnapshots
+//
+//  The GPU goldens run the same scenarios, plus GPU-only ones appended after them, through
+//  the GPU mirror capture path (inline masks, then the rect backstop) into __GPUMaskSnapshots__/:
+//  make gpuMaskSnapshots / make recordGPUMaskSnapshots.
 
 #if os(iOS) && canImport(SwiftUI) && TEST_MASK_SNAPSHOTS
     import Charts
@@ -90,47 +94,74 @@
             "record goldens — run via `make recordMaskSnapshots`, then review + commit",
             .enabled(if: recordingEnabled, "compile-gated (RECORD_MASK_SNAPSHOTS) — use `make recordMaskSnapshots`")
         )
-        func recordGoldens() throws {
+        func recordGoldens() async throws {
             let capture = Self.capture
-            for stale in Self.goldenFilenames() where !scenarios.contains(where: { stale == "case_\($0.id).png" }) {
-                try? FileManager.default.removeItem(at: Self.snapshotDir.appendingPathComponent(stale))
-            }
-            for scenario in scenarios {
-                try write(capture.composite(for: scenario), to: Self.goldenURL(scenario.id))
-            }
-            print("Recorded \(scenarios.count) mask goldens to \(Self.snapshotDir.path) — review and commit.")
+            try await record(.cpu, scenarios) { capture.composite(for: $0) }
         }
 
         @Test("committed goldens match the rendered masking output")
-        func verifyGoldens() throws {
+        func verifyGoldens() async throws {
             let capture = Self.capture
+            try await verify(.cpu, scenarios) { capture.composite(for: $0) }
+        }
+
+        @Test(
+            "record GPU goldens — run via `make recordGPUMaskSnapshots`, then review + commit",
+            .enabled(if: recordingEnabled, "compile-gated (RECORD_MASK_SNAPSHOTS) — use `make recordGPUMaskSnapshots`")
+        )
+        func recordGPUGoldens() async throws {
+            let capture = Self.capture
+            try await record(.gpu, gpuScenarios) { try await capture.gpuComposite(for: $0) }
+        }
+
+        @Test("committed GPU goldens match the GPU capture path's masking output")
+        func verifyGPUGoldens() async throws {
+            let capture = Self.capture
+            try await verify(.gpu, gpuScenarios) { try await capture.gpuComposite(for: $0) }
+        }
+
+        private func record(_ set: GoldenSet, _ scenarios: [Scenario],
+                            render: (Scenario) async throws -> UIImage) async throws
+        {
+            for stale in set.goldenFilenames() where !scenarios.contains(where: { stale == "case_\($0.id).png" }) {
+                try? FileManager.default.removeItem(at: set.directory.appendingPathComponent(stale))
+            }
+            for scenario in scenarios {
+                try await write(render(scenario), to: set.goldenURL(scenario.id))
+            }
+            print("Recorded \(scenarios.count) mask goldens to \(set.directory.path) — review and commit.")
+        }
+
+        private func verify(_ set: GoldenSet, _ scenarios: [Scenario],
+                            render: (Scenario) async throws -> UIImage) async throws
+        {
             var failures: [String] = []
 
             for scenario in scenarios {
-                let composite = capture.composite(for: scenario)
+                let composite = try await render(scenario)
 
-                guard let goldenData = try? Data(contentsOf: Self.goldenURL(scenario.id)),
+                guard let goldenData = try? Data(contentsOf: set.goldenURL(scenario.id)),
                       let golden = UIImage(data: goldenData)
                 else {
-                    failures.append("case \(scenario.id): no golden — run `make recordMaskSnapshots`")
+                    failures.append("case \(scenario.id): no golden — run `\(set.recordCommand)`")
                     continue
                 }
 
                 let fraction = pixelDiffFraction(golden, composite)
                 if fraction > diffTolerance {
                     let pct = String(format: "%.1f", fraction * 100)
-                    try? write(golden, to: Self.failureURL(scenario.id, "expected"))
-                    try? write(composite, to: Self.failureURL(scenario.id, "actual"))
+                    try? write(golden, to: set.failureURL(scenario.id, "expected"))
+                    try? write(composite, to: set.failureURL(scenario.id, "actual"))
                     if let diff = diffHeatmap(golden, composite) {
-                        try? write(diff, to: Self.failureURL(scenario.id, "diff"))
+                        try? write(diff, to: set.failureURL(scenario.id, "diff"))
                     }
                     failures.append("case \(scenario.id) (\(scenario.title)): \(pct)% of pixels changed")
                 }
             }
 
             let expected = Set(scenarios.map { "case_\($0.id).png" })
-            for orphan in Self.goldenFilenames() where !expected.contains(orphan) {
-                failures.append("\(orphan): orphaned golden (no matching scenario) — run `make recordMaskSnapshots`")
+            for orphan in set.goldenFilenames() where !expected.contains(orphan) {
+                failures.append("\(orphan): orphaned golden (no matching scenario) — run `\(set.recordCommand)`")
             }
 
             let report = failures.joined(separator: "\n  ")
@@ -157,15 +188,18 @@
             var scrollOffset: CGFloat = 0
             /// Per-scenario config; nil means the defaults (mask all text inputs + images).
             var configure: ((PostHogConfig) -> Void)?
+            /// The view presents something on appear, and the GPU capture waits until it has presented.
+            var presents = false
 
             init(title: String, option: String, expected: String,
-                 scrollOffset: CGFloat = 0, configure: ((PostHogConfig) -> Void)? = nil,
+                 scrollOffset: CGFloat = 0, presents: Bool = false, configure: ((PostHogConfig) -> Void)? = nil,
                  @ViewBuilder view: () -> some View)
             {
                 self.title = title
                 self.option = option
                 self.expected = expected
                 self.scrollOffset = scrollOffset
+                self.presents = presents
                 self.configure = configure
                 self.view = AnyView(view())
             }
@@ -475,6 +509,108 @@
             return entries
         }
 
+        /// Every CPU scenario, then GPU-only ones numbered after them, so CPU ids never move.
+        /// The GPU-only ones check what only inline masking does (chrome, paint order, blur,
+        /// portals); on the CPU path each is one black rect, which the CPU goldens already cover.
+        private var gpuScenarios: [Scenario] {
+            let shared = scenarios
+            var entries: [Scenario] = [
+                Scenario(title: "Masked card with chrome",
+                         option: ".postHogMask() on a card (background, circle, photo, text)",
+                         expected: "card black (SwiftUI text's * rows draw in black over it), photo blurred; label above visible",
+                         configure: Self.explicitMasksOnly)
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Circle().fill(Color.purple).frame(width: 40, height: 40)
+                                Text("Jane Appleseed")
+                            }
+                            Text(Self.secret)
+                            Image(uiImage: Self.sampleImage).resizable().frame(width: 160, height: 120)
+                        }
+                        .padding()
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.yellow))
+                        .postHogMask()
+                    }
+                },
+                Scenario(title: "Button over masked text",
+                         option: "button painted after a .postHogMask() Text (paint order)",
+                         expected: "secret masked; the button on top stays visible",
+                         configure: Self.explicitMasksOnly)
+                {
+                    ZStack {
+                        Text(Self.secret).font(.system(size: 40, weight: .bold)).postHogMask()
+                        Button {} label: {
+                            Text("Visible button").foregroundColor(.white)
+                                .padding(.horizontal, 16).padding(.vertical, 10)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(Color.blue))
+                        }
+                    }
+                },
+                Scenario(title: "Sheet over a masked card",
+                         option: "medium sheet presented over a .postHogMask() extent",
+                         expected: "card masked behind the sheet; the sheet's own content visible",
+                         presents: true,
+                         configure: Self.explicitMasksOnly)
+                {
+                    if #available(iOS 16.0, *) {
+                        SheetOverMaskedCard(secret: Self.secret)
+                    }
+                },
+                Scenario(title: "UIKit ph-no-capture card",
+                         option: "accessibilityIdentifier ph-no-capture (UIKit)",
+                         expected: "card background kept; its text as *, its photo blurred; label above visible",
+                         configure: Self.explicitMasksOnly)
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        NoCaptureCard(secret: Self.secret, image: Self.sampleImage).frame(width: 300, height: 200)
+                    }
+                },
+                Scenario(title: "Photo blurred, photo by a blur panel black",
+                         option: "maskAllImages, with a system blur panel over the second photo",
+                         expected: "top photo blurred (colours kept); photo under the blur panel black",
+                         configure: { $0.sessionReplayConfig.maskAllTextInputs = false })
+                {
+                    VStack(spacing: 24) {
+                        Image(uiImage: Self.sampleImage).resizable().frame(width: 160, height: 120)
+                        ZStack(alignment: .bottomTrailing) {
+                            Image(uiImage: Self.sampleImage).resizable().frame(width: 160, height: 120)
+                            BlurPanel().frame(width: 100, height: 60).offset(x: 40, y: 20)
+                        }
+                    }
+                },
+                Scenario(title: "Portal of masked text",
+                         option: "ph-no-capture label shown elsewhere through a portal layer",
+                         expected: "the portal's copy masked; ORIGINAL can't draw portals, so it shows the label in place",
+                         configure: Self.explicitMasksOnly)
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        PortalOfMaskedLabel(secret: Self.secret).frame(width: 300, height: 200)
+                    }
+                },
+                Scenario(title: "Mask over part of a panel",
+                         option: ".postHogMask() Text on a larger coloured panel (partial cover)",
+                         expected: "secret masked inside its extent only; the orange panel and label around it visible",
+                         configure: Self.explicitMasksOnly)
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        Text(Self.secret).postHogMask()
+                    }
+                    .padding(32)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.orange))
+                },
+            ]
+            for i in entries.indices {
+                entries[i].id = shared.count + i + 1
+            }
+            return shared + entries
+        }
+
         // MARK: - Capture
 
         /// Renders a scenario to its captioned `[ original | masked ]` composite.
@@ -496,6 +632,61 @@
             }
 
             func composite(for scenario: Scenario) -> UIImage {
+                let (window, controller) = host(scenario)
+                let original = render(controller.view)
+                // Redact through the exact production painter (RRWireframe.maskImage) so the golden
+                // reflects real replay output (scale-1), not hand-drawn rects.
+                let rects = integration.collectMaskableRects(in: window) ?? []
+                let masked = RRWireframe.maskImage(original, maskableWidgets: rects) ?? original
+                return compose(scenario, original: original, masked: masked)
+            }
+
+            /// The frame the GPU path uploads (inline masks baked in, then the rect backstop) beside the original.
+            func gpuComposite(for scenario: Scenario) async throws -> UIImage {
+                let (window, controller) = host(scenario)
+                defer {
+                    window.rootViewController = nil
+                    window.isHidden = true
+                }
+                if scenario.presents {
+                    await waitUntil { controller.presentedViewController.map { $0.transitionCoordinator == nil } ?? false }
+                    try #require(controller.presentedViewController != nil, "case \(scenario.id) didn't present")
+                }
+                // Its own mirror per scenario, so no text or image cache carries over between scenarios.
+                let mirror = try #require(PostHogGPUMirrorCapture(), "the simulator has no Metal device")
+                await withCheckedContinuation { continuation in
+                    mirror.prewarm(size: window.bounds.size, scale: 1) { continuation.resume() }
+                }
+                await waitUntil { ![.unchecked, .checking].contains(mirror.inlineMask.imageBlur) }
+                try #require(mirror.inlineMask.imageBlur == .verified, "the image blur self-check failed: images would be black")
+
+                let original = render(window)
+                // The first frame draws masked text as bars; the golden is the next one, with `*` drawn.
+                _ = try await gpuCapture(window, mirror: mirror)
+                mirror.inlineMask.waitForTextDrawsForTesting()
+                let captured = try await gpuCapture(window, mirror: mirror)
+                let masked = try UIImage(cgImage: #require(captured.cgImage), scale: 1, orientation: .up)
+                return compose(scenario, original: original, masked: masked, path: "GPU")
+            }
+
+            private func gpuCapture(_ window: UIWindow, mirror: PostHogGPUMirrorCapture) async throws -> UIImage {
+                // nil while a masked view hasn't laid out yet or a transition runs, as production skips those frames.
+                for _ in 0 ..< 20 {
+                    window.layoutIfNeeded()
+                    CATransaction.flush()
+                    let result = await withCheckedContinuation { continuation in
+                        integration.gpuPathCaptureForTesting(window: window, mirror: mirror, scale: 1) {
+                            continuation.resume(returning: $0)
+                        }
+                    }
+                    if let result { return result.image }
+                    try await Task.sleep(nanoseconds: 50_000_000)
+                }
+                throw NSError(domain: "MaskSnapshot", code: 2,
+                              userInfo: [NSLocalizedDescriptionKey: "the GPU path captured no frame"])
+            }
+
+            private func host(_ scenario: Scenario) -> (UIWindow, UIHostingController<AnyView>) {
                 // Reset to the SDK defaults, then apply the scenario's override (if any).
                 sdk.config.sessionReplayConfig.maskAllTextInputs = true
                 sdk.config.sessionReplayConfig.maskAllImages = true
@@ -515,13 +706,7 @@
                     scroll.setContentOffset(CGPoint(x: 0, y: scenario.scrollOffset), animated: false)
                     settle(window)
                 }
-
-                let original = render(controller.view)
-                // Redact through the exact production painter (RRWireframe.maskImage) so the golden
-                // reflects real replay output (scale-1), not hand-drawn rects.
-                let rects = integration.collectMaskableRects(in: window) ?? []
-                let masked = RRWireframe.maskImage(original, maskableWidgets: rects) ?? original
-                return compose(scenario, original: original, masked: masked)
+                return (window, controller)
             }
 
             private func render(_ view: UIView) -> UIImage {
@@ -534,7 +719,8 @@
                 }
             }
 
-            private func compose(_ scenario: Scenario, original: UIImage, masked: UIImage) -> UIImage {
+            /// `path` names a capture path other than the default one, in the caption.
+            private func compose(_ scenario: Scenario, original: UIImage, masked: UIImage, path: String? = nil) -> UIImage {
                 let header: CGFloat = 148
                 let gap: CGFloat = 8
                 let panelW = original.size.width
@@ -542,6 +728,7 @@
                                   height: header + max(original.size.height, masked.size.height))
                 let replay = sdk.config.sessionReplayConfig
                 let configLine = "config: maskAllTextInputs=\(replay.maskAllTextInputs)  maskAllImages=\(replay.maskAllImages)"
+                    + (path.map { "  path=\($0)" } ?? "")
                 let format = UIGraphicsImageRendererFormat()
                 format.scale = 1
                 return UIGraphicsImageRenderer(size: size, format: format).image { ctx in
@@ -558,7 +745,7 @@
                     draw("expect: \(scenario.expected)", at: CGPoint(x: 16, y: 94),
                          font: .italicSystemFont(ofSize: 15), color: .systemBlue, maxWidth: size.width - 32)
                     draw("ORIGINAL", at: CGPoint(x: 16, y: 124), font: .systemFont(ofSize: 12), color: .gray, maxWidth: panelW)
-                    draw("MASKED (redacted in replay)", at: CGPoint(x: panelW + gap + 16, y: 124),
+                    draw(path.map { "MASKED (\($0) capture, as uploaded)" } ?? "MASKED (redacted in replay)", at: CGPoint(x: panelW + gap + 16, y: 124),
                          font: .systemFont(ofSize: 12), color: .gray, maxWidth: panelW)
 
                     original.draw(at: CGPoint(x: 0, y: header))
@@ -674,22 +861,34 @@
 
         // MARK: - Paths & IO
 
-        private static let snapshotDir = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().appendingPathComponent("__MaskSnapshots__")
-        private static let failureDir = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().appendingPathComponent("__MaskSnapshotFailures__")
+        /// Where one capture path's goldens and failure artifacts live.
+        private struct GoldenSet {
+            static let cpu = GoldenSet("MaskSnapshot", recordCommand: "make recordMaskSnapshots")
+            static let gpu = GoldenSet("GPUMaskSnapshot", recordCommand: "make recordGPUMaskSnapshots")
 
-        private static func goldenURL(_ id: Int) -> URL {
-            snapshotDir.appendingPathComponent("case_\(id).png")
-        }
+            let directory: URL
+            let failureDirectory: URL
+            let recordCommand: String
 
-        private static func goldenFilenames() -> [String] {
-            let contents = (try? FileManager.default.contentsOfDirectory(atPath: snapshotDir.path)) ?? []
-            return contents.filter { $0.hasPrefix("case_") && $0.hasSuffix(".png") }
-        }
+            private init(_ name: String, recordCommand: String) {
+                let tests = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+                directory = tests.appendingPathComponent("__\(name)s__")
+                failureDirectory = tests.appendingPathComponent("__\(name)Failures__")
+                self.recordCommand = recordCommand
+            }
 
-        private static func failureURL(_ id: Int, _ kind: String) -> URL {
-            failureDir.appendingPathComponent("case_\(id).\(kind).png")
+            func goldenURL(_ id: Int) -> URL {
+                directory.appendingPathComponent("case_\(id).png")
+            }
+
+            func goldenFilenames() -> [String] {
+                let contents = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+                return contents.filter { $0.hasPrefix("case_") && $0.hasSuffix(".png") }
+            }
+
+            func failureURL(_ id: Int, _ kind: String) -> URL {
+                failureDirectory.appendingPathComponent("case_\(id).\(kind).png")
+            }
         }
 
         private func write(_ image: UIImage, to url: URL) throws {
@@ -702,5 +901,105 @@
             }
             try data.write(to: url)
         }
+    }
+
+    /// A masked card, with a medium sheet presented over its lower part on appear.
+    @available(iOS 16.0, *)
+    private struct SheetOverMaskedCard: View {
+        let secret: String
+        @State private var isPresented = false
+
+        var body: some View {
+            VStack(spacing: 16) {
+                Text("Visible label")
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Card holder")
+                    Text(secret)
+                    Color.clear.frame(height: 400)
+                }
+                .padding()
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.yellow))
+                .postHogMask()
+                Spacer()
+            }
+            .padding()
+            .sheet(isPresented: $isPresented) {
+                VStack(spacing: 16) {
+                    Text("Sheet content").font(.headline)
+                    Text("PUBLIC sheet text")
+                    Spacer()
+                }
+                .padding()
+                .presentationDetents([.medium])
+            }
+            .onAppear {
+                // A window outside a scene never finishes a presentation's animation.
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) { isPresented = true }
+            }
+        }
+    }
+
+    /// A UIKit ph-no-capture card: coloured, bordered chrome around a label and a photo.
+    private struct NoCaptureCard: UIViewRepresentable {
+        let secret: String
+        let image: UIImage
+
+        func makeUIView(context _: Context) -> UIView {
+            let card = UIView()
+            card.accessibilityIdentifier = "ph-no-capture"
+            card.backgroundColor = .systemYellow
+            card.layer.cornerRadius = 12
+            card.layer.borderWidth = 2
+            card.layer.borderColor = UIColor.systemOrange.cgColor
+            let label = UILabel(frame: CGRect(x: 16, y: 16, width: 268, height: 30))
+            label.text = secret
+            card.addSubview(label)
+            let photo = UIImageView(frame: CGRect(x: 16, y: 60, width: 160, height: 120))
+            photo.image = image
+            card.addSubview(photo)
+            return card
+        }
+
+        func updateUIView(_: UIView, context _: Context) {}
+    }
+
+    private struct BlurPanel: UIViewRepresentable {
+        func makeUIView(context _: Context) -> UIVisualEffectView {
+            UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+        }
+
+        func updateUIView(_: UIVisualEffectView, context _: Context) {}
+    }
+
+    /// A ph-no-capture label, shown again below it through a portal layer.
+    private struct PortalOfMaskedLabel: UIViewRepresentable {
+        let secret: String
+
+        func makeUIView(context _: Context) -> UIView {
+            let root = UIView()
+            let source = UIView(frame: CGRect(x: 0, y: 0, width: 300, height: 60))
+            source.accessibilityIdentifier = "ph-no-capture"
+            let label = UILabel(frame: CGRect(x: 10, y: 10, width: 280, height: 40))
+            label.text = secret
+            source.addSubview(label)
+            root.addSubview(source)
+            // A private class, as in the GPU capture suites: only the render server draws portals.
+            if let portalClass = NSClassFromString("CAPortalLayer") as? CALayer.Type {
+                let portal = portalClass.init()
+                portal.frame = CGRect(x: 0, y: 120, width: 300, height: 60)
+                portal.masksToBounds = true
+                portal.setValue(source.layer, forKey: "sourceLayer")
+                portal.setValue(false, forKey: "hidesSourceLayer")
+                portal.setValue(false, forKey: "matchesPosition")
+                portal.setValue(false, forKey: "matchesTransform")
+                portal.setValue(0, forKey: "sourceContextId")
+                root.layer.addSublayer(portal)
+            }
+            return root
+        }
+
+        func updateUIView(_: UIView, context _: Context) {}
     }
 #endif

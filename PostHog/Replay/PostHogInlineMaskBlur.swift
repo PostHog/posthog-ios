@@ -26,8 +26,8 @@
             defer { free(blurred.data) }
             var original = region
             guard vImageScale_ARGB8888(&original, &small, nil, vImage_Flags(kvImageHighQualityResampling)) == kvImageNoError else { return false }
-            // Three box passes a quarter of the long side wide: close to a gaussian with a sixth of it as its radius.
-            let kernel = Int(max(3, (CGFloat(max(smallWidth, smallHeight)) / 4).rounded()))
+            // Three box passes, each half the long side wide.
+            let kernel = Int(max(3, (CGFloat(max(smallWidth, smallHeight)) / 2).rounded()))
             let kernelWidth = UInt32(min(kernel, smallWidth) | 1), kernelHeight = UInt32(min(kernel, smallHeight) | 1)
             var source = small, destination = blurred
             for _ in 0 ..< 3 {

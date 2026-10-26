@@ -4,8 +4,8 @@
 
     /// Masks a GPU capture's mirror in place, between the mask walk and `freeze`: text as `*`, drawn off main (bars
     /// until drawn), images blurred, any other content black. A `postHogMask()` reporter masks everything painted under
-    /// its extent before it: content the same way, chrome black. Whatever can't be placed, whole portals and objects
-    /// with no copy use the rect pass. Main thread.
+    /// its extent before it: content the same way, except images, which go black, and chrome black. Whatever can't be
+    /// placed, whole portals and objects with no copy use the rect pass. Main thread.
     final class PostHogInlineMask {
         /// How copies of a class are redacted, before the instance it applies to is known.
         enum Tag {
@@ -19,8 +19,8 @@
             /// Text that can't be read (SwiftUI, React Native): rows of `*` sized from the bounds alone, in the
             /// traits' label colour.
             case unreadableText(UITraitCollection)
-            /// Kept and blurred in the frame's pixels after the render; black when unplaced, under a backdrop, or the blur
-            /// isn't verified.
+            /// Kept and blurred in the frame's pixels after the render; black when unplaced, under a backdrop, under a
+            /// `postHogMask()` extent, or the blur isn't verified.
             case image
             /// Filled black, with nothing below it drawn: web views, sandboxed views, controls.
             case opaque
@@ -207,7 +207,7 @@
         private static let maxCacheBytes = 16 * 1024 * 1024
         private static let unitRect = CGRect(x: 0, y: 0, width: 1, height: 1)
         /// Cells across an image's long side that survive the blur.
-        static let blurCellsAcross: CGFloat = 6
+        static let blurCellsAcross: CGFloat = 3
         private static let barHeightFraction: CGFloat = 0.55
         private static let sRGB = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
 

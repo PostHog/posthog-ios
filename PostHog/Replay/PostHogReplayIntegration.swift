@@ -2058,9 +2058,8 @@
             }
 
             // The flattened surface can't be inspected and may hold text, images or both,
-            // so mask the whole of it when either category is masked
-            let replayConfig = config?.sessionReplayConfig
-            guard replayConfig?.maskAllTextInputs == true || replayConfig?.maskAllImages == true || view.isNoCapture() else {
+            // so like a web view, mask the whole of it when either category is masked
+            guard isAnyInputSensitive(view) else {
                 return false
             }
 

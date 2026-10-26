@@ -731,6 +731,16 @@
         let lineHeight: CGFloat
         let singleLine: Bool
 
+        /// Written out because `CGSize` and `CGPoint` aren't `Hashable` in older SDKs.
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(masked)
+            hasher.combine(size.width)
+            hasher.combine(size.height)
+            hasher.combine(scale)
+            hasher.combine(origin.x)
+            hasher.combine(origin.y)
+        }
+
         init(_ label: UILabel, size: CGSize, scale: CGFloat) {
             masked = Self.key(label.text ?? "", keepingWhitespace: true)
             self.size = size

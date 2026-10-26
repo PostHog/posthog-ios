@@ -316,7 +316,12 @@
             #if TESTING
                 lastInlineRegionCountForTesting = regions.count - remaining.count
             #endif
-            return remaining
+            let rectReporters = remaining.filter { $0.inline == .extent }.map(\.rect)
+            // A portal the walk already masks whole, for a reporter inside its source, isn't added again.
+            let portals = Self.wholePortals(coveredBy: rectReporters, of: frame.portalSources).filter { portal in
+                !remaining.contains { $0.owner == portal.owner && $0.rect == portal.rect }
+            }
+            return remaining + portals
         }
 
         private func kind(of layer: CALayer, tag: (AnyClass?, AnyClass) -> Tag) -> Kind {

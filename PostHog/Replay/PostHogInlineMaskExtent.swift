@@ -33,7 +33,7 @@
                 self.root = root
                 self.reporterCopies = reporterCopies
                 entries.reserveCapacity(copies.count)
-                let frame = collect(root, parent: nil, copies: copies)
+                let frame = collect(root, parent: nil, isDrawn: true, copies: copies)
                 guard !frame.isNull, frame.minX.isFinite, frame.minY.isFinite, frame.width.isFinite, frame.height.isFinite else { return nil }
             }
 
@@ -70,18 +70,20 @@
                 index <= reporter && reporter < entries[index].subtreeEnd
             }
 
-            /// Appends the layer and its visible subtree in pre-order, and returns the subtree's frame.
-            private mutating func collect(_ layer: CALayer, parent: Int?, copies: CopyIndex) -> CGRect {
+            /// Appends the layer and its subtree in pre-order, and returns the subtree's frame. Hidden copies are kept: a
+            /// portal hides the source it shows, and what's masked there has to be masked in the portal's copy too.
+            private mutating func collect(_ layer: CALayer, parent: Int?, isDrawn parentIsDrawn: Bool, copies: CopyIndex) -> CGRect {
+                let isDrawn = parentIsDrawn && !layer.isHidden
                 let placement = copies.placement(of: layer)
                 let frame = placement.map { layer.bounds.applying($0.toWindow) } ?? layer.convert(layer.bounds, to: root)
                 let index = entries.count
                 entries.append(ExtentEntry(copy: layer, frame: frame, coverable: placement.flatMap { $0.hasPlainSublayers ? $0.toWindow : nil },
                                            subtreeFrame: frame, subtreeEnd: index + 1))
-                if reporterCopies.contains(ObjectIdentifier(layer)) { reporters[ObjectIdentifier(layer)] = index }
-                if layer.zPosition != 0 { layered.append((index, parent)) }
+                if isDrawn, reporterCopies.contains(ObjectIdentifier(layer)) { reporters[ObjectIdentifier(layer)] = index }
+                if isDrawn, layer.zPosition != 0 { layered.append((index, parent)) }
                 var subtreeFrame = frame
-                for sublayer in layer.sublayers ?? [] where !sublayer.isHidden {
-                    subtreeFrame = subtreeFrame.union(collect(sublayer, parent: index, copies: copies))
+                for sublayer in layer.sublayers ?? [] {
+                    subtreeFrame = subtreeFrame.union(collect(sublayer, parent: index, isDrawn: isDrawn, copies: copies))
                 }
                 entries[index].subtreeFrame = subtreeFrame
                 entries[index].subtreeEnd = entries.count
@@ -97,6 +99,11 @@
             case backdrop
             /// Colour of its own and nothing else to mask (or already masked): black.
             case color(strippingFirst: Bool)
+
+            var redactsContent: Bool {
+                if case .redact = self { return true }
+                return false
+            }
         }
 
         /// Rounding slack for extent containment, so edge-aligned copies count as inside.
@@ -132,6 +139,18 @@
                 && copy.contentsGravity != .resize && copy.contentsGravity != .resizeAspect)
             let hole = spills ? local : local.intersection(copy.bounds)
             return hole.isNull || hole.isEmpty ? nil : hole
+        }
+
+        /// A reporter left to the rect pass can't mask what a portal shows elsewhere of a source it covers, so each such
+        /// portal is masked whole.
+        static func wholePortals(coveredBy rects: [CGRect], of sources: [PostHogPortalSource]) -> [PostHogReplayIntegration.MaskedRegion] {
+            guard !rects.isEmpty else { return [] }
+            return sources.compactMap { source in
+                guard let elsewhere = source.elsewhere else { return nil }
+                let sourceRect = source.view.toPresentationRect(source.view.window)
+                guard rects.contains(where: { $0.intersects(sourceRect) }) else { return nil }
+                return PostHogReplayIntegration.MaskedRegion(source.view, rect: elsewhere.portalRect, inline: .rectOnly)
+            }
         }
 
         /// Black over `hole`, painted over the copy's own background and content and under its sublayers. Its border
@@ -180,7 +199,7 @@
 
         /// Masks what the extent reaches before the reporter, whichever view drew it: content as the walk does, colour
         /// black. Partly inside, the layer is covered over the extent, or replaced whole when it can't be. Later paint
-        /// is kept.
+        /// is kept. Each copy's other copies, where a portal shows its source again, are masked the same way.
         private mutating func redactExtent(_ rect: CGRect, in tree: PostHogInlineMask.ExtentTree, reporter: Set<ObjectIdentifier>) {
             let reached = tree.entries(reachedBy: rect, reporter: reporter)
             #if TESTING
@@ -194,28 +213,45 @@
                 let copy = entry.copy
                 let source = index.source(of: copy)
                 guard let treatment = extentTreatment(of: copy, source: source) else { continue }
+                let others = source.map { index.copies(of: $0).filter { $0 !== copy } } ?? []
                 let kind: PostHogInlineMask.Kind
                 switch treatment {
                 case .backdrop:
-                    if coverOrHide(backdrop: entry, under: rect) { skipUntil = entry.subtreeEnd }
+                    if !coverPartially(entry, under: rect, kind: .container, others: others) {
+                        // Hidden only where no cover can be placed: hiding takes its sublayers, outside the extent too.
+                        ([copy] + others).forEach { hide($0) }
+                        skipUntil = entry.subtreeEnd
+                    }
                     continue
                 case let .redact(redacted): kind = redacted
                 case .color: kind = .container
                 }
                 let isPartial = !inside.contains(entry.frame)
-                if isPartial, coverPartially(entry, under: rect, kind: kind) { continue }
-                if maskWhole(entry, source: source, treatment: treatment, kind: kind, replacing: isPartial) { skipUntil = entry.subtreeEnd }
+                if isPartial, coverPartially(entry, under: rect, kind: kind, others: others) { continue }
+                if maskWhole(copy, others: others, treatment: treatment, kind: kind, replacing: isPartial) {
+                    skipUntil = entry.subtreeEnd
+                }
                 #if TESTING
                     if isPartial { mask.extentStatsForTesting.replaced += 1 }
                 #endif
             }
         }
 
-        /// Masks the whole copy: black, or its content as the walk does. Whether its subtree was hidden with it.
-        private mutating func maskWhole(_ entry: PostHogInlineMask.ExtentEntry, source: CALayer?, treatment: PostHogInlineMask.ExtentTreatment,
+        /// Masks the whole copy and each other copy of its source not masked yet. Whether `copy`'s subtree was hidden.
+        private mutating func maskWhole(_ copy: CALayer, others: [CALayer], treatment: PostHogInlineMask.ExtentTreatment,
                                         kind: PostHogInlineMask.Kind, replacing: Bool) -> Bool
         {
-            let copy = entry.copy
+            let source = index.source(of: copy)
+            for other in others where !visited.contains(ObjectIdentifier(other)) || !treatment.redactsContent {
+                _ = maskWhole(other, source: source, treatment: treatment, kind: kind, replacing: replacing)
+            }
+            return maskWhole(copy, source: source, treatment: treatment, kind: kind, replacing: replacing)
+        }
+
+        /// Masks the whole copy: black, or its content as the walk does. Whether its subtree was hidden with it.
+        private mutating func maskWhole(_ copy: CALayer, source: CALayer?, treatment: PostHogInlineMask.ExtentTreatment,
+                                        kind: PostHogInlineMask.Kind, replacing: Bool) -> Bool
+        {
             guard case let .color(strippingFirst) = treatment else {
                 let hid = redactOwnContent(copy, source: source, as: kind, replacingWhole: replacing)
                 PostHogInlineMask.blackOut(copy, [.colors, .edges])
@@ -237,22 +273,37 @@
             return drawsColor ? .color(strippingFirst: true) : nil
         }
 
-        /// Covers a backdrop over the extent rather than hiding it, which would take its sublayers outside the extent
-        /// with it. Where no cover can be placed, hides it. Whether its subtree was hidden with it.
-        private mutating func coverOrHide(backdrop entry: PostHogInlineMask.ExtentEntry, under rect: CGRect) -> Bool {
-            guard !coverPartially(entry, under: rect, kind: .container) else { return false }
-            entry.copy.isHidden = true
-            visited.insert(ObjectIdentifier(entry.copy))
+        /// Covers the part of a partly reached copy under `rect`, and the same part of its other copies; false when only
+        /// replacing it whole is safe.
+        private mutating func coverPartially(_ entry: PostHogInlineMask.ExtentEntry, under rect: CGRect, kind: PostHogInlineMask.Kind,
+                                             others: [CALayer]) -> Bool
+        {
+            guard kind.allowsCover, let toWindow = entry.coverable, PostHogInlineMask.layerAllowsCover(entry.copy) else { return false }
+            apply(PostHogInlineMask.hole(rect, in: entry.copy, toWindow: toWindow, scale: scale), to: entry.copy, others: others)
             return true
         }
 
-        /// Covers the part of a partly reached copy under `rect`; false when only replacing it whole is safe.
-        private func coverPartially(_ entry: PostHogInlineMask.ExtentEntry, under rect: CGRect, kind: PostHogInlineMask.Kind) -> Bool {
-            guard kind.allowsCover, let toWindow = entry.coverable, PostHogInlineMask.layerAllowsCover(entry.copy) else { return false }
-            if let hole = PostHogInlineMask.hole(rect, in: entry.copy, toWindow: toWindow, scale: scale) {
-                PostHogInlineMask.cover(hole, in: entry.copy)
+        /// Covers the hole in `copy` and in each other copy of its source: a hole in bounds coordinates is the same
+        /// part of the source in every copy. A copy whose bounds or sublayer space differs, or that can't take a cover,
+        /// is blacked out whole.
+        private mutating func apply(_ hole: CGRect?, to copy: CALayer, others: [CALayer]) {
+            guard let hole else { return }
+            PostHogInlineMask.cover(hole, in: copy)
+            for other in others {
+                if other.bounds == copy.bounds, CATransform3DIsIdentity(other.sublayerTransform), !other.isGeometryFlipped,
+                   PostHogInlineMask.layerAllowsCover(other)
+                {
+                    PostHogInlineMask.cover(hole, in: other)
+                } else {
+                    visited.insert(ObjectIdentifier(other))
+                    PostHogInlineMask.blackOut(other, [.content, .fill, .colors, .edges])
+                }
             }
-            return true
+        }
+
+        private mutating func hide(_ copy: CALayer) {
+            copy.isHidden = true
+            visited.insert(ObjectIdentifier(copy))
         }
     }
 #endif

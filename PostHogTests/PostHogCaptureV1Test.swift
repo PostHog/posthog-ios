@@ -937,29 +937,29 @@ final class PostHogCaptureAiTest {
         #expect(batchRequest.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
     }
 
-    @Test("AI settings of 0 or less use their defaults, and captureAiMaxEventBytes can't exceed 8 MiB")
+    @Test("AI settings of 0 or less use their defaults, and captureAiMaxEventBytes can't exceed its default")
     func aiSettingLimits() {
         let config = PostHogConfig(projectToken: "phc_ai_settings")
         #expect(config.effectiveCaptureAiMaxQueueSize == 100)
         #expect(config.effectiveCaptureAiTimeout == 60)
-        #expect(config.captureAiMaxStoredEventBytes == aiMaxEventBytes)
+        #expect(config.effectiveCaptureAiMaxEventBytes == aiMaxEventBytes)
 
         config.captureAiMaxQueueSize = 3
         config.captureAiTimeout = 5
         config.captureAiMaxEventBytes = 1024
         #expect(QueueEndpoint.ai(api: PostHogApi(config)).maxQueueSize(config) == 3)
         #expect(config.effectiveCaptureAiTimeout == 5)
-        #expect(config.captureAiMaxStoredEventBytes == 1024 + aiEventEnvelopeBytes)
+        #expect(config.effectiveCaptureAiMaxEventBytes == 1024)
 
         config.captureAiMaxQueueSize = 0
         config.captureAiTimeout = -1
         config.captureAiMaxEventBytes = 0
         #expect(config.effectiveCaptureAiMaxQueueSize == 100)
         #expect(config.effectiveCaptureAiTimeout == 60)
-        #expect(config.captureAiMaxStoredEventBytes == aiMaxEventBytes)
+        #expect(config.effectiveCaptureAiMaxEventBytes == aiMaxEventBytes)
 
         config.captureAiMaxEventBytes = 100 * 1024 * 1024
-        #expect(config.captureAiMaxStoredEventBytes == aiMaxEventBytes)
+        #expect(config.effectiveCaptureAiMaxEventBytes == aiMaxEventBytes)
     }
 
     @Test("drops an AI event over a lowered captureAiMaxEventBytes")
@@ -974,7 +974,7 @@ final class PostHogCaptureAiTest {
             deleteSafely(storage.appFolderUrl)
         }
 
-        let overLimit = String(repeating: "a", count: 1024 + aiEventEnvelopeBytes)
+        let overLimit = String(repeating: "a", count: 1024)
         #expect(!queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user", properties: ["$ai_input": overLimit])))
         #expect(queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user", properties: ["$ai_input": "short"])))
         #expect(queue.depth == 1)

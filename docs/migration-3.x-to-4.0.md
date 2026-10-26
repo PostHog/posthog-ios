@@ -150,7 +150,7 @@ PostHogSDK.shared.captureAi("$ai_generation", properties: ["$ai_model": "gpt-5",
 
 In Objective-C, use `captureAiWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:`.
 
-- An AI event can be up to 8 MiB. The SDK drops a larger event, and `captureAi` returns `nil`. Set `captureAiMaxEventBytes` to lower the limit.
+- An AI event's properties can be up to 8 MiB. The SDK drops a serialized event over 8 MiB + 64 KiB, and `captureAi` returns `nil`. Set `captureAiMaxEventBytes` to lower the limit; it measures the whole serialized event.
 - PostHog drops an event sent with `captureAi` whose name doesn't start with `$ai_`. `capture` never sends events to the AI endpoint, even ones named `$ai_*`.
 - AI requests time out after 60 seconds without network activity, or `captureAiTimeout`. Other requests still time out after 10 seconds.
 - AI events are queued on disk separately from other events. Up to 100 events (`captureAiMaxQueueSize`) and 50 MiB are kept, and the oldest are dropped first. `maxQueueSize` doesn't apply.

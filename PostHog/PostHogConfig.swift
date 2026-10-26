@@ -36,7 +36,8 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
         static let featureFlagRequestMaxRetries: Int = 1
         static let captureAiMaxQueueSize: Int = 100
         static let captureAiTimeout: TimeInterval = 60
-        static let captureAiMaxEventBytes: Int = 8 * 1024 * 1024
+        /// PostHog's 8 MiB AI properties limit, plus 64 KiB for the rest of the event.
+        static let captureAiMaxEventBytes: Int = 8 * 1024 * 1024 + 64 * 1024
     }
 
     /// Network connectivity mode required before queued data may be flushed.
@@ -497,11 +498,12 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     /// Default: `60`.
     @objc public var captureAiTimeout: TimeInterval = Defaults.captureAiTimeout
 
-    /// Maximum size, in bytes, of a `captureAi` event's properties. The SDK drops a larger event.
+    /// Maximum size, in bytes, of a serialized `captureAi` event. The SDK drops a larger event.
     ///
-    /// Use it to lower the limit. PostHog drops AI events over 8 MiB, so a larger value, or a value of
-    /// `0` or less, uses 8 MiB.
-    /// Default: `8388608` (8 MiB).
+    /// Use it to lower the limit. PostHog drops AI events whose properties are over 8 MiB, so the default
+    /// allows 8 MiB plus 64 KiB for the rest of the event. A larger value, or a value of `0` or less,
+    /// uses the default.
+    /// Default: `8454144` (8 MiB + 64 KiB).
     @objc public var captureAiMaxEventBytes: Int = Defaults.captureAiMaxEventBytes
 
     // only internal

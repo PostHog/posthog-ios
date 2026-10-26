@@ -23,11 +23,8 @@ func isCaptureV1RetriableStatusCode(_ code: Int) -> Bool {
     [408, 500, 502, 503, 504].contains(code)
 }
 
-/// The stored event also holds its envelope, so allow 64 KiB on top of the
-/// properties limit, as posthog-python and posthog-go do.
-let aiEventEnvelopeBytes = 64 * 1024
-/// Stored-size limit for an AI event at the default `captureAiMaxEventBytes`.
-let aiMaxEventBytes = PostHogConfig.Defaults.captureAiMaxEventBytes + aiEventEnvelopeBytes
+/// Size limit for a whole serialized AI event at the default `captureAiMaxEventBytes`.
+let aiMaxEventBytes = PostHogConfig.Defaults.captureAiMaxEventBytes
 /// Soft request size for the capture V1 analytics and AI endpoints, matching
 /// the other PostHog SDKs and well under capture V1's 10 MiB request limit.
 let captureV1MaxBatchBytes = 5 * 1024 * 1024
@@ -68,7 +65,7 @@ extension QueueEndpoint where Record == PostHogEvent {
     /// `captureAi`. Same retry policy as capture V1, with no `/batch` fallback.
     /// Batches by bytes as well as count, since AI events can be megabytes.
     static func ai(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
-        let maxEventBytes = api.config.captureAiMaxStoredEventBytes
+        let maxEventBytes = api.config.effectiveCaptureAiMaxEventBytes
         return QueueEndpoint<PostHogEvent>(
             storageKey: .aiQueue,
             oldStorageKeys: [],
@@ -189,11 +186,9 @@ extension PostHogConfig {
         captureAiTimeout > 0 ? captureAiTimeout : Defaults.captureAiTimeout
     }
 
-    /// Stored-size limit for an AI event: `captureAiMaxEventBytes`, capped at
-    /// PostHog's 8 MiB, plus the envelope allowance.
-    var captureAiMaxStoredEventBytes: Int {
+    /// `captureAiMaxEventBytes`, capped at its default, or the default when it isn't positive.
+    var effectiveCaptureAiMaxEventBytes: Int {
         let limit = Defaults.captureAiMaxEventBytes
-        let bytes = captureAiMaxEventBytes > 0 ? min(captureAiMaxEventBytes, limit) : limit
-        return bytes + aiEventEnvelopeBytes
+        return captureAiMaxEventBytes > 0 ? min(captureAiMaxEventBytes, limit) : limit
     }
 }

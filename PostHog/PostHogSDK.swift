@@ -1537,7 +1537,7 @@ let maxRetryDelay = 30.0
     /// Takes the same arguments as `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`
     /// and goes through the same `beforeSend` hooks. The event is queued on disk separately from other
     /// events and sent unchanged: the SDK doesn't redact or truncate prompts, outputs or media.
-    /// An event over `captureAiMaxEventBytes` (8 MiB by default) is dropped. PostHog drops an event
+    /// An event over `captureAiMaxEventBytes` (8 MiB plus 64 KiB by default) is dropped. PostHog drops an event
     /// sent here whose name doesn't start with `$ai_`, and the SDK logs a debug message when it's
     /// given one. `capture` never sends events here, even ones named `$ai_*`.
     ///

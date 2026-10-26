@@ -75,7 +75,7 @@
             private mutating func collect(_ layer: CALayer, parent: Int?, isDrawn parentIsDrawn: Bool, copies: CopyIndex) -> CGRect {
                 let isDrawn = parentIsDrawn && !layer.isHidden
                 let placement = copies.placement(of: layer)
-                let frame = placement.map { layer.bounds.applying($0.toWindow) } ?? layer.convert(layer.bounds, to: root)
+                let frame = copies.windowFrame(of: layer, root: root)
                 let index = entries.count
                 entries.append(ExtentEntry(copy: layer, frame: frame, coverable: placement.flatMap { $0.hasPlainSublayers ? $0.toWindow : nil },
                                            subtreeFrame: frame, subtreeEnd: index + 1))

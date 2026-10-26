@@ -52,7 +52,8 @@
                 return true
             }
 
-            func readback(on completionQueue: DispatchQueue, completion: @escaping (CGImage?) -> Void) {
+            /// Calls `completion` with the frame's pixels, `blurred` (pixel rects) blurred or blacked before the image is made.
+            func readback(blurring blurred: [CGRect], on completionQueue: DispatchQueue, completion: @escaping (CGImage?) -> Void) {
                 // Command buffers on one queue complete in order, so this empty buffer completes after the render.
                 guard let fence = queue.makeCommandBuffer() else {
                     completionQueue.async { completion(nil) }
@@ -62,7 +63,7 @@
                 fence.addCompletedHandler { [self] buffer in
                     let failed = buffer.error != nil || clear?.status != .completed
                     completionQueue.async {
-                        completion(failed ? nil : self.copyPixels())
+                        completion(failed ? nil : self.copyPixels(blurring: blurred))
                     }
                 }
                 fence.commit()
@@ -99,7 +100,7 @@
                 return buffer
             }
 
-            private func copyPixels() -> CGImage? {
+            private func copyPixels(blurring blurred: [CGRect]) -> CGImage? {
                 let width = texture.width, height = texture.height
                 guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
                                               space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: Self.bgraBitmapInfo),
@@ -110,6 +111,11 @@
                 // didn't happen. The scan stops at the first painted pixel, which is usually the first one.
                 guard !Self.isBlank(data, width: width, height: height, bytesPerRow: context.bytesPerRow) else { return nil }
                 Self.flipRows(data, height: height, bytesPerRow: context.bytesPerRow)
+                #if TESTING
+                    let blurStart = CACurrentMediaTime()
+                    defer { PostHogInlineMask.lastBlurMillisecondsForTesting = (CACurrentMediaTime() - blurStart) * 1000 }
+                #endif
+                PostHogInlineMask.blurRegions(blurred, in: data, width: width, height: height, bytesPerRow: context.bytesPerRow)
                 return context.makeImage()
             }
 
@@ -193,95 +199,6 @@
                 descriptor.usage = [.renderTarget, .shaderRead]
                 guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
                 return Target(texture: texture, queue: queue, scale: key.scale)
-            }
-
-            /// Off-main. Renders `layer` alone, waits for the GPU and returns the pixels. Leaves the wrapper empty.
-            private func renderSynchronously(_ layer: CALayer) -> CGImage? {
-                CATransaction.begin()
-                CATransaction.setDisableActions(true)
-                wrapper.sublayers = [layer]
-                CATransaction.commit()
-                CATransaction.flush()
-                var image: CGImage?
-                if render(), let fence = queue.makeCommandBuffer() {
-                    fence.commit()
-                    fence.waitUntilCompleted()
-                    image = fence.error == nil ? copyPixels() : nil
-                }
-                CATransaction.begin()
-                CATransaction.setDisableActions(true)
-                wrapper.sublayers = nil
-                CATransaction.commit()
-                CATransaction.flush()
-                return image
-            }
-
-            // MARK: Image blur self-check
-
-            /// A fine black and white checkerboard, the detail an image blur has to remove.
-            private static let blurCheckSize = CGSize(width: 48, height: 32)
-            private static let blurCheckCell = 2
-            /// Largest step between neighbouring pixels, out of 255, a blurred checkerboard may keep.
-            private static let blurCheckMaxStep = 12
-
-            /// Off-main. Renders a fine checkerboard through `blur` on its own small renderer and reports whether the
-            /// detail is gone; false when `CARenderer` left it or nothing could be rendered.
-            static func checkImageBlur(device: MTLDevice, queue: MTLCommandQueue, applying blur: (CALayer) -> Bool) -> Bool {
-                guard let target = make(TargetKey(size: blurCheckSize, scale: 1), device: device, queue: queue), let pattern = checkerboard()
-                else { return false }
-                CATransaction.begin()
-                CATransaction.setDisableActions(true)
-                let layer = CALayer()
-                layer.anchorPoint = .zero
-                layer.bounds = CGRect(origin: .zero, size: blurCheckSize)
-                layer.contents = pattern
-                let applied = blur(layer)
-                CATransaction.commit()
-                guard applied, let image = target.renderSynchronously(layer) else { return false }
-                return maxNeighbourStep(image).map { $0 <= blurCheckMaxStep } ?? false
-            }
-
-            private static func checkerboard() -> CGImage? {
-                let width = Int(blurCheckSize.width), height = Int(blurCheckSize.height), cell = blurCheckCell
-                guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                                              space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-                else { return nil }
-                context.setFillColor(UIColor.black.cgColor)
-                context.fill(CGRect(origin: .zero, size: blurCheckSize))
-                context.setFillColor(UIColor.white.cgColor)
-                for row in stride(from: 0, to: height, by: cell) {
-                    for column in stride(from: (row / cell % 2) * cell, to: width, by: cell * 2) {
-                        context.fill(CGRect(x: column, y: row, width: cell, height: cell))
-                    }
-                }
-                return context.makeImage()
-            }
-
-            /// The largest difference between horizontally or vertically adjacent pixels in any channel, away from the
-            /// edges; nil when the image couldn't be read.
-            private static func maxNeighbourStep(_ image: CGImage) -> Int? {
-                let width = image.width, height = image.height, margin = 2
-                guard width > 2 * margin + 1, height > 2 * margin + 1 else { return nil }
-                var bytes = [UInt8](repeating: 0, count: width * height * 4)
-                let drawn: Bool = bytes.withUnsafeMutableBytes { buffer in
-                    guard let context = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-                                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-                    else { return false }
-                    context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-                    return true
-                }
-                guard drawn else { return nil }
-                var step = 0
-                for row in margin ..< height - margin - 1 {
-                    for column in margin ..< width - margin - 1 {
-                        let index = (row * width + column) * 4
-                        for channel in 0 ..< 3 {
-                            let value = Int(bytes[index + channel])
-                            step = max(step, abs(value - Int(bytes[index + 4 + channel])), abs(value - Int(bytes[index + width * 4 + channel])))
-                        }
-                    }
-                }
-                return step
             }
         }
 

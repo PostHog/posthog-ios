@@ -29,8 +29,12 @@
             private(set) var portalSources: [PostHogPortalSource]
             /// Every copy in the mirror, for masking them in place. Emptied by `freeze`.
             private(set) var copies: PostHogInlineMask.CopyMap
+            /// Copies that sample and draw again what's rendered behind them. Emptied by `freeze`.
+            private(set) var backdropCopies: [CALayer]
             /// The window's copy, whose bounds are window coordinates; nil after `freeze`.
             var rootCopy: CALayer? { stage == .built ? root : nil }
+            /// Pixel rects blurred after the render, before the pixels leave the bitmap.
+            private var blurPixelRects: [CGRect] = []
             private var stage = FrameStage.built
 
             fileprivate init(target: Target, root: CALayer, walk: Walk) {
@@ -39,6 +43,14 @@
                 culledLayers = walk.culled
                 portalSources = walk.portalSources
                 copies = walk.copies
+                backdropCopies = walk.backdrops
+            }
+
+            /// Main thread, before `freeze`. Sets the window rects `readback` blurs.
+            func blurAfterRender(_ rects: [CGRect]) {
+                guard stage == .built else { return }
+                let toPixels = CGAffineTransform(scaleX: scale, y: scale)
+                blurPixelRects = rects.map { $0.applying(toPixels) }
             }
 
             /// Main thread. Commits the mirror so CARenderer sees it; host redraws after this, even in place into shared
@@ -50,6 +62,7 @@
                 culledLayers = []
                 portalSources = []
                 copies = .init()
+                backdropCopies = []
                 stage = .frozen
             }
 
@@ -68,7 +81,7 @@
                     queue.async { completion(nil) }
                     return
                 }
-                target.readback(on: queue, completion: completion)
+                target.readback(blurring: blurPixelRects, on: queue, completion: completion)
             }
 
             private static func tearDown(_ layer: CALayer) {
@@ -162,6 +175,7 @@
             /// The Liquid Glass background the walk is inside, if any.
             var glass: PostHogGlassStandIn.Kind?
             var copies = PostHogInlineMask.CopyMap()
+            var backdrops: [CALayer] = []
         }
 
         /// Where a layer's sublayers land in the window.
@@ -319,7 +333,7 @@
         private func checkImageBlurIfNeeded() {
             guard inlineMask.beginImageBlurCheck() else { return }
             DispatchQueue.global(qos: .utility).async { [self] in
-                let passed = checkImageBlur()
+                let passed = PostHogInlineMask.checkImageBlur()
                 DispatchQueue.main.async { [self] in inlineMask.recordImageBlurCheck(passed: passed) }
             }
         }
@@ -351,11 +365,6 @@
             inlineMask.mask(regions, in: frame, tag: tag) {
                 classInfo(type(of: $0)).copiesWithInitLayer
             }
-        }
-
-        /// Off-main. See `Target.checkImageBlur`.
-        func checkImageBlur(applying blur: (CALayer) -> Bool = PostHogInlineMask.applyBlur) -> Bool {
-            Target.checkImageBlur(device: device, queue: queue, applying: blur)
         }
 
         #if TESTING
@@ -550,7 +559,9 @@
         {
             // CARenderer drops a glass background's whole subtree, so it's copied as a plain layer without its filters.
             let glassBackground = info.copiesWithInitLayer && PostHogGlassStandIn.isGlassBackground(source)
-            let copy = (info.copiesWithInitLayer && !glassBackground ? initLayerCopy(source) : nil) ?? plainCopy(presentation, kind: info.kind)
+            let backdrop = info.copiesWithInitLayer && !glassBackground ? initLayerCopy(source) : nil
+            if let backdrop { walk.backdrops.append(backdrop) }
+            let copy = backdrop ?? plainCopy(presentation, kind: info.kind)
             #if TESTING
                 copiesForTesting.add(copy)
                 copiesMadeForTesting += 1

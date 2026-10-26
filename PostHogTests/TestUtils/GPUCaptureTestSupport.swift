@@ -106,6 +106,14 @@
             pixel.red > 200 && pixel.green < 60 && pixel.blue > 200
         }
 
+        /// Magenta of any brightness, blurred to a dark magenta included.
+        static func isMagentaHue(_ pixel: RGBA) -> Bool {
+            Int(pixel.red) - Int(pixel.green) > 40 && Int(pixel.blue) - Int(pixel.green) > 40
+        }
+
+        /// The largest neighbouring-pixel step a blurred image may keep, as the blur self-check requires.
+        static var blurredMaxStep: Int { PostHogInlineMask.blurCheckMaxStep }
+
         static func isStar(_ pixel: RGBA) -> Bool {
             pixel.red < 80 && pixel.green < 80 && pixel.blue > 180
         }

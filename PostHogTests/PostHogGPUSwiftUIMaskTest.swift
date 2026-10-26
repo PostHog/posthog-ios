@@ -265,7 +265,7 @@
 
             let (pixels, extent) = try await captureMasked(fixture)
             // Blurred to colour blobs: no detail at the checkerboard's scale, and not blacked out.
-            #expect(pixels.maxNeighbourStep(in: icon) <= 12)
+            #expect(pixels.maxNeighbourStep(in: icon) <= Self.blurredMaxStep)
             let middle = pixels[Int(icon.midX), Int(icon.midY)]
             #expect(middle.red > 60 && middle.green < 40 && middle.blue > 60, "\(middle)")
             #expect(pixels.count(in: extent, where: Self.isYellow) == 0)
@@ -395,6 +395,26 @@
                 let area = view.frame.insetBy(dx: 1, dy: 1).integral
                 #expect(pixels.count(in: area, where: isColor) > Int(area.width * area.height * 0.9))
             }
+        }
+
+        @available(iOS 14.0, *)
+        @Test("A masked SwiftUI Image is blurred in the frame's pixels, keeping its colours rather than going black")
+        func swiftUIImageIsBlurredNotBlack() async throws {
+            let fixture = try await makeSwiftUIFixture()
+            defer { fixture.close() }
+            let frames = FrameStore()
+            let checker = try checkerboard(CGSize(width: 120, height: 80))
+            await show(Image(uiImage: checker).frameTag("image", frames), in: fixture)
+            let area = try #require(frames.frames["image"]).insetBy(dx: 2, dy: 2)
+            let control = try await Pixels(capture(fixture).image)
+            try #require(control.maxNeighbourStep(in: area) > 150, "the image didn't render sharp")
+
+            fixture.config.maskAllImages = true
+            let pixels = try await expectFullyMasked(capture(fixture))
+            #expect(pixels.maxNeighbourStep(in: area) <= Self.blurredMaxStep)
+            // Magenta and black cells average to a dark magenta, not black.
+            let middle = pixels[Int(area.midX), Int(area.midY)]
+            #expect(Self.isMagentaHue(middle), "\(middle)")
         }
 
         @Test("S4: a masked TextField's text is `*`, with no rect left")

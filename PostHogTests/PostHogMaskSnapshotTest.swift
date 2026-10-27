@@ -25,7 +25,7 @@
     /// Fraction of pixels allowed to differ before a mismatch is reported. The downsample
     /// + per-channel threshold already absorbs antialiasing jitter, so keep this tight:
     /// even a single small leaf mask regressing flips ~0.4% of the composite's pixels.
-    private let diffTolerance = 0.001
+    private let diffTolerance = 0.0
 
     @Suite("Replay masking snapshots (PR #728)", .serialized)
     @MainActor

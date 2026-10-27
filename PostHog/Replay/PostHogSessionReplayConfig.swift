@@ -35,16 +35,6 @@
         /// Note: When enabled, can be disabled remotely via project settings
         @objc public var captureNetworkTelemetry: Bool = true
 
-        /// Deprecated. Session replay always captures screenshots of the screen, with sensitive
-        /// content masked according to the masking options above.
-        ///
-        /// This property has no effect: it always reads `true` and ignores writes.
-        @available(*, deprecated, message: "Wireframe capture was removed and session replay always records masked screenshots. This property has no effect and will be removed in a future major release. Use the masking options or postHogMask() to hide sensitive content.")
-        @objc public var screenshotMode: Bool {
-            get { true }
-            set {} // swiftlint:disable:this unused_setter_value
-        }
-
         /// Throttle delay used to reduce the number of snapshots captured and reduce performance impact
         /// This is used for capturing the screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact

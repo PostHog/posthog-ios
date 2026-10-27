@@ -13,7 +13,7 @@
         private static let maxDoublings = 20
         /// `throttleDelay` is public and unvalidated. A base of 0 would make every backoff window
         /// elapse instantly, silently disabling the backoff, so the base never goes below this.
-        private static let minimumBaseInterval: TimeInterval = 0.05
+        static let minimumBaseInterval: TimeInterval = 0.05
 
         private let lock = NSLock()
         private var baseInterval: TimeInterval = 1

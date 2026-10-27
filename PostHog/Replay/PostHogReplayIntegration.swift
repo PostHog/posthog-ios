@@ -1876,6 +1876,13 @@
             return Int(min(max(millis, 0), Double(Int32.max)).rounded())
         }
 
+        /// Clamps the host-set `throttleDelay`. A non-positive interval makes the trailing throttle re-dispatch
+        /// to main on every opportunity, so an idle app never sleeps. Non-finite values fall back to 1.
+        static func captureInterval(throttleDelay: TimeInterval) -> TimeInterval {
+            guard throttleDelay.isFinite else { return 1 }
+            return max(throttleDelay, PostHogReplayCaptureBackoff.minimumBaseInterval)
+        }
+
         /// Shared by `$sdk_debug_replay_linked_flag_trigger_status` and `$sdk_debug_replay_event_trigger_status`.
         static func triggerStatus(isConfigured: Bool, isActivated: Bool) -> String {
             !isConfigured ? "trigger_disabled" : (isActivated ? "trigger_activated" : "trigger_pending")
@@ -2076,10 +2083,12 @@
         /// Replay owns its capture cadence: the shared run-loop publisher supplies the opportunities and
         /// the throttle stays on the multicast, so the interval stays replay's to change.
         func startCaptureScheduler(postHog: PostHogSDK) {
-            let interval = postHog.config.sessionReplayConfig.throttleDelay
+            let interval = PostHogReplayIntegration.captureInterval(throttleDelay: postHog.config.sessionReplayConfig.throttleDelay)
             captureBackoff.setBaseInterval(interval)
             // The token is the demand: holding it installs the shared observer, dropping it in
             // stop() removes it unless another product still subscribes.
+            // `trailing: true` is load-bearing: its `main.asyncAfter` wake supplies the next opportunity, so an
+            // idle screen keeps being offered frames.
             captureOpportunityToken = captureScheduler.onOpportunity.subscribe(throttle: interval, trailing: true) { [weak self] in
                 // called on main thread
                 guard let self, captureBackoff.shouldCapture() else { return }

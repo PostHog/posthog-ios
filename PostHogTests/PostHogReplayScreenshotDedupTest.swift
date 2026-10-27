@@ -172,4 +172,20 @@
             #expect(hash(wireframe) == "encoded-image".hashValue)
         }
     }
+
+    @Suite("Replay capture interval")
+    struct PostHogReplayCaptureIntervalTests {
+        @Test("throttleDelay is clamped so trailing delivery cannot spin the run loop", arguments: [
+            (0, PostHogReplayCaptureBackoff.minimumBaseInterval),
+            (-1, PostHogReplayCaptureBackoff.minimumBaseInterval),
+            (0.01, PostHogReplayCaptureBackoff.minimumBaseInterval),
+            (.nan, 1),
+            (.infinity, 1),
+            (-.infinity, 1),
+            (0.5, 0.5),
+        ] as [(TimeInterval, TimeInterval)])
+        func captureInterval(_ throttleDelay: TimeInterval, _ expected: TimeInterval) {
+            #expect(PostHogReplayIntegration.captureInterval(throttleDelay: throttleDelay) == expected)
+        }
+    }
 #endif

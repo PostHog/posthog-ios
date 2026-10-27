@@ -17,7 +17,6 @@ PostHog iOS 4.0. Every breaking change below names what to use instead.
 - **Breaking:** return `nil` instead of the raw string for a malformed, empty or whitespace-only feature flag payload from `getFeatureFlagResult(_:)` and `getAllFeatureFlags()`, and stop JSON-decoding string payloads in `PostHogBootstrapConfig.featureFlagPayloads` a second time, so a bootstrapped `"123"` stays a `String`.
 - **Breaking:** always record session replay as masked screenshots, which uses more bandwidth and CPU per frame than wireframes for apps that didn't set `screenshotMode`.
   - Custom-drawn content (custom `draw(_:)` views, maps, video, charts) is now visible in recordings: wrap anything sensitive in `postHogMask()` or tag it `ph-no-capture`.
-  - `PostHogSessionReplayConfig.screenshotMode` is deprecated and has no effect: delete the assignment. Setting it to `false` no longer prevents screenshots.
 - **Breaking:** delete events still queued on disk by a 2.x SDK instead of sending them when an app updates straight from 2.x to 4.0, and ignore a top-level `$set` and `message_id` in queued events. Distinct ID, anonymous ID, groups and cached feature flags still carry over.
 - Name the visible screen in the replay screen name (SwiftUI screens report their view name) and stop sending a plain `UIViewController`'s `title`.
 - Detect network reachability with `NWPathMonitor`: a path that needs user action (such as a VPN waiting for a password) counts as reachable, queues pause while cellular data is off for the app, and events captured in the first 100 ms after setup may leave out `$network_wifi` and `$network_cellular`.
@@ -37,6 +36,7 @@ PostHog iOS 4.0. Every breaking change below names what to use instead.
   - `PostHogSessionReplayConfig.debouncerDelay`: use `throttleDelay`.
   - `PostHogSessionReplayConfig.maskPhotoLibraryImages`: delete the assignment. It had no effect.
 - **Breaking:** remove `PostHogDataMode.cellular`, which behaved like `.any`: use `.any` (`PostHogDataModeAny` in Objective-C). `PostHogDataMode(rawValue: 1)` now returns `nil`.
+- **Breaking:** remove `PostHogSessionReplayConfig.screenshotMode`, since session replay always records masked screenshots: delete the assignment and hide sensitive content with `postHogMask()`, `ph-no-capture`, `maskAllImages` and `maskAllTextInputs`, or set `sessionReplay = false`.
 - **Breaking:** remove the experimental `PostHogSessionReplayConfig.screenshotModeBackgroundCapture` option: delete the assignment. Screenshots are always captured on the main thread.
 - **Breaking:** remove `version` and `build` from `Application Installed`, `Application Updated` and `Application Opened` events: use `$app_version` and `$app_build`.
 - **Breaking:** remove SDK internals from the public API that were only public for PostHog's wrapper SDKs.

@@ -61,10 +61,11 @@
     struct PostHogMaskFailClosedTest {
         private typealias Sut = (sdk: PostHogSDK, integration: PostHogReplayIntegration)
 
-        private func makeSut() -> Sut {
+        private func makeSut(maskAllTextInputs: Bool = true, maskAllImages: Bool = true) -> Sut {
             let config = PostHogConfig(projectToken: "phc_maskFailClosedTest")
             config.disableReachabilityForTesting = true
-            config.sessionReplayConfig.maskAllTextInputs = true
+            config.sessionReplayConfig.maskAllTextInputs = maskAllTextInputs
+            config.sessionReplayConfig.maskAllImages = maskAllImages
             PostHogReplayIntegration.clearInstalls()
             let sdk = PostHogSDK.with(config)
             let integration = PostHogReplayIntegration()
@@ -386,6 +387,134 @@
             let window = makeWindow(containing: transparent)
 
             #expect(sut.integration.collectMaskableRects(in: window) == [])
+        }
+
+        // MARK: - Content drawn outside a masked view's bounds
+
+        private func makePhoto(size: CGSize) -> UIImage {
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            return UIGraphicsImageRenderer(size: size, format: format).image { context in
+                UIColor.red.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+            }
+        }
+
+        private func isCovered(_ target: CGRect, by rects: [CGRect]?) -> Bool {
+            rects?.contains { $0.contains(target) } == true
+        }
+
+        @Test("an unclipped aspect-fill image is masked where it overflows its view", arguments: [false, true])
+        func unclippedAspectFillImage(clipsToBounds: Bool) {
+            let sut = makeSut()
+            defer { teardown(sut) }
+
+            let imageView = UIImageView(frame: CGRect(x: 100, y: 120, width: 100, height: 100))
+            imageView.contentMode = .scaleAspectFill
+            imageView.clipsToBounds = clipsToBounds
+            imageView.image = makePhoto(size: CGSize(width: 200, height: 100))
+            let window = makeWindow(containing: imageView)
+
+            // Filling 100x100 with a 2:1 image draws it 200x100, centred: 50pt past each side.
+            let expected = clipsToBounds ? imageView.frame : CGRect(x: 50, y: 120, width: 200, height: 100)
+            #expect(sut.integration.collectMaskableRects(in: window) == [expected])
+        }
+
+        @Test("an unclipped image drawn at its natural size is masked where it overflows its view")
+        func unclippedTopLeftImage() {
+            let sut = makeSut()
+            defer { teardown(sut) }
+
+            let imageView = UIImageView(frame: CGRect(x: 100, y: 120, width: 50, height: 50))
+            imageView.contentMode = .topLeft
+            imageView.clipsToBounds = false
+            imageView.image = makePhoto(size: CGSize(width: 120, height: 80))
+            let window = makeWindow(containing: imageView)
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [CGRect(x: 100, y: 120, width: 120, height: 80)])
+        }
+
+        private func attributedText(with attachment: NSTextAttachment) -> NSAttributedString {
+            let text = NSMutableAttributedString(string: "Receipt ")
+            text.append(NSAttributedString(attachment: attachment))
+            return text
+        }
+
+        @Test("an image attachment in text is masked when only images are masked", arguments: ["label", "textView"])
+        func imageAttachmentInText(kind: String) {
+            let sut = makeSut(maskAllTextInputs: false, maskAllImages: true)
+            defer { teardown(sut) }
+
+            let text = attributedText(with: NSTextAttachment(image: makePhoto(size: CGSize(width: 24, height: 24))))
+            let frame = CGRect(x: 24, y: 120, width: 200, height: 40)
+            let view: UIView
+            switch kind {
+            case "label":
+                let label = UILabel(frame: frame)
+                label.attributedText = text
+                view = label
+            default:
+                let textView = UITextView(frame: frame)
+                textView.attributedText = text
+                view = textView
+            }
+            let window = makeWindow(containing: view)
+
+            #expect(isCovered(frame, by: sut.integration.collectMaskableRects(in: window)))
+        }
+
+        @Test("a symbol attachment in text stays visible when only images are masked")
+        func symbolAttachmentInLabel() throws {
+            let sut = makeSut(maskAllTextInputs: false, maskAllImages: true)
+            defer { teardown(sut) }
+
+            let label = UILabel(frame: CGRect(x: 24, y: 120, width: 200, height: 40))
+            label.attributedText = try attributedText(with: NSTextAttachment(image: #require(UIImage(systemName: "star"))))
+            let window = makeWindow(containing: label)
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [])
+        }
+
+        @Test("an unclipped label's layer shadow is masked with the label", arguments: [false, true])
+        func labelLayerShadow(clipsToBounds: Bool) {
+            let sut = makeSut()
+            defer { teardown(sut) }
+
+            let label = makeSecretLabel(frame: CGRect(x: 24, y: 120, width: 200, height: 32))
+            label.clipsToBounds = clipsToBounds
+            label.layer.shadowOpacity = 1
+            label.layer.shadowOffset = CGSize(width: 0, height: 60)
+            label.layer.shadowRadius = 0
+            let window = makeWindow(containing: label)
+
+            let rects = sut.integration.collectMaskableRects(in: window)
+            if clipsToBounds {
+                // A clipping layer clips its shadow too, so the mask stays on the label.
+                #expect(rects == [label.frame])
+            } else {
+                #expect(isCovered(label.frame.union(label.frame.offsetBy(dx: 0, dy: 60)), by: rects))
+            }
+        }
+
+        @Test("a masked button's title drawn outside the button is masked")
+        func buttonTitleOutsideBounds() throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+
+            let button = UIButton(type: .system)
+            button.frame = CGRect(x: 24, y: 120, width: 100, height: 44)
+            button.clipsToBounds = false
+            button.setTitle("SSN 123-45-6789", for: .normal)
+            button.contentHorizontalAlignment = .left
+            button.titleEdgeInsets = UIEdgeInsets(top: 0, left: 200, bottom: 0, right: -200)
+            let window = makeWindow(containing: button)
+            button.layoutIfNeeded()
+
+            let title = try #require(button.titleLabel)
+            let titleRect = title.toAbsoluteRect(window)
+            try #require(!button.frame.contains(titleRect), "the title must sit outside the button for this test")
+
+            #expect(isCovered(titleRect, by: sut.integration.collectMaskableRects(in: window)))
         }
     }
 #endif

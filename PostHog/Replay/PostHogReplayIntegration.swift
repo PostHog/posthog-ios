@@ -995,6 +995,8 @@
             if let button = view as? UIButton {
                 if isButtonSensitive(button) {
                     maskableWidgets.append(.init(view, in: window))
+                    // title and image insets can lay the button's subviews out past its bounds
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren || view.isNoCapture())
                     return
                 }
             }
@@ -1350,7 +1352,7 @@
         }
 
         private func isLabelSensitive(_ view: UILabel) -> Bool {
-            isTextInputSensitive(view) && hasText(view.text)
+            (isTextInputSensitive(view) && hasText(view.text)) || hasSensitiveImageAttachment(view.attributedText)
         }
 
         private func isButtonSensitive(_ view: UIButton) -> Bool {
@@ -1358,7 +1360,9 @@
         }
 
         private func isTextViewSensitive(_ view: UITextView) -> Bool {
-            (isTextInputSensitive(view) || view.isSensitiveText()) && hasText(view.text)
+            // textStorage rather than attributedText, which copies the whole text
+            ((isTextInputSensitive(view) || view.isSensitiveText()) && hasText(view.text))
+                || hasSensitiveImageAttachment(view.textStorage)
         }
 
         private func isSwitchSensitive(_ view: UISwitch) -> Bool {
@@ -1367,6 +1371,27 @@
 
         private func isTextFieldSensitive(_ view: UITextField) -> Bool {
             (isTextInputSensitive(view) || view.isSensitiveText()) && (hasText(view.text) || hasText(view.placeholder))
+        }
+
+        /// Image attachments in text are drawn by the label or text view itself, with no image view to
+        /// mask, so masking images masks text that holds one. Like image views, symbols and
+        /// asset-catalog images stay visible; an attachment whose image can't be read is masked.
+        private func hasSensitiveImageAttachment(_ text: NSAttributedString?) -> Bool {
+            guard config?.sessionReplayConfig.maskAllImages == true, let text, text.length > 0 else {
+                return false
+            }
+            var found = false
+            text.enumerateAttribute(.attachment, in: NSRange(location: 0, length: text.length)) { value, _, stop in
+                guard let attachment = value as? NSTextAttachment else {
+                    return
+                }
+                if let image = attachment.image, image.isSymbolImage || isAssetsImage(image) {
+                    return
+                }
+                found = true
+                stop.pointee = true
+            }
+            return found
         }
 
         private func isSwiftUILayerSafe(_ layer: CALayer) -> Bool {

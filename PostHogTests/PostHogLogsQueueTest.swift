@@ -591,6 +591,27 @@ final class PostHogLogsQueueTests {
         #expect(record.body == "redacted")
     }
 
+    @Test("setBeforeSend accepts an array of non-Sendable closures")
+    func beforeSendAcceptsNonSendableClosureArray() throws {
+        let config = PostHogConfig(projectToken: "test")
+        // An app-side array typed with the plain function type, as written before 4.0.
+        let blocks: [(PostHogLogRecord) -> PostHogLogRecord?] = [
+            { record in
+                record.body += "-first"
+                return record
+            },
+            { record in
+                record.body += "-second"
+                return record
+            },
+        ]
+
+        config.logs.setBeforeSend(blocks)
+
+        let processed = try #require(config.logs.runBeforeSend(makeRecord(body: "original")))
+        #expect(processed.body == "original-first-second")
+    }
+
     // MARK: - Concurrency
 
     @Test("concurrent add() from many threads — all records accounted for, no crash")

@@ -7,7 +7,7 @@
 //  per-Text masking heuristics can't see the text inside. These tests host real SwiftUI and
 //  check the collected mask rects geometrically.
 
-#if os(iOS) && canImport(SwiftUI)
+#if os(iOS) && canImport(SwiftUI) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import SwiftUI

@@ -24,6 +24,7 @@
             #expect(props["$ai_input_tokens"] as? Int == 52)
             #expect(props["$ai_output_tokens"] as? Int == 9)
             #expect(props["$ai_cache_read_input_tokens"] as? Int == 4)
+            #expect(props["$ai_cache_reporting_exclusive"] as? Bool == false)
             #expect(props["$ai_reasoning_tokens"] as? Int == 1)
             #expect((props["$ai_tools"] as? [[String: Any]])?.first?["name"] as? String == "getTemperature")
             #expect(props["$ai_model"] as? String == "fake")

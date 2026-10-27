@@ -104,7 +104,11 @@
             props["$ai_input_tokens"] = usage.input.totalTokenCount - usageBefore.input.totalTokenCount
             props["$ai_output_tokens"] = usage.output.totalTokenCount - usageBefore.output.totalTokenCount
             let cached = usage.input.cachedTokenCount - usageBefore.input.cachedTokenCount
-            if cached > 0 { props["$ai_cache_read_input_tokens"] = cached }
+            if cached > 0 {
+                props["$ai_cache_read_input_tokens"] = cached
+                // Apple's input total already includes cached tokens, whatever the provider.
+                props["$ai_cache_reporting_exclusive"] = false
+            }
             let reasoning = usage.output.reasoningTokenCount - usageBefore.output.reasoningTokenCount
             if reasoning > 0 { props["$ai_reasoning_tokens"] = reasoning }
 

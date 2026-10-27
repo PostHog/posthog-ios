@@ -606,6 +606,17 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
         setBeforeSend(blocks)
     }
 
+    /// Replaces the event `beforeSend` chain with blocks from an array typed
+    /// `[(PostHogEvent) -> PostHogEvent?]`.
+    ///
+    /// The blocks can run on any thread, so they must be safe to call from any thread.
+    ///
+    /// - Parameter blocks: Ordered callbacks that can mutate or drop events.
+    @_disfavoredOverload
+    public func setBeforeSend(_ blocks: [(PostHogEvent) -> PostHogEvent?]) {
+        setBeforeSend(BeforeSendChain<PostHogEvent>.wrapping(blocks))
+    }
+
     /// Replaces the event `beforeSend` chain from Objective-C boxed callbacks.
     ///
     /// - Parameter blocks: Ordered Objective-C callback boxes.

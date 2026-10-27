@@ -294,40 +294,17 @@
             #expect(sut.integration.collectMaskableRects(in: window) == [])
         }
 
-        @Test("a preceding sibling cannot clear an inherited no-capture mask", arguments: [true, false])
-        func inheritedMaskSurvivesSiblingTraversal(zeroSizeFirstChild: Bool) throws {
+        @Test("a full-window no-capture view masks its own drawing, not only its subviews")
+        func fullWindowNoCaptureViewIsMasked() {
             let sut = makeSut()
             defer { teardown(sut) }
 
-            let parent = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
-            parent.accessibilityIdentifier = "ph-no-capture"
-            let firstChild = UIView(frame: zeroSizeFirstChild ? .zero : CGRect(x: 0, y: 0, width: 20, height: 20))
-            firstChild.clipsToBounds = false
-            parent.addSubview(firstChild)
-            let secret = CustomDrawnSecretView(frame: CGRect(x: 24, y: 120, width: 200, height: 32))
-            parent.addSubview(secret)
-            let window = makeWindow(containing: parent)
+            let tagged = CustomDrawnSecretView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            tagged.accessibilityIdentifier = "ph-no-capture"
+            tagged.addSubview(UIView(frame: CGRect(x: 24, y: 600, width: 20, height: 20)))
+            let window = makeWindow(containing: tagged)
 
-            let rects = try #require(sut.integration.collectMaskableRects(in: window))
-            #expect(rects.contains(secret.frame))
-        }
-
-        @Test("inherited masking respects explicit no-mask and stays within the marked subtree")
-        func inheritedMaskRespectsScopeAndNoMask() {
-            let sut = makeSut()
-            defer { teardown(sut) }
-
-            let parent = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
-            parent.accessibilityIdentifier = "ph-no-capture"
-            let unmaskedChild = CustomDrawnSecretView(frame: CGRect(x: 24, y: 80, width: 200, height: 32))
-            unmaskedChild.accessibilityIdentifier = "ph-no-mask"
-            parent.addSubview(unmaskedChild)
-            let secret = CustomDrawnSecretView(frame: CGRect(x: 24, y: 120, width: 200, height: 32))
-            parent.addSubview(secret)
-            let window = makeWindow(containing: parent)
-            window.addSubview(CustomDrawnSecretView(frame: CGRect(x: 24, y: 160, width: 200, height: 32)))
-
-            #expect(sut.integration.collectMaskableRects(in: window) == [secret.frame])
+            #expect(sut.integration.collectMaskableRects(in: window) == [window.bounds])
         }
 
         @Test("a collapsed clipping parent is walked while its presentation bounds remain visible", arguments: [true, false])

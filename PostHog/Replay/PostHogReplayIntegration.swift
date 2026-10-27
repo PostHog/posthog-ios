@@ -940,7 +940,7 @@
             return (hasText, hasGraphic)
         }
 
-        private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: Bool) {
+        private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion]) {
             // Checked first so an explicit unmask wins over the sensitive-type early-returns
             // below, matching the modifier's precedence.
             if view.isNoMask() {
@@ -981,7 +981,7 @@
                 if isImageViewSensitive(image) {
                     maskableWidgets.append(.init(view, in: window))
                     // subviews can draw outside the image view's bounds, so its mask may not cover them
-                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren)
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets)
                     return
                 }
             }
@@ -1103,31 +1103,22 @@
                 }
             }
 
-            // on RN, lots get converted to RCTRootContentView, RCTRootView, RCTView and sometimes its just the whole screen, we dont want to mask
-            // in such cases
-            var maskDescendants = maskChildren
-            if view.isNoCapture() || maskChildren {
-                let viewRect = view.toAbsoluteRect(window)
-                let windowRect = window.frame
-
-                // Check if the rectangles do not match
-                if !viewRect.equalTo(windowRect) {
-                    maskableWidgets.append(.init(view, in: window))
-                } else {
-                    maskDescendants = true
-                }
+            // Masked whole, even when it fills the window: its own drawing is not covered by
+            // its descendants' masks.
+            if view.isNoCapture() {
+                maskableWidgets.append(.init(view, in: window))
             }
 
-            findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskDescendants)
+            findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets)
         }
 
-        private func findMaskableWidgets(inSubviewsOf view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: Bool) {
+        private func findMaskableWidgets(inSubviewsOf view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion]) {
             for child in view.subviews {
                 if !child.isVisibleForMasking() {
                     continue
                 }
 
-                findMaskableWidgets(child, window, &maskableWidgets, maskChildren)
+                findMaskableWidgets(child, window, &maskableWidgets)
             }
         }
 
@@ -2000,7 +1991,7 @@
         /// below them replays those rules first.
         func findMaskableWidgets(under cover: UIView?, in window: UIWindow, _ maskableWidgets: inout [MaskedRegion]) {
             guard let cover else {
-                findMaskableWidgets(window, window, &maskableWidgets, false)
+                findMaskableWidgets(window, window, &maskableWidgets)
                 return
             }
 
@@ -2017,25 +2008,19 @@
             // Top down, the order the walk would have met them in. Only the two rules that reach
             // a whole subtree are replayed: the sensitive-type checks describe an ancestor's own
             // pixels, and the cover hides those.
-            var maskChildren = false
             for ancestor in ancestors.reversed() {
                 // `ph-no-mask` drops every heuristic mask below it, the cover included.
                 if ancestor.isNoMask() {
                     return
                 }
-                guard ancestor.isNoCapture() || maskChildren else {
-                    continue
-                }
-                if ancestor.toAbsoluteRect(window).equalTo(window.frame) {
-                    maskChildren = true
-                } else {
-                    // An ancestor that is not the window's size is redacted as one rect, and the
-                    // cover it holds is redacted with it.
+                // A `ph-no-capture` ancestor is redacted as one rect, and the cover it holds is
+                // redacted with it.
+                if ancestor.isNoCapture() {
                     maskableWidgets.append(.init(ancestor, in: window))
                 }
             }
 
-            findMaskableWidgets(cover, window, &maskableWidgets, maskChildren)
+            findMaskableWidgets(cover, window, &maskableWidgets)
         }
     }
 

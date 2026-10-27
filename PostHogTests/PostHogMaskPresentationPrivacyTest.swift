@@ -470,8 +470,8 @@
             let h = try Harness(root: base.controller)
             defer { h.close() }
             // The app marks the whole window sensitive, and a presentation stays inside that
-            // subtree. The plain view carries nothing the heuristics can read, so the rule
-            // inherited from the window is the only thing that can mask it.
+            // subtree. The plain view carries nothing the heuristics can read, so the window's
+            // own no-capture rect is the only thing that can mask it.
             h.window.accessibilityIdentifier = "ph-no-capture"
             let cover = UIViewController()
             cover.view.backgroundColor = .white

@@ -25,6 +25,7 @@ PostHog iOS 4.0. Every breaking change below names what to use instead.
 **Added**
 
 - Add `SessionReplay`, `CrashReporting` and `Surveys` Swift package traits (on by default) so SwiftPM apps can leave out session replay and the vendored libwebp, the vendored PLCrashReporter, or the survey engine and UI.
+  - Turning a trait off also removes its public API, so code that configures a left-out feature fails to compile instead of silently doing nothing: `sessionReplay`, `sessionReplayConfig`, `startSessionRecording()`, `stopSessionRecording()`, `isSessionReplayActive()` and `postHogNoMask()` need `SessionReplay`; `errorTrackingConfig.autoCapture` needs `CrashReporting`; `surveys`, `surveysConfig` and the survey delegate and display types need `Surveys`.
 
 **Removed**
 

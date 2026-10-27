@@ -121,7 +121,7 @@ let maxRetryDelay = 30.0
     /// `nil` before `setup(_:)` is called.
     @objc public private(set) var logger: PostHogLogger?
 
-    #if os(iOS)
+    #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
         private weak var _replayIntegration: PostHogReplayIntegration?
         /// Same shape as `queue`/`replayQueue` above: written under `setupLock` by install/uninstall,
         /// read from any caller thread by `buildProperties`.
@@ -130,11 +130,14 @@ let maxRetryDelay = 30.0
             set { setupLock.withLock { _replayIntegration = newValue } }
         }
 
-        private weak var surveysIntegration: PostHogSurveyIntegration?
         /// Whether `optIn()` starts session replay: whether the app wants it, from `config.sessionReplay`
         /// and the app's last `startSessionRecording()`/`stopSessionRecording()` while opted in, so consent
         /// doesn't override a stop. Internal stops don't change it. Guarded by `setupLock`.
         private var startSessionRecordingOnOptIn = true
+    #endif
+
+    #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
+        private weak var surveysIntegration: PostHogSurveyIntegration?
     #endif
 
     /// Shared singleton SDK instance used by most applications.
@@ -317,7 +320,7 @@ let maxRetryDelay = 30.0
             // this only reconciles an existing local identity.
             reconcileBootstrapIdentityIfNeeded()
 
-            #if os(iOS)
+            #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 // Launched opted out: optIn() starts replay only when the config does
                 startSessionRecordingOnOptIn = config.sessionReplay
             #endif
@@ -750,7 +753,7 @@ let maxRetryDelay = 30.0
             }
             // only Session replay requires $window_id, so we set as the same as $session_id.
             // the backend might fallback to $session_id if $window_id is not present next.
-            #if os(iOS)
+            #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 if !appendSharedProps, isSessionReplayActive() {
                     props["$window_id"] = sessionId
                 }
@@ -2772,14 +2775,14 @@ let maxRetryDelay = 30.0
                 }
             }
 
-            #if os(iOS)
+            #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 // Replay restarts in a new session (a no-op under React Native, which owns the session id)
                 if startSessionRecordingOnOptIn {
                     sessionManager.startSession()
                 }
             #endif
             installIntegrations()
-            #if os(iOS)
+            #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 if !startSessionRecordingOnOptIn {
                     // install() starts recording; undo it if the app had stopped replay before opting out
                     replayIntegration?.stop()
@@ -2887,7 +2890,7 @@ let maxRetryDelay = 30.0
             replayQueue = nil
             logsQueue = nil
             pushSubscriptionHandler = nil
-            #if os(iOS)
+            #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 startSessionRecordingOnOptIn = true
             #endif
             replayDebugPropertiesLock.withLock {
@@ -2926,7 +2929,7 @@ let maxRetryDelay = 30.0
         lastScreenLock.withLock { _lastScreenName = nil }
     }
 
-    #if os(iOS)
+    #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
         /**
          Starts session recording.
 
@@ -3090,7 +3093,7 @@ let maxRetryDelay = 30.0
         return postHog
     }
 
-    #if os(iOS)
+    #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
         /// Returns whether session replay is currently recording.
         ///
         /// - Returns: `true` only when replay is active, a session ID exists, and remote config allows recording.
@@ -3356,12 +3359,14 @@ let maxRetryDelay = 30.0
 
             installed.append(integration)
 
-            #if os(iOS)
-                // TODO: Decouple these two integrations from PostHogSDK intance
+            // TODO: Decouple these two integrations from PostHogSDK intance
+            #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 if let replayIntegration = integration as? PostHogReplayIntegration {
                     self.replayIntegration = replayIntegration
                 }
+            #endif
 
+            #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
                 if let surveysIntegration = integration as? PostHogSurveyIntegration {
                     self.surveysIntegration = surveysIntegration
                 }
@@ -3373,7 +3378,7 @@ let maxRetryDelay = 30.0
         installedIntegrations = installed
     }
 
-    #if os(iOS)
+    #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
         private func installReplayIntegration() {
             guard replayIntegration == nil else { return }
 
@@ -3428,8 +3433,10 @@ let maxRetryDelay = 30.0
         }
         installedIntegrations = []
 
-        #if os(iOS)
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
             replayIntegration = nil
+        #endif
+        #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
             surveysIntegration = nil
         #endif
     }
@@ -3801,7 +3808,7 @@ let maxRetryDelay = 30.0
             }
         #endif
 
-        #if os(iOS)
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
             func getReplayIntegration() -> PostHogReplayIntegration? {
                 getIntegration()
             }

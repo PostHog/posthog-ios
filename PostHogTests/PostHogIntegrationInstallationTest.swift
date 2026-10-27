@@ -16,7 +16,7 @@ class PostHogIntegrationInstallationTest {
     init() {
         server = MockPostHogServer()
         server.start()
-        #if os(iOS)
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
             PostHogReplayIntegration.clearInstalls()
         #endif
         #if os(iOS) || targetEnvironment(macCatalyst)
@@ -59,7 +59,7 @@ class PostHogIntegrationInstallationTest {
         config.disableReachabilityForTesting = true
         config.enableSwizzling = enableSwizzling
 
-        #if os(iOS)
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
             config.sessionReplay = sessionReplay
         #endif
 
@@ -74,7 +74,9 @@ class PostHogIntegrationInstallationTest {
         #endif
 
         config.captureScreenViews = captureScreenViews
-        config.errorTrackingConfig.autoCapture = errorTrackingAutoCapture
+        #if !SWIFT_PACKAGE || CrashReporting
+            config.errorTrackingConfig.autoCapture = errorTrackingAutoCapture
+        #endif
 
         let storage = PostHogStorage(config)
         storage.reset()
@@ -394,27 +396,6 @@ class PostHogIntegrationInstallationTest {
 
             sut.optIn() // triggers re-install with a fetched-but-failed remote config
             #expect(sut.getErrorTrackingIntegration() != nil)
-        }
-    #elseif os(iOS) || os(macOS) || os(tvOS)
-        @Test("error tracking integration is skipped when the CrashReporting trait is disabled")
-        func errorTrackingIntegrationSkippedWithoutCrashReportingTrait() {
-            let sut = getSut(projectToken: "test_project_token", errorTrackingAutoCapture: true)
-
-            #expect(sut.getErrorTrackingIntegration() == nil)
-            #expect(PostHogErrorTrackingAutoCaptureIntegration().install(sut) == .skipped(.disabledByPackageTrait))
-
-            sut.close()
-        }
-    #endif
-
-    #if os(iOS) && SWIFT_PACKAGE && !Surveys
-        @Test("surveys integration is skipped when the Surveys trait is disabled")
-        func surveysIntegrationSkippedWithoutSurveysTrait() {
-            let sut = getSut(projectToken: "test_project_token")
-
-            #expect(PostHogSurveyIntegration().install(sut) == .skipped(.disabledByPackageTrait))
-
-            sut.close()
         }
     #endif
 

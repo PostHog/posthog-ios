@@ -4,7 +4,7 @@
 //
 //  Created by Manoel Aranda Neto on 19.03.24.
 //
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
 
     /// Configuration for iOS session replay capture.

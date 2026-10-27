@@ -242,11 +242,15 @@ lint: swiftFormatCheck swiftLintCheck
 api:
 	periphery scan
 
+# Checks both public API snapshots: the default build, and the Swift Package Manager build with every
+# package trait off (api/posthog-ios.public-api.no-traits.txt), where trait-gated public API is removed.
 apiCheck:
 	scripts/check-public-api.sh
+	scripts/check-public-api.sh --no-traits
 
 apiUpdate:
 	scripts/check-public-api.sh --update
+	scripts/check-public-api.sh --update --no-traits
 
 # requires gem and brew
 # xcpretty needs 'export LANG=en_US.UTF-8'

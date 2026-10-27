@@ -68,7 +68,7 @@ class RRWireframe {
 
                     for rect in maskableWidgets {
                         UIColor.black.setFill()
-                        UIBezierPath(roundedRect: rect, cornerRadius: 10).fill()
+                        UIRectFill(rect)
                     }
                 }
             }

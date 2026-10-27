@@ -449,7 +449,7 @@
 
                 let original = render(controller.view)
                 // Redact through the exact production painter (RRWireframe.maskImage) so the golden
-                // reflects real replay output (rounded corners, scale-1), not hand-drawn squares.
+                // reflects real replay output (scale-1), not hand-drawn rects.
                 let rects = integration.collectMaskableRects(in: window) ?? []
                 let masked = RRWireframe.maskImage(original, maskableWidgets: rects) ?? original
                 return compose(scenario, original: original, masked: masked)

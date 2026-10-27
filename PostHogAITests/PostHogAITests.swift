@@ -50,6 +50,7 @@
             #expect(output.map { $0["role"] as? String } == ["assistant", "tool", "assistant"])
             let call = try #require((output.first?["tool_calls"] as? [[String: Any]])?.first?["function"] as? [String: Any])
             #expect(call["name"] as? String == "getTemperature")
+            #expect(output[1]["tool_call_id"] as? String == "call-1")
             #expect(output.last?["content"] as? String == "It is fine.")
         }
 

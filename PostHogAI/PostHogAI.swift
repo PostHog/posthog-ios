@@ -166,7 +166,8 @@
                      "function": ["name": call.toolName, "arguments": call.arguments.jsonString]]
                 }]
             case let .toolOutput(output):
-                return ["role": "tool", "name": output.toolName, "content": text(output.segments)]
+                // The output's id is the id of the tool call it answers.
+                return ["role": "tool", "tool_call_id": output.id, "name": output.toolName, "content": text(output.segments)]
             case .reasoning:
                 return nil
             @unknown default:

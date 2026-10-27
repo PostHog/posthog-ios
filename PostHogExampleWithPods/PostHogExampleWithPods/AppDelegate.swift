@@ -11,12 +11,9 @@ import UIKit
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_: UIApplication, didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
-        let defaultCenter = NotificationCenter.default
-
-        defaultCenter.addObserver(self,
-                                  selector: #selector(receiveFeatureFlags),
-                                  name: PostHogSDK.didReceiveFeatureFlags,
-                                  object: nil)
+        PostHogSDK.shared.onFeatureFlags { [weak self] _ in
+            self?.receiveFeatureFlags()
+        }
 
         let config = PostHogConfig(
             projectToken: "phc_QFbR1y41s5sxnNTZoyKG2NJo2RlsCIWkUfdpawgb40D"
@@ -29,7 +26,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
-    @objc func receiveFeatureFlags() {
+    func receiveFeatureFlags() {
         print("receiveFeatureFlags")
     }
 }

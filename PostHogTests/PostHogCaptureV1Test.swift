@@ -184,23 +184,23 @@ final class PostHogCaptureV1Test {
         #expect(Set(createdAt[0 ... 3]).count == 1)
     }
 
-    @Test("a 404 is terminal and doesn't fall back to /batch")
-    func notFoundIsTerminal() async throws {
+    @Test("a 404 is retried under the same request ID and doesn't fall back to /batch")
+    func notFoundIsRetried() async throws {
         server.captureV1ResponseHandler = { _, _ in
             HTTPStubsResponse(jsonObject: [], statusCode: 404, headers: nil)
         }
         let api = makeApi()
+        let event = PostHogEvent(event: "first", distinctId: "user")
 
-        let result = await send(api, [PostHogEvent(event: "first", distinctId: "user")])
+        let result = await send(api, [event])
+        _ = await send(api, [event])
 
         #expect(result.statusCode == 404)
-        #expect(result.retryRecordIds == nil)
-        #expect(!QueueEndpoint<PostHogEvent>.batch(api: api).isRetriableStatusCode(404))
-
-        _ = await send(api, [PostHogEvent(event: "second", distinctId: "user")])
-
-        let paths = server.batchRequests.map { $0.url?.path }
-        #expect(paths == ["/proxy/i/v1/analytics/events", "/proxy/i/v1/analytics/events"])
+        #expect(QueueEndpoint<PostHogEvent>.batch(api: api).isRetriableStatusCode(404))
+        let requests = server.batchRequests
+        #expect(requests.map { $0.url?.path } == ["/proxy/i/v1/analytics/events", "/proxy/i/v1/analytics/events"])
+        #expect(requests.map { $0.value(forHTTPHeaderField: "PostHog-Attempt") } == ["1", "2"])
+        #expect(Set(requests.map { $0.value(forHTTPHeaderField: "PostHog-Request-Id") }).count == 1)
     }
 
     @Test("sends empty and whitespace session and window IDs at the root unchanged", arguments: ["", "  "])
@@ -343,10 +343,10 @@ final class PostHogCaptureV1Test {
         ) == nil)
     }
 
-    @Test("only 408 and 500/502/503/504 are retried", arguments: [
-        (408, true), (500, true), (502, true), (503, true), (504, true),
+    @Test("only 404, 408, 429 and 500/502/503/504 are retried", arguments: [
+        (404, true), (408, true), (429, true), (500, true), (502, true), (503, true), (504, true),
         (301, false), (400, false), (401, false), (402, false), (403, false),
-        (413, false), (415, false), (429, false), (501, false),
+        (413, false), (415, false), (501, false),
     ])
     func statusCodeClassification(statusCode: Int, retriable: Bool) {
         let endpoint = QueueEndpoint<PostHogEvent>.batch(api: makeApi())
@@ -917,8 +917,8 @@ final class PostHogCaptureAiTest {
         #expect(queue.depth == 1)
     }
 
-    @Test("a 404 from the AI endpoint drops the batch")
-    func notFoundIsTerminal() async throws {
+    @Test("a 404 from the AI endpoint keeps the batch for retry")
+    func notFoundIsRetried() async throws {
         server.aiResponseHandler = { _, _ in HTTPStubsResponse(jsonObject: [:], statusCode: 404, headers: nil) }
         let config = PostHogConfig(projectToken: "phc_ai_404", host: "http://localhost:9001")
         let storage = PostHogStorage(config)
@@ -932,9 +932,9 @@ final class PostHogCaptureAiTest {
 
         queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user"))
         queue.flush()
-        await waitUntil { queue.depth == 0 }
+        await waitUntil { queue.currentRetryCountForTesting == 1 }
 
-        #expect(queue.depth == 0)
+        #expect(queue.depth == 1)
         #expect(server.aiRequests.count == 1)
         #expect(server.batchRequests.isEmpty)
     }

@@ -392,29 +392,11 @@ final class PostHogQueueTest {
         }
     }
 
-    @Test("pops batch on HTTP 429 (terminal for capture V1) and does not change cap")
-    func popsBatchOnHTTP429AndDoesNotChangeCap() async {
+    @Test("retains batch on a retriable HTTP status and does not change cap", arguments: [404, 408, 429])
+    func retainsBatchOnRetriableStatusAndDoesNotChangeCap(statusCode: Int32) async {
         let sut = getSut(flushAt: 2, maxBatchSize: 4)
         server.batchResponseHandler = { _, _ in
-            HTTPStubsResponse(jsonObject: [], statusCode: 429, headers: nil)
-        }
-
-        sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
-        sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
-
-        _ = getBatchedEvents(server)
-
-        await expectEventually({ sut.depth }, 0)
-        await expectEventually({ sut.currentBatchCapForTesting }, 4)
-
-        sut.clear()
-    }
-
-    @Test("retains batch on HTTP 408 (request timeout is retriable) and does not change cap")
-    func retainsBatchOnHTTP408AndDoesNotChangeCap() async {
-        let sut = getSut(flushAt: 2, maxBatchSize: 4)
-        server.batchResponseHandler = { _, _ in
-            HTTPStubsResponse(jsonObject: [], statusCode: 408, headers: nil)
+            HTTPStubsResponse(jsonObject: [], statusCode: statusCode, headers: nil)
         }
 
         sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
@@ -743,7 +725,7 @@ struct PostHogQueueUploadDispositionTest {
         try #require(sender.requestCount == count)
     }
 
-    @Test("received HTTP disposition wins over an accompanying transport error", arguments: [-1, 200, 400, 408, 429, 503], [false, true])
+    @Test("received HTTP disposition wins over an accompanying transport error", arguments: [-1, 200, 400, 404, 408, 429, 503], [false, true])
     func receivedHTTPDisposition(statusCode: Int, snapshot: Bool) async throws {
         let sender = ControlledBatchSender()
         let queue = makeQueue(snapshot: snapshot, sender: sender)
@@ -762,8 +744,7 @@ struct PostHogQueueUploadDispositionTest {
             sender.completeRequest(at: 0, with: $0)
         }
 
-        // 429 is terminal for capture V1 (events) but retried by /snapshot.
-        let retryable = [-1, 408, 503].contains(statusCode) || (snapshot && statusCode == 429)
+        let retryable = [-1, 408, 429, 503].contains(statusCode) || (!snapshot && statusCode == 404)
         let expectedIds = retryable ? allIds : allIds.filter { !sentIds.contains($0) }
         #expect(queue.fileQueue.peekEntries(2).map(\.id) == expectedIds)
         #expect(queue.currentRetryCountForTesting == (retryable ? 1 : 0))

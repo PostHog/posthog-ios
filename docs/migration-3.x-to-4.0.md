@@ -22,7 +22,7 @@ You need to change something if your app does any of these:
 - reads `$session_id` or `$window_id` from the raw request body, for example in a proxy
 - registers a super property, or passes an event property, with the same key as one the SDK sets, such as `$os`, `$is_identified` or `$geoip_disable`, and expects the SDK's value to win
 - sets `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` to a value PostHog can't read, such as `"maybe"`
-- relies on 429 responses being retried, or on a `Retry-After` longer than 30 seconds
+- relies on a `Retry-After` longer than 30 seconds
 
 ## Endpoints
 
@@ -54,7 +54,7 @@ If you send events through your own reverse proxy, update it before you upgrade:
 
 PostHog's managed reverse proxy already does this. See the [proxy guides](https://posthog.com/docs/advanced/proxy).
 
-The SDK doesn't fall back to `/batch`. A 404, or any other error status that isn't retried, such as 403 or 405, drops the events.
+The SDK doesn't fall back to `/batch`. A 404 is retried, so events stay queued until the route is served. Other error statuses that aren't retried, such as 403 or 405, drop the events.
 
 ### Redirects
 
@@ -166,7 +166,7 @@ In Objective-C, use `captureAiWithEvent:distinctId:properties:userProperties:use
 
 ## Retries
 
-- The SDK retries network errors and 408, 500, 502, 503 and 504 responses. Other statuses drop the events, including 429. 3.x also retried 429 and 3xx responses. Capture itself doesn't return 429, but a proxy in front of it can.
+- The SDK retries network errors and 404, 408, 429, 500, 502, 503 and 504 responses. Other statuses drop the events. 3.x did not retry 404, and retried 3xx responses.
 - When the response asks to retry only some events, the SDK keeps those events queued and removes the rest.
 - A `Retry-After` header pauses sending for at most 30 seconds. This also applies to session replay and logs. In 3.x, analytics events and session replay had no cap, and logs allowed up to 5 minutes.
 - After a failed send, the wait before the next one doubles from 1 second up to 30 seconds, with up to 25% random jitter. In 3.x it grew by 1 second per failure. This applies to events, session replay and logs.

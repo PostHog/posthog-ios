@@ -16,10 +16,10 @@ private func isSnapshotRetriableStatusCode(_ code: Int) -> Bool {
 /// floors the backoff, so it can't strand the logs queue. Matches posthog-js.
 let logsMaxRetryAfterSeconds: TimeInterval = 5 * 60
 
-/// Capture V1 retry policy: 408 and the listed 5xx. Everything else, including
-/// 429 and 3xx, is terminal; 413 is handled by the queue's batch halving.
+/// Capture V1 retry policy: 404, 408, 429 and the listed 5xx. Everything else,
+/// including 3xx, is terminal; 413 is handled by the queue's batch halving.
 func isCaptureV1RetriableStatusCode(_ code: Int) -> Bool {
-    [408, 500, 502, 503, 504].contains(code)
+    [404, 408, 429, 500, 502, 503, 504].contains(code)
 }
 
 /// Size limit for a whole serialized AI event at the default `captureAiMaxEventBytes`.

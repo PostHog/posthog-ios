@@ -4,10 +4,10 @@
 
 **Breaking:** send events to capture V1 (`/i/v1/analytics/events`) with the project token in an `Authorization: Bearer` header.
 
-- If you use a reverse proxy or self-host PostHog, make sure `/i/v1/analytics/events` is served: a 404 or other non-retriable response drops the events.
+- If you use a reverse proxy or self-host PostHog, make sure `/i/v1/analytics/events` is served: a 404 is retried, so events stay queued until the route exists.
 - Capture requests replace any `Authorization` header from `requestHeaders`, so authenticate your proxy with a different header.
 - Only a 307 or 308 redirect to the same origin as `host` is followed, at most 5 times. Other redirects drop the events, so point `host` at the final host.
-- 429 responses are no longer retried, and `Retry-After` pauses sending for at most 30 seconds, including session replay and logs.
+- 404 responses are now retried, and `Retry-After` pauses sending for at most 30 seconds, including session replay and logs.
 - After a failed send, the wait before the next one now doubles from 1 second up to 30 seconds, with up to 25% random jitter, instead of growing by 1 second per failure. This applies to events, session replay and logs, and queued records are still kept until they're delivered.
 - `maxRetries` is renamed to `pushNotificationSubscriptionMaxRetries`, because it only limits push-notification subscription retries. Event, session replay and log retries still have no limit.
 - The `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` properties are sent as capture options, and PostHog drops an event whose option value it can't read.

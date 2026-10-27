@@ -6,6 +6,9 @@
 import Foundation
 @testable import PostHog
 import Testing
+#if os(iOS)
+    import UIKit
+#endif
 
 @Suite("RRWireframe Tests")
 struct RRWireframeTest {
@@ -202,4 +205,39 @@ struct RRWireframeTest {
             #expect(wireframe.toDict()["type"] as? String == type)
         }
     }
+
+    #if os(iOS)
+        @Suite("maskImage")
+        struct MaskImageTests {
+            @Test("fills every pixel of a mask rect, including its corners")
+            func fillsCorners() throws {
+                let white = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100)).image { ctx in
+                    UIColor.white.setFill()
+                    ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
+                }
+                let rect = CGRect(x: 20, y: 20, width: 60, height: 40)
+
+                let masked = try #require(RRWireframe.maskImage(white, maskableWidgets: [rect]))
+
+                for corner in [CGPoint(x: 20, y: 20), CGPoint(x: 79, y: 20), CGPoint(x: 20, y: 59), CGPoint(x: 79, y: 59)] {
+                    #expect(Self.red(of: masked, at: corner) == 0, "corner \(corner) is not masked")
+                }
+                #expect(Self.red(of: masked, at: CGPoint(x: 19, y: 19)) == 255, "mask spilled outside its rect")
+            }
+
+            /// Red channel of the pixel at `point`, read by drawing the image into a 1x1 bitmap.
+            private static func red(of image: UIImage, at point: CGPoint) -> UInt8? {
+                guard let cgImage = image.cgImage else { return nil }
+                var pixel = [UInt8](repeating: 0, count: 4)
+                guard let context = CGContext(data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                                              space: CGColorSpaceCreateDeviceRGB(),
+                                              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+                else { return nil }
+                // CGContext's origin is bottom-left: shift so the target pixel lands on (0, 0).
+                context.draw(cgImage, in: CGRect(x: -point.x, y: point.y - CGFloat(cgImage.height) + 1,
+                                                 width: CGFloat(cgImage.width), height: CGFloat(cgImage.height)))
+                return pixel[0]
+            }
+        }
+    #endif
 }

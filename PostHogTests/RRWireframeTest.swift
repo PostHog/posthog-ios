@@ -222,7 +222,9 @@ struct RRWireframeTest {
                 for corner in [CGPoint(x: 20, y: 20), CGPoint(x: 79, y: 20), CGPoint(x: 20, y: 59), CGPoint(x: 79, y: 59)] {
                     #expect(Self.red(of: masked, at: corner) == 0, "corner \(corner) is not masked")
                 }
-                #expect(Self.red(of: masked, at: CGPoint(x: 19, y: 19)) == 255, "mask spilled outside its rect")
+                for outside in [CGPoint(x: 19, y: 20), CGPoint(x: 80, y: 59), CGPoint(x: 20, y: 19), CGPoint(x: 79, y: 60)] {
+                    #expect(Self.red(of: masked, at: outside) == 255, "mask spilled outside its rect at \(outside)")
+                }
             }
 
             /// Red channel of the pixel at `point`, read by drawing the image into a 1x1 bitmap.

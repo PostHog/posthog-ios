@@ -940,7 +940,7 @@
             return (hasText, hasGraphic)
         }
 
-        private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion]) {
+        private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: Bool) {
             // Checked first so an explicit unmask wins over the sensitive-type early-returns
             // below, matching the modifier's precedence.
             if view.isNoMask() {
@@ -981,7 +981,7 @@
                 if isImageViewSensitive(image) {
                     maskableWidgets.append(.init(view, in: window))
                     // subviews can draw outside the image view's bounds, so its mask may not cover them
-                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets)
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren)
                     return
                 }
             }
@@ -1103,22 +1103,23 @@
                 }
             }
 
-            // Masked whole, even when it fills the window: its own drawing is not covered by
-            // its descendants' masks.
-            if view.isNoCapture() {
+            // Masked whole, even when it fills the window, and so is every descendant: an
+            // unclipped descendant can draw outside the view's rect.
+            let maskDescendants = view.isNoCapture() || maskChildren
+            if maskDescendants {
                 maskableWidgets.append(.init(view, in: window))
             }
 
-            findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets)
+            findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskDescendants)
         }
 
-        private func findMaskableWidgets(inSubviewsOf view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion]) {
+        private func findMaskableWidgets(inSubviewsOf view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: Bool) {
             for child in view.subviews {
                 if !child.isVisibleForMasking() {
                     continue
                 }
 
-                findMaskableWidgets(child, window, &maskableWidgets)
+                findMaskableWidgets(child, window, &maskableWidgets, maskChildren)
             }
         }
 
@@ -1991,7 +1992,7 @@
         /// below them replays those rules first.
         func findMaskableWidgets(under cover: UIView?, in window: UIWindow, _ maskableWidgets: inout [MaskedRegion]) {
             guard let cover else {
-                findMaskableWidgets(window, window, &maskableWidgets)
+                findMaskableWidgets(window, window, &maskableWidgets, false)
                 return
             }
 
@@ -2008,19 +2009,21 @@
             // Top down, the order the walk would have met them in. Only the two rules that reach
             // a whole subtree are replayed: the sensitive-type checks describe an ancestor's own
             // pixels, and the cover hides those.
+            var maskChildren = false
             for ancestor in ancestors.reversed() {
                 // `ph-no-mask` drops every heuristic mask below it, the cover included.
                 if ancestor.isNoMask() {
                     return
                 }
-                // A `ph-no-capture` ancestor is redacted as one rect, and the cover it holds is
-                // redacted with it.
-                if ancestor.isNoCapture() {
-                    maskableWidgets.append(.init(ancestor, in: window))
+                guard ancestor.isNoCapture() || maskChildren else {
+                    continue
                 }
+                // Redacted as one rect, and the cover it holds is masked with its descendants.
+                maskableWidgets.append(.init(ancestor, in: window))
+                maskChildren = true
             }
 
-            findMaskableWidgets(cover, window, &maskableWidgets)
+            findMaskableWidgets(cover, window, &maskableWidgets, maskChildren)
         }
     }
 

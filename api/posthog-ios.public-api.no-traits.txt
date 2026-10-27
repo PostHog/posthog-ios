@@ -2,14 +2,14 @@
 # Do not edit manually.
 # Public API scope: public/open symbols emitted for the PostHog iOS symbol graphs, Swift Package Manager build with --disable-default-traits.
 
-PostHog | BeforeSendBlock | typealias | typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent? | s:7PostHog15BeforeSendBlocka
+PostHog | BeforeSendBlock | typealias | typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent? | s:7PostHog15BeforeSendBlocka
 PostHog | BoxedBeforeSendBlock | class | @objc final class BoxedBeforeSendBlock | c:@M@PostHog@objc(cs)BoxedBeforeSendBlock
 PostHog | BoxedBeforeSendBlock.block | property | @objc let block: BeforeSendBlock | c:@M@PostHog@objc(cs)BoxedBeforeSendBlock(py)block
 PostHog | BoxedBeforeSendBlock.init(block:) | init | @objc(block:) init(block: @escaping BeforeSendBlock) | c:@M@PostHog@objc(cs)BoxedBeforeSendBlock(im)block:
 PostHog | BoxedBeforeSendLogBlock | class | @objc final class BoxedBeforeSendLogBlock | c:@M@PostHog@objc(cs)BoxedBeforeSendLogBlock
 PostHog | BoxedBeforeSendLogBlock.block | property | @objc let block: PostHogBeforeSendLogBlock | c:@M@PostHog@objc(cs)BoxedBeforeSendLogBlock(py)block
 PostHog | BoxedBeforeSendLogBlock.init(block:) | init | @objc(block:) init(block: @escaping PostHogBeforeSendLogBlock) | c:@M@PostHog@objc(cs)BoxedBeforeSendLogBlock(im)block:
-PostHog | PostHogBeforeSendLogBlock | typealias | typealias PostHogBeforeSendLogBlock = @Sendable (PostHogLogRecord) -> PostHogLogRecord? | s:7PostHog0aB18BeforeSendLogBlocka
+PostHog | PostHogBeforeSendLogBlock | typealias | typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRecord? | s:7PostHog0aB18BeforeSendLogBlocka
 PostHog | PostHogBootstrapConfig | class | @objc(PostHogBootstrapConfig) class PostHogBootstrapConfig | c:@M@PostHog@objc(cs)PostHogBootstrapConfig
 PostHog | PostHogBootstrapConfig.distinctId | property | @objc var distinctId: String? | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(py)distinctId
 PostHog | PostHogBootstrapConfig.featureFlagPayloads | property | @objc var featureFlagPayloads: [String : Any]? | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(py)featureFlagPayloads
@@ -49,7 +49,7 @@ PostHog | PostHogConfig.evaluationContexts | property | @objc var evaluationCont
 PostHog | PostHogConfig.featureFlagRequestMaxRetries | property | @objc var featureFlagRequestMaxRetries: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)featureFlagRequestMaxRetries
 PostHog | PostHogConfig.flushAt | property | @objc var flushAt: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)flushAt
 PostHog | PostHogConfig.flushIntervalSeconds | property | @objc var flushIntervalSeconds: TimeInterval | c:@M@PostHog@objc(cs)PostHogConfig(py)flushIntervalSeconds
-PostHog | PostHogConfig.getAnonymousId | property | @objc var getAnonymousId: @Sendable (UUID) -> UUID | c:@M@PostHog@objc(cs)PostHogConfig(py)getAnonymousId
+PostHog | PostHogConfig.getAnonymousId | property | @objc var getAnonymousId: (UUID) -> UUID | c:@M@PostHog@objc(cs)PostHogConfig(py)getAnonymousId
 PostHog | PostHogConfig.host | property | @objc let host: URL | c:@M@PostHog@objc(cs)PostHogConfig(py)host
 PostHog | PostHogConfig.init(projectToken:) | init | @objc(projectToken:) init(projectToken: String) | c:@M@PostHog@objc(cs)PostHogConfig(im)projectToken:
 PostHog | PostHogConfig.init(projectToken:host:) | init | @objc(projectToken:host:) init(projectToken: String, host: String = defaultHost) | c:@M@PostHog@objc(cs)PostHogConfig(im)projectToken:host:
@@ -61,7 +61,7 @@ PostHog | PostHogConfig.optOut | property | @objc var optOut: Bool | c:@M@PostHo
 PostHog | PostHogConfig.personProfiles | property | @objc var personProfiles: PostHogPersonProfiles | c:@M@PostHog@objc(cs)PostHogConfig(py)personProfiles
 PostHog | PostHogConfig.preloadFeatureFlags | property | @objc var preloadFeatureFlags: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)preloadFeatureFlags
 PostHog | PostHogConfig.projectToken | property | @objc let projectToken: String | c:@M@PostHog@objc(cs)PostHogConfig(py)projectToken
-PostHog | PostHogConfig.pushIdentityProvider | property | @objc var pushIdentityProvider: (@Sendable (String, String, @escaping @Sendable (String?) -> Void) -> Void)? | c:@M@PostHog@objc(cs)PostHogConfig(py)pushIdentityProvider
+PostHog | PostHogConfig.pushIdentityProvider | property | @objc var pushIdentityProvider: ((String, String, @escaping (String?) -> Void) -> Void)? | c:@M@PostHog@objc(cs)PostHogConfig(py)pushIdentityProvider
 PostHog | PostHogConfig.rageClickConfig | property | @objc let rageClickConfig: PostHogRageClickConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)rageClickConfig
 PostHog | PostHogConfig.requestHeaders | property | @objc var requestHeaders: [String : String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)requestHeaders
 PostHog | PostHogConfig.reuseAnonymousId | property | @objc var reuseAnonymousId: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)reuseAnonymousId
@@ -220,7 +220,7 @@ PostHog | PostHogSDK.register(_:) | method | @objc(registerProperties:) func reg
 PostHog | PostHogSDK.registerPushNotificationToken(_:) | method | @objc func registerPushNotificationToken(_ deviceToken: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:
 PostHog | PostHogSDK.registerPushNotificationToken(_:appId:) | method | @objc func registerPushNotificationToken(_ deviceToken: String, appId: String?) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:appId:
 PostHog | PostHogSDK.reloadFeatureFlags() | method | @objc func reloadFeatureFlags() | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlags
-PostHog | PostHogSDK.reloadFeatureFlags(_:) | method | @objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping @Sendable (PostHogFeatureFlagsLoaded) -> Void) | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlagsWithCallback:
+PostHog | PostHogSDK.reloadFeatureFlags(_:) | method | @objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping (PostHogFeatureFlagsLoaded) -> Void) | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlagsWithCallback:
 PostHog | PostHogSDK.reset() | method | @objc func reset() | c:@M@PostHog@objc(cs)PostHogSDK(im)reset
 PostHog | PostHogSDK.resetGroupPropertiesForFlags() | method | @objc func resetGroupPropertiesForFlags() | c:@M@PostHog@objc(cs)PostHogSDK(im)resetGroupPropertiesForFlags
 PostHog | PostHogSDK.resetGroupPropertiesForFlags(_:) | method | @objc(resetGroupPropertiesForFlagsWithGroupType:) func resetGroupPropertiesForFlags(_ groupType: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)resetGroupPropertiesForFlagsWithGroupType:

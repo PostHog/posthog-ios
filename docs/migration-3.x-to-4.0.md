@@ -43,8 +43,16 @@ In 3.x, the SDK started and PostHog rejected every event with a 401. Use your pr
 
 ### Hosts without capture v1
 
-If you use a reverse proxy or self-host PostHog, make sure `/i/v1/analytics/events` is served before you upgrade.
-PostHog Cloud (`us.i.posthog.com`, `eu.i.posthog.com`) serves it.
+PostHog Cloud (`us.i.posthog.com`, `eu.i.posthog.com`) serves both capture v1 endpoints.
+If you self-host PostHog, check that it serves `/i/v1/analytics/events` and `/i/v1/ai/events` before you upgrade.
+
+If you send events through your own reverse proxy, update it before you upgrade:
+
+- Forward `/i/v1/analytics/events` and `/i/v1/ai/events` to PostHog.
+- Pass `Authorization` (the project token, sent as `Bearer <token>`), every `PostHog-*` header, `Content-Type`, `Content-Encoding` and `User-Agent` through unchanged. PostHog answers `401` without `Authorization` and `400` without the others, and the batch is dropped.
+- Accept request bodies up to 20 MB. AI requests are often larger than 1 MB, the default limit in nginx and ingress-nginx. On a `413` from the proxy, the SDK splits the batch and drops any event that is still too large on its own.
+
+PostHog's managed reverse proxy already does this. See the [proxy guides](https://posthog.com/docs/advanced/proxy).
 
 The SDK doesn't fall back to `/batch`. A 404, or any other error status that isn't retried, such as 403 or 405, drops the events.
 

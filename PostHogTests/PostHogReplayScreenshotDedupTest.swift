@@ -2,6 +2,7 @@
     import Foundation
     @testable import PostHog
     import Testing
+    import UIKit
 
     @Suite("Screenshot mode unchanged-frame dedup")
     class PostHogReplayScreenshotDedupTests {
@@ -186,6 +187,149 @@
         ] as [(TimeInterval, TimeInterval)])
         func captureInterval(_ throttleDelay: TimeInterval, _ expected: TimeInterval) {
             #expect(PostHogReplayIntegration.captureInterval(throttleDelay: throttleDelay) == expected)
+        }
+    }
+
+    @Suite("Backed-off structure change")
+    struct PostHogReplayStructureChangeTests {
+        private func engagedBackoff(base: TimeInterval = 1) -> PostHogReplayCaptureBackoff {
+            let backoff = PostHogReplayCaptureBackoff()
+            backoff.setBaseInterval(base)
+            for _ in 0 ..< 3 {
+                backoff.noteFrame(unchanged: true)
+            }
+            return backoff
+        }
+
+        /// The first walk inside the idle interval only records the baseline.
+        private func backedOff(structure: Int) -> PostHogReplayCaptureBackoff {
+            let backoff = engagedBackoff()
+            #expect(backoff.shouldCapture(structure: { structure }) == false)
+            return backoff
+        }
+
+        @Test("a changed structure captures at once, and the changed frame leaves backoff")
+        func changedStructureCaptures() {
+            let backoff = backedOff(structure: 1)
+
+            #expect(backoff.shouldCapture(structure: { 2 }))
+            backoff.noteFrame(unchanged: false)
+            #expect(backoff.isInBackoffForTesting == false)
+        }
+
+        @Test("an unchanged structure keeps waiting for the idle interval")
+        func sameStructureWaits() {
+            let backoff = backedOff(structure: 1)
+
+            #expect(backoff.shouldCapture(structure: { 1 }) == false)
+            #expect(backoff.isInBackoffForTesting)
+        }
+
+        @Test("a structure change the render cannot see costs one frame and keeps backing off")
+        func invisibleStructureChangeKeepsBackoff() {
+            let backoff = backedOff(structure: 1)
+            let interval = backoff.idleIntervalForTesting
+
+            #expect(backoff.shouldCapture(structure: { 2 }))
+            backoff.noteFrame(unchanged: true)
+            #expect(backoff.isInBackoffForTesting)
+            #expect(backoff.idleIntervalForTesting > interval)
+            #expect(backoff.shouldCapture(structure: { 2 }) == false)
+        }
+
+        @Test("a toast appearing right after an idle render still captures")
+        func changeAfterIdleRenderCaptures() {
+            let backoff = engagedBackoff(base: PostHogReplayCaptureBackoff.minimumBaseInterval)
+            #expect(backoff.shouldCapture(structure: { 1 }) == false)
+            Thread.sleep(forTimeInterval: PostHogReplayCaptureBackoff.minimumBaseInterval * 2)
+
+            #expect(backoff.shouldCapture(structure: { 1 }))
+            #expect(backoff.shouldCapture(structure: { 2 }))
+        }
+
+        @Test("when not backed off the structure is never walked")
+        func notBackedOffSkipsWalk() {
+            let backoff = PostHogReplayCaptureBackoff()
+            backoff.setBaseInterval(10)
+            var walks = 0
+            let walk: () -> Int? = {
+                walks += 1
+                return 1
+            }
+
+            #expect(backoff.shouldCapture(structure: walk))
+            backoff.noteFrame(unchanged: true)
+            #expect(backoff.shouldCapture(structure: walk))
+            #expect(walks == 0)
+        }
+    }
+
+    @Suite("Structure fingerprint")
+    @MainActor
+    struct PostHogReplayStructureFingerprintTests {
+        private func screen() -> (root: UIView, label: UILabel) {
+            let root = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let label = UILabel(frame: CGRect(x: 16, y: 16, width: 200, height: 20))
+            label.text = "Loading"
+            root.addSubview(label)
+            return (root, label)
+        }
+
+        private func fingerprint(_ view: UIView, nodeLimit: Int = PostHogReplayIntegration.structureFingerprintNodeLimit) -> Int {
+            PostHogReplayIntegration.structureFingerprint(of: view, nodeLimit: nodeLimit)
+        }
+
+        @Test("a toast appearing and leaving changes the fingerprint each time")
+        func toastChangesFingerprint() {
+            let (root, _) = screen()
+            let idle = fingerprint(root)
+
+            let toast = UIView(frame: CGRect(x: 16, y: 560, width: 288, height: 48))
+            root.addSubview(toast)
+            let showing = fingerprint(root)
+            #expect(showing != idle)
+
+            toast.removeFromSuperview()
+            #expect(fingerprint(root) == idle)
+        }
+
+        @Test("label text, visibility and geometry change the fingerprint")
+        func visibleChangesChangeFingerprint() {
+            let (root, label) = screen()
+            let base = fingerprint(root)
+
+            label.text = "Done"
+            #expect(fingerprint(root) != base)
+            label.text = "Loading"
+
+            label.isHidden = true
+            #expect(fingerprint(root) != base)
+            label.isHidden = false
+
+            label.frame.origin.y = 40
+            #expect(fingerprint(root) != base)
+        }
+
+        @Test("churn inside a hidden subtree does not change the fingerprint")
+        func hiddenSubtreeIgnored() {
+            let (root, label) = screen()
+            label.isHidden = true
+            let base = fingerprint(root)
+
+            label.text = "Done"
+            label.addSubview(UIView())
+            #expect(fingerprint(root) == base)
+        }
+
+        @Test("the walk stops at the node limit")
+        func walkIsBounded() {
+            let (root, label) = screen()
+            let rootOnly = fingerprint(root, nodeLimit: 1)
+            let withLabel = fingerprint(root, nodeLimit: 2)
+
+            label.text = "Done"
+            #expect(fingerprint(root, nodeLimit: 1) == rootOnly)
+            #expect(fingerprint(root, nodeLimit: 2) != withLabel)
         }
     }
 #endif

@@ -5,8 +5,8 @@
     /// throttle anything else subscribed there.
     ///
     /// A screen that keeps rendering identical pixels must get cheap, but it must never become
-    /// unreachable: with no layout hook there is no external signal that content started moving again,
-    /// so an idle screen backs off progressively instead of stopping until a touch.
+    /// unreachable: with no layout hook, only a touch or a changed view-structure fingerprint says content
+    /// started moving again, so an idle screen backs off progressively instead of stopping.
     final class PostHogReplayCaptureBackoff {
         private static let unchangedFramesBeforeBackoff = 3
         private static let maxIdleInterval: TimeInterval = 8
@@ -19,6 +19,7 @@
         private var baseInterval: TimeInterval = 1
         private var unchangedFrames = 0
         private var lastEmit: UInt64 = 0
+        private var lastWalkedStructure: Int?
 
         /// The cadence backoff starts from, which is replay's own throttle interval.
         func setBaseInterval(_ interval: TimeInterval) {
@@ -38,6 +39,7 @@
                 unchangedFrames += 1
                 if unchangedFrames == Self.unchangedFramesBeforeBackoff {
                     lastEmit = DispatchTime.now().uptimeNanoseconds
+                    lastWalkedStructure = nil
                 }
             }
         }
@@ -49,12 +51,25 @@
 
         /// Whether this opportunity is worth rendering a frame for. Monotonic, so a wall-clock jump
         /// cannot strand a backed-off screen past its next capture.
-        func shouldCapture() -> Bool {
-            lock.withLock {
+        ///
+        /// `structure` is walked on every backed-off opportunity, so a fingerprint that differs from the
+        /// previous walk captures at once, covering touchless changes that never call `wake()`. Only the
+        /// rendered frame's verdict leaves backoff, so an invisible change costs one frame.
+        func shouldCapture(structure: () -> Int? = { nil }) -> Bool {
+            guard lock.withLock({ isBackingOff }) else { return true }
+            // Outside the lock: noteFrame arrives from the render queue and must not wait on a view walk.
+            // Walked even when the idle interval already admits this render: a baseline taken only
+            // afterwards would absorb a toast that appears in between.
+            let fingerprint = structure()
+            return lock.withLock {
                 guard isBackingOff else { return true }
+                let baseline = lastWalkedStructure
+                lastWalkedStructure = fingerprint
+                let structureChanged = baseline != nil && fingerprint != nil && fingerprint != baseline
                 let now = DispatchTime.now().uptimeNanoseconds
                 let elapsed = now >= lastEmit ? now - lastEmit : 0
-                guard TimeInterval(elapsed) / TimeInterval(NSEC_PER_SEC) >= idleInterval else { return false }
+                let idleIntervalElapsed = TimeInterval(elapsed) / TimeInterval(NSEC_PER_SEC) >= idleInterval
+                guard structureChanged || idleIntervalElapsed else { return false }
                 lastEmit = now
                 return true
             }

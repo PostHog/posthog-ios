@@ -2005,6 +2005,59 @@
         }
     }
 
+    // MARK: - Structure fingerprint
+
+    extension PostHogReplayIntegration {
+        /// Bounds the walk so a huge tree cannot stall main on every backed-off opportunity. Changes past
+        /// the limit go unseen until the next idle render.
+        static let structureFingerprintNodeLimit = 1000
+
+        /// Render-free summary of what the view tree would draw. Compare only within one process (`Hasher` is seeded).
+        static func structureFingerprint(of window: UIView, nodeLimit: Int = structureFingerprintNodeLimit) -> Int {
+            var hasher = Hasher()
+            hasher.combine(ObjectIdentifier(window))
+            var budget = nodeLimit
+            hashStructure(window, into: &hasher, budget: &budget)
+            return hasher.finalize()
+        }
+
+        static func currentStructureFingerprint() -> Int? {
+            UIApplication.getCurrentWindow().map { structureFingerprint(of: $0) }
+        }
+
+        private static func hashStructure(_ view: UIView, into hasher: inout Hasher, budget: inout Int) {
+            guard budget > 0 else { return }
+            budget -= 1
+
+            hasher.combine(ObjectIdentifier(type(of: view)))
+            let invisible = view.isHidden || !view.hasRenderedOpacity
+            hasher.combine(invisible)
+            // A hidden subtree draws nothing, so its churn must not count as a change.
+            guard !invisible else { return }
+
+            hasher.combine(view.alpha)
+            let frame = view.frame
+            hasher.combine(frame.origin.x)
+            hasher.combine(frame.origin.y)
+            hasher.combine(frame.size.width)
+            hasher.combine(frame.size.height)
+            // Scroll offset lives in bounds, not frame.
+            hasher.combine(view.bounds.origin.x)
+            hasher.combine(view.bounds.origin.y)
+            if let label = view as? UILabel {
+                hasher.combine(label.text)
+            } else if let imageView = view as? UIImageView {
+                hasher.combine(imageView.image.map(ObjectIdentifier.init))
+            }
+
+            let subviews = view.subviews
+            hasher.combine(subviews.count)
+            for subview in subviews {
+                hashStructure(subview, into: &hasher, budget: &budget)
+            }
+        }
+    }
+
     // MARK: - Frame change verdict
 
     extension PostHogReplayIntegration {
@@ -2091,7 +2144,7 @@
             // idle screen keeps being offered frames.
             captureOpportunityToken = captureScheduler.onOpportunity.subscribe(throttle: interval, trailing: true) { [weak self] in
                 // called on main thread
-                guard let self, captureBackoff.shouldCapture() else { return }
+                guard let self, captureBackoff.shouldCapture(structure: PostHogReplayIntegration.currentStructureFingerprint) else { return }
                 snapshot()
             }
         }

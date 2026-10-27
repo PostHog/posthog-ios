@@ -73,7 +73,7 @@ Masking also covers more than in 3.x: content a masked view draws outside its bo
 ### Replay screen names
 
 - The screen name shown for a recording comes from the screen that is visible. SwiftUI screens report their view name.
-- A plain `UIViewController`'s `title` is no longer used as the replay screen name; its type name is used instead.
+- A plain `UIViewController`'s `title` is no longer used as the replay screen name, so it reports no name. This includes storyboard scenes without a custom class. Subclasses still report their type name without `ViewController` (`CheckoutViewController` becomes `Checkout`).
 
 `$screen` events are named as in 3.x.
 

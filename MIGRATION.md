@@ -61,14 +61,14 @@ Check what your screens show before you ship 4.0. Text inputs and images are mas
 | --- | --- | --- |
 | A view and everything inside it | `.postHogMask()` | add `ph-no-capture` to the view's `accessibilityIdentifier` |
 | All text and text inputs | `sessionReplayConfig.maskAllTextInputs = true` | same |
-| Every image | `sessionReplayConfig.maskAllImages = true` | same |
+| Every image | `sessionReplayConfig.maskAllImages = true` | same, except SF Symbols and images bundled with your app |
 | System pickers (photos, contacts) | `sessionReplayConfig.maskAllSandboxedViews = true` | same |
 
-`ph-no-capture` also works in `accessibilityLabel`. To keep pixels out of recordings entirely, turn replay off with `config.sessionReplay = false`.
+To mask an exempt image, tag its image view with `ph-no-capture`. `ph-no-capture` also works in `accessibilityLabel`. To keep pixels out of recordings entirely, turn replay off with `config.sessionReplay = false`.
 
 In UIKit, a tagged view that fills the whole window and has subviews isn't masked itself: only its subviews are. If it draws sensitive content itself, move that drawing into a subview and tag the subview, or turn replay off.
 
-Masking also covers more than in 3.x: content a masked view draws outside its bounds (unclipped images, layer shadows, button titles) is masked, and so are image attachments in labels and text views when `maskAllImages` is on. Secure-entry text fields stay masked inside a `.postHogNoMask()` or `ph-no-mask` subtree.
+Masking also covers more than in 3.x: content a masked view draws outside its bounds (unclipped images, layer shadows, button titles) is masked, and so are image attachments in labels and text views when `maskAllImages` is on, with the same UIKit exceptions. Secure-entry text fields stay masked inside a `.postHogNoMask()` or `ph-no-mask` subtree.
 
 ### Replay screen names
 

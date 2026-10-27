@@ -463,6 +463,33 @@
             #expect(isCovered(frame, by: sut.integration.collectMaskableRects(in: window)))
         }
 
+        @Test("an image overflowing text masked for its attachment is still masked", arguments: ["label", "textView"])
+        func imageOverflowingAttachmentText(kind: String) {
+            let sut = makeSut(maskAllTextInputs: false, maskAllImages: true)
+            defer { teardown(sut) }
+
+            let text = attributedText(with: NSTextAttachment(image: makePhoto(size: CGSize(width: 24, height: 24))))
+            let frame = CGRect(x: 24, y: 120, width: 200, height: 40)
+            let view: UIView
+            switch kind {
+            case "label":
+                let label = UILabel(frame: frame)
+                label.attributedText = text
+                view = label
+            default:
+                let textView = UITextView(frame: frame)
+                textView.attributedText = text
+                view = textView
+            }
+            view.clipsToBounds = false
+            let photo = UIImageView(frame: CGRect(x: 0, y: 60, width: 80, height: 80))
+            photo.image = makePhoto(size: CGSize(width: 80, height: 80))
+            view.addSubview(photo)
+            let window = makeWindow(containing: view)
+
+            #expect(isCovered(photo.toAbsoluteRect(window), by: sut.integration.collectMaskableRects(in: window)))
+        }
+
         @Test("a symbol attachment in text stays visible when only images are masked")
         func symbolAttachmentInLabel() throws {
             let sut = makeSut(maskAllTextInputs: false, maskAllImages: true)

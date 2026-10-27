@@ -914,6 +914,8 @@
             if let textView = view as? UITextView { // TextEditor, SwiftUI.TextEditorTextView, SwiftUI.UIKitTextView
                 if isTextViewSensitive(textView) {
                     maskableWidgets.append(.init(view, in: window))
+                    // an unclipped subview can draw outside the text view's mask
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren)
                     return
                 }
             }
@@ -978,6 +980,8 @@
             if let label = view as? UILabel { // Text, this code might never be reachable in SwiftUI, see swiftUIImageTypes instead
                 if isLabelSensitive(label) {
                     maskableWidgets.append(.init(view, in: window))
+                    // an unclipped subview can draw outside the label's mask
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren)
                     return
                 }
             }

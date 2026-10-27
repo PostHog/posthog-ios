@@ -37,6 +37,7 @@ PostHog iOS 4.0. Every breaking change below names what to use instead.
   - `PostHogSDK.getFeatureFlagPayload(_:)`: use `getFeatureFlagResult(_:)?.payload`, with `sendFeatureFlagEvent: false` to keep not capturing `$feature_flag_called` (`[sdk getFeatureFlagResultWithKey:key sendFeatureFlagEvent:NO].payload` in Objective-C).
   - `PostHogSessionReplayConfig.debouncerDelay`: use `throttleDelay`.
   - `PostHogSessionReplayConfig.maskPhotoLibraryImages`: delete the assignment. It had no effect.
+- **Breaking:** remove the `PostHogSDK.didReceiveFeatureFlags` notification: use `onFeatureFlags(_:)` (`onFeatureFlags:` in Objective-C), which receives the flags and whether loading failed and returns a subscription you can `unsubscribe()`.
 - **Breaking:** remove `PostHogDataMode.cellular`, which behaved like `.any`: use `.any` (`PostHogDataModeAny` in Objective-C). `PostHogDataMode(rawValue: 1)` now returns `nil`.
 - **Breaking:** remove the experimental `PostHogSessionReplayConfig.screenshotModeBackgroundCapture` option: delete the assignment. Screenshots are always captured on the main thread.
 - **Breaking:** remove `version` and `build` from `Application Installed`, `Application Updated` and `Application Opened` events: use `$app_version` and `$app_build`.

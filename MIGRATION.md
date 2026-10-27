@@ -102,7 +102,7 @@ If an app updates from a 2.x SDK straight to 4.0, events still queued on disk by
 
 4.0 sends analytics events to `/i/v1/analytics/events` instead of `/batch`. Session replay (`/s/`), logs (`/i/v1/logs`) and feature flags (`/flags`) keep their endpoints. Check these if they apply to you:
 
-- **Reverse proxies and self-hosted instances:** forward `/i/v1/analytics/events` before you upgrade. PostHog Cloud already serves it. A 404 makes the SDK resend to `/batch` until the app restarts; any other error, such as 403 or 405, drops the events.
+- **Reverse proxies and self-hosted instances:** forward `/i/v1/analytics/events` before you upgrade. PostHog Cloud already serves it. A 404 makes the SDK resend to `/batch` until the app restarts. 408, 500, 502, 503 and 504 keep the events and retry them; other errors, such as 403, 405 or 429, drop them.
 - **`Authorization` in `requestHeaders`:** capture requests now send `Authorization: Bearer <projectToken>`, which replaces yours. Authenticate your proxy with another header, such as `X-Proxy-Token`.
 - **Redirects:** only 307 and 308 redirects to the same origin as `host` are followed, at most 5 times. Other redirects drop the events, so point `host` at the final host.
 - **Event validation:** PostHog drops an event with an empty event name, an empty distinct ID, or an event name or distinct ID over 200 UTF-8 bytes. The rest of the batch is still delivered. Shorten or hash long distinct IDs, such as JWTs, before you upgrade.

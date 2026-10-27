@@ -501,8 +501,8 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     /// Maximum size, in bytes, of a serialized `captureAi` event. The SDK drops a larger event.
     ///
     /// Use it to lower the limit. PostHog drops AI events whose properties are over 8 MiB, so the default
-    /// allows 8 MiB plus 64 KiB for the rest of the event. A larger value, or a value of `0` or less,
-    /// uses the default.
+    /// allows 8 MiB plus 64 KiB for the rest of the event. A larger value uses the default and logs a
+    /// warning when `debug` is on. A value of `0` or less uses the default.
     /// Default: `8454144` (8 MiB + 64 KiB).
     @objc public var captureAiMaxEventBytes: Int = Defaults.captureAiMaxEventBytes
 

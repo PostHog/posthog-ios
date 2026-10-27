@@ -57,6 +57,14 @@ import Foundation
             return lock.withLock { latestConnection }
         }
 
+        /// The current connection, or `nil` if the monitor hasn't reported a path yet.
+        ///
+        /// Unlike `connection`, never waits for the first path. For callers that treat
+        /// `nil` as unknown and rely on the first path's notification to update them.
+        var connectionIfKnown: Connection? {
+            lock.withLock { latestConnection }
+        }
+
         /// Starts calling `onReachable` / `onUnreachable` on connectivity changes.
         ///
         /// Like the old `SCNetworkReachability` initial check, the first start also reports

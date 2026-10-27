@@ -64,7 +64,7 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: latest-stable
-      - name: Check public API snapshot
+      - name: Check public API snapshots (default build and package traits off)
         run: make apiCheck
 
   build-sdk-min-toolchain:

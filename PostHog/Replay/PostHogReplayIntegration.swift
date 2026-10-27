@@ -1850,34 +1850,10 @@
     #endif
 
 #elseif os(iOS)
-    import UIKit
-
-    // Stub for SPM builds with the `SessionReplay` trait disabled, where the replay engine and libwebp
-    // are not compiled. It is never installed, so the SDK's replay calls see no integration.
-    final class PostHogReplayIntegration: PostHogIntegration {
-        var requiresSwizzling: Bool { false }
-
-        func install(_: PostHogSDK) -> PostHogIntegrationInstallResult {
-            .skipped(.disabledByPackageTrait)
-        }
-
-        func uninstall(_: PostHogSDK) { /* no-op */ }
-        func start() { /* no-op */ }
-        func stop() { /* no-op */ }
-        func isActive() -> Bool {
-            false
-        }
-        func captureBridgeSnapshot(episodeFirstFrame _: Bool, window _: UIWindow? = nil) -> Bool {
-            false
-        }
-        func debugProperties() -> [String: Any] {
-            [:]
-        }
-
-        #if TESTING
-            static func clearInstalls() { /* no-op */ }
-        #endif
-    }
+    // SPM builds with the `SessionReplay` trait disabled don't compile the replay engine, libwebp or
+    // the replay API. This type only namespaces the mask-region helpers in PostHogMaskSettleAnalysis.swift,
+    // which `postHogMask()` still uses to keep autocapture out of masked regions.
+    enum PostHogReplayIntegration {}
 #endif
 
 // swiftlint:enable cyclomatic_complexity file_length

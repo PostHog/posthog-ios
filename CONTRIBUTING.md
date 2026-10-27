@@ -78,6 +78,8 @@ This section is for external contributors. PostHog maintainers (members of the P
 
 When reviewing or fixing someone else's PR, don't ask for or open an issue. Note an external contributor's public API change when it has neither an agreed issue nor an API-defining published spec; the pre-implementation issue policy above is not a gate on that review work.
 
-`make apiCheck` checks [api/posthog-ios.public-api.txt](api/posthog-ios.public-api.txt), as CI does. `make apiUpdate` regenerates it only after intentional public API changes; review the snapshot diff. Both commands build the SDK and extract its public symbol graph, requiring Xcode with the iOS SDK, xcpretty and Python 3. A diff in that file means your change touches public API.
+`make apiCheck` checks [api/posthog-ios.public-api.txt](api/posthog-ios.public-api.txt) and [api/posthog-ios.public-api.no-traits.txt](api/posthog-ios.public-api.no-traits.txt), as CI does. `make apiUpdate` regenerates them only after intentional public API changes; review the snapshot diff. Both commands build the SDK and extract its public symbol graph, requiring Xcode with the iOS SDK, xcpretty and Python 3. A diff in either file means your change touches public API.
+
+Public API that only works with a package trait (`SessionReplay`, `CrashReporting` or `Surveys`) is gated with the same `#if !SWIFT_PACKAGE || <Trait>` condition as its implementation, so it is removed when the trait is off. The `no-traits` snapshot is the Swift Package Manager build with every trait off; a trait-specific symbol showing up there means its gate is missing.
 
 Above all, thank you for contributing!

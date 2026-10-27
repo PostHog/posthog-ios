@@ -1,5 +1,12 @@
 ## Next
 
+## 3.92.6
+
+### Patch Changes
+
+- 707d3b2: Mask the whole rect of a `ph-no-capture` view in session replay screenshots, including a view that fills the window.
+- 05c1201: Fix screenshot session replay masks leaving the corners of each masked area visible; masks now cover the full rectangle.
+
 ## 3.92.5
 
 ### Patch Changes

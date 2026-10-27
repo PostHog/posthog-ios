@@ -1214,6 +1214,10 @@
 
             var maskableWidgets: [MaskedRegion] = []
             findMaskableWidgets(under: cover, in: window, &maskableWidgets)
+            // A reporter inside a `ph-no-capture` view is also reached by the walk. Keep one
+            // entry per reporter: a repeated owner reads as motion to the settle check.
+            let reporters = Set(masked.regions.map(\.owner))
+            maskableWidgets.removeAll { reporters.contains($0.owner) }
             maskableWidgets.append(contentsOf: masked.regions)
             return maskableWidgets
         }

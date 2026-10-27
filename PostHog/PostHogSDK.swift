@@ -2485,6 +2485,12 @@ let maxRetryDelay = 30.0
         )
     }
 
+    /// Removed in PostHog 4.0. Use `getFeatureFlagResult(_:sendFeatureFlagEvent:)` and read its `payload`.
+    @available(*, unavailable, message: "Removed in PostHog 4.0. Use getFeatureFlagResult(key, sendFeatureFlagEvent: false)?.payload.")
+    public func getFeatureFlagPayload(_ key: String) -> Any? {
+        getFeatureFlagResult(key, sendFeatureFlagEvent: false)?.payload
+    }
+
     /// Returns the feature flag result containing the flag value, variant, and payload.
     ///
     /// This is the recommended method for retrieving feature flags as it provides

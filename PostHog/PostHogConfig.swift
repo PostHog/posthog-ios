@@ -620,3 +620,64 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
         beforeSend.run(event)
     }
 }
+
+// MARK: - Removed in 4.0
+
+// Unavailable stubs for 3.x names, so code that still uses them gets a compile error that names
+// the replacement (with an Xcode fix-it for plain renames) instead of "cannot find in scope".
+// They're Swift-only: Objective-C callers see the old selectors disappear.
+
+/// Removed in PostHog 4.0. Use `PostHogConfig.setBeforeSend(_:)` instead.
+@available(*, unavailable, message: "Removed in PostHog 4.0. Use PostHogConfig.setBeforeSend(_:) to change or drop event properties.")
+public protocol PostHogPropertiesSanitizer {}
+
+/// Configuration options removed or renamed in PostHog 4.0.
+public extension PostHogConfig {
+    /// Removed in PostHog 4.0. Use `projectToken` instead.
+    @available(*, unavailable, renamed: "projectToken", message: "Renamed in PostHog 4.0.")
+    var apiKey: String {
+        projectToken
+    }
+
+    /// Removed in PostHog 4.0. Use `PostHogConfig(projectToken:)` instead.
+    @available(*, unavailable, renamed: "init(projectToken:)", message: "Renamed in PostHog 4.0.")
+    convenience init(apiKey: String) {
+        self.init(projectToken: apiKey)
+    }
+
+    /// Removed in PostHog 4.0. Use `PostHogConfig(projectToken:host:)` instead.
+    @available(*, unavailable, renamed: "init(projectToken:host:)", message: "Renamed in PostHog 4.0.")
+    convenience init(apiKey: String, host: String) {
+        self.init(projectToken: apiKey, host: host)
+    }
+
+    /// Removed in PostHog 4.0. Use `evaluationContexts` instead.
+    @available(*, unavailable, renamed: "evaluationContexts", message: "Renamed in PostHog 4.0.")
+    var evaluationEnvironments: [String]? {
+        get { evaluationContexts }
+        set { evaluationContexts = newValue }
+    }
+
+    /// Removed in PostHog 4.0. Remote config is always loaded.
+    @available(*, unavailable, message: "Removed in PostHog 4.0. Remote config is always loaded: delete the assignment.")
+    var remoteConfig: Bool {
+        get { true }
+        set {} // swiftlint:disable:this unused_setter_value
+    }
+
+    /// Removed in PostHog 4.0. Use `setBeforeSend(_:)` instead.
+    @available(*, unavailable, message: "Removed in PostHog 4.0. Use setBeforeSend(_:) to change or drop event properties.")
+    var propertiesSanitizer: PostHogPropertiesSanitizer? {
+        get { nil }
+        set {} // swiftlint:disable:this unused_setter_value
+    }
+}
+
+/// Data modes removed in PostHog 4.0.
+public extension PostHogConfig.PostHogDataMode {
+    /// Removed in PostHog 4.0. It behaved like `.any`, so use `.any` instead.
+    @available(*, unavailable, renamed: "any", message: "Removed in PostHog 4.0. It behaved like .any.")
+    static var cellular: PostHogConfig.PostHogDataMode {
+        .any
+    }
+}

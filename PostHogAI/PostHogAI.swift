@@ -116,7 +116,7 @@
             if reasoning > 0 { props["$ai_reasoning_tokens"] = reasoning }
 
             if let tools = Self.toolDefinitions(in: entries), !tools.isEmpty {
-                props["$ai_tools"] = tools.map { ["name": $0.name, "description": $0.description] }
+                props["$ai_tools"] = tools.map(Self.tool)
             }
             if let promptIndex, case let .prompt(prompt) = entries[promptIndex] {
                 let params = Self.modelParameters(prompt)
@@ -141,6 +141,17 @@
                 return instructions.toolDefinitions
             }
             return nil
+        }
+
+        /// Converts a tool definition to the OpenAI function format, with its argument schema.
+        private static func tool(_ definition: Transcript.ToolDefinition) -> [String: Any] {
+            var function: [String: Any] = ["name": definition.name, "description": definition.description]
+            if let data = try? JSONEncoder().encode(definition.parameters),
+               let schema = try? JSONSerialization.jsonObject(with: data)
+            {
+                function["parameters"] = schema
+            }
+            return ["type": "function", "function": function]
         }
 
         private static func modelParameters(_ prompt: Transcript.Prompt) -> [String: Any] {

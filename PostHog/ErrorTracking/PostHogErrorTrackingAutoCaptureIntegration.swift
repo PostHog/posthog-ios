@@ -305,6 +305,8 @@ import Foundation
         var requiresSwizzling: Bool { false }
 
         func install(_: PostHogSDK) -> PostHogIntegrationInstallResult {
+            // Keep this platform list in sync with the platforms in the gate at the top of the
+            // file: a platform added to only one of them reports the wrong skip reason.
             #if os(iOS) || os(macOS) || os(tvOS)
                 .skipped(.disabledByPackageTrait)
             #else

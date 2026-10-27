@@ -24,6 +24,9 @@
         /// }
         /// ```
         ///
+        /// Don't overlap captures on the same session. The turn's tokens and messages are what the
+        /// session gained while `body` ran, so overlapping turns would count each other's.
+        ///
         /// The event carries the token counts the model reported for the whole turn, including any
         /// tool calls, plus latency, tools, model parameters and, when the turn fails, the error.
         /// `body`'s result and errors pass through unchanged.

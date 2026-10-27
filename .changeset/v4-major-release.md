@@ -6,6 +6,7 @@ PostHog iOS 4.0. Every breaking change below names what to use instead.
 
 **Changed**
 
+- **Breaking:** stop publishing PostHog to CocoaPods: install it with Swift Package Manager (3.x versions stay on CocoaPods).
 - **Breaking:** raise the minimum deployment targets to iOS 15.0 (from 13.0, Mac Catalyst follows iOS), macOS 11.0 (from 10.15), tvOS 15.0 (from 13.0) and watchOS 10.0 (from 6.0).
 - **Breaking:** require Xcode 26 or later (`swift-tools-version` 6.2) to build PostHog; the SDK still compiles in Swift 5 language mode.
 - **Breaking:** pass a `PostHogFeatureFlagsLoaded` to the `reloadFeatureFlags(_:)` callback, whose `errorsLoading` is `true` when the reload failed. Update closures to `{ result in ... }` (or `{ _ in ... }`); in Objective-C the block takes a `PostHogFeatureFlagsLoaded *`.

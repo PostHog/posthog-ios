@@ -5,6 +5,8 @@
 
 # PostHog iOS
 
+Upgrading from 3.x? See the [migration guide](MIGRATION.md).
+
 Please see the main [PostHog docs](https://posthog.com/docs).
 
 Specifically, the [iOS docs](https://posthog.com/docs/libraries/ios) details.

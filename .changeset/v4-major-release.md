@@ -2,7 +2,7 @@
 'posthog-ios': major
 ---
 
-PostHog iOS 4.0. Every breaking change below names what to use instead.
+PostHog iOS 4.0. Every breaking change below names what to use instead. See the [migration guide](https://github.com/PostHog/posthog-ios/blob/main/MIGRATION.md) for how to upgrade from 3.x.
 
 **Changed**
 

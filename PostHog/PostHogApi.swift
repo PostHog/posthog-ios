@@ -213,6 +213,7 @@ class PostHogApi {
         }
 
         let uuids = events.map(\.uuid.postHogUuidString)
+        let eventNames = Dictionary(events.map { ($0.uuid.postHogUuidString, $0.event) }, uniquingKeysWith: { first, _ in first })
         let identity = nextCaptureV1Identity(path: path, uuids: Set(uuids))
 
         let toSend: [String: Any] = [
@@ -242,7 +243,7 @@ class PostHogApi {
         session.uploadTask(with: request, from: payload) { [weak self] data, response, error in
             processUploadResponse(endpointName: "capture", data: data, response: response, error: error) { info in
                 guard let self else { return completion(info) }
-                completion(self.captureV1Result(info, path: path, data: data, uuids: uuids, identity: identity))
+                completion(self.captureV1Result(info, path: path, data: data, uuids: uuids, identity: identity, eventNames: eventNames))
             }
         }.resume()
     }
@@ -264,13 +265,15 @@ class PostHogApi {
     }
 
     /// Reads the per-event results of a 2xx and records which events, if any,
-    /// the next request retries under the same identity.
+    /// the next request retries under the same identity. `eventNames` maps
+    /// UUIDs to event names for the per-event drop log.
     func captureV1Result(
         _ info: PostHogUploadInfo,
         path: String,
         data: Data?,
         uuids: [String],
-        identity: CaptureV1RequestIdentity
+        identity: CaptureV1RequestIdentity,
+        eventNames: [String: String] = [:]
     ) -> PostHogUploadInfo {
         var retryUuids: Set<String> = []
         var dropped = 0
@@ -292,6 +295,10 @@ class PostHogApi {
                     retryUuids.insert(uuid)
                 case "drop":
                     dropped += 1
+                    // Debug only. Name, UUID, and the server's reason; never content or properties.
+                    let name = eventNames[uuid].map { "'\($0)'" } ?? "event"
+                    let details = entry["details"] as? String ?? "no details"
+                    hedgeLog("Capture dropped \(name) (\(uuid)): \(details).")
                 default:
                     break
                 }
@@ -301,7 +308,6 @@ class PostHogApi {
             retryUuids = Set(uuids)
         }
 
-        // Counts only: event UUIDs and server details can identify users.
         if dropped > 0 || !retryUuids.isEmpty {
             hedgeLog("Capture: \(dropped) dropped, \(retryUuids.count) to retry.")
         }

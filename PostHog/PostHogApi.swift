@@ -70,6 +70,9 @@ class PostHogApi {
     private let captureV1Lock = NSLock()
     // Keyed by endpoint path, so analytics and AI retries keep separate identities.
     private var captureV1PendingRetry: [String: CaptureV1RequestIdentity] = [:]
+    // A 404 keeps the events queued, so the warning is printed once instead of on every retry.
+    private var warnedCaptureNotFound = false
+    var printWarning: (String) -> Void = hedgeLogWarning
 
     init(_ config: PostHogConfig) {
         self.config = config
@@ -242,9 +245,27 @@ class PostHogApi {
         session.uploadTask(with: request, from: payload) { [weak self] data, response, error in
             processUploadResponse(endpointName: "capture", data: data, response: response, error: error) { info in
                 guard let self else { return completion(info) }
+                if info.statusCode == 404 {
+                    self.warnCaptureNotFoundOnce(url: url, path: path)
+                }
                 completion(self.captureV1Result(info, path: path, data: data, uuids: uuids, identity: identity))
             }
         }.resume()
+    }
+
+    private func warnCaptureNotFoundOnce(url: URL, path: String) {
+        let shouldWarn = captureV1Lock.withLock {
+            defer { warnedCaptureNotFound = true }
+            return !warnedCaptureNotFound
+        }
+        guard shouldWarn else { return }
+        // getEndpointURL leaves an empty query, which prints as a trailing "?".
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.query = nil
+        printWarning(
+            "\(components?.url?.absoluteString ?? url.absoluteString) returned 404. Events stay queued and are retried. "
+                + "If you use a reverse proxy or self-host PostHog, make sure it serves \(path)."
+        )
     }
 
     /// Reuses the request ID with the next attempt number when `uuids` is the

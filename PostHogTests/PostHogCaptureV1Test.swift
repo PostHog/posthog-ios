@@ -203,6 +203,24 @@ final class PostHogCaptureV1Test {
         #expect(Set(requests.map { $0.value(forHTTPHeaderField: "PostHog-Request-Id") }).count == 1)
     }
 
+    @Test("a 404 warns once with the capture URL")
+    func notFoundWarnsOnce() async throws {
+        server.captureV1ResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 404, headers: nil)
+        }
+        let api = makeApi()
+        var warnings: [String] = []
+        api.printWarning = { warnings.append($0) }
+
+        _ = await send(api, [PostHogEvent(event: "first", distinctId: "user")])
+        _ = await send(api, [PostHogEvent(event: "second", distinctId: "user")])
+
+        #expect(warnings == [
+            "http://localhost:9001/proxy/i/v1/analytics/events returned 404. Events stay queued and are retried. "
+                + "If you use a reverse proxy or self-host PostHog, make sure it serves /i/v1/analytics/events.",
+        ])
+    }
+
     @Test("sends empty and whitespace session and window IDs at the root unchanged", arguments: ["", "  "])
     func sendsBlankSessionIds(value: String) async throws {
         let event = PostHogEvent(event: "test", distinctId: "user", properties: ["$session_id": value, "$window_id": value])

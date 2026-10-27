@@ -4,7 +4,7 @@
 
 **Breaking:** send events to capture V1 (`/i/v1/analytics/events`) with the project token in an `Authorization: Bearer` header.
 
-- If you use a reverse proxy or self-host PostHog, make sure `/i/v1/analytics/events` is served: a 404 is retried, so events stay queued until the route exists.
+- If you use a reverse proxy or self-host PostHog, make sure `/i/v1/analytics/events` is served: a 404 is retried, so events stay queued until the route exists, and the SDK prints a warning once, also without `debug`.
 - Capture requests replace any `Authorization` header from `requestHeaders`, so authenticate your proxy with a different header.
 - Only a 307 or 308 redirect to the same origin as `host` is followed, at most 5 times. Other redirects drop the events, so point `host` at the final host.
 - 404 responses are now retried, and `Retry-After` pauses sending for at most 30 seconds, including session replay and logs.

@@ -23,12 +23,28 @@
             return window
         }
 
-        private func uploaded(_ image: UIImage, masks: [CGRect]) throws -> CGImage {
+        private func uploaded(_ image: UIImage, masks: [CGRect], pixelScale: CGFloat = 1) throws -> CGImage {
             let wireframe = RRWireframe()
             wireframe.type = "screenshot"
             wireframe.image = image
             wireframe.maskableWidgets = masks
+            wireframe.screenshotPixelScale = pixelScale
             return try decode(wireframe)
+        }
+
+        private func pixelScale(screenshotScale: NSNumber?, on window: UIWindow) -> CGFloat {
+            let config = PostHogSessionReplayConfig()
+            config.screenshotScale = screenshotScale
+            return config.screenshotPixelScale(nativeScale: window.screen.scale)
+        }
+
+        private func solidImage(_ color: UIColor, size: CGSize, scale: CGFloat) -> UIImage {
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = scale
+            return UIGraphicsImageRenderer(size: size, format: format).image { context in
+                color.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+            }
         }
 
         private func decode(_ wireframe: RRWireframe) throws -> CGImage {
@@ -117,6 +133,96 @@
                 #expect(try isWhite(rgb(unmasked, at: point)), "unmasked frame at \(point)")
                 #expect(try isWhite(rgb(masked, at: point)), "masked frame at \(point)")
             }
+        }
+
+        @Test("an unset screenshotScale uploads one pixel per point")
+        func nilScaleUploadsPointSize() throws {
+            let window = try window()
+            defer { window.isHidden = true }
+            let image = try #require(window.toImage(preferFidelityRenderer: false))
+            let scale = pixelScale(screenshotScale: nil, on: window)
+            #expect(scale == 1)
+            #expect(try pixelSize(uploaded(image, masks: [], pixelScale: scale)) == window.bounds.size)
+            #expect(try pixelSize(uploaded(image, masks: [Self.secretRect], pixelScale: scale)) == window.bounds.size)
+        }
+
+        @Test("screenshotScale uploads that fraction of native resolution, masked or not", arguments: [0.5, 1.0])
+        func explicitScaleUploadsFractionOfNative(screenshotScale: Double) throws {
+            let window = try window()
+            defer { window.isHidden = true }
+            let image = try #require(window.toImage(preferFidelityRenderer: false))
+            let scale = pixelScale(screenshotScale: NSNumber(value: screenshotScale), on: window)
+            #expect(scale == window.screen.scale * CGFloat(screenshotScale))
+
+            let expected = CGSize(width: (window.bounds.width * scale).rounded(.up),
+                                  height: (window.bounds.height * scale).rounded(.up))
+            #expect(try pixelSize(uploaded(image, masks: [], pixelScale: scale)) == expected)
+            #expect(try pixelSize(uploaded(image, masks: [Self.secretRect], pixelScale: scale)) == expected)
+        }
+
+        @Test("screenshotScale is clamped to 0.1...1, and NaN or infinity unset it",
+              arguments: [(0.7, 0.7), (0.01, 0.1), (-1, 0.1), (5, 1), (.nan, nil), (.infinity, nil), (-.infinity, nil)] as [(Double, Double?)])
+        func screenshotScaleIsClamped(value: Double, expected: Double?) {
+            let config = PostHogSessionReplayConfig()
+            config.screenshotScale = NSNumber(value: value)
+            #expect(config.screenshotScale?.doubleValue == expected)
+        }
+
+        @Test("a fractional output size rounds up and leaves no pixel undrawn")
+        func fractionalSizeRoundsUp() throws {
+            let image = solidImage(.white, size: CGSize(width: 201, height: 301), scale: 3)
+            let uploaded = try uploaded(image, masks: [], pixelScale: 1.5)
+            #expect(pixelSize(uploaded) == CGSize(width: 302, height: 452))
+            #expect(try isWhite(rgb(uploaded, at: CGPoint(x: 301, y: 451))))
+        }
+
+        @Test("a mask lands on the secret's pixels at a non-1x scale")
+        func maskLandsAtNonUnitScale() throws {
+            let window = try window()
+            defer { window.isHidden = true }
+            let image = try #require(window.toImage(preferFidelityRenderer: false))
+            let scale = pixelScale(screenshotScale: 0.5, on: window)
+            let unmasked = try uploaded(image, masks: [], pixelScale: scale)
+            let masked = try uploaded(image, masks: [Self.secretRect], pixelScale: scale)
+
+            let rect = Self.secretRect
+            let inside = [CGPoint(x: rect.midX, y: rect.midY), CGPoint(x: rect.minX + 12, y: rect.minY + 12),
+                          CGPoint(x: rect.maxX - 12, y: rect.maxY - 12)]
+            for point in inside {
+                let pixel = CGPoint(x: point.x * scale, y: point.y * scale)
+                #expect(try isRed(rgb(unmasked, at: pixel)), "unmasked frame at \(point)")
+                #expect(try isBlack(rgb(masked, at: pixel)), "masked frame at \(point)")
+            }
+
+            let outside = [CGPoint(x: rect.minX - 8, y: rect.midY), CGPoint(x: rect.maxX + 8, y: rect.midY),
+                           CGPoint(x: rect.midX, y: rect.maxY + 8)]
+            for point in outside {
+                let pixel = CGPoint(x: point.x * scale, y: point.y * scale)
+                #expect(try isWhite(rgb(masked, at: pixel)), "masked frame at \(point)")
+            }
+        }
+
+        @Test("a mask edge that falls mid-pixel covers that whole pixel")
+        func maskEdgeRoundsOutward() throws {
+            let image = solidImage(.red, size: CGSize(width: 200, height: 300), scale: 3)
+            // At 1.5 pixels per point these edges land on pixels 60.75 and 209.25.
+            let mask = CGRect(x: 40.5, y: 60, width: 99, height: 80)
+            let masked = try #require(RRWireframe.maskImage(image, maskableWidgets: [mask], pixelScale: 1.5)?.cgImage)
+            let row = CGFloat(150)
+            #expect(try isBlack(rgb(masked, at: CGPoint(x: 60, y: row))))
+            #expect(try isBlack(rgb(masked, at: CGPoint(x: 209, y: row))))
+            #expect(try isRed(rgb(masked, at: CGPoint(x: 59, y: row))))
+            #expect(try isRed(rgb(masked, at: CGPoint(x: 210, y: row))))
+        }
+
+        @Test("an unmasked frame already at native resolution is not redrawn")
+        func nativeScaleSkipsRedraw() throws {
+            let window = try window()
+            defer { window.isHidden = true }
+            let image = try #require(window.toImage(preferFidelityRenderer: false))
+            let native = pixelScale(screenshotScale: 1, on: window)
+            #expect(RRWireframe.unmaskedScreenshot(image, pixelScale: native) === image)
+            #expect(RRWireframe.unmaskedScreenshot(image, pixelScale: 1) !== image)
         }
     }
 #endif

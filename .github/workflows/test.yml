@@ -87,6 +87,9 @@ jobs:
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: latest-stable
+      - name: Force failure (test PR only)
+        if: matrix.artifact == 'survey-ui'
+        run: exit 1
       - name: Run make ${{ matrix.target }}
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make ${{ matrix.target }}

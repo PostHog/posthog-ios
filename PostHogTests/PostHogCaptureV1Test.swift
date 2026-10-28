@@ -136,6 +136,31 @@ final class PostHogCaptureV1Test {
         #expect(result.retryRecordIds?.isEmpty ?? true)
     }
 
+    @Test("logs each dropped event's name, UUID and reason, without its properties")
+    func logsDropReasons() throws {
+        let wasLogging = hedgeLogEnabled
+        hedgeLogEnabled = true
+        defer { hedgeLogEnabled = wasLogging }
+        let uuids = [UUID().postHogUuidString, UUID().postHogUuidString, UUID().postHogUuidString]
+        let identity = CaptureV1RequestIdentity(uuids: Set(uuids), requestId: "request", attempt: 1, createdAt: "now")
+        let body = try JSONSerialization.data(withJSONObject: ["results": [
+            uuids[0]: ["result": "drop", "details": "ai_event_too_big"],
+            uuids[1]: ["result": "drop", "details": "misrouted_event"],
+            uuids[2]: ["result": "ok"],
+        ]])
+
+        let output = try captureStdout {
+            _ = makeApi().captureV1Result(
+                PostHogUploadInfo(statusCode: 200, error: nil), path: PostHogApi.captureV1AiPath, data: body,
+                uuids: uuids, identity: identity, eventNames: [uuids[0]: "$ai_generation", uuids[1]: "signup"]
+            )
+        }
+
+        #expect(output.contains("Capture dropped '$ai_generation' (\(uuids[0])): ai_event_too_big."))
+        #expect(output.contains("Capture dropped 'signup' (\(uuids[1])): misrouted_event."))
+        #expect(!output.contains(uuids[2]))
+    }
+
     @Test("treats a 2xx whose transfer then failed as delivered, so its ok events aren't stored twice")
     func failedTransferAfterSuccessIsDelivered() {
         let uuids = [UUID().postHogUuidString, UUID().postHogUuidString]
@@ -974,8 +999,8 @@ final class PostHogCaptureAiTest {
         #expect(server.batchRequests.isEmpty)
     }
 
-    @Test("drops an AI event over the size limit when it is queued")
-    func dropsOversizedEvent() {
+    @Test("drops an AI event over the size limit when it is queued, logging only its size")
+    func dropsOversizedEvent() throws {
         let config = PostHogConfig(projectToken: "phc_ai_big", host: "http://localhost:9001")
         let storage = PostHogStorage(config)
         let queue = PostHogQueue(config, storage, .ai(api: PostHogApi(config)), nil)
@@ -986,9 +1011,40 @@ final class PostHogCaptureAiTest {
         }
 
         #expect(QueueEndpoint.ai(api: PostHogApi(config)).maxQueueBytes == aiMaxQueueBytes)
+        let wasLogging = hedgeLogEnabled
+        hedgeLogEnabled = true
+        defer { hedgeLogEnabled = wasLogging }
         let big = String(repeating: "a", count: aiMaxEventBytes)
-        #expect(!queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user", properties: ["$ai_input": big])))
+        var added = true
+        let output = try captureStdout {
+            added = queue.add(PostHogEvent(event: "$ai_oversized", distinctId: "user", properties: ["$ai_input": big]))
+        }
+        #expect(!added)
         #expect(queue.depth == 0)
+        // One size line, not a second "unserialisable" line.
+        #expect(output.contains("Dropping AI event '$ai_oversized' of "))
+        #expect(output.contains("over the \(aiMaxEventBytes) byte limit."))
+        #expect(!output.contains("unserialisable"))
+    }
+
+    @Test("clamps captureAiMaxEventBytes above the ceiling and warns naming both values")
+    func warnsWhenMaxEventBytesClamped() throws {
+        let wasLogging = hedgeLogEnabled
+        hedgeLogEnabled = true
+        defer { hedgeLogEnabled = wasLogging }
+        let config = PostHogConfig(projectToken: "phc_ai_clamp", host: "http://localhost:9001")
+        config.captureAiMaxEventBytes = aiMaxEventBytes + 1
+
+        var endpoint: QueueEndpoint<PostHogEvent>?
+        let output = try captureStdout { endpoint = .ai(api: PostHogApi(config)) }
+
+        #expect(endpoint?.maxRecordBytes == aiMaxEventBytes)
+        #expect(output.contains("captureAiMaxEventBytes \(aiMaxEventBytes + 1) is over the \(aiMaxEventBytes) byte ceiling"))
+
+        config.captureAiMaxEventBytes = 1024
+        let quiet = try captureStdout { endpoint = .ai(api: PostHogApi(config)) }
+        #expect(endpoint?.maxRecordBytes == 1024)
+        #expect(!quiet.contains("captureAiMaxEventBytes"))
     }
 
     @Test("splits AI requests at the batch byte limit")

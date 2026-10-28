@@ -62,6 +62,10 @@ extension QueueEndpoint where Record == PostHogEvent {
     /// Batches by bytes as well as count, since AI events can be megabytes.
     static func ai(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
         let maxEventBytes = api.config.effectiveCaptureAiMaxEventBytes
+        // Read once per SDK setup, so this warns once.
+        if api.config.captureAiMaxEventBytes > maxEventBytes {
+            hedgeLog("Warning: captureAiMaxEventBytes \(api.config.captureAiMaxEventBytes) is over the \(maxEventBytes) byte ceiling, using \(maxEventBytes).")
+        }
         return QueueEndpoint<PostHogEvent>(
             storageKey: .aiQueue,
             oldStorageKeys: [],
@@ -72,19 +76,12 @@ extension QueueEndpoint where Record == PostHogEvent {
             flushIntervalSeconds: { $0.flushIntervalSeconds },
             rateCapMax: { _ in 0 },
             rateCapWindowSeconds: { _ in 0 },
-            encode: { event in
-                guard let data = toJSONData(event.toJSON()) else { return nil }
-                // Name and size only: AI properties can hold prompts and media.
-                if data.count > maxEventBytes {
-                    hedgeLog("Dropping AI event '\(event.event)' of \(data.count) bytes, over the \(maxEventBytes) byte limit.")
-                    return nil
-                }
-                return data
-            },
+            encode: { event in toJSONData(event.toJSON()) },
             decode: { data in PostHogEvent.fromJSON(data) },
             describe: { event in "AI event '\(event.event)'" },
             recordId: { event in event.uuid.postHogUuidString },
             maxBatchBytes: captureV1MaxBatchBytes,
+            maxRecordBytes: maxEventBytes,
             maxQueueBytes: aiMaxQueueBytes,
             send: { events, completion in
                 api.captureAi(events: events, completion: completion)

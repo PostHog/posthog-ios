@@ -405,6 +405,11 @@ class PostHogQueue<Record> {
             hedgeLog("Tried to queue unserialisable record")
             return false
         }
+        // Name and size only: AI properties can hold prompts and media.
+        if let maxRecordBytes = endpoint.maxRecordBytes, data.count > maxRecordBytes {
+            hedgeLog("Dropping \(endpoint.describe(record)) of \(data.count) bytes, over the \(maxRecordBytes) byte limit.")
+            return false
+        }
 
         let result = fileQueue.add(data, maxSize: configuredMaxQueueSize)
         guard result.success else { return false }

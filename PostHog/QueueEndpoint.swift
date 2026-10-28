@@ -72,6 +72,10 @@ struct QueueEndpoint<Record> {
     /// the limit goes alone. `nil` batches by count only.
     var maxBatchBytes: Int?
 
+    /// Largest encoded record `add()` accepts; a larger one is dropped with a
+    /// size log. `nil` accepts any size.
+    var maxRecordBytes: Int?
+
     /// FIFO limit on the total size of queued records on disk, on top of
     /// `maxQueueSize`. `nil` limits by count only.
     var maxQueueBytes: Int?

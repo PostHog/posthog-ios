@@ -792,7 +792,6 @@ class PostHogRemoteConfig {
                 self.latestFeatureFlagsLoadFailed = featureFlags == nil
             }
             self.onFeatureFlagsLoaded.invoke(featureFlags)
-            NotificationCenter.default.post(name: PostHogSDK.didReceiveFeatureFlags, object: nil)
         }
     }
 

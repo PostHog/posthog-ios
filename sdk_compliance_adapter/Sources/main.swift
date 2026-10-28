@@ -121,6 +121,7 @@ app.post("init") { req async throws -> Response in
     config.pushNotificationSubscriptionMaxRetries = initReq.maxRetries ?? config.pushNotificationSubscriptionMaxRetries
     if initReq.enableCompression == false {
         config.compression = .none
+        config.captureAiCompression = .none
     }
     config.disableGeoIp = initReq.disableGeoip ?? config.disableGeoIp
 

@@ -656,13 +656,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		690FF0332AE7C5BB00A0B06B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 690FF01E2AE7C5B900A0B06B;
-			remoteInfo = PostHogExampleWithPods;
-		};
 		690FF0572AE7DB3700A0B06B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */;
@@ -952,7 +945,6 @@
 		64F80D1792DC64921EF42266 /* PLCrashAsyncDwarfCFAState.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncDwarfCFAState.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncDwarfCFAState.cpp; sourceTree = "<group>"; };
 		68181997A5803BEDE63ABDEA /* PostHogLogRecord.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogRecord.swift; sourceTree = "<group>"; };
 		690B2DF22C205B5600AE3B45 /* TimeBasedEpochGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeBasedEpochGenerator.swift; sourceTree = "<group>"; };
-		690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithPods.xcodeproj; path = PostHogExampleWithPods/PostHogExampleWithPods.xcodeproj; sourceTree = "<group>"; };
 		690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithSPM.xcodeproj; path = PostHogExampleWithSPM/PostHogExampleWithSPM.xcodeproj; sourceTree = "<group>"; };
 		690FF05E2AE7E2D400A0B06B /* Data+Gzip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Gzip.swift"; sourceTree = "<group>"; };
 		690FF0AE2AEB9C1400A0B06B /* DateUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateUtils.swift; sourceTree = "<group>"; };
@@ -1736,7 +1728,6 @@
 				DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */,
 				690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */,
 				690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */,
-				690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */,
 				3AAFB13129C0C699004F485B /* Package.swift */,
 				3AC745B7296D6FE60025C109 /* PostHog */,
 				3AC745C3296D6FE60025C109 /* PostHogTests */,
@@ -1934,14 +1925,6 @@
 				D80D0EFDC8AA37740A78B15E /* PostHogSurveyTranslationsTest.swift */,
 			);
 			path = PostHogTests;
-			sourceTree = "<group>";
-		};
-		690FF0302AE7C5BA00A0B06B /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				690FF0342AE7C5BB00A0B06B /* PostHogExampleWithPods.app */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 		690FF0542AE7DB3700A0B06B /* Products */ = {
@@ -3201,10 +3184,6 @@
 					ProjectRef = 690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */;
 				},
 				{
-					ProductGroup = 690FF0302AE7C5BA00A0B06B /* Products */;
-					ProjectRef = 690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */;
-				},
-				{
 					ProductGroup = 690FF0542AE7DB3700A0B06B /* Products */;
 					ProjectRef = 690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */;
 				},
@@ -3225,13 +3204,6 @@
 /* End PBXProject section */
 
 /* Begin PBXReferenceProxy section */
-		690FF0342AE7C5BB00A0B06B /* PostHogExampleWithPods.app */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.application;
-			path = PostHogExampleWithPods.app;
-			remoteRef = 690FF0332AE7C5BB00A0B06B /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
 		690FF0582AE7DB3700A0B06B /* PostHogExampleWithSPM.app */ = {
 			isa = PBXReferenceProxy;
 			fileType = wrapper.application;

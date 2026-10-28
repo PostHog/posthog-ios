@@ -1591,31 +1591,6 @@ let maxRetryDelay = 30.0
         )
     }
 
-    /// `captureAi` that sends the event with a caller-supplied `uuid` instead of a generated one.
-    /// For hosts that already assigned the event's UUID, such as the SDK compliance adapter.
-    @_spi(PostHogInternal) @discardableResult
-    public func captureAi(_ event: String,
-                          uuid: UUID,
-                          distinctId: String? = nil,
-                          properties: [String: Any]? = nil,
-                          timestamp: Date? = nil,
-                          options: [String: Any]? = nil) -> String?
-    {
-        if !event.hasPrefix("$ai_") {
-            hedgeLog("captureAi event '\(event)' doesn't start with '$ai_', so PostHog will drop it. Use capture for non-AI events.")
-        }
-
-        return captureInternal(
-            event,
-            distinctId: distinctId,
-            properties: properties,
-            timestamp: timestamp,
-            options: options,
-            uuid: uuid,
-            aiLane: true
-        )
-    }
-
     // A separate Swift name keeps this out of Swift overload resolution.
 
     /// Captures a custom event for an explicit distinct ID and timestamp from Objective-C.
@@ -1803,7 +1778,6 @@ let maxRetryDelay = 30.0
         groups: [String: String]? = nil,
         timestamp: Date? = nil,
         options: [String: Any]? = nil,
-        uuid: UUID? = nil,
         skipBuildProperties: Bool = false,
         propertyAllowlist: Set<String>? = nil,
         deduplicatePersonProperties: Bool = false,
@@ -1895,8 +1869,7 @@ let maxRetryDelay = 30.0
             distinctId: eventDistinctId,
             properties: finalProperties,
             options: eventOptions,
-            timestamp: eventTimestamp,
-            uuid: uuid
+            timestamp: eventTimestamp
         )
 
         guard let posthogEvent else {
@@ -2241,8 +2214,7 @@ let maxRetryDelay = 30.0
         distinctId: String,
         properties: [String: Any],
         options: [String: Any]? = nil,
-        timestamp: Date = Date(),
-        uuid: UUID? = nil
+        timestamp: Date = Date()
     ) -> PostHogEvent? {
         var properties = properties
         let carriesReplayDebugBundle = properties.removeValue(forKey: Self.replayDebugClaimMarkerKey) != nil
@@ -2252,8 +2224,7 @@ let maxRetryDelay = 30.0
             distinctId: distinctId,
             properties: properties,
             options: options,
-            timestamp: timestamp,
-            uuid: uuid ?? UUID.v7()
+            timestamp: timestamp
         )
 
         let resultEvent = config.runBeforeSend(event)

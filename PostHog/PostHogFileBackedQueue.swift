@@ -18,10 +18,10 @@ class PostHogFileBackedQueue {
     /// FIFO limit on the total size of the stored files, on top of `maxSize`.
     /// The newest entry is always kept, even when it's larger on its own.
     private let maxBytes: Int?
-    /// Whether file sizes are tracked: always with `maxBytes`, or on request.
-    private let trackBytes: Bool
+    /// Whether file sizes are tracked: when `maxBytes` is set or the caller asked for `byteCount`.
+    private let tracksBytes: Bool
     private var items = [String]()
-    /// File sizes by id, tracked only when `trackBytes` is set. Guarded by `itemsLock`.
+    /// File sizes by id, tracked only when `tracksBytes`. Guarded by `itemsLock`.
     private var sizes = [String: Int]()
     private var totalBytes = 0
     private let itemsLock = NSLock()
@@ -30,7 +30,7 @@ class PostHogFileBackedQueue {
         itemsLock.withLock { items.count }
     }
 
-    /// Total size of the stored files. Tracked only when `trackBytes` is set, 0 otherwise.
+    /// Total size of the stored files. Tracked only when `maxBytes` or `trackBytes` is set, 0 otherwise.
     var byteCount: Int {
         itemsLock.withLock { totalBytes }
     }
@@ -39,7 +39,7 @@ class PostHogFileBackedQueue {
         self.queue = queue
         self.maxSize = maxSize.map { max(1, $0) }
         self.maxBytes = maxBytes.map { max(1, $0) }
-        self.trackBytes = trackBytes || maxBytes != nil
+        tracksBytes = trackBytes || maxBytes != nil
         setup(oldQueues: oldQueues)
     }
 
@@ -170,7 +170,7 @@ class PostHogFileBackedQueue {
             items = Array(sortedItems.dropFirst(overflow))
             sizes = [:]
             totalBytes = 0
-            if trackBytes {
+            if tracksBytes {
                 for item in items {
                     let attributes = try? FileManager.default.attributesOfItem(atPath: queue.appendingPathComponent(item).path)
                     track(item, size: (attributes?[.size] as? NSNumber)?.intValue ?? 0)
@@ -251,7 +251,7 @@ class PostHogFileBackedQueue {
 
     /// Caller must hold `itemsLock`.
     private func track(_ id: String, size: Int) {
-        guard trackBytes else { return }
+        guard tracksBytes else { return }
         sizes[id] = size
         totalBytes += size
     }

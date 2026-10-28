@@ -231,6 +231,7 @@ app.on(.POST, "capture_ai", body: .collect(maxSize: "9mb")) { req async throws -
         let properties: [String: AnyCodable]?
         let timestamp: String?
         let options: [String: AnyCodable]?
+        let uuid: String?
 
         enum CodingKeys: String, CodingKey {
             case event
@@ -238,6 +239,7 @@ app.on(.POST, "capture_ai", body: .collect(maxSize: "9mb")) { req async throws -
             case properties
             case timestamp
             case options
+            case uuid
         }
     }
 
@@ -248,13 +250,17 @@ app.on(.POST, "capture_ai", body: .collect(maxSize: "9mb")) { req async throws -
         throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
     }
 
-    let uuid = sdk.captureAi(
-        captureReq.event,
-        distinctId: captureReq.distinctId,
-        properties: captureReq.properties?.mapValues(\.value),
-        timestamp: captureReq.timestamp.flatMap(parseHarnessTimestamp),
-        options: captureReq.options?.mapValues(\.value)
-    )
+    let properties = captureReq.properties?.mapValues(\.value)
+    let timestamp = captureReq.timestamp.flatMap(parseHarnessTimestamp)
+    let options = captureReq.options?.mapValues(\.value)
+    // A supplied UUID is sent as-is; an invalid one is replaced by a generated UUID.
+    let uuid = if let suppliedUuid = captureReq.uuid.flatMap(UUID.init(uuidString:)) {
+        sdk.captureAi(captureReq.event, uuid: suppliedUuid, distinctId: captureReq.distinctId,
+                      properties: properties, timestamp: timestamp, options: options)
+    } else {
+        sdk.captureAi(captureReq.event, distinctId: captureReq.distinctId,
+                      properties: properties, timestamp: timestamp, options: options)
+    }
 
     var result: [String: Any] = ["success": true]
     result["uuid"] = uuid

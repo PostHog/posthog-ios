@@ -865,6 +865,19 @@ final class PostHogCaptureAiTest {
         #expect(server.aiRequests.count == 1)
     }
 
+    @Test("captureAi with a supplied uuid returns and sends that uuid")
+    func keepsSuppliedUuid() async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        let supplied = try #require(UUID(uuidString: "0198c0de-0000-7000-8000-000000000abc"))
+
+        #expect(sut.captureAi("$ai_generation", uuid: supplied, distinctId: "user") == "0198c0de-0000-7000-8000-000000000abc")
+        await waitUntil { self.server.aiRequests.count == 1 }
+
+        let event = try #require(server.aiRequests.first.flatMap { server.parsePostHogEvents($0).first })
+        #expect(event.uuid == supplied)
+    }
+
     @Test("captureAi returns nil when the event isn't queued")
     func returnsNilWhenNotQueued() {
         let sut = makeSDK { event in event.event == "$ai_span" ? nil : event }

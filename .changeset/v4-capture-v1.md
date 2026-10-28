@@ -7,10 +7,10 @@ Send events through capture V1 and add `captureAi(...)` for AI events. See the [
 **Changed**
 
 - **Breaking:** send events to capture V1 (`/i/v1/analytics/events`) with the project token in an `Authorization: Bearer` header.
-  - If you use a reverse proxy or self-host PostHog, make sure `/i/v1/analytics/events` is served: a 404 or other non-retriable response drops the events.
+  - If you use a reverse proxy or self-host PostHog, make sure `/i/v1/analytics/events` is served: a 404 is retried, so events stay queued until the route exists, and the SDK prints a warning once, also without `debug`.
   - Capture requests replace any `Authorization` header from `requestHeaders`, so authenticate your proxy with a different header.
   - Only a 307 or 308 redirect to the same origin as `host` is followed, at most 5 times. Other redirects drop the events, so point `host` at the final host.
-- **Breaking:** stop retrying 429 responses, and pause sending for at most 30 seconds on `Retry-After`, including session replay and logs.
+- **Breaking:** pause sending for at most 30 seconds on `Retry-After`, including session replay and logs.
 - **Breaking:** send the `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` properties as capture options. PostHog drops an event whose option value it can't read.
 - **Breaking:** merge event properties as: properties the SDK sets itself, then registered super properties, then the properties you pass, then `beforeSend`. Super properties now override SDK properties such as `$os`, and both super and event properties override `$is_identified`, `$process_person_profile`, `$geoip_disable` and the session replay debug values.
 - **Breaking:** rename `maxRetries` to `pushNotificationSubscriptionMaxRetries`, since it only limits push-notification subscription retries. Event, session replay and log retries still have no limit.

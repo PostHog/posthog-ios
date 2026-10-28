@@ -221,6 +221,23 @@ final class PostHogCaptureV1Test {
         ])
     }
 
+    @Test("the 404 warning leaves out credentials in the host")
+    func notFoundWarningRedactsCredentials() async throws {
+        server.captureV1ResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 404, headers: nil)
+        }
+        let api = PostHogApi(PostHogConfig(projectToken: "phc_capture_v1", host: "http://proxy-user:proxy-password@localhost:9001/proxy"))
+        var warnings: [String] = []
+        api.printWarning = { warnings.append($0) }
+
+        _ = await send(api, [PostHogEvent(event: "first", distinctId: "user")])
+
+        let warning = try #require(warnings.first)
+        #expect(warning.hasPrefix("http://localhost:9001/proxy/i/v1/analytics/events returned 404."))
+        #expect(!warning.contains("proxy-user"))
+        #expect(!warning.contains("proxy-password"))
+    }
+
     @Test("sends empty and whitespace session and window IDs at the root unchanged", arguments: ["", "  "])
     func sendsBlankSessionIds(value: String) async throws {
         let event = PostHogEvent(event: "test", distinctId: "user", properties: ["$session_id": value, "$window_id": value])

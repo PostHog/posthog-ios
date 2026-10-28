@@ -259,11 +259,15 @@ class PostHogApi {
             return !warnedCaptureNotFound
         }
         guard shouldWarn else { return }
-        // getEndpointURL leaves an empty query, which prints as a trailing "?".
+        // Warnings print even without debug, so drop any credentials in the host. Clearing the
+        // query also drops the trailing "?" that getEndpointURL's empty query prints as.
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.user = nil
+        components?.password = nil
         components?.query = nil
+        components?.fragment = nil
         printWarning(
-            "\(components?.url?.absoluteString ?? url.absoluteString) returned 404. Events stay queued and are retried. "
+            "\(components?.url?.absoluteString ?? path) returned 404. Events stay queued and are retried. "
                 + "If you use a reverse proxy or self-host PostHog, make sure it serves \(path)."
         )
     }

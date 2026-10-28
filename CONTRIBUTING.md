@@ -12,8 +12,6 @@ Use the repository's `make` wrappers rather than invoking `swift` or `xcodebuild
 
 For initial setup, install Xcode and, if needed, use `make bootstrap` to install CocoaPods, xcpretty, SwiftLint, SwiftFormat, Periphery and [prek](https://github.com/j178/prek). Agents should report missing prerequisites rather than install tools without authorization. Tests import `Testing` and need a Swift 6+ toolchain with Swift Testing (Xcode 16+); use current stable Xcode as CI does. This is separate from the SDK's Swift 5 language compatibility.
 
-`make bootstrap` also installs the opt-in git pre-commit hooks configured in `.pre-commit-config.yaml` via prek. Run them manually with `prek run --all-files`; CI remains the source of truth. If you previously ran `pre-commit install`, run `prek install --force` to replace that hook.
-
 Iterate with focused checks, then run the core CI-aligned checks before submitting **SDK changes**:
 
 ```bash

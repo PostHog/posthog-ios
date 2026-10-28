@@ -68,7 +68,8 @@ class RRWireframe {
             autoreleasepool {
                 let renderer = PostHogGraphicsImageRenderer(size: image.size, scale: pixelScale, roundingUp: true)
                 return renderer.image { context in
-                    context.interpolationQuality = .none
+                    // Nearest-neighbour drops thin glyph stems when downsampling.
+                    context.interpolationQuality = .medium
                     image.draw(at: .zero)
 
                     // Whole output pixels, so a mask edge that falls mid-pixel can't blend into it.

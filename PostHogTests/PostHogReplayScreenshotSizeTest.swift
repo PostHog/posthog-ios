@@ -224,5 +224,26 @@
             #expect(RRWireframe.unmaskedScreenshot(image, pixelScale: native) === image)
             #expect(RRWireframe.unmaskedScreenshot(image, pixelScale: 1) !== image)
         }
+
+        @Test("downsampling keeps a one-pixel line whichever source pixel it falls on")
+        func downsamplingKeepsThinLines() throws {
+            let size = CGSize(width: 30, height: 30)
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 3
+            // One-pixel lines at 3x, one in each phase of the 3:1 downsample: nearest-neighbour keeps only one.
+            let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+                UIColor.white.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+                UIColor.black.setFill()
+                for (column, phase) in [(10, 0), (11, 1), (12, 2)] {
+                    context.fill(CGRect(x: CGFloat(column * 3 + phase) / 3, y: 0, width: 1.0 / 3, height: size.height))
+                }
+            }
+            let downsampled = try #require(RRWireframe.unmaskedScreenshot(image, pixelScale: 1).cgImage)
+            for column in 10 ... 12 {
+                let pixel = try rgb(downsampled, at: CGPoint(x: column, y: 15))
+                #expect(!isWhite(pixel), "column \(column) lost its line: \(pixel)")
+            }
+        }
     }
 #endif

@@ -127,6 +127,24 @@
                                  groups:groupProps
                               timestamp:[NSDate date]];
 
+    [[PostHogSDK shared] captureWithEvent:@"theEvent"
+                              distinctId:nil
+                               properties:props
+                          userProperties:nil
+                 userPropertiesSetOnce:nil
+                                 groups:nil
+                              timestamp:nil
+                                 options:@{@"process_person_profile": @NO}];
+
+    NSString *aiEventUuid = [[PostHogSDK shared] captureAiWithEvent:@"$ai_generation"
+                                                         distinctId:nil
+                                                          properties:@{@"$ai_model": @"gpt-4o-mini", @"$ai_provider": @"openai"}
+                                                     userProperties:nil
+                                            userPropertiesSetOnce:nil
+                                                            groups:nil
+                                                         timestamp:nil
+                                                            options:nil];
+    NSLog(@"captureAi uuid: %@", aiEventUuid);
 
     [[PostHogSDK shared] groupWithType:@"theType" key:@"theKey"];
     [[PostHogSDK shared] groupWithType:@"theType" key:@"theKey" groupProperties:groupProps];

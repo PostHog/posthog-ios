@@ -77,6 +77,7 @@ PostHog | PostHogConfig.sessionReplay | property | @objc var sessionReplay: Bool
 PostHog | PostHogConfig.sessionReplayConfig | property | @objc let sessionReplayConfig: PostHogSessionReplayConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)sessionReplayConfig
 PostHog | PostHogConfig.setBeforeSend(_:) | method | @objc func setBeforeSend(_ blocks: [BoxedBeforeSendBlock]) | c:@M@PostHog@objc(cs)PostHogConfig(im)setBeforeSend:
 PostHog | PostHogConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: BeforeSendBlock...) | s:7PostHog0aB6ConfigC13setBeforeSendyyAA0aB5EventCSgAFYbcd_tF
+PostHog | PostHogConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: [(PostHogEvent) -> PostHogEvent?]) | s:7PostHog0aB6ConfigC13setBeforeSendyySayAA0aB5EventCSgAFcGF
 PostHog | PostHogConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: [BeforeSendBlock]) | s:7PostHog0aB6ConfigC13setBeforeSendyySayAA0aB5EventCSgAFYbcGF
 PostHog | PostHogConfig.setDefaultPersonProperties | property | @objc var setDefaultPersonProperties: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)setDefaultPersonProperties
 PostHog | PostHogConfig.surveys | property | @objc var surveys: Bool { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)surveys
@@ -236,6 +237,7 @@ PostHog | PostHogLogsConfig.serviceName | property | @objc var serviceName: Stri
 PostHog | PostHogLogsConfig.serviceVersion | property | @objc var serviceVersion: String | c:@M@PostHog@objc(cs)PostHogLogsConfig(py)serviceVersion
 PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | @objc func setBeforeSend(_ blocks: [BoxedBeforeSendLogBlock]) | c:@M@PostHog@objc(cs)PostHogLogsConfig(im)setBeforeSend:
 PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) | s:7PostHog0aB10LogsConfigC13setBeforeSendyyAA0aB9LogRecordCSgAFYbcd_tF
+PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: [(PostHogLogRecord) -> PostHogLogRecord?]) | s:7PostHog0aB10LogsConfigC13setBeforeSendyySayAA0aB9LogRecordCSgAFcGF
 PostHog | PostHogLogsConfig.setBeforeSend(_:) | method | func setBeforeSend(_ blocks: [PostHogBeforeSendLogBlock]) | s:7PostHog0aB10LogsConfigC13setBeforeSendyySayAA0aB9LogRecordCSgAFYbcGF
 PostHog | PostHogNextSurveyQuestion | class | @objc class PostHogNextSurveyQuestion | c:@M@PostHog@objc(cs)PostHogNextSurveyQuestion
 PostHog | PostHogNextSurveyQuestion.isSurveyCompleted | property | let isSurveyCompleted: Bool | s:7PostHog0aB18NextSurveyQuestionC02isD9CompletedSbvp
@@ -286,7 +288,6 @@ PostHog | PostHogSDK.capturePushNotificationOpened(response:) | method | @objc f
 PostHog | PostHogSDK.capturePushNotificationOpened(title:subtitle:body:payload:action:) | method | @objc func capturePushNotificationOpened(title: String? = nil, subtitle: String? = nil, body: String? = nil, payload: [AnyHashable : Any]? = nil, action: String? = nil) | c:@M@PostHog@objc(cs)PostHogSDK(im)capturePushNotificationOpenedWithTitle:subtitle:body:payload:action:
 PostHog | PostHogSDK.close() | method | @objc func close() | c:@M@PostHog@objc(cs)PostHogSDK(im)close
 PostHog | PostHogSDK.debug(_:) | method | @objc func debug(_ enabled: Bool = true) | c:@M@PostHog@objc(cs)PostHogSDK(im)debug:
-PostHog | PostHogSDK.didReceiveFeatureFlags | type.property | @objc static let didReceiveFeatureFlags: Notification.Name | c:@CM@PostHog@objc(cs)PostHogSDK(cpy)didReceiveFeatureFlags
 PostHog | PostHogSDK.didStartNotification | type.property | @objc static let didStartNotification: Notification.Name | c:@CM@PostHog@objc(cs)PostHogSDK(cpy)didStartNotification
 PostHog | PostHogSDK.endSession() | method | @objc func endSession() | c:@M@PostHog@objc(cs)PostHogSDK(im)endSession
 PostHog | PostHogSDK.flush() | method | @objc func flush() | c:@M@PostHog@objc(cs)PostHogSDK(im)flush
@@ -357,7 +358,6 @@ PostHog | PostHogSessionReplayConfig.maskAllImages | property | @objc var maskAl
 PostHog | PostHogSessionReplayConfig.maskAllSandboxedViews | property | @objc var maskAllSandboxedViews: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllSandboxedViews
 PostHog | PostHogSessionReplayConfig.maskAllTextInputs | property | @objc var maskAllTextInputs: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllTextInputs
 PostHog | PostHogSessionReplayConfig.sampleRate | property | @objc var sampleRate: NSNumber? { get set } | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)sampleRate
-PostHog | PostHogSessionReplayConfig.screenshotMode | property | @objc var screenshotMode: Bool { get set } | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)screenshotMode
 PostHog | PostHogSessionReplayConfig.throttleDelay | property | @objc var throttleDelay: TimeInterval | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)throttleDelay
 PostHog | PostHogSessionReplayConsoleLogConfig | class | @objc class PostHogSessionReplayConsoleLogConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig
 PostHog | PostHogSessionReplayConsoleLogConfig.logSanitizer | property | @objc var logSanitizer: (String) -> PostHogConsoleLogEntry? | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)logSanitizer

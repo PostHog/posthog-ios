@@ -99,6 +99,17 @@ public typealias PostHogBeforeSendLogBlock = @Sendable (PostHogLogRecord) -> Pos
         setBeforeSend(blocks)
     }
 
+    /// Replaces the log `beforeSend` chain with blocks from an array typed
+    /// `[(PostHogLogRecord) -> PostHogLogRecord?]`.
+    ///
+    /// The blocks can run on any thread, so they must be safe to call from any thread.
+    ///
+    /// - Parameter blocks: Ordered callbacks that can mutate or drop log records.
+    @_disfavoredOverload
+    public func setBeforeSend(_ blocks: [(PostHogLogRecord) -> PostHogLogRecord?]) {
+        setBeforeSend(BeforeSendChain<PostHogLogRecord>.wrapping(blocks))
+    }
+
     /// Replaces the log `beforeSend` chain from Objective-C boxed callbacks.
     ///
     /// - Parameter blocks: Ordered Objective-C callback boxes.

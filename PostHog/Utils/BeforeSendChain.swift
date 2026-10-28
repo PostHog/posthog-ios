@@ -29,4 +29,22 @@ final class BeforeSendChain<T> {
         let snapshot = lock.withLock { self.block }
         return snapshot(value)
     }
+
+    /// Wraps each non-Sendable block in a box instead of force-casting the array,
+    /// which traps at runtime in Swift 5 mode.
+    static func wrapping(_ blocks: [(T) -> T?]) -> [Block] {
+        blocks.map { block in
+            let box = UncheckedSendableBlock(block)
+            return { value in box.block(value) }
+        }
+    }
+}
+
+/// The app owns the thread safety of what its callback captures.
+private final class UncheckedSendableBlock<T>: @unchecked Sendable {
+    let block: (T) -> T?
+
+    init(_ block: @escaping (T) -> T?) {
+        self.block = block
+    }
 }

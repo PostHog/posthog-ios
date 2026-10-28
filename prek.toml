@@ -1,6 +1,7 @@
+default_install_hook_types = ["pre-commit"]
+
 [[repos]]
-repo = "https://github.com/pre-commit/pre-commit-hooks"
-rev = "v6.0.0"
+repo = "builtin"
 hooks = [
   # Fails if two files differ only by letter case (e.g. Foo.swift and foo.swift).
   # Linux treats them as separate files, but macOS/Windows filesystems are

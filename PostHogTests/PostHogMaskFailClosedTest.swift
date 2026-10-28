@@ -327,7 +327,42 @@
             let window = makeWindow(containing: parent)
             window.addSubview(CustomDrawnSecretView(frame: CGRect(x: 24, y: 160, width: 200, height: 32)))
 
-            #expect(sut.integration.collectMaskableRects(in: window) == [secret.frame])
+            #expect(sut.integration.collectMaskableRects(in: window) == [parent.frame, secret.frame])
+        }
+
+        @Test("a full-window no-capture view masks its own drawing, not only its subviews")
+        func fullWindowNoCaptureViewIsMasked() {
+            let sut = makeSut()
+            defer { teardown(sut) }
+
+            let tagged = CustomDrawnSecretView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            tagged.accessibilityIdentifier = "ph-no-capture"
+            let child = UIView(frame: CGRect(x: 24, y: 600, width: 20, height: 20))
+            tagged.addSubview(child)
+            let window = makeWindow(containing: tagged)
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [window.bounds, child.frame])
+        }
+
+        @Test("an unclipped child drawing outside a shrinking no-capture view stays masked")
+        func overflowingChildOfShrinkingNoCaptureViewIsMasked() throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+
+            // The model frame fills the window while the rendered bounds animate down to 100pt.
+            let tagged = CollapsingView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            tagged.accessibilityIdentifier = "ph-no-capture"
+            let layer = try #require(tagged.layer as? CollapsingLayer)
+            layer.renderedBounds = CGRect(x: 0, y: 0, width: 100, height: 100)
+            let secret = CustomDrawnSecretView(frame: CGRect(x: 24, y: 600, width: 200, height: 32))
+            tagged.addSubview(secret)
+            let window = makeWindow(containing: tagged)
+
+            let rects = try #require(sut.integration.collectMaskableRects(in: window))
+            let taggedRect = tagged.toPresentationRect(window)
+            let secretRect = secret.toPresentationRect(window)
+            #expect(!taggedRect.contains(secretRect))
+            #expect(rects == [taggedRect, secretRect])
         }
 
         @Test("a collapsed clipping parent is walked while its presentation bounds remain visible", arguments: [true, false])

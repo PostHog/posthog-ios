@@ -105,6 +105,23 @@ struct PostHogFileBackedQueueAlignmentTest {
         #expect(decode(queue.peek(10)) == ["CCCC", "DDDD"])
     }
 
+    @Test("tracks the byte count without a byte limit and evicts nothing")
+    func tracksBytesWithoutLimit() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ph-queue-bytes-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let queue = PostHogFileBackedQueue(queue: dir, trackBytes: true)
+
+        #expect(queue.add(Data("AAAA".utf8)).evicted.isEmpty)
+        #expect(queue.add(Data("BBBBBB".utf8)).evicted.isEmpty)
+        #expect(queue.byteCount == 10)
+        #expect(PostHogFileBackedQueue(queue: dir, trackBytes: true).byteCount == 10)
+
+        queue.pop(1)
+        #expect(queue.byteCount == 6)
+        #expect(decode(queue.peek(10)) == ["BBBBBB"])
+    }
+
     @Test("keeps the newest record even when it is over the byte limit alone")
     func keepsOversizedNewestRecord() throws {
         let dir = FileManager.default.temporaryDirectory

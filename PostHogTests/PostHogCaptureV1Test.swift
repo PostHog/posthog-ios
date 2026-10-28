@@ -833,6 +833,30 @@ final class PostHogCaptureV1QueueTest {
         #expect(queue.depth == 0)
         #expect(server.batchRequests.map { server.parsePostHogEvents($0).count } == [2, 1])
     }
+
+    @Test("flushes analytics once a batch's worth of bytes is queued, before flushAt")
+    func flushesAtByteLimit() async throws {
+        let config = PostHogConfig(projectToken: "phc_bytes_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.flushAt = 100
+        let storage = PostHogStorage(config)
+        // Not started, so no timer: only the byte threshold can trigger a send.
+        let queue = PostHogQueue(config, storage, .batch(api: PostHogApi(config)), nil)
+        server.batchProjectToken = config.projectToken
+        defer {
+            queue.stop()
+            queue.clear()
+            deleteSafely(storage.appFolderUrl)
+        }
+
+        let blob = String(repeating: "a", count: 2 * 1024 * 1024)
+        for _ in 0 ..< 3 {
+            queue.add(PostHogEvent(event: "large", distinctId: "user", properties: ["blob": blob]))
+        }
+        await waitUntil(timeout: 10) { queue.depth == 0 }
+
+        #expect(queue.depth == 0)
+        #expect(!server.batchRequests.isEmpty)
+    }
 }
 
 @Suite("Capture V1 AI lane", .serialized, .resetsGlobalState)

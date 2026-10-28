@@ -287,6 +287,11 @@ app.on(.POST, "capture_ai", body: .collect(maxSize: "9mb")) { req async throws -
 /// Adds a `$test_padding` string so `properties`, as compact UTF-8 JSON, is exactly `targetBytes`
 /// long (generated_payloads). The padding starts with `marker`.
 func paddedProperties(_ properties: [String: Any], toBytes targetBytes: Int, marker: String) throws -> [String: Any] {
+    // The harness asks for at most ~9 MiB; refuse anything far beyond that instead of allocating it.
+    let maxTargetBytes = 64 * 1024 * 1024
+    guard targetBytes <= maxTargetBytes else {
+        throw Abort(.badRequest, reason: "pad_properties_to_bytes \(targetBytes) is over the \(maxTargetBytes)-byte limit.")
+    }
     var padded = properties
     padded["$test_padding"] = marker
     let baseBytes = try JSONSerialization.data(withJSONObject: padded).count

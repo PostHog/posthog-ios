@@ -13,9 +13,11 @@ concurrency:
 
 jobs:
   detect-markdown-only:
-    uses: PostHog/.github/.github/workflows/detect-markdown-only.yml@ec25337d9fae0100622cbfea1bd5bd88284ac10b
-    permissions:
-      pull-requests: read
+    runs-on: ubuntu-latest
+    outputs:
+      markdown_only: "true"
+    steps:
+      - run: echo "Stubbed to simulate a markdown-only PR (test PR only)"
 
   test:
     needs: detect-markdown-only

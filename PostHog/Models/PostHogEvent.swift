@@ -44,6 +44,16 @@ import Foundation
     /// Set by the SDK when this event took the throttled replay debug bundle, so it survives `beforeSend` renames or replacement.
     var carriesReplayDebugBundle = false
 
+    /// The caller's person properties, kept from build to send so feature flags see them once the event is accepted.
+    var flagUserProperties: [String: Any]?
+    var flagUserPropertiesSetOnce: [String: Any]?
+
+    /// Set when a wrapper build returns this event: true for the AI lane. Cleared once it's sent, so it's sent once.
+    var wrapperAiLane: Bool?
+    /// The screen a wrapper's `$screen` build recorded, announced once the event is sent.
+    var wrapperScreenName: String?
+    var wrapperScreenNameChanged = false
+
     init(
         event: String,
         distinctId: String,

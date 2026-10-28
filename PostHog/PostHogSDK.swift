@@ -718,7 +718,9 @@ let maxRetryDelay = 30.0
                                  timestamp: Date? = nil,
                                  // Snapshot callers pass true: resolving the session read-only keeps a
                                  // background crash-context refresh from rotating an idle session.
-                                 readOnlySession: Bool = false) -> [String: Any]
+                                 readOnlySession: Bool = false,
+                                 // Wrapper builds pass false: the claim never expires, so it can't wait on a wrapper round trip.
+                                 claimReplayDebugBundle: Bool = true) -> [String: Any]
     {
         var props: [String: Any] = [:]
 
@@ -809,7 +811,8 @@ let maxRetryDelay = 30.0
                 replayDebugProperties["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
             }
             // Read-only builds are the crash-context snapshot, refreshed on every status transition.
-            let claimedReplayDebugWindow = !readOnlySession && Self.isReplayDebugEvent(event) && claimReplayDebugPropertiesWindow()
+            let claimedReplayDebugWindow = claimReplayDebugBundle && !readOnlySession && Self.isReplayDebugEvent(event)
+                && claimReplayDebugPropertiesWindow()
             if readOnlySession || claimedReplayDebugWindow {
                 props.merge(replayDebugProperties) { _, new in new }
                 if claimedReplayDebugWindow {
@@ -1574,9 +1577,7 @@ let maxRetryDelay = 30.0
                           timestamp: Date? = nil,
                           options: [String: Any]? = nil) -> String?
     {
-        if !event.hasPrefix("$ai_") {
-            hedgeLog("captureAi event '\(event)' doesn't start with '$ai_', so PostHog will drop it. Use capture for non-AI events.")
-        }
+        warnIfNotAiEvent(event)
 
         return captureInternal(
             event,
@@ -1783,6 +1784,40 @@ let maxRetryDelay = 30.0
         deduplicatePersonProperties: Bool = false,
         aiLane: Bool = false
     ) -> String? {
+        guard let prepared = prepareCaptureEvent(
+            event,
+            distinctId: distinctId,
+            properties: properties,
+            userProperties: userProperties,
+            userPropertiesSetOnce: userPropertiesSetOnce,
+            groups: groups,
+            timestamp: timestamp,
+            options: options,
+            skipBuildProperties: skipBuildProperties,
+            propertyAllowlist: propertyAllowlist,
+            aiLane: aiLane
+        ) else {
+            return nil
+        }
+        return finishCaptureEvent(prepared, aiLane: aiLane, deduplicatePersonProperties: deduplicatePersonProperties)
+    }
+
+    /// Builds the event a capture would queue, without running `beforeSend` or queueing it.
+    /// Returns `nil` when the capture is skipped.
+    private func prepareCaptureEvent( // swiftlint:disable:this function_parameter_count
+        _ event: String,
+        distinctId: String?,
+        properties: [String: Any]?,
+        userProperties: [String: Any]?,
+        userPropertiesSetOnce: [String: Any]?,
+        groups: [String: String]?,
+        timestamp: Date?,
+        options: [String: Any]?,
+        skipBuildProperties: Bool,
+        propertyAllowlist: Set<String>?,
+        aiLane: Bool,
+        forWrapper: Bool = false
+    ) -> PostHogEvent? {
         if !isEnabled() {
             return nil
         }
@@ -1791,7 +1826,7 @@ let maxRetryDelay = 30.0
             return nil
         }
 
-        guard let queue = aiLane ? aiQueue : queue else {
+        guard (aiLane ? aiQueue : queue) != nil else {
             return nil
         }
 
@@ -1806,7 +1841,7 @@ let maxRetryDelay = 30.0
             }
         }
 
-        var isSnapshotEvent = !aiLane && event == "$snapshot"
+        let isSnapshotEvent = !aiLane && event == "$snapshot"
         let eventTimestamp = timestamp ?? now()
         // A blank distinct ID falls back to the current one, like nil, instead of PostHog dropping the event.
         let eventDistinctId = distinctId.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? getDistinctId()
@@ -1834,7 +1869,8 @@ let maxRetryDelay = 30.0
                 userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce),
                 groups: groups,
                 appendSharedProps: !isSnapshotEvent,
-                timestamp: timestamp
+                timestamp: timestamp,
+                claimReplayDebugBundle: !forWrapper
             )
         }
 
@@ -1863,22 +1899,35 @@ let maxRetryDelay = 30.0
             ? sanitizeDictionary(options)
             : personProcessingOptions(sanitizeDictionary(options), properties: finalProperties)
 
-        // Sanitize is now called in buildEvent
-        let posthogEvent = buildEvent(
+        let posthogEvent = makeEvent(
             event: event,
             distinctId: eventDistinctId,
             properties: finalProperties,
             options: eventOptions,
             timestamp: eventTimestamp
         )
+        if !skipBuildProperties {
+            posthogEvent.flagUserProperties = userProperties
+            posthogEvent.flagUserPropertiesSetOnce = userPropertiesSetOnce
+        }
+        return posthogEvent
+    }
 
-        guard let posthogEvent else {
+    /// Runs `beforeSend` on an event from `prepareCaptureEvent` and queues the result.
+    /// - Returns: The queued event's UUID, or `nil` when the event isn't queued.
+    private func finishCaptureEvent(_ prepared: PostHogEvent, aiLane: Bool, deduplicatePersonProperties: Bool = false) -> String? {
+        guard let queue = aiLane ? aiQueue : queue else {
+            releaseClaimIfCarried(prepared)
+            return nil
+        }
+
+        guard let posthogEvent = applyBeforeSend(prepared) else {
             return nil
         }
 
         // Reevaluate if this is a snapshot event because the event might have been updated by the beforeSend hook.
         // The AI lane always uses its own queue.
-        isSnapshotEvent = !aiLane && posthogEvent.event == "$snapshot"
+        let isSnapshotEvent = !aiLane && posthogEvent.event == "$snapshot"
 
         // if this is a $snapshot event and $session_id is missing, don't process then event
         if isSnapshotEvent, posthogEvent.properties["$session_id"] == nil {
@@ -1887,9 +1936,7 @@ let maxRetryDelay = 30.0
         }
 
         // Automatically set person properties for feature flags during capture event
-        if !skipBuildProperties {
-            setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
-        }
+        setPersonPropertiesForFlagsIfNeeded(prepared.flagUserProperties, userPropertiesSetOnce: prepared.flagUserPropertiesSetOnce)
 
         // Session Replay has its own queue
         if isSnapshotEvent {
@@ -1900,6 +1947,144 @@ let maxRetryDelay = 30.0
         }
         let stored = queueEvent(posthogEvent, queue: queue, deduplicatePersonProperties: deduplicatePersonProperties)
         return stored ? posthogEvent.uuid.postHogUuidString : nil
+    }
+
+    private func warnIfNotAiEvent(_ event: String) {
+        if !event.hasPrefix("$ai_") {
+            hedgeLog("captureAi event '\(event)' doesn't start with '$ai_', so PostHog will drop it. Use capture for non-AI events.")
+        }
+    }
+
+    /// For wrapper SDKs only (such as posthog-flutter); not for app code.
+    ///
+    /// Builds the event `capture` (or `captureAi` when `ai` is true) would queue, with SDK, registered and
+    /// caller properties already merged, but doesn't run `beforeSend` or queue it. This lets a wrapper run
+    /// its own `beforeSend` on the final event, then hand it back with `sendBuiltEventForWrapper(_:ai:)`.
+    /// Edit the returned event in place; its `uuid` and `timestamp` are kept. An event the wrapper drops needs no
+    /// cleanup. Distinct ID, session and person processing are read here, at build time.
+    ///
+    /// - Parameters:
+    ///   - event: Event name.
+    ///   - distinctId: Optional distinct ID. Defaults to the current one when nil, empty or whitespace-only.
+    ///   - properties: The call's event properties.
+    ///   - userProperties: Person properties to `$set`.
+    ///   - userPropertiesSetOnce: Person properties to `$set_once`.
+    ///   - groups: Groups for the event, keyed by group type.
+    ///   - options: Event options, the same keys as `capture`'s `options`.
+    ///   - timestamp: Optional event timestamp. Defaults to the current time.
+    ///   - ai: True for an AI event, sent on the AI lane.
+    /// - Returns: The built event, or `nil` when the capture is skipped: the SDK isn't set up, is disabled or
+    ///   opted out, or the event is an ignored exception type.
+    ///
+    /// ```swift
+    /// @_spi(PostHogInternal) import PostHog
+    ///
+    /// if let event = PostHogSDK.shared.buildEventForWrapper(event: "signed_up", distinctId: nil, properties: ["plan": "pro"],
+    ///                                                       userProperties: nil, userPropertiesSetOnce: nil, groups: nil,
+    ///                                                       options: nil, ai: false) {
+    ///     event.properties["source"] = "flutter"
+    ///     PostHogSDK.shared.sendBuiltEventForWrapper(event, ai: false)
+    /// }
+    /// ```
+    @_spi(PostHogInternal) public func buildEventForWrapper( // swiftlint:disable:this function_parameter_count
+        event: String,
+        distinctId: String?,
+        properties: [String: Any]?,
+        userProperties: [String: Any]?,
+        userPropertiesSetOnce: [String: Any]?,
+        groups: [String: String]?,
+        options: [String: Any]?,
+        timestamp: Date? = nil,
+        ai: Bool // swiftlint:disable:this identifier_name
+    ) -> PostHogEvent? {
+        if ai {
+            warnIfNotAiEvent(event)
+        }
+        let built = prepareCaptureEvent(
+            event,
+            distinctId: distinctId,
+            properties: properties,
+            userProperties: userProperties,
+            userPropertiesSetOnce: userPropertiesSetOnce,
+            groups: groups,
+            timestamp: timestamp,
+            options: options,
+            skipBuildProperties: false,
+            propertyAllowlist: nil,
+            aiLane: ai,
+            forWrapper: true
+        )
+        built?.wrapperAiLane = ai
+        return built
+    }
+
+    /// For wrapper SDKs only (such as posthog-flutter); not for app code.
+    ///
+    /// Caches `screenTitle` as the current screen, like `screen(_:properties:options:)`, and builds its
+    /// `$screen` event without running `beforeSend` or queueing it. Send it with `sendBuiltEventForWrapper(_:ai:)`
+    /// and `ai` false; screen subscribers hear about it once it's sent.
+    ///
+    /// - Parameters:
+    ///   - screenTitle: The screen name to record.
+    ///   - properties: Additional properties for the `$screen` event.
+    ///   - options: Event options, the same keys as `screen`'s `options`.
+    /// - Returns: The built event, or `nil` when the SDK isn't set up, is disabled or opted out, or the name is empty.
+    ///
+    /// ```swift
+    /// if let event = PostHogSDK.shared.buildScreenEventForWrapper(screenTitle: "Home", properties: nil, options: nil) {
+    ///     PostHogSDK.shared.sendBuiltEventForWrapper(event, ai: false)
+    /// }
+    /// ```
+    @_spi(PostHogInternal) public func buildScreenEventForWrapper(
+        screenTitle: String,
+        properties: [String: Any]?,
+        options: [String: Any]?
+    ) -> PostHogEvent? {
+        guard let prepared = prepareScreenEvent(screenTitle, properties: properties, options: options, forWrapper: true) else {
+            return nil
+        }
+        prepared.event.wrapperAiLane = false
+        prepared.event.wrapperScreenName = prepared.screenName
+        prepared.event.wrapperScreenNameChanged = prepared.screenNameChanged
+        return prepared.event
+    }
+
+    /// For wrapper SDKs only (such as posthog-flutter); not for app code.
+    ///
+    /// Sends an event from `buildEventForWrapper` or `buildScreenEventForWrapper`: runs the native
+    /// `beforeSend` chain on it, then queues it on the analytics lane, or the AI lane when `ai` is true.
+    /// The SDK adds no properties, and keeps the event's `uuid` and `timestamp`.
+    ///
+    /// - Parameters:
+    ///   - event: The built event, as edited by the wrapper.
+    ///   - ai: True for an AI event. Pass the same value given to `buildEventForWrapper`; the lane chosen at
+    ///     build time wins, with a log, if they differ.
+    /// - Returns: The queued event's UUID, or `nil` when it isn't queued: the SDK was opted out since the build,
+    ///   `beforeSend` dropped it, or the event was already sent or wasn't built for a wrapper.
+    ///
+    /// ```swift
+    /// let uuid = PostHogSDK.shared.sendBuiltEventForWrapper(event, ai: true)
+    /// ```
+    @_spi(PostHogInternal) @discardableResult public func sendBuiltEventForWrapper(
+        _ event: PostHogEvent,
+        ai: Bool // swiftlint:disable:this identifier_name
+    ) -> String? {
+        guard let builtLane = event.wrapperAiLane else {
+            hedgeLog("PostHog event \(event.event) wasn't built by buildEventForWrapper, or was already sent, so it was dropped")
+            return nil
+        }
+        event.wrapperAiLane = nil
+        if ai != builtLane {
+            hedgeLog("PostHog event \(event.event) was built for the \(builtLane ? "AI" : "analytics") lane, so it's sent there")
+        }
+        if !isEnabled() || isOptOutState() {
+            return nil
+        }
+        let uuid = finishCaptureEvent(event, aiLane: builtLane)
+        if uuid != nil, let screenName = event.wrapperScreenName {
+            didRecordScreen(screenName, changed: event.wrapperScreenNameChanged)
+        }
+        return uuid
     }
 
     /// Records a screen view by capturing a `$screen` event.
@@ -1931,19 +2116,47 @@ let maxRetryDelay = 30.0
     ///     `PostHogEvent.options`.
     @objc(screenWithTitle:properties:options:)
     public func screen(_ screenTitle: String, properties: [String: Any]? = nil, options: [String: Any]? = nil) {
-        if !isEnabled() {
+        guard let prepared = prepareScreenEvent(screenTitle, properties: properties, options: options) else {
+            return
+        }
+        guard let queue else {
+            releaseClaimIfCarried(prepared.event)
+            return
+        }
+        guard let event = applyBeforeSend(prepared.event) else {
             return
         }
 
+        queueEvent(event, queue: queue)
+        didRecordScreen(prepared.screenName, changed: prepared.screenNameChanged)
+    }
+
+    private struct PreparedScreen {
+        let event: PostHogEvent
+        let screenName: String
+        let screenNameChanged: Bool
+    }
+
+    /// Caches the screen name and builds the `$screen` event, without running `beforeSend` or queueing it.
+    private func prepareScreenEvent(
+        _ screenTitle: String,
+        properties: [String: Any]?,
+        options: [String: Any]?,
+        forWrapper: Bool = false
+    ) -> PreparedScreen? {
+        if !isEnabled() {
+            return nil
+        }
+
         if isOptOutState() {
-            return
+            return nil
         }
 
         // Strip SwiftUI wrappers (UIHostingController<X> → X). Drops degenerate
         // inputs (empty, stripped-AnyView) — for those we skip the $screen event
         // and leave the cache untouched so the last useful name survives.
         guard let cleaned = PostHogScreenNameSanitizer.sanitize(rawScreenName: screenTitle) else {
-            return
+            return nil
         }
 
         // Cache the name before the queue check so a screen() call during init
@@ -1956,8 +2169,8 @@ let maxRetryDelay = 30.0
             return changed
         }
 
-        guard let queue else {
-            return
+        guard queue != nil else {
+            return nil
         }
 
         let props = [
@@ -1967,19 +2180,19 @@ let maxRetryDelay = 30.0
         let distinctId = getDistinctId()
 
         let eventName = "$screen"
-        let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
+        let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props, claimReplayDebugBundle: !forWrapper)
 
-        guard let event = buildEvent(
+        let event = makeEvent(
             event: eventName,
             distinctId: distinctId,
             properties: properties,
-            options: personProcessingOptions(sanitizeDictionary(options), properties: properties)
-        ) else {
-            return
-        }
+            options: personProcessingOptions(sanitizeDictionary(options), properties: properties),
+            timestamp: Date()
+        )
+        return PreparedScreen(event: event, screenName: cleaned, screenNameChanged: screenNameChanged)
+    }
 
-        queueEvent(event, queue: queue)
-
+    private func didRecordScreen(_ cleaned: String, changed screenNameChanged: Bool) {
         // Fanout to subscribers (sanitized; downstream listeners no longer
         // need to re-apply sanitize). Currently no in-tree subscribers — kept
         // as an extension point for external consumers. Subscribers must not
@@ -2216,6 +2429,22 @@ let maxRetryDelay = 30.0
         options: [String: Any]? = nil,
         timestamp: Date = Date()
     ) -> PostHogEvent? {
+        applyBeforeSend(makeEvent(
+            event: eventName,
+            distinctId: distinctId,
+            properties: properties,
+            options: options,
+            timestamp: timestamp
+        ))
+    }
+
+    private func makeEvent(
+        event eventName: String,
+        distinctId: String,
+        properties: [String: Any],
+        options: [String: Any]?,
+        timestamp: Date
+    ) -> PostHogEvent {
         var properties = properties
         let carriesReplayDebugBundle = properties.removeValue(forKey: Self.replayDebugClaimMarkerKey) != nil
 
@@ -2226,7 +2455,13 @@ let maxRetryDelay = 30.0
             options: options,
             timestamp: timestamp
         )
+        event.carriesReplayDebugBundle = carriesReplayDebugBundle
+        return event
+    }
 
+    private func applyBeforeSend(_ event: PostHogEvent) -> PostHogEvent? {
+        let eventName = event.event
+        let carriesReplayDebugBundle = event.carriesReplayDebugBundle
         let resultEvent = config.runBeforeSend(event)
 
         if let resultEvent {

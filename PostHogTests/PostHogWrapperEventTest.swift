@@ -118,7 +118,7 @@ final class PostHogWrapperEventTest {
         sut.optOut()
 
         #expect(build(sut) == nil)
-        #expect(sut.buildScreenEventForWrapper(screenTitle: "Home", properties: nil, options: nil) == nil)
+        #expect(build(sut, "$screen", properties: ["$screen_name": "Home"]) == nil)
         #expect(sut.sendBuiltEventForWrapper(built, ai: false) == nil)
     }
 
@@ -130,17 +130,25 @@ final class PostHogWrapperEventTest {
         #expect(try sut.sendBuiltEventForWrapper(#require(build(sut)), ai: false) == nil)
     }
 
-    @Test("a built screen event records the screen for later events")
+    @Test("a built $screen event records the screen for later events")
     func screenBuildRecordsScreen() async throws {
         let sut = makeSDK()
         defer { sut.close() }
 
-        let screen = try #require(sut.buildScreenEventForWrapper(screenTitle: "Home", properties: ["tab": 1], options: nil))
+        let screen = try #require(build(sut, "$screen", properties: ["$screen_name": "Home", "tab": 1]))
 
         #expect(screen.event == "$screen")
         #expect(screen.properties["$screen_name"] as? String == "Home")
         #expect(screen.properties["tab"] as? Int == 1)
         #expect(build(sut)?.properties["$screen_name"] as? String == "Home")
+    }
+
+    @Test("a $screen build without a $screen_name returns nil", arguments: [nil, "", "  "] as [String?])
+    func screenNeedsName(name: String?) {
+        let sut = makeSDK()
+        defer { sut.close() }
+
+        #expect(build(sut, "$screen", properties: name.map { ["$screen_name": $0] }) == nil)
     }
 
     @Test("an event is sent once, on the lane it was built for")
@@ -159,16 +167,17 @@ final class PostHogWrapperEventTest {
 
     #if os(iOS)
         #if !SWIFT_PACKAGE || SessionReplay
-            @Test("a wrapper build leaves the replay debug bundle to the next native event")
-            func wrapperBuildSkipsReplayDebugBundle() throws {
+            @Test("the replay debug bundle is claimed when a wrapper event is sent, not when it's built")
+            func wrapperClaimsReplayDebugBundleAtSend() throws {
                 let sut = makeSDK()
                 defer { sut.close() }
-
-                #expect(build(sut, "$wrapped")?.properties["$sdk_debug_replay_capture_mode"] == nil)
+                let built = try #require(build(sut, "$wrapped"))
+                #expect(built.properties["$sdk_debug_replay_capture_mode"] == nil)
 
                 server.reset(batchCount: 1)
-                sut.capture("$native")
+                sut.sendBuiltEventForWrapper(built, ai: false)
                 let sent = try #require(getBatchedEvents(server).first)
+
                 #expect(sent.properties["$sdk_debug_replay_capture_mode"] != nil)
             }
         #endif

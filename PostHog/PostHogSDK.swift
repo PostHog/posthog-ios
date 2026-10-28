@@ -708,6 +708,21 @@ let maxRetryDelay = 30.0
         }
     }
 
+    private func replayDebugProperties() -> [String: Any] {
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
+            var replayDebugProperties = replayIntegration?.debugProperties() ?? [
+                "$recording_status": "disabled",
+                "$sdk_debug_replay_capture_mode": PostHogReplayIntegration.captureMode,
+            ]
+        #else
+            var replayDebugProperties: [String: Any] = ["$recording_status": "disabled"]
+        #endif
+        if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
+            replayDebugProperties["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
+        }
+        return replayDebugProperties
+    }
+
     private func buildProperties(event: String?,
                                  distinctId: String,
                                  properties: [String: Any]?,
@@ -719,7 +734,8 @@ let maxRetryDelay = 30.0
                                  // Snapshot callers pass true: resolving the session read-only keeps a
                                  // background crash-context refresh from rotating an idle session.
                                  readOnlySession: Bool = false,
-                                 // Wrapper builds pass false: the claim never expires, so it can't wait on a wrapper round trip.
+                                 // Wrapper builds pass false and claim at send instead: the claim never expires, so it
+                                 // can't wait on a wrapper round trip.
                                  claimReplayDebugBundle: Bool = true) -> [String: Any]
     {
         var props: [String: Any] = [:]
@@ -799,17 +815,7 @@ let maxRetryDelay = 30.0
                 props["$geoip_disable"] = true
             }
 
-            #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
-                var replayDebugProperties = replayIntegration?.debugProperties() ?? [
-                    "$recording_status": "disabled",
-                    "$sdk_debug_replay_capture_mode": PostHogReplayIntegration.captureMode,
-                ]
-            #else
-                var replayDebugProperties: [String: Any] = ["$recording_status": "disabled"]
-            #endif
-            if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
-                replayDebugProperties["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
-            }
+            let replayDebugProperties = replayDebugProperties()
             // Read-only builds are the crash-context snapshot, refreshed on every status transition.
             let claimedReplayDebugWindow = claimReplayDebugBundle && !readOnlySession && Self.isReplayDebugEvent(event)
                 && claimReplayDebugPropertiesWindow()
@@ -1958,7 +1964,9 @@ let maxRetryDelay = 30.0
     /// For wrapper SDKs only (such as posthog-flutter); not for app code.
     ///
     /// Builds the event `capture` (or `captureAi` when `ai` is true) would queue, with SDK, registered and
-    /// caller properties already merged, but doesn't run `beforeSend` or queue it. This lets a wrapper run
+    /// caller properties already merged, but doesn't run `beforeSend` or queue it. A `$screen` event is built
+    /// like `screen(_:properties:options:)` instead: it needs a non-blank `$screen_name` in `properties`, which
+    /// is cached as the current screen, and `distinctId`, person properties, groups and `timestamp` are ignored. This lets a wrapper run
     /// its own `beforeSend` on the final event, then hand it back with `sendBuiltEventForWrapper(_:ai:)`.
     /// Edit the returned event in place; its `uuid` and `timestamp` are kept. An event the wrapper drops needs no
     /// cleanup. Distinct ID, session and person processing are read here, at build time.
@@ -1974,7 +1982,7 @@ let maxRetryDelay = 30.0
     ///   - timestamp: Optional event timestamp. Defaults to the current time.
     ///   - ai: True for an AI event, sent on the AI lane.
     /// - Returns: The built event, or `nil` when the capture is skipped: the SDK isn't set up, is disabled or
-    ///   opted out, or the event is an ignored exception type.
+    ///   opted out, the event is an ignored exception type, or a `$screen` event has no `$screen_name`.
     ///
     /// ```swift
     /// @_spi(PostHogInternal) import PostHog
@@ -1999,6 +2007,8 @@ let maxRetryDelay = 30.0
     ) -> PostHogEvent? {
         if ai {
             warnIfNotAiEvent(event)
+        } else if event == "$screen" {
+            return buildScreenEventForWrapper(properties: properties, options: options)
         }
         let built = prepareCaptureEvent(
             event,
@@ -2018,29 +2028,14 @@ let maxRetryDelay = 30.0
         return built
     }
 
-    /// For wrapper SDKs only (such as posthog-flutter); not for app code.
-    ///
-    /// Caches `screenTitle` as the current screen, like `screen(_:properties:options:)`, and builds its
-    /// `$screen` event without running `beforeSend` or queueing it. Send it with `sendBuiltEventForWrapper(_:ai:)`
-    /// and `ai` false; screen subscribers hear about it once it's sent.
-    ///
-    /// - Parameters:
-    ///   - screenTitle: The screen name to record.
-    ///   - properties: Additional properties for the `$screen` event.
-    ///   - options: Event options, the same keys as `screen`'s `options`.
-    /// - Returns: The built event, or `nil` when the SDK isn't set up, is disabled or opted out, or the name is empty.
-    ///
-    /// ```swift
-    /// if let event = PostHogSDK.shared.buildScreenEventForWrapper(screenTitle: "Home", properties: nil, options: nil) {
-    ///     PostHogSDK.shared.sendBuiltEventForWrapper(event, ai: false)
-    /// }
-    /// ```
-    @_spi(PostHogInternal) public func buildScreenEventForWrapper(
-        screenTitle: String,
-        properties: [String: Any]?,
-        options: [String: Any]?
-    ) -> PostHogEvent? {
-        guard let prepared = prepareScreenEvent(screenTitle, properties: properties, options: options, forWrapper: true) else {
+    /// Builds a wrapper's `$screen` event like `screen(_:properties:options:)`: `$screen_name` is required and
+    /// cached as the current screen. Subscribers hear about the screen once the event is sent.
+    private func buildScreenEventForWrapper(properties: [String: Any]?, options: [String: Any]?) -> PostHogEvent? {
+        guard let screenName = properties?["$screen_name"] as? String, !Self.isBlank(screenName) else {
+            hedgeLog("PostHog $screen event without a $screen_name was dropped")
+            return nil
+        }
+        guard let prepared = prepareScreenEvent(screenName, properties: properties, options: options, forWrapper: true) else {
             return nil
         }
         prepared.event.wrapperAiLane = false
@@ -2051,7 +2046,7 @@ let maxRetryDelay = 30.0
 
     /// For wrapper SDKs only (such as posthog-flutter); not for app code.
     ///
-    /// Sends an event from `buildEventForWrapper` or `buildScreenEventForWrapper`: runs the native
+    /// Sends an event from `buildEventForWrapper`: runs the native
     /// `beforeSend` chain on it, then queues it on the analytics lane, or the AI lane when `ai` is true.
     /// The SDK adds no properties, and keeps the event's `uuid` and `timestamp`.
     ///
@@ -2079,6 +2074,11 @@ let maxRetryDelay = 30.0
         }
         if !isEnabled() || isOptOutState() {
             return nil
+        }
+        if !builtLane, Self.isReplayDebugEvent(event.event), claimReplayDebugPropertiesWindow() {
+            // SDK values, so the wrapper's properties win.
+            event.properties.merge(replayDebugProperties()) { current, _ in current }
+            event.carriesReplayDebugBundle = true
         }
         let uuid = finishCaptureEvent(event, aiLane: builtLane)
         if uuid != nil, let screenName = event.wrapperScreenName {

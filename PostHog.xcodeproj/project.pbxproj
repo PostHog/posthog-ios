@@ -42,6 +42,7 @@
 		D3D3D3D3D3D3D3D3D3D30002 /* RRWireframeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D3D3D3D3D3D3D3D3D30001 /* RRWireframeTest.swift */; };
 		D3D3D3D3D3D3D3D3D3D30004 /* NetworkSampleTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D3D3D3D3D3D3D3D3D30003 /* NetworkSampleTest.swift */; };
 		C0FFEE002F8000010000C006 /* PostHogMaskPresentationPrivacyTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE002F8000010000C005 /* PostHogMaskPresentationPrivacyTest.swift */; };
+		0A0A0A0A0A0A0A0A0A0A0002 /* PostHogStackFrameTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0A0A0A0A0A0A0A0A0A0001 /* PostHogStackFrameTest.swift */; };
 		E4E4E4E4E4E4E4E4E4E40002 /* RRStyleTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4E4E4E4E4E4E4E4E4E40001 /* RRStyleTest.swift */; };
 		F5F5F5F5F5F5F5F5F5F50002 /* PostHogBinaryImageInfoTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F5F5F5F5F5F5F5F5F50001 /* PostHogBinaryImageInfoTest.swift */; };
 		B2B2B2B2B2B2B2B2B2B20002 /* PostHogReactNativeMaskingTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B2B2B2B2B2B2B2B2B20001 /* PostHogReactNativeMaskingTest.swift */; };
@@ -891,6 +892,7 @@
 		D3D3D3D3D3D3D3D3D3D30001 /* RRWireframeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RRWireframeTest.swift; sourceTree = "<group>"; };
 		D3D3D3D3D3D3D3D3D3D30003 /* NetworkSampleTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkSampleTest.swift; sourceTree = "<group>"; };
 		C0FFEE002F8000010000C005 /* PostHogMaskPresentationPrivacyTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskPresentationPrivacyTest.swift; sourceTree = "<group>"; };
+		0A0A0A0A0A0A0A0A0A0A0001 /* PostHogStackFrameTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStackFrameTest.swift; sourceTree = "<group>"; };
 		E4E4E4E4E4E4E4E4E4E40001 /* RRStyleTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RRStyleTest.swift; sourceTree = "<group>"; };
 		F5F5F5F5F5F5F5F5F5F50001 /* PostHogBinaryImageInfoTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBinaryImageInfoTest.swift; sourceTree = "<group>"; };
 		B2B2B2B2B2B2B2B2B2B20001 /* PostHogReactNativeMaskingTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReactNativeMaskingTest.swift; sourceTree = "<group>"; };
@@ -1869,6 +1871,7 @@
 				A1A1A1A1A1A1A1A1A1A1F001 /* PostHogMaskFlattenedContentTest.swift */,
 				C0FFEE002F8000010000C003 /* PostHogMaskPresentationTest.swift */,
 				C0FFEE002F8000010000C005 /* PostHogMaskPresentationPrivacyTest.swift */,
+				0A0A0A0A0A0A0A0A0A0A0001 /* PostHogStackFrameTest.swift */,
 				D3D3D3D3D3D3D3D3D3D30001 /* RRWireframeTest.swift */,
 				D3D3D3D3D3D3D3D3D3D30003 /* NetworkSampleTest.swift */,
 				E4E4E4E4E4E4E4E4E4E40001 /* RRStyleTest.swift */,
@@ -3816,6 +3819,7 @@
 				A1A1A1A1A1A1A1A1A1A1F002 /* PostHogMaskFlattenedContentTest.swift in Sources */,
 				C0FFEE002F8000010000C004 /* PostHogMaskPresentationTest.swift in Sources */,
 				C0FFEE002F8000010000C006 /* PostHogMaskPresentationPrivacyTest.swift in Sources */,
+				0A0A0A0A0A0A0A0A0A0A0002 /* PostHogStackFrameTest.swift in Sources */,
 				D3D3D3D3D3D3D3D3D3D30002 /* RRWireframeTest.swift in Sources */,
 				D3D3D3D3D3D3D3D3D3D30004 /* NetworkSampleTest.swift in Sources */,
 				E4E4E4E4E4E4E4E4E4E40002 /* RRStyleTest.swift in Sources */,

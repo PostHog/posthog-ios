@@ -54,9 +54,29 @@ jobs:
   # `make test` runs `swift test` on macOS, which compiles out every `#if os(iOS)` block, so the
   # iOS-only suites (session replay, autocapture, tracing headers, crash reporting, etc.) never run
   # there. Run the iOS test target on a simulator so those suites are actually exercised in CI.
-  test-ios-simulator:
+  ios-simulator-tests:
+    name: test-ios-simulator (${{ matrix.name }})
     needs: detect-markdown-only
     runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: unit tests
+            # Reruns only failed XCTest cases; Swift Testing suites run once so swizzles aren't reinstalled.
+            target: testOniOSSimulator
+            log: xcodebuild-ios.log
+            artifact: unit
+
+          - name: survey UI
+            target: testSurveyUI
+            log: survey-ui-tests.log
+            artifact: survey-ui
+
+          - name: presentation masks
+            target: testPresentationMasks
+            log: presentation-masks.log
+            artifact: presentation-masks
     steps:
       - name: Complete markdown-only PR check
         if: needs.detect-markdown-only.outputs.markdown_only == 'true'
@@ -67,32 +87,21 @@ jobs:
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: latest-stable
-      - name: Test SDK on iOS Simulator
+      - name: Run make ${{ matrix.target }}
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
-        # Reruns only failed XCTest cases; Swift Testing suites run once so swizzles aren't reinstalled.
-        run: make testOniOSSimulator
-      - name: Test survey interactions on iOS Simulator
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
-        run: make testSurveyUI
-
-      - name: Test presentation masking in an app host
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
-        run: make testPresentationMasks
+        run: make ${{ matrix.target }}
       - name: Upload iOS test logs
         if: always() && needs.detect-markdown-only.outputs.markdown_only != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ios-test-logs
-          path: |
-            xcodebuild-ios.log
-            survey-ui-tests.log
-            presentation-masks.log
+          name: ios-test-logs-${{ matrix.artifact }}
+          path: ${{ matrix.log }}
           if-no-files-found: ignore
       - name: Report flaky (retried) tests
         # Retries can hide flakiness by turning a transient red into green. Surface any test that only
         # passed after a retry so flakes get tracked and fixed instead of silently masked. Best-effort:
         # never fails the job.
-        if: ${{ needs.detect-markdown-only.outputs.markdown_only != 'true' && (always()) }}
+        if: ${{ needs.detect-markdown-only.outputs.markdown_only != 'true' && matrix.target == 'testOniOSSimulator' && (always()) }}
         run: |
           log=xcodebuild-ios.log
           [ -f "$log" ] || { echo "No build log found; skipping flake report."; exit 0; }
@@ -109,6 +118,18 @@ jobs:
           else
             echo "No flaky (retried) tests detected." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  test-ios-simulator:
+    needs: ios-simulator-tests
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all iOS simulator jobs to pass
+        env:
+          RESULT: ${{ needs.ios-simulator-tests.result }}
+        run: |
+          echo "iOS simulator jobs: $RESULT"
+          [ "$RESULT" = "success" ]
 
   # Golden-image masking regression. Any iPhone on the Makefile-pinned OS runtime renders
   # identically; on failure the heatmap PNGs upload as an artifact.

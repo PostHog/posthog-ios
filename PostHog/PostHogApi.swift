@@ -302,6 +302,7 @@ class PostHogApi {
     ) -> PostHogUploadInfo {
         var retryUuids: Set<String> = []
         var dropped = 0
+        var duplicatesDropped = 0
         let statusCode = info.statusCode
 
         if let statusCode, 200 ... 299 ~= statusCode {
@@ -312,9 +313,12 @@ class PostHogApi {
             if results == nil {
                 hedgeLog("Capture returned \(statusCode) without readable per-event results, treating \(uuids.count) events as delivered.")
             }
-            // Events missing from the results count as delivered.
-            for uuid in uuids {
+            // Events missing from the results count as delivered. A repeated UUID takes its
+            // first copy's result; capture counts the later copies it dropped in `duplicates_dropped`.
+            var seen: Set<String> = []
+            for uuid in uuids where seen.insert(uuid).inserted {
                 guard let entry = results?[uuid] as? [String: Any] else { continue }
+                duplicatesDropped += (entry["duplicates_dropped"] as? Int) ?? 0
                 switch entry["result"] as? String {
                 case "retry":
                     retryUuids.insert(uuid)
@@ -333,8 +337,8 @@ class PostHogApi {
             retryUuids = Set(uuids)
         }
 
-        if dropped > 0 || !retryUuids.isEmpty {
-            hedgeLog("Capture: \(dropped) dropped, \(retryUuids.count) to retry.")
+        if dropped > 0 || duplicatesDropped > 0 || !retryUuids.isEmpty {
+            hedgeLog("Capture: \(dropped) dropped, \(duplicatesDropped) duplicates dropped, \(retryUuids.count) to retry.")
         }
 
         captureV1Lock.withLock {

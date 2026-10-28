@@ -161,6 +161,32 @@ final class PostHogCaptureV1Test {
         #expect(!output.contains(uuids[2]))
     }
 
+    @Test("counts duplicate copies capture dropped once per UUID")
+    func countsDuplicatesDropped() throws {
+        let wasLogging = hedgeLogEnabled
+        hedgeLogEnabled = true
+        defer { hedgeLogEnabled = wasLogging }
+        let kept = UUID().postHogUuidString
+        let other = UUID().postHogUuidString
+        let uuids = [kept, kept, kept, other]
+        let identity = CaptureV1RequestIdentity(uuids: Set(uuids), requestId: "request", attempt: 1, createdAt: "now")
+        let body = try JSONSerialization.data(withJSONObject: ["results": [
+            kept: ["result": "ok", "duplicates_dropped": 2],
+            other: ["result": "ok"],
+        ]])
+
+        var result: PostHogUploadInfo?
+        let output = try captureStdout {
+            result = makeApi().captureV1Result(
+                PostHogUploadInfo(statusCode: 200, error: nil), path: PostHogApi.captureV1AnalyticsPath, data: body,
+                uuids: uuids, identity: identity
+            )
+        }
+
+        #expect(output.contains("Capture: 0 dropped, 2 duplicates dropped, 0 to retry."))
+        #expect(result?.retryRecordIds?.isEmpty ?? true)
+    }
+
     @Test("treats a 2xx whose transfer then failed as delivered, so its ok events aren't stored twice")
     func failedTransferAfterSuccessIsDelivered() {
         let uuids = [UUID().postHogUuidString, UUID().postHogUuidString]
@@ -933,6 +959,25 @@ final class PostHogCaptureAiTest {
         #expect(sut.captureAi("$ai_generation", properties: ["$ai_input": String(repeating: "a", count: aiMaxEventBytes)]) == nil)
         sut.optOut()
         #expect(sut.captureAi("$ai_generation") == nil)
+    }
+
+    @Test("drops an event with an empty name, including one beforeSend renames to empty")
+    func dropsEmptyEventName() async throws {
+        let sut = makeSDK { event in
+            if event.event == "renamed" { event.event = "" }
+            return event
+        }
+        defer { sut.close() }
+
+        #expect(sut.captureAi("") == nil)
+        #expect(sut.captureAi("renamed") == nil)
+        server.reset(batchCount: 1)
+        sut.capture("")
+        sut.capture("renamed")
+        sut.capture("kept")
+        let events = try await getServerEvents(server)
+
+        #expect(events.map(\.event) == ["kept"])
     }
 
     @Test("AI requests use captureAiTimeout and captureAiCompression, and analytics requests don't")

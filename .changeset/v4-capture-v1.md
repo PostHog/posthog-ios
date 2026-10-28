@@ -16,6 +16,7 @@ Send events through capture V1 and add `captureAi(...)` for AI events. See the [
 - **Breaking:** rename `maxRetries` to `pushNotificationSubscriptionMaxRetries`, since it only limits push-notification subscription retries. Event, session replay and log retries still have no limit.
 - Double the wait after a failed send from 1 second up to 30 seconds, with up to 25% random jitter, instead of growing it by 1 second per failure. This applies to events, session replay and logs, and queued records are still kept until they're delivered.
 - Cap analytics batches at 5 MiB per request; an event larger than that is sent on its own.
+- Drop an event with an empty name before sending it, including one `beforeSend` renames to `""`.
 
 **Added**
 

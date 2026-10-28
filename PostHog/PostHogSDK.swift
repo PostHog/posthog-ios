@@ -52,6 +52,8 @@ let maxRetryDelay = 30.0
     private let personPropsLock = NSLock()
     private let cachedPersonPropertiesLock = NSLock()
     private let identifyLock = NSLock()
+    private let emptyEventNameLock = NSLock()
+    private var warnedEmptyEventName = false
 
     private let lastScreenLock = NSLock()
     private let replayDebugPropertiesLock = NSLock()
@@ -1562,7 +1564,7 @@ let maxRetryDelay = 30.0
     ///     `capture`'s `options`.
     ///
     /// - Returns: The event's UUID, or `nil` if the event wasn't queued: for example, the SDK is
-    ///   opted out or disabled, `beforeSend` dropped it, or it's over `captureAiMaxEventBytes`.
+    ///   opted out or disabled, its name is empty, `beforeSend` dropped it, or it's over `captureAiMaxEventBytes`.
     @discardableResult
     @objc(captureAiWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)
     public func captureAi(_ event: String,
@@ -1873,6 +1875,14 @@ let maxRetryDelay = 30.0
         )
 
         guard let posthogEvent else {
+            return nil
+        }
+
+        // PostHog drops an event with an empty name, so it's dropped here instead. Checked after
+        // beforeSend, which can rename the event.
+        if posthogEvent.event.isEmpty {
+            warnEmptyEventNameOnce()
+            releaseClaimIfCarried(posthogEvent)
             return nil
         }
 
@@ -2201,6 +2211,16 @@ let maxRetryDelay = 30.0
         }
 
         queueEvent(event, queue: queue)
+    }
+
+    private func warnEmptyEventNameOnce() {
+        let shouldWarn = emptyEventNameLock.withLock {
+            defer { warnedEmptyEventName = true }
+            return !warnedEmptyEventName
+        }
+        if shouldWarn {
+            hedgeLog("Dropping an event with an empty name. Further empty names are dropped without a log.")
+        }
     }
 
     private func releaseClaimIfCarried(_ event: PostHogEvent) {

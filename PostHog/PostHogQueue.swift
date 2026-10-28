@@ -155,7 +155,9 @@ class PostHogQueue<Record> {
                 queue: storage.url(forKey: endpoint.storageKey),
                 oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) },
                 maxSize: configuredMaxQueueSize,
-                maxBytes: endpoint.maxQueueBytes
+                maxBytes: endpoint.maxQueueBytes,
+                // `flushIfOverThreshold` reads `byteCount` for the batch byte threshold.
+                trackBytes: endpoint.maxBatchBytes != nil
             )
             dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }
@@ -175,7 +177,9 @@ class PostHogQueue<Record> {
                 queue: storage.url(forKey: endpoint.storageKey),
                 oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) },
                 maxSize: configuredMaxQueueSize,
-                maxBytes: endpoint.maxQueueBytes
+                maxBytes: endpoint.maxQueueBytes,
+                // `flushIfOverThreshold` reads `byteCount` for the batch byte threshold.
+                trackBytes: endpoint.maxBatchBytes != nil
             )
             dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }

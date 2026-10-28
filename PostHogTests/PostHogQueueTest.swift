@@ -79,7 +79,7 @@ final class PostHogQueueTest {
     }
 
     private func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3, sender: ControlledBatchSender? = nil,
-                        jitterUnit: @escaping () -> Double = { 0.5 }, afterUpload: (() -> Void)? = nil) -> PostHogQueue<PostHogEvent>
+                        maxBatchBytes: Int? = nil, jitterUnit: @escaping () -> Double = { 0.5 }, afterUpload: (() -> Void)? = nil) -> PostHogQueue<PostHogEvent>
     {
         let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
         config.flushAt = flushAt
@@ -104,6 +104,7 @@ final class PostHogQueueTest {
             decode: base.decode,
             describe: base.describe,
             recordId: base.recordId,
+            maxBatchBytes: maxBatchBytes,
             send: { events, completion in
                 let send = sender?.send ?? base.send
                 send(events) { result in
@@ -182,6 +183,20 @@ final class PostHogQueueTest {
         sut.add(event3)
         #expect(sut.depth == 1)
         #expect(sender.requestCount == 1)
+
+        sut.clear()
+    }
+
+    @Test("flushes below flushAt once queued bytes reach the batch byte limit")
+    func flushesOnBatchByteThresholdWithoutQueueByteCap() async {
+        let sender = ControlledBatchSender()
+        let sut = getSut(flushAt: 100, sender: sender, maxBatchBytes: 1000)
+
+        sut.add(PostHogEvent(event: "small", distinctId: "distinctId"))
+        #expect(sender.requestCount == 0)
+
+        sut.add(PostHogEvent(event: "large", distinctId: "distinctId", properties: ["blob": String(repeating: "x", count: 2000)]))
+        await expectEventually({ sender.requestCount }, 1)
 
         sut.clear()
     }

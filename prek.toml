@@ -1,4 +1,4 @@
-default_install_hook_types = ["pre-commit"]
+default_install_hook_types = ["pre-commit", "pre-push"]
 
 [[repos]]
 repo = "builtin"
@@ -13,3 +13,15 @@ hooks = [
   { id = "check-yaml", args = ["--allow-multiple-documents"] },
   { id = "detect-private-key" },
 ]
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "protect-main-branch"
+name = "prevent pushes from main"
+language = "system"
+entry = "sh scripts/check-protected-branch.sh"
+pass_filenames = false
+always_run = true
+stages = ["pre-push"]

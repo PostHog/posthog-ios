@@ -326,6 +326,51 @@ class PostHogIntegrationInstallationTest {
             #expect(sut.getErrorTrackingIntegration() != nil)
         }
 
+        @Test("error tracking integration stays uninstalled when opted out before live remote config enables it")
+        func errorTrackingNotInstalledWhenOptedOutBeforeRemoteConfigEnables() async throws {
+            // Cached config disables autocapture → install is skipped and a live-config watcher is
+            // registered. The app opts out before /config lands. When /config then enables autocapture,
+            // the watcher must not install the integration while the user is opted out.
+            server.remoteConfigErrorTracking = ["autocaptureExceptions": true]
+            server.configResponseDelay = 0.5
+
+            let token = "test_error_tracking_\(UUID().uuidString)"
+            let config = PostHogConfig(projectToken: token, host: "http://localhost:9001")
+            config.disableRemoteConfigForTesting = false
+            config.preloadFeatureFlags = false
+            config.disableFlushOnBackgroundForTesting = true
+            config.disableReachabilityForTesting = true
+            config.errorTrackingConfig.autoCapture = true
+            config.captureApplicationLifecycleEvents = true
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+            storage.setDictionary(forKey: .remoteConfig, contents: ["errorTracking": ["autocaptureExceptions": false]])
+
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+
+            #expect(sut.getErrorTrackingIntegration() == nil)
+
+            sut.optOut()
+            #expect(sut.isOptOut())
+            try #require(sut.remoteConfig?.hasFetchedRemoteConfig == false)
+
+            // onRemoteConfigLoaded is enqueued on main before hasFetchedRemoteConfig flips, so a
+            // main-queue hop after the flag flips guarantees the watcher callback has already run.
+            await waitUntil(timeout: 10) { sut.remoteConfig?.hasFetchedRemoteConfig == true }
+            try #require(sut.remoteConfig?.hasFetchedRemoteConfig == true)
+            await MainActor.run {}
+
+            #expect(sut.isOptOut())
+            #expect(sut.getErrorTrackingIntegration() == nil)
+
+            // opting back in installs every integration, error tracking included
+            sut.optIn()
+            #expect(sut.getErrorTrackingIntegration() != nil)
+            #expect(sut.getAppLifeCycleIntegration() != nil)
+        }
+
         @Test("error tracking integration installs on re-install after a failed /config fetch")
         func errorTrackingInstallsAfterFailedRemoteConfigFetch() async {
             // A failed /config sets hasFetchedRemoteConfig=true but leaves no config data. A later

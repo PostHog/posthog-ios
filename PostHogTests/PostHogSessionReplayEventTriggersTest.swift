@@ -199,6 +199,95 @@
             sut.close()
         }
 
+        // MARK: - Remote Config Reload Tests
+
+        @Test("Reloading an unchanged trigger list keeps the trigger-activated session recording")
+        func unchangedTriggersReloadKeepsActivation() async throws {
+            let sut = getSut(eventTriggers: ["purchase_completed"])
+            let integration = try #require(sut.getReplayIntegration())
+            defer { sut.close() }
+
+            sut.capture("purchase_completed")
+            #expect(integration.isActive() == true)
+            let sessionId = try #require(sut.getSessionId())
+
+            sut.remoteConfig?.onRemoteConfigLoaded.invoke(sut.remoteConfig?.getRemoteConfig())
+
+            #expect(integration.isActive() == true)
+            #expect(sut.getSessionId() == sessionId)
+        }
+
+        @Test("Reloading the same triggers in a different order keeps the trigger-activated session recording")
+        func reorderedTriggersReloadKeepsActivation() async throws {
+            let sut = getSut(eventTriggers: ["purchase_completed", "signup_finished"])
+            let integration = try #require(sut.getReplayIntegration())
+            defer { sut.close() }
+
+            sut.capture("purchase_completed")
+            #expect(integration.isActive() == true)
+
+            sut.remoteConfig?.onRemoteConfigLoaded.invoke(remoteConfig(eventTriggers: ["signup_finished", "purchase_completed"]))
+
+            #expect(integration.isActive() == true)
+        }
+
+        @Test("Reloading a changed trigger list keeps the trigger-activated session recording")
+        func changedTriggersReloadKeepsActivation() async throws {
+            let sut = getSut(eventTriggers: ["purchase_completed"])
+            let integration = try #require(sut.getReplayIntegration())
+            defer { sut.close() }
+
+            sut.capture("purchase_completed")
+            #expect(integration.isActive() == true)
+
+            sut.remoteConfig?.onRemoteConfigLoaded.invoke(remoteConfig(eventTriggers: ["checkout_started"]))
+
+            #expect(integration.isActive() == true)
+        }
+
+        @Test("Activation kept across a reload does not carry over to a new session")
+        func reloadKeptActivationDoesNotCarryToNewSession() async throws {
+            let sut = getSut(eventTriggers: ["purchase_completed"])
+            let integration = try #require(sut.getReplayIntegration())
+            defer { sut.close() }
+
+            sut.capture("purchase_completed")
+            sut.remoteConfig?.onRemoteConfigLoaded.invoke(remoteConfig(eventTriggers: ["checkout_started"]))
+            #expect(integration.isActive() == true)
+
+            sut.sessionManager.setSessionId(UUID().uuidString)
+
+            #expect(integration.isActive() == false)
+        }
+
+        @Test("Reloading with triggers added stops a recording the session never activated")
+        func addedTriggersReloadStopsUnactivatedRecording() async throws {
+            let sut = getSut(eventTriggers: nil)
+            let integration = try #require(sut.getReplayIntegration())
+            defer { sut.close() }
+            #expect(integration.isActive() == true)
+
+            sut.remoteConfig?.onRemoteConfigLoaded.invoke(remoteConfig(eventTriggers: ["purchase_completed"]))
+
+            #expect(integration.isActive() == false)
+        }
+
+        @Test("Reloading with the triggers removed starts recording")
+        func removedTriggersReloadStartsRecording() async throws {
+            let sut = getSut(eventTriggers: ["purchase_completed"])
+            let integration = try #require(sut.getReplayIntegration())
+            defer { sut.close() }
+            #expect(integration.isActive() == false)
+
+            sut.remoteConfig?.onRemoteConfigLoaded.invoke(remoteConfig(eventTriggers: []))
+
+            #expect(integration.isActive() == true)
+        }
+
+        private func remoteConfig(eventTriggers: [String]) -> [String: Any] {
+            ["sessionRecording": ["endpoint": "/s/", "eventTriggers": eventTriggers]]
+        }
+
         // MARK: - Empty Triggers Tests
 
         @Test("Empty triggers array means no waiting")

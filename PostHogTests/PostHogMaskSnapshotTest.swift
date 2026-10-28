@@ -15,6 +15,7 @@
 //    - Refresh after an intentional masking change:  make recordMaskSnapshots
 
 #if os(iOS) && canImport(SwiftUI) && TEST_MASK_SNAPSHOTS
+    import Charts
     import CoreGraphics
     import Foundation
     @testable import PostHog
@@ -48,6 +49,30 @@
                 ctx.fill(CGRect(x: 0, y: 88, width: size.width, height: 32))
             }
         }()
+
+        /// A Canvas drawing a filled background, a shape and text into one RenderBox surface.
+        @ViewBuilder private static var sampleCanvas: some View {
+            if #available(iOS 15.0, *) {
+                Canvas { context, size in
+                    context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.yellow.opacity(0.3)))
+                    context.fill(Path(ellipseIn: CGRect(x: 12, y: 12, width: 36, height: 36)), with: .color(.orange))
+                    context.draw(Text(secret), at: CGPoint(x: size.width / 2 + 20, y: size.height / 2))
+                }
+                .frame(width: 280, height: 60)
+            }
+        }
+
+        /// A small bar chart; Swift Charts draws through the same RenderBox surface.
+        @ViewBuilder private static var sampleChart: some View {
+            if #available(iOS 16.0, *) {
+                Chart {
+                    BarMark(x: .value("Month", "Jan"), y: .value("Balance", 1200))
+                    BarMark(x: .value("Month", "Feb"), y: .value("Balance", 1850))
+                    BarMark(x: .value("Month", "Mar"), y: .value("Balance", 1430))
+                }
+                .frame(width: 280, height: 160)
+            }
+        }
 
         /// One shared, installed Capture. Replay install is guarded by a process-wide
         /// static, so a second install() would no-op and leave its integration without a
@@ -399,6 +424,50 @@
                             .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
                     }
                 },
+                // Flattened content: .drawingGroup(), Canvas and Swift Charts draw into one
+                // RenderBox surface that can't be inspected, so it is masked as one block.
+                Scenario(title: "Text in a drawing group",
+                         option: "maskAllTextInputs (.drawingGroup())",
+                         expected: "whole drawing group masked as one block; label ALSO masked (maskAllTextInputs)")
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        VStack(spacing: 8) {
+                            Text(Self.secret)
+                            Text("Card 4242 4242 4242 4242")
+                        }
+                        .padding()
+                        .background(Color.yellow.opacity(0.3))
+                        .drawingGroup()
+                    }
+                },
+                Scenario(title: "Canvas",
+                         option: "maskAllTextInputs (Canvas)",
+                         expected: "whole Canvas masked as one block; label ALSO masked (maskAllTextInputs)")
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        Self.sampleCanvas
+                    }
+                },
+                Scenario(title: "Swift Chart",
+                         option: "maskAllTextInputs (Swift Charts)",
+                         expected: "whole chart masked as one block, axis labels and values included")
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        Self.sampleChart
+                    }
+                },
+                Scenario(title: "Swift Chart with postHogNoMask",
+                         option: ".postHogNoMask() on a Chart",
+                         expected: "chart stays visible; label above still masked (maskAllTextInputs)")
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        Self.sampleChart.postHogNoMask()
+                    }
+                },
             ]
             for i in entries.indices {
                 entries[i].id = i + 1
@@ -449,7 +518,7 @@
 
                 let original = render(controller.view)
                 // Redact through the exact production painter (RRWireframe.maskImage) so the golden
-                // reflects real replay output (rounded corners, scale-1), not hand-drawn squares.
+                // reflects real replay output (scale-1), not hand-drawn rects.
                 let rects = integration.collectMaskableRects(in: window) ?? []
                 let masked = RRWireframe.maskImage(original, maskableWidgets: rects) ?? original
                 return compose(scenario, original: original, masked: masked)

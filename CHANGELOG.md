@@ -1,5 +1,11 @@
 ## Next
 
+## 3.92.7
+
+### Patch Changes
+
+- 047ccee: Upload session replay screenshots at one pixel per point whether or not the frame has masks, instead of at the screen's native scale for unmasked frames.
+
 ## 3.92.6
 
 ### Patch Changes

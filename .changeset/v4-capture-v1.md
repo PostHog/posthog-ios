@@ -21,6 +21,7 @@ Send events through capture V1 and add `captureAi(...)` for AI events. See the [
 - Cap analytics batches at 5 MiB per request; an event larger than that is sent on its own.
 - Drop an event with an empty name before sending it, including one `beforeSend` renames to `""` from any method, such as `screen`, `alias` or `group`.
 - Ignore `identify` with a whitespace-only distinct ID, as for an empty one.
+- Print a warning, also without `debug`, when `setup` leaves the SDK disabled because `projectToken` is empty or a personal API key (`phx_...`).
 
 **Added**
 

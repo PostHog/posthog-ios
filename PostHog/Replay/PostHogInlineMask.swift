@@ -608,14 +608,16 @@
             keepingWhitespace ? String(text.map { $0.isWhitespace ? $0 : "*" }) : text.mask()
         }
 
-        /// `masked(_:keepingWhitespace:)` for each run, keeping its attributes but not attachments, which draw images, or
-        /// shadows. So the masked text wraps or clips as the view would.
-        fileprivate static func masked(_ text: NSAttributedString, keepingWhitespace: Bool, lineBreakMode: NSLineBreakMode) -> NSAttributedString {
+        /// `masked(_:keepingWhitespace:)` for each run, keeping its attributes but not attachments, which draw images,
+        /// shadows, or ruby annotations, which draw their own unmasked text. So the masked text wraps or clips as the
+        /// view would.
+        static func masked(_ text: NSAttributedString, keepingWhitespace: Bool, lineBreakMode: NSLineBreakMode) -> NSAttributedString {
             let result = NSMutableAttributedString()
             text.enumerateAttributes(in: NSRange(location: 0, length: text.length)) { attributes, range, _ in
                 var kept = attributes
                 kept[.attachment] = nil
                 kept[.shadow] = nil
+                kept[NSAttributedString.Key(kCTRubyAnnotationAttributeName as String)] = nil
                 let style = ((attributes[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
                 style.lineBreakMode = lineBreakMode
                 kept[.paragraphStyle] = style

@@ -158,6 +158,24 @@
             try await expectFullyMasked(captureStars(fixture))
         }
 
+        @Test("Ruby annotations, which draw their own text, are dropped from masked text")
+        func rubyAnnotationsAreDropped() {
+            let ruby = NSAttributedString.Key(kCTRubyAnnotationAttributeName as String)
+            let annotation = CTRubyAnnotationCreateWithAttributes(.auto, .auto, .before, "ひみつ" as CFString, [:] as CFDictionary)
+            let text = NSMutableAttributedString(string: "秘密 code")
+            text.addAttribute(ruby, value: annotation, range: NSRange(location: 0, length: 2))
+            text.addAttribute(.foregroundColor, value: UIColor.red, range: NSRange(location: 0, length: 2))
+
+            let masked = PostHogInlineMask.masked(text, keepingWhitespace: true, lineBreakMode: .byWordWrapping)
+            #expect(masked.string == "** ****")
+            var rubyRuns = 0
+            masked.enumerateAttribute(ruby, in: NSRange(location: 0, length: masked.length)) { value, _, _ in
+                if value != nil { rubyRuns += 1 }
+            }
+            #expect(rubyRuns == 0)
+            #expect(masked.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor == .red)
+        }
+
         // MARK: - Images
 
         @Test("A masked image is filled black over its bounds")

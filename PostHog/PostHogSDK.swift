@@ -1063,8 +1063,8 @@ let maxRetryDelay = 30.0
             return
         }
 
-        if distinctId.isEmpty {
-            hedgeLog("identify call not allowed, distinctId is invalid: \(distinctId)")
+        if Self.isBlank(distinctId) {
+            hedgeLog("identify call not allowed, distinctId is empty or whitespace-only.")
             return
         }
 
@@ -2271,6 +2271,13 @@ let maxRetryDelay = 30.0
     /// Returns whether the event was stored in `queue`.
     @discardableResult
     private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>, deduplicatePersonProperties: Bool = false) -> Bool {
+        // PostHog drops an event with an empty name. Checked here so every path is covered after
+        // beforeSend, which can rename the event.
+        if event.event.isEmpty {
+            warnEmptyEventNameOnce()
+            releaseClaimIfCarried(event)
+            return false
+        }
         let storedInQueue: Bool
         let userProperties = event.properties["$set"] as? [String: Any]
         let userPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]

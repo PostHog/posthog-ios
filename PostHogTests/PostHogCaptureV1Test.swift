@@ -140,10 +140,31 @@ final class PostHogCaptureV1Test {
             )
         }
 
-        #expect(output.contains("Capture: 2 dropped, 0 duplicates dropped, 0 to retry."))
+        #expect(output.contains("Capture \(PostHogApi.captureV1AnalyticsPath) (status 200): 2 dropped, 0 duplicates dropped, 0 to retry."))
         #expect(!output.contains("not json"))
         #expect(result?.statusCode == 200)
         #expect(result?.retryRecordIds?.isEmpty ?? true)
+    }
+
+    @Test("counts a terminal status as the whole batch dropped, except a multi-event 413", arguments: [
+        (400, 2, 2), (401, 2, 2), (402, 2, 2), (415, 2, 2), (413, 1, 1), (413, 2, 0),
+    ])
+    func terminalStatusCounts(status: Int, count: Int, dropped: Int) throws {
+        let wasLogging = hedgeLogEnabled
+        hedgeLogEnabled = true
+        defer { hedgeLogEnabled = wasLogging }
+        let uuids = (0 ..< count).map { _ in UUID().postHogUuidString }
+        let identity = CaptureV1RequestIdentity(uuids: Set(uuids), requestId: "request", attempt: 1, createdAt: "now")
+
+        let output = try captureStdout {
+            _ = makeApi().captureV1Result(
+                PostHogUploadInfo(statusCode: status, error: nil), path: PostHogApi.captureV1AiPath,
+                data: nil, uuids: uuids, identity: identity
+            )
+        }
+
+        let line = "Capture \(PostHogApi.captureV1AiPath) (status \(status)): \(dropped) dropped"
+        #expect(output.contains(line) == (dropped > 0))
     }
 
     @Test("logs each dropped event's name, UUID and reason, without its properties")
@@ -193,7 +214,7 @@ final class PostHogCaptureV1Test {
             )
         }
 
-        #expect(output.contains("Capture: 0 dropped, 2 duplicates dropped, 0 to retry."))
+        #expect(output.contains("Capture \(PostHogApi.captureV1AnalyticsPath) (status 200): 0 dropped, 2 duplicates dropped, 0 to retry."))
         #expect(result?.retryRecordIds?.isEmpty ?? true)
     }
 
@@ -216,7 +237,7 @@ final class PostHogCaptureV1Test {
             )
         }
 
-        #expect(output.contains("Capture: 0 dropped, 2 duplicates dropped, 0 to retry."))
+        #expect(output.contains("Capture \(PostHogApi.captureV1AnalyticsPath) (status 200): 0 dropped, 2 duplicates dropped, 0 to retry."))
     }
 
     @Test("doesn't retry a 2xx whose transfer then failed, so its ok events aren't stored twice")
@@ -994,10 +1015,10 @@ final class PostHogCaptureAiTest {
         #expect(sut.captureAi("$ai_generation") == nil)
     }
 
-    @Test("drops an event with an empty name, including one beforeSend renames to empty")
+    @Test("drops an event with an empty name, including one beforeSend renames to empty on any path")
     func dropsEmptyEventName() async throws {
         let sut = makeSDK { event in
-            if event.event == "renamed" { event.event = "" }
+            if ["renamed", "$screen", "$create_alias", "$groupidentify"].contains(event.event) { event.event = "" }
             return event
         }
         defer { sut.close() }
@@ -1007,6 +1028,12 @@ final class PostHogCaptureAiTest {
         server.reset(batchCount: 1)
         sut.capture("")
         sut.capture("renamed")
+        sut.screen("Home")
+        sut.alias("alias")
+        sut.group(type: "company", key: "acme", groupProperties: ["name": "Acme"])
+        let distinctId = sut.getDistinctId()
+        sut.identify("   ")
+        #expect(sut.getDistinctId() == distinctId)
         sut.capture("kept")
         let events = try await getServerEvents(server)
 

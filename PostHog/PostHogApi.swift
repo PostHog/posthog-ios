@@ -338,10 +338,14 @@ class PostHogApi {
         } else if statusCode.map(isCaptureV1RetriableStatusCode) ?? true {
             // No response or a retriable status: the whole batch is resent.
             retryUuids = Set(uuids)
+        } else if statusCode != 413 || uuids.count == 1 {
+            // A terminal status loses the whole batch. The queue halves and resends a multi-event 413.
+            dropped = uuids.count
         }
 
         if dropped > 0 || duplicatesDropped > 0 || !retryUuids.isEmpty {
-            hedgeLog("Capture: \(dropped) dropped, \(duplicatesDropped) duplicates dropped, \(retryUuids.count) to retry.")
+            let status = statusCode.map { " (status \($0))" } ?? ""
+            hedgeLog("Capture \(path)\(status): \(dropped) dropped, \(duplicatesDropped) duplicates dropped, \(retryUuids.count) to retry.")
         }
 
         captureV1Lock.withLock {

@@ -53,8 +53,13 @@ import Foundation
     /// The SDK's distinct ID when a wrapper built this event, so a send after `reset()` or `identify()`
     /// doesn't give the new user this event's person properties for feature flags.
     var wrapperBuildDistinctId: String?
-    /// Whether a wrapper-built event may take the replay debug bundle, from the name it was built with.
-    var wrapperReplayDebugEligible = false
+    /// The SDK instance and setup generation that built this wrapper event, so a send after `close()`/`setup()`
+    /// or on another instance is dropped instead of sent with the new configuration.
+    var wrapperBuildSDK: ObjectIdentifier?
+    var wrapperBuildSetupGeneration: Int?
+    /// The optional replay debug values snapshotted when a wrapper built this event, set only when its built name
+    /// is eligible. Send adds them if it claims the throttled window.
+    var wrapperDeferredReplayDebug: [String: Any]?
     /// True when a wrapper build passed person properties or groups. Person processing turns on at send.
     var wrapperRequiresPersonProcessing = false
 

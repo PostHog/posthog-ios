@@ -219,6 +219,61 @@ final class PostHogWrapperEventTest {
         #expect(sut.config.storageManager?.isPersonProcessing() == true)
     }
 
+    @Test("an event built before close and setup isn't sent through the new setup")
+    func sendAfterReconfigureDrops() throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        let built = try #require(build(sut))
+
+        sut.close()
+        let config = PostHogConfig(projectToken: "phc_wrapper_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        sut.setup(config)
+
+        #expect(sut.sendBuiltEventForWrapper(built, ai: false) == nil)
+    }
+
+    @Test("an event built on one SDK instance isn't sent through another")
+    func sendOnOtherInstanceDrops() throws {
+        let sut = makeSDK()
+        let other = makeSDK()
+        defer {
+            sut.close()
+            other.close()
+        }
+        let built = try #require(build(sut))
+
+        #expect(other.sendBuiltEventForWrapper(built, ai: false) == nil)
+    }
+
+    @Test("an event sent after reset doesn't turn on person processing for the new user")
+    func personProcessingSkippedAfterReset() throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        let built = try #require(build(sut))
+
+        sut.reset()
+        sut.sendBuiltEventForWrapper(built, ai: false)
+
+        #expect(sut.config.storageManager?.isPersonProcessing() == false)
+    }
+
+    @Test("the replay debug values sent are the ones from build, even if the session changed")
+    func replayDebugSnapshotAtBuild() throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        let built = try #require(build(sut, "$wrapped"))
+        let builtStart = try #require(sut.sessionManager.sessionStartTimestampSnapshot)
+
+        sut.endSession()
+        server.reset(batchCount: 1)
+        sut.sendBuiltEventForWrapper(built, ai: false)
+        let sent = try #require(getBatchedEvents(server).first)
+
+        #expect(sent.properties["$sdk_debug_session_start"] as? Int64 == Int64(builtStart * 1000))
+    }
+
     #if os(iOS)
         #if !SWIFT_PACKAGE || SessionReplay
             @Test("the replay debug bundle is claimed when a wrapper event is sent, not when it's built")

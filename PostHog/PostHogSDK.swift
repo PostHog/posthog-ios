@@ -56,6 +56,8 @@ let maxRetryDelay = 30.0
     private let lastScreenLock = NSLock()
     private let replayDebugPropertiesLock = NSLock()
     private let wrapperSendLock = NSLock()
+    /// Bumped by `setup` and `close`, so a wrapper event built before a reconfigure isn't sent through the new one.
+    private var wrapperSetupGeneration = 0
     private var _lastScreenName: String?
     var lastScreenName: String? {
         lastScreenLock.withLock { _lastScreenName }
@@ -204,6 +206,7 @@ let maxRetryDelay = 30.0
 
             enabled = true
             self.config = config
+            wrapperSendLock.withLock { wrapperSetupGeneration += 1 }
             let theStorage = PostHogStorage(config)
             storage = theStorage
             let api = PostHogApi(config)
@@ -2016,8 +2019,7 @@ let maxRetryDelay = 30.0
             warnIfNotAiEvent(event)
         } else if event == "$screen" {
             let screen = buildScreenEventForWrapper(properties: properties, options: options)
-            screen?.wrapperBuildDistinctId = getDistinctId()
-            screen?.wrapperReplayDebugEligible = Self.isReplayDebugEvent(event)
+            stampWrapperBuild(screen, event: event, ai: false)
             return screen
         }
         let built = prepareCaptureEvent(
@@ -2035,9 +2037,21 @@ let maxRetryDelay = 30.0
             forWrapper: true
         )
         built?.wrapperAiLane = ai
-        built?.wrapperBuildDistinctId = getDistinctId()
-        built?.wrapperReplayDebugEligible = Self.isReplayDebugEvent(event)
+        stampWrapperBuild(built, event: event, ai: ai)
         return built
+    }
+
+    /// Records the build-time state a wrapper send checks: this SDK and its setup, the identity, and the
+    /// replay debug values, so a `close()`/`setup()`, `reset()` or new session during the round trip doesn't
+    /// leak into the event.
+    private func stampWrapperBuild(_ built: PostHogEvent?, event: String, ai: Bool) { // swiftlint:disable:this identifier_name
+        guard let built else { return }
+        built.wrapperBuildSDK = ObjectIdentifier(self)
+        built.wrapperBuildSetupGeneration = wrapperSendLock.withLock { wrapperSetupGeneration }
+        built.wrapperBuildDistinctId = getDistinctId()
+        if !ai, Self.isReplayDebugEvent(event) {
+            built.wrapperDeferredReplayDebug = replayDebugProperties().filter { !Self.requiredReplayDebugPropertyKeys.contains($0.key) }
+        }
     }
 
     /// Builds a wrapper's `$screen` event like `screen(_:properties:options:)`, from its required `$screen_name`.
@@ -2066,7 +2080,8 @@ let maxRetryDelay = 30.0
     ///   - ai: True to send on the AI lane. Pass the same value given to `buildEventForWrapper`; this one wins,
     ///     with a log, if they differ.
     /// - Returns: The queued event's UUID, or `nil` when it isn't queued: the SDK was opted out since the build,
-    ///   `beforeSend` dropped it, or the event was already sent or wasn't built for a wrapper.
+    ///   `beforeSend` dropped it, the event was already sent or wasn't built for a wrapper, or it was built by
+    ///   another instance or before `close()`/`setup()`.
     ///
     /// ```swift
     /// let uuid = PostHogSDK.shared.sendBuiltEventForWrapper(event, ai: true)
@@ -2083,26 +2098,32 @@ let maxRetryDelay = 30.0
             hedgeLog("PostHog event \(event.event) wasn't built by buildEventForWrapper, or was already sent, so it was dropped")
             return nil
         }
+        let currentSetup = wrapperSendLock.withLock { wrapperSetupGeneration }
+        guard event.wrapperBuildSDK == ObjectIdentifier(self), event.wrapperBuildSetupGeneration == currentSetup else {
+            hedgeLog("PostHog event \(event.event) was built before the SDK was closed or set up again, so it was dropped")
+            return nil
+        }
         if ai != builtLane {
             hedgeLog("PostHog event \(event.event) was built for the \(builtLane ? "AI" : "analytics") lane, but is sent on the lane given here")
         }
         if !isEnabled() || isOptOutState() {
             return nil
         }
-        if event.wrapperRequiresPersonProcessing {
+        // Person processing and flag person properties apply only while the SDK still has the identity
+        // the event was built for, so a `reset()` or `identify()` during the round trip doesn't move them.
+        let sameIdentity = event.wrapperBuildDistinctId == getDistinctId()
+        if sameIdentity, event.wrapperRequiresPersonProcessing {
             requirePersonProcessing()
         }
-        // Eligibility comes from the name the event was built with, since the wrapper's hook can rename it.
-        if !ai, event.wrapperReplayDebugEligible, claimReplayDebugPropertiesWindow() {
+        // Eligibility and values come from the build, since the hook can rename the event and the session can change.
+        if !ai, let deferred = event.wrapperDeferredReplayDebug, claimReplayDebugPropertiesWindow() {
             // SDK values, so the wrapper's properties win. The required keys were on the built event,
             // so the wrapper already saw them and may have removed them on purpose.
-            let deferred = replayDebugProperties().filter { !Self.requiredReplayDebugPropertyKeys.contains($0.key) }
             event.properties.merge(deferred) { current, _ in current }
             event.carriesReplayDebugBundle = true
         }
-        // Feature flags get the person properties the wrapper left on the event, and only while the
-        // SDK still has the identity it was built for.
-        if event.wrapperBuildDistinctId == getDistinctId() {
+        // Feature flags get the person properties the wrapper left on the event.
+        if sameIdentity {
             event.flagUserProperties = event.properties["$set"] as? [String: Any]
             event.flagUserPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]
         } else {
@@ -3468,6 +3489,7 @@ let maxRetryDelay = 30.0
 
         setupLock.withLock {
             enabled = false
+            wrapperSendLock.withLock { wrapperSetupGeneration += 1 }
             PostHogSDK.projectTokens.remove(config.projectToken)
 
             queue?.flush()

@@ -861,7 +861,13 @@ let maxRetryDelay = 30.0
         }
         // A caller-supplied $groups adds to the registered and per-call groups instead of replacing them.
         if let callerGroups = callerProps["$groups"] as? [String: String], let currentGroups = props["$groups"] as? [String: String] {
-            callerProps["$groups"] = currentGroups.merging(callerGroups) { _, new in new }
+            callerProps["$groups"] = currentGroups.merging(callerGroups) { _, new in new }.merging(groups ?? [:]) { _, new in new }
+        }
+        // A typed per-call value wins key by key over the same map in the caller's properties.
+        for (key, typed) in [("$set", userProperties), ("$set_once", userPropertiesSetOnce)] where appendSharedProps {
+            if let typed, let callerMap = callerProps[key] as? [String: Any] {
+                callerProps[key] = callerMap.merging(typed) { _, new in new }
+            }
         }
         props.merge(callerProps) { _, new in new }
 

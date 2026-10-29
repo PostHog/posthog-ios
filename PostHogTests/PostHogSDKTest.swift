@@ -1235,6 +1235,35 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("typed per-call values win key by key over the same maps in properties")
+    func typedPerCallValuesWinKeyByKeyOverCallerMaps() throws {
+        let sut = getSut()
+
+        sut.capture(
+            "event",
+            properties: [
+                "$set": ["plan": "free", "seen": true],
+                "$set_once": ["first": "a", "source": "ad"],
+                "$groups": ["company": "caller", "team": "t1"],
+            ],
+            userProperties: ["plan": "pro"],
+            userPropertiesSetOnce: ["first": "b"],
+            groups: ["company": "typed"]
+        )
+
+        let event = try #require(getBatchedEvents(server).first)
+        let set = try #require(event.properties["$set"] as? [String: Any])
+        #expect(set["plan"] as? String == "pro")
+        #expect(set["seen"] as? Bool == true)
+        let setOnce = try #require(event.properties["$set_once"] as? [String: String])
+        #expect(setOnce == ["first": "b", "source": "ad"])
+        let groups = try #require(event.properties["$groups"] as? [String: String])
+        #expect(groups == ["company": "typed", "team": "t1"])
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("per-call userProperties, userPropertiesSetOnce and groups, and group() groups, win over registered ones")
     func perCallTypedValuesWinOverRegistered() throws {
         let sut = getSut(flushAt: 2)

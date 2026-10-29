@@ -176,7 +176,6 @@
 		D6C0A7002F8000010000C006 /* PostHogPortalSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6C0A7002F8000010000C005 /* PostHogPortalSource.swift */; };
 		D6C0A7002F8000010000C008 /* PostHogInlineMask.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6C0A7002F8000010000C007 /* PostHogInlineMask.swift */; };
 		D6C0A7002F8000010000C0B2 /* PostHogInlineMaskExtent.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6C0A7002F8000010000C0B1 /* PostHogInlineMaskExtent.swift */; };
-		D6C0A7002F8000010000C0B4 /* PostHogInlineMaskBlur.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6C0A7002F8000010000C0B3 /* PostHogInlineMaskBlur.swift */; };
 		D6C0A7002F8000010000C00A /* PostHogGPUMirrorTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6C0A7002F8000010000C009 /* PostHogGPUMirrorTarget.swift */; };
 		D6C0A7002F8000010000C002 /* PostHogGPUMirrorCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6C0A7002F8000010000C001 /* PostHogGPUMirrorCapture.swift */; };
 		69F518182BAC80A300F52C14 /* String+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518172BAC80A300F52C14 /* String+Util.swift */; };
@@ -1069,7 +1068,6 @@
 		D6C0A7002F8000010000C005 /* PostHogPortalSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogPortalSource.swift; sourceTree = "<group>"; };
 		D6C0A7002F8000010000C007 /* PostHogInlineMask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogInlineMask.swift; sourceTree = "<group>"; };
 		D6C0A7002F8000010000C0B1 /* PostHogInlineMaskExtent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogInlineMaskExtent.swift; sourceTree = "<group>"; };
-		D6C0A7002F8000010000C0B3 /* PostHogInlineMaskBlur.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogInlineMaskBlur.swift; sourceTree = "<group>"; };
 		D6C0A7002F8000010000C009 /* PostHogGPUMirrorTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogGPUMirrorTarget.swift; sourceTree = "<group>"; };
 		D6C0A7002F8000010000C001 /* PostHogGPUMirrorCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogGPUMirrorCapture.swift; sourceTree = "<group>"; };
 		69F518172BAC80A300F52C14 /* String+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Util.swift"; sourceTree = "<group>"; };
@@ -2121,7 +2119,6 @@
 				D6C0A7002F8000010000C005 /* PostHogPortalSource.swift */,
 				D6C0A7002F8000010000C007 /* PostHogInlineMask.swift */,
 				D6C0A7002F8000010000C0B1 /* PostHogInlineMaskExtent.swift */,
-				D6C0A7002F8000010000C0B3 /* PostHogInlineMaskBlur.swift */,
 				D6C0A7002F8000010000C009 /* PostHogGPUMirrorTarget.swift */,
 				69F518172BAC80A300F52C14 /* String+Util.swift */,
 				DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */,
@@ -3533,7 +3530,6 @@
 				D6C0A7002F8000010000C006 /* PostHogPortalSource.swift in Sources */,
 				D6C0A7002F8000010000C008 /* PostHogInlineMask.swift in Sources */,
 				D6C0A7002F8000010000C0B2 /* PostHogInlineMaskExtent.swift in Sources */,
-				D6C0A7002F8000010000C0B4 /* PostHogInlineMaskBlur.swift in Sources */,
 				D6C0A7002F8000010000C00A /* PostHogGPUMirrorTarget.swift in Sources */,
 				69261D192AD9673500232EC7 /* PostHogUploadInfo.swift in Sources */,
 				DAC699EC2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift in Sources */,

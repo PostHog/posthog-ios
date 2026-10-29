@@ -266,14 +266,14 @@
             let control = try await expectVisibleUnmasked(fixture)
             try #require(control.maxNeighbourStep(in: icon) > 150, "the photo didn't render sharp")
 
-            // Black, not blurred: an image inside an extent keeps none of its colours.
+            // An image inside an extent keeps none of its colours.
             let (pixels, extent) = try await captureMasked(fixture, blackIn: icon)
             #expect(pixels.count(in: extent, where: Self.isYellow) == 0)
             #expect(pixels.count(in: extent, where: Self.isStar) > 30)
         }
 
         @available(iOS 14.0, *)
-        @Test("S2 with the walk's own masking on: the card is masked, background included, its image black though the walk blurs it")
+        @Test("S2 with the walk's own masking on: the card is masked, background included, its image black")
         func maskedCardWithAutoMasking() async throws {
             let fixture = try await makeSwiftUIFixture()
             defer { fixture.close() }
@@ -386,8 +386,8 @@
         }
 
         @available(iOS 14.0, *)
-        @Test("An image the walk queued for the blur, partly under an extent, is black whole: the blur would spread it over a cover")
-        func blurredImagePartlyInsideIsBlackWhole() async throws {
+        @Test("An image the walk masks, partly under an extent, is black whole")
+        func autoMaskedImagePartlyInsideIsBlackWhole() async throws {
             let fixture = try await makeSwiftUIFixture()
             defer { fixture.close() }
             let frames = FrameStore()
@@ -398,7 +398,6 @@
             let result = try await capture(fixture)
             let pixels = try Pixels(result.image)
             #expect(result.rectRegions.isEmpty)
-            #expect(fixture.mask.extentStatsForTesting.replaced == 1)
             #expect(pixels.count(in: image.insetBy(dx: 1, dy: 1)) { !Self.isBlack($0) } == 0)
         }
 
@@ -445,8 +444,8 @@
         }
 
         @available(iOS 14.0, *)
-        @Test("A masked SwiftUI Image is blurred in the frame's pixels, keeping its colours rather than going black")
-        func swiftUIImageIsBlurredNotBlack() async throws {
+        @Test("A masked SwiftUI Image is filled black")
+        func swiftUIImageIsBlack() async throws {
             let fixture = try await makeSwiftUIFixture()
             defer { fixture.close() }
             let frames = FrameStore()
@@ -458,10 +457,7 @@
 
             fixture.config.maskAllImages = true
             let pixels = try await expectFullyMasked(capture(fixture))
-            #expect(pixels.maxNeighbourStep(in: area) <= Self.blurredMaxStep)
-            // Magenta and black cells average to a dark magenta, not black.
-            let middle = pixels[Int(area.midX), Int(area.midY)]
-            #expect(Self.isMagentaHue(middle), "\(middle)")
+            #expect(pixels.count(in: area) { !Self.isBlack($0) } == 0)
         }
 
         @Test("S4: a masked TextField's text is `*`, with no rect left")

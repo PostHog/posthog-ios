@@ -3,9 +3,9 @@
     import UIKit
 
     /// Masks a GPU capture's mirror in place, between the mask walk and `freeze`: text as `*`, drawn off main (bars
-    /// until drawn), images blurred, any other content black. A `postHogMask()` reporter masks everything painted under
-    /// its extent before it: content the same way, except images, which go black, and chrome black. Whatever can't be
-    /// placed, whole portals and objects with no copy use the rect pass. Main thread.
+    /// until drawn), images and any other content black. A `postHogMask()` reporter masks everything painted under its
+    /// extent before it: content the same way, and chrome black. Whatever can't be placed, whole portals and objects
+    /// with no copy use the rect pass. Main thread.
     final class PostHogInlineMask {
         /// How copies of a class are redacted, before the instance it applies to is known.
         enum Tag {
@@ -19,9 +19,6 @@
             /// Text that can't be read (SwiftUI, React Native): rows of `*` sized from the bounds alone, in the
             /// traits' label colour.
             case unreadableText(UITraitCollection)
-            /// Kept and blurred in the frame's pixels after the render; black when unplaced, under a backdrop, under a
-            /// `postHogMask()` extent, or the blur isn't verified.
-            case image
             /// Filled black, with nothing below it drawn: web views, sandboxed views, controls.
             case opaque
             /// Chrome (geometry, background, border, corners, opacity, gradients) kept, content filled black.
@@ -35,9 +32,8 @@
                 case .textView: self = (view as? UITextView).map(Kind.textView) ?? .opaque
                 case .unreadableText:
                     self = .unreadableText((view ?? PostHogGlassStandIn.nearestView(of: layer))?.traitCollection ?? UITraitCollection.current)
-                case .image: self = .image
                 case .opaque: self = .opaque
-                case .container: self = .container
+                case .image, .container: self = .container
                 }
             }
 
@@ -45,7 +41,7 @@
             /// positions give away glyph widths, and the other kinds replace their whole subtree.
             var dropsDescendants: Bool {
                 switch self {
-                case .image, .container: return false
+                case .container: return false
                 case .label, .textField, .textView, .unreadableText, .opaque: return true
                 }
             }
@@ -54,7 +50,7 @@
             var isTextInput: Bool {
                 switch self {
                 case .textField, .textView: return true
-                case .label, .unreadableText, .image, .opaque, .container: return false
+                case .label, .unreadableText, .opaque, .container: return false
                 }
             }
 
@@ -65,12 +61,6 @@
                 return !isTextInput
             }
 
-            /// Images keep their shared contents for the blur; everything else loses them.
-            var keepsContents: Bool {
-                if case .image = self { return true }
-                return false
-            }
-
             /// The cache key of this kind's `*` bitmap; nil for kinds without text.
             fileprivate func textSignature(size: CGSize, scale: CGFloat) -> TextSignature? {
                 switch self {
@@ -78,7 +68,7 @@
                 case let .textField(field): return TextSignature(field, size: size, scale: scale)
                 case let .textView(textView): return TextSignature(textView, size: size, scale: scale)
                 case let .unreadableText(traits): return TextSignature(rowsOf: size, scale: scale, traits: traits)
-                case .image, .opaque, .container: return nil
+                case .opaque, .container: return nil
                 }
             }
 
@@ -89,7 +79,7 @@
                 case let .textField(field): return TextSource(field, size: size)
                 case let .textView(textView): return TextSource(textView, size: size)
                 case let .unreadableText(traits): return TextSource(rowsOf: size, traits: traits)
-                case .image, .opaque, .container: return nil
+                case .opaque, .container: return nil
                 }
             }
         }
@@ -167,18 +157,6 @@
             }
         }
 
-        enum ImageBlur {
-            /// Not checked yet: images are filled black until a check passes.
-            case unchecked
-            case checking
-            case verified
-            /// The blur left detail, or the check couldn't run: black for the life of the process.
-            case failed
-        }
-
-        /// Images blur only once the blur has been checked to lose a checkerboard's detail (`checkImageBlur`). A failure
-        /// sticks.
-        private(set) var imageBlur = ImageBlur.unchecked
         /// Main-thread time per capture for reading the text of views whose `*` isn't drawn yet. Past it, text keeps its
         /// bars and is read by a later capture.
         var textBudget: CFTimeInterval = 0.001
@@ -206,8 +184,6 @@
 
         private static let maxCacheBytes = 16 * 1024 * 1024
         private static let unitRect = CGRect(x: 0, y: 0, width: 1, height: 1)
-        /// Cells across an image's long side that survive the blur.
-        static let blurCellsAcross: CGFloat = 3
         private static let barHeightFraction: CGFloat = 0.55
         private static let sRGB = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
 
@@ -268,22 +244,6 @@
             withExtendedLifetime(freed) {}
         }
 
-        /// Main thread. Whether a blur check should start now; images stay black until one passes.
-        func beginImageBlurCheck() -> Bool {
-            guard imageBlur == .unchecked else { return false }
-            imageBlur = .checking
-            return true
-        }
-
-        /// Main thread.
-        func recordImageBlurCheck(passed: Bool) {
-            if !passed {
-                imageBlur = .failed
-            } else if imageBlur != .failed {
-                imageBlur = .verified
-            }
-        }
-
         /// Redacts the regions' copies it can and returns the regions left for the rect pass, in order.
         func mask(_ regions: [PostHogReplayIntegration.MaskedRegion], in frame: PostHogGPUMirrorCapture.Frame,
                   tag: (_ viewClass: AnyClass?, _ layerClass: AnyClass) -> Tag, isBackdrop: (CALayer) -> Bool) -> [PostHogReplayIntegration.MaskedRegion]
@@ -300,7 +260,7 @@
             let remaining = withoutActuallyEscaping(tag) { tag in
                 withoutActuallyEscaping(isBackdrop) { isBackdrop in
                     var pass = Pass(mask: self, index: frame.copies.index(), portals: PortalIndex(frame.portalSources), scale: frame.scale,
-                                    root: frame.rootCopy, backdrops: frame.backdropCopies, tag: tag, isBackdrop: isBackdrop)
+                                    root: frame.rootCopy, tag: tag, isBackdrop: isBackdrop)
                     var handled: [ObjectIdentifier: Bool] = [:]
                     var inline = Set(regions.indices.filter { index in
                         let region = regions[index]
@@ -315,7 +275,6 @@
                     #endif
                     // After the owned regions, so what they masked is left as it is.
                     inline.formUnion(pass.redactExtents(regions))
-                    frame.blurAfterRender(pass.images)
                     return regions.enumerated().filter { !inline.contains($0.offset) }.map(\.element)
                 }
             }
@@ -371,14 +330,9 @@
             fileprivate let portals: PortalIndex
             let scale: CGFloat
             let root: CALayer?
-            let backdrops: [CALayer]
             let tag: (AnyClass?, AnyClass) -> Tag
             let isBackdrop: (CALayer) -> Bool
             var visited: Set<ObjectIdentifier> = []
-            /// The window rects of masked images, for the blur after the render.
-            var images: [CGRect] = []
-            /// Where each backdrop may sample in the window, found on the first masked image.
-            fileprivate var backdropReaches: [CGRect]?
             fileprivate var signatures: [ObjectIdentifier: TextSignature?] = [:]
             fileprivate var spent: CFTimeInterval = 0
 
@@ -443,44 +397,18 @@
                     copy.isHidden = true
                     return
                 }
-                let hadContent = PostHogInlineMask.stripContent(copy, keepingContents: kind.keepsContents)
+                let hadContent = PostHogInlineMask.stripContent(copy)
                 switch kind {
                 case .container:
                     if hadContent { PostHogInlineMask.blackOut(copy, .fill) }
                 case .opaque:
                     PostHogInlineMask.blackOut(copy, .fill)
-                case .image:
-                    redactImage(copy, hadContent: hadContent)
                 case .unreadableText:
                     // Rows only where the layer drew something, so nothing reads as text that wasn't there.
                     if hadContent { setText(copy, source: source, kind: kind, fallbackToBlack: true) }
                 case .label, .textField, .textView:
                     setText(copy, source: source, kind: kind, fallbackToBlack: false)
                 }
-            }
-
-            /// Keeps the shared contents for the blur after the render, or black replaces them.
-            private mutating func redactImage(_ copy: CALayer, hadContent: Bool) {
-                guard hadContent else { return }
-                // The blur covers a window rect, so only a copy placed exactly in the window's affine space is blurred.
-                // Elsewhere (3D or flipped geometry above it, through a portal, in a mask) black stands in. So does an
-                // image a backdrop could sample: the backdrop draws it again, spread past its rect, before the blur runs.
-                guard mask.imageBlur == .verified, let root, index.placement(of: copy) != nil else {
-                    PostHogInlineMask.blackOut(copy, .fill)
-                    return
-                }
-                let rect = index.windowFrame(of: copy, root: root)
-                let reaches = backdropReaches ?? backdrops.filter { !$0.isHidden }.map {
-                    index.windowFrame(of: $0, root: root).insetBy(dx: -PostHogInlineMask.backdropReach, dy: -PostHogInlineMask.backdropReach)
-                }
-                backdropReaches = reaches
-                guard !reaches.contains(where: { $0.intersects(rect) }) else {
-                    PostHogInlineMask.blackOut(copy, .fill)
-                    return
-                }
-                // Clipped, so it draws only inside the rect that gets blurred.
-                copy.masksToBounds = true
-                images.append(rect)
             }
 
             /// A drawn `*` bitmap costs a lookup. Otherwise the text shows as glyph-free bars this frame and, within the
@@ -521,11 +449,11 @@
 
         // MARK: - Copy redaction
 
-        /// Removes everything the copy draws besides chrome: contents (unless kept for the blur), shape paths, text,
-        /// shadows, filters, compositing and masks (a mask can be glyph-shaped). Whether it drew content of its own.
-        static func stripContent(_ copy: CALayer, keepingContents: Bool) -> Bool {
+        /// Removes everything the copy draws besides chrome: contents, shape paths, text, shadows, filters, compositing
+        /// and masks (a mask can be glyph-shaped). Whether it drew content of its own.
+        static func stripContent(_ copy: CALayer) -> Bool {
             var hadContent = copy.contents != nil
-            if hadContent, !keepingContents { copy.contents = nil }
+            if hadContent { copy.contents = nil }
             if let shape = copy as? CAShapeLayer, shape.path != nil {
                 shape.path = nil
                 hadContent = true
@@ -558,7 +486,7 @@
         static let black = UIColor.black.cgColor
 
         static func blackOut(_ copy: CALayer, _ parts: BlackOut) {
-            if parts.contains(.content) { _ = stripContent(copy, keepingContents: false) }
+            if parts.contains(.content) { _ = stripContent(copy) }
             if parts.contains(.fill) {
                 copy.contents = nil
                 copy.backgroundColor = black

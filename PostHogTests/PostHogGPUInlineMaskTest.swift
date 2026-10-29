@@ -160,11 +160,10 @@
 
         // MARK: - Images
 
-        @Test("A masked image is blurred to colour blobs on the GPU: no detail at the checkerboard's scale")
-        func imageIsBlurred() async throws {
+        @Test("A masked image is filled black over its bounds")
+        func imageIsBlack() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
-            #expect(fixture.mirror.inlineMask.imageBlur == .verified)
             let checker = try UIImageView(image: checkerboard(CGSize(width: 160, height: 100)))
             checker.frame = CGRect(x: 20, y: 20, width: 160, height: 100)
             let text = try UIImageView(image: image(CGSize(width: 160, height: 100)) { context in
@@ -177,12 +176,8 @@
             fixture.window.addSubview(text)
 
             let pixels = try await expectFullyMasked(capture(fixture))
-            #expect(pixels.maxNeighbourStep(in: checker.frame.insetBy(dx: 2, dy: 2)) <= Self.blurredMaxStep)
-            #expect(pixels.maxNeighbourStep(in: text.frame.insetBy(dx: 2, dy: 2)) <= Self.blurredMaxStep)
-            // Blurred, not blacked out: the checkerboard averages to a dark magenta.
-            let middle = pixels[100, 70]
-            #expect(middle.red > 60 && middle.green < 40 && middle.blue > 60, "\(middle)")
-            // Clipped to its bounds.
+            #expect(pixels.count(in: checker.frame, where: Self.isBlack) == 160 * 100)
+            #expect(pixels.count(in: text.frame, where: Self.isBlack) == 160 * 100)
             #expect(pixels[100, 140] == .white)
         }
 
@@ -198,11 +193,10 @@
             }
         }
 
-        @Test("A masked photo is blurred in the frame's pixels, keeping its colours rather than going black")
-        func photoIsBlurredNotBlack() async throws {
+        @Test("A masked photo is filled black, keeping none of its colours")
+        func photoIsBlack() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
-            #expect(fixture.mask.imageBlur == .verified)
             let view = try UIImageView(image: photo(CGSize(width: 160, height: 100)))
             view.frame = CGRect(x: 20, y: 40, width: 160, height: 100)
             fixture.window.addSubview(view)
@@ -213,16 +207,12 @@
             try #require(control.maxNeighbourStep(in: view.frame.insetBy(dx: 2, dy: 2)) > 100, "the photo didn't render sharp")
 
             let pixels = try await expectFullyMasked(capture(fixture))
-            #expect(pixels.maxNeighbourStep(in: view.frame.insetBy(dx: 2, dy: 2)) <= Self.blurredMaxStep)
-            #expect(pixels.count(in: view.frame, where: Self.isBlack) == 0)
-            // Its gradient survives as colour: reddish on the left, bluish on the right.
-            let left = pixels[30, 90], right = pixels[170, 90]
-            #expect(left.red > left.blue && right.blue > right.red, "\(left) \(right)")
+            #expect(pixels.count(in: view.frame, where: Self.isBlack) == 160 * 100)
             // Nothing outside it changes.
             #expect(pixels[100, 150] == .white)
         }
 
-        @Test("Masked images off a fractional origin at 3x, and rotated, are blurred over every pixel they reach")
+        @Test("Masked images off a fractional origin at 3x, and rotated, are black over every pixel they reach")
         func fractionalAndRotatedImagesKeepNoDetail() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
@@ -236,13 +226,14 @@
 
             let pixels = try await expectFullyMasked(capture(fixture, scale: 3))
             let scaled = { (rect: CGRect) in rect.applying(CGAffineTransform(scaleX: 3, y: 3)) }
-            #expect(pixels.maxNeighbourStep(in: scaled(fractional.frame).insetBy(dx: 2, dy: 2)) <= Self.blurredMaxStep)
-            // Inside the rotated image itself, away from its edges, where the blur ran over its bounding box.
-            #expect(pixels.maxNeighbourStep(in: scaled(CGRect(x: rotated.center.x - 25, y: rotated.center.y - 12, width: 50, height: 24))) <= Self.blurredMaxStep)
-            #expect(pixels.count(where: Self.isMagentaHue) > 1000, "blurred, not blacked out")
+            let inner = scaled(fractional.frame).insetBy(dx: 2, dy: 2).integral
+            #expect(pixels.count(in: inner, where: Self.isBlack) == Int(inner.width * inner.height))
+            let rotatedInner = scaled(CGRect(x: rotated.center.x - 25, y: rotated.center.y - 12, width: 50, height: 24))
+            #expect(pixels.count(in: rotatedInner, where: Self.isBlack) == Int(rotatedInner.width * rotatedInner.height))
+            #expect(pixels.count(where: Self.isMagentaHue) == 0)
         }
 
-        @Test("A masked image the blur can't follow, through a portal or under a 3D transform, is black")
+        @Test("A masked image through a portal or under a 3D transform is black")
         func unplaceableImagesAreBlack() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
@@ -266,21 +257,6 @@
             #expect(pixels.count(in: CGRect(x: 90, y: 215, width: 20, height: 30), where: Self.isBlack) == 20 * 30)
         }
 
-        @Test("A masked image a backdrop could sample is black: the backdrop would draw it again past its rect")
-        func imageUnderBackdropIsBlack() async throws {
-            let fixture = try await makeFixture()
-            defer { fixture.close() }
-            let image = try UIImageView(image: checkerboard(CGSize(width: 160, height: 100)))
-            image.frame = CGRect(x: 20, y: 40, width: 160, height: 100)
-            let blur = UIVisualEffectView(effect: UIBlurEffect(style: .light))
-            blur.frame = CGRect(x: 0, y: 100, width: 200, height: 120)
-            fixture.window.addSubview(image)
-            fixture.window.addSubview(blur)
-
-            let pixels = try await expectFullyMasked(capture(fixture))
-            #expect(pixels.count(where: Self.isMagentaHue) == 0)
-        }
-
         @Test("A masked image's shadow, shaped by its contents, doesn't survive outside its bounds")
         func imageShadowIsDropped() async throws {
             let fixture = try await makeFixture()
@@ -301,48 +277,6 @@
             fixture.window.addSubview(view)
 
             try await expectFullyMasked(capture(fixture))
-        }
-
-        @Test("A region whose blur fails is filled black, so its pixels never leave unblurred; a blurred one keeps no detail")
-        func blurredRegionsFailClosed() throws {
-            // The self-check's checkerboard twice, side by side.
-            let half = PostHogInlineMask.blurCheckWidth, height = PostHogInlineMask.blurCheckHeight
-            let width = half * 2, bytesPerRow = width * 4
-            let pattern = PostHogInlineMask.blurCheckPattern()
-            var bytes = (0 ..< height).flatMap { row in Array(repeating: pattern[row * half ..< (row + 1) * half], count: 2).joined() }
-            let step = bytes.withUnsafeMutableBytes { buffer -> Int in
-                let data = buffer.baseAddress!
-                PostHogInlineMask.blurRegions([CGRect(x: 0, y: 0, width: half, height: height)], in: data, width: width, height: height,
-                                              bytesPerRow: bytesPerRow) { _ in false }
-                PostHogInlineMask.blurRegions([CGRect(x: half, y: 0, width: half, height: height)], in: data, width: width, height: height,
-                                              bytesPerRow: bytesPerRow)
-                let blurred = UnsafePointer((data + half * 4).assumingMemoryBound(to: UInt8.self))
-                return PostHogInlineMask.maxNeighbourStep(blurred, width: half, height: height, bytesPerRow: bytesPerRow)
-            }
-            #expect((0 ..< height).allSatisfy { row in bytes[row * width ..< row * width + half].allSatisfy { $0 == 0xFF00_0000 } })
-            #expect(step <= Self.blurredMaxStep)
-        }
-
-        @Test("When the blur self-check fails, masked images are filled black")
-        func failedBlurCheckFillsImagesBlack() async throws {
-            let fixture = try await makeFixture()
-            defer { fixture.close() }
-            fixture.mirror.inlineMask.recordImageBlurCheck(passed: false)
-            // A failure sticks, even if a later check passes.
-            fixture.mirror.inlineMask.recordImageBlurCheck(passed: true)
-            #expect(fixture.mirror.inlineMask.imageBlur == .failed)
-            let checker = try UIImageView(image: checkerboard(CGSize(width: 160, height: 100)))
-            checker.frame = CGRect(x: 20, y: 20, width: 160, height: 100)
-            fixture.window.addSubview(checker)
-
-            let pixels = try await expectFullyMasked(capture(fixture))
-            #expect(pixels.count(in: checker.frame, where: Self.isBlack) == 160 * 100)
-        }
-
-        @Test("The blur self-check passes the gaussian blur and fails a render that keeps the detail")
-        func blurSelfCheck() async throws {
-            #expect(PostHogInlineMask.checkImageBlur())
-            #expect(!PostHogInlineMask.checkImageBlur { _ in true })
         }
 
         @Test("An image that spills past its bounds is clipped to them: the rect pass would miss the spill")
@@ -587,7 +521,7 @@
         // MARK: - iOS 26 SwiftUI layers
 
         @available(iOS 26.0, *)
-        @Test("iOS 26 SwiftUI text and image layers are masked as `*` rows and a blur")
+        @Test("iOS 26 SwiftUI text and image layers are masked as `*` rows and black")
         func swiftUILayersAreMasked() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
@@ -747,15 +681,14 @@
             func median(_ values: [Double]) -> Double {
                 values.sorted()[values.count / 2]
             }
-            var turn1: [Double] = [], total: [Double] = [], blur: [Double] = []
+            var turn1: [Double] = [], total: [Double] = []
             for _ in 0 ..< 9 {
                 let start = CACurrentMediaTime()
                 let result = try await capture(fixture, scale: 2)
                 total.append((CACurrentMediaTime() - start) * 1000)
                 turn1.append(result.turn1Milliseconds)
-                blur.append(PostHogInlineMask.lastBlurMillisecondsForTesting)
             }
-            print("PHOTO-COST median ms: turn1 \(median(turn1)), capture through encode \(median(total)), blur \(median(blur))")
+            print("PHOTO-COST median ms: turn1 \(median(turn1)), capture through encode \(median(total))")
         }
 
         @Test("Turn-1 cost on a text-heavy screen, with and without inline masking (prints, doesn't assert)")

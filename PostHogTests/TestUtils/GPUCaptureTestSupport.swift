@@ -106,13 +106,10 @@
             pixel.red > 200 && pixel.green < 60 && pixel.blue > 200
         }
 
-        /// Magenta of any brightness, blurred to a dark magenta included.
+        /// Magenta of any brightness, a dark magenta included.
         static func isMagentaHue(_ pixel: RGBA) -> Bool {
             Int(pixel.red) - Int(pixel.green) > 40 && Int(pixel.blue) - Int(pixel.green) > 40
         }
-
-        /// The largest neighbouring-pixel step a blurred image may keep, as the blur self-check requires.
-        static var blurredMaxStep: Int { PostHogInlineMask.blurCheckMaxStep }
 
         static func isStar(_ pixel: RGBA) -> Bool {
             pixel.red < 80 && pixel.green < 80 && pixel.blue > 180
@@ -128,7 +125,6 @@
             let (sut, integration, _) = try makeScreenshotReplaySut { $0.screenshotModeGPUCapture = gpu }
             sut.stopSessionRecording()
             await prewarm(mirror, for: window)
-            await waitUntil { ![.unchecked, .checking].contains(mirror.inlineMask.imageBlur) }
             return GPUCaptureFixture(mirror: mirror, window: window, sut: sut, integration: integration)
         }
 
@@ -168,7 +164,7 @@
             return pixels
         }
 
-        /// Magenta and black cells: detail an image blur has to remove.
+        /// Magenta and black cells.
         func checkerboard(_ size: CGSize, cell: CGFloat = 4) throws -> UIImage {
             try #require(PostHogGraphicsImageRenderer(size: size, scale: 1).image { context in
                 for y in stride(from: 0, to: size.height, by: cell) {

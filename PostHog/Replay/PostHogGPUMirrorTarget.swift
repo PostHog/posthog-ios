@@ -52,8 +52,7 @@
                 return true
             }
 
-            /// Calls `completion` with the frame's pixels, `blurred` (pixel rects) blurred or blacked before the image is made.
-            func readback(blurring blurred: [CGRect], on completionQueue: DispatchQueue, completion: @escaping (CGImage?) -> Void) {
+            func readback(on completionQueue: DispatchQueue, completion: @escaping (CGImage?) -> Void) {
                 // Command buffers on one queue complete in order, so this empty buffer completes after the render.
                 guard let fence = queue.makeCommandBuffer() else {
                     completionQueue.async { completion(nil) }
@@ -63,7 +62,7 @@
                 fence.addCompletedHandler { [self] buffer in
                     let failed = buffer.error != nil || clear?.status != .completed
                     completionQueue.async {
-                        completion(failed ? nil : self.copyPixels(blurring: blurred))
+                        completion(failed ? nil : self.copyPixels())
                     }
                 }
                 fence.commit()
@@ -100,7 +99,7 @@
                 return buffer
             }
 
-            private func copyPixels(blurring blurred: [CGRect]) -> CGImage? {
+            private func copyPixels() -> CGImage? {
                 let width = texture.width, height = texture.height
                 guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
                                               space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: Self.bgraBitmapInfo),
@@ -111,11 +110,6 @@
                 // didn't happen. The scan stops at the first painted pixel, which is usually the first one.
                 guard !Self.isBlank(data, width: width, height: height, bytesPerRow: context.bytesPerRow) else { return nil }
                 Self.flipRows(data, height: height, bytesPerRow: context.bytesPerRow)
-                #if TESTING
-                    let blurStart = CACurrentMediaTime()
-                    defer { PostHogInlineMask.lastBlurMillisecondsForTesting = (CACurrentMediaTime() - blurStart) * 1000 }
-                #endif
-                PostHogInlineMask.blurRegions(blurred, in: data, width: width, height: height, bytesPerRow: context.bytesPerRow)
                 return context.makeImage()
             }
 

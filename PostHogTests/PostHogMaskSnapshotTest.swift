@@ -510,7 +510,7 @@
         }
 
         /// Every CPU scenario, then GPU-only ones numbered after them, so CPU ids never move.
-        /// The GPU-only ones check what only inline masking does (chrome, paint order, blur,
+        /// The GPU-only ones check what only inline masking does (chrome, paint order, backdrops,
         /// portals); on the CPU path each is one black rect, which the CPU goldens already cover.
         private var gpuScenarios: [Scenario] {
             let shared = scenarios
@@ -561,7 +561,7 @@
                 },
                 Scenario(title: "UIKit ph-no-capture card",
                          option: "accessibilityIdentifier ph-no-capture (UIKit)",
-                         expected: "card background kept; its text as *, its photo blurred; label above visible",
+                         expected: "card background kept; its text as *, its photo black; label above visible",
                          configure: Self.explicitMasksOnly)
                 {
                     VStack(spacing: 16) {
@@ -569,9 +569,9 @@
                         NoCaptureCard(secret: Self.secret, image: Self.sampleImage).frame(width: 300, height: 200)
                     }
                 },
-                Scenario(title: "Photo blurred, photo by a blur panel black",
+                Scenario(title: "Photos black, one under a blur panel",
                          option: "maskAllImages, with a system blur panel over the second photo",
-                         expected: "top photo blurred (colours kept); photo under the blur panel black",
+                         expected: "both photos black; the blur panel samples the black, not the photo",
                          configure: { $0.sessionReplayConfig.maskAllTextInputs = false })
                 {
                     VStack(spacing: 24) {
@@ -657,8 +657,6 @@
                 await withCheckedContinuation { continuation in
                     mirror.prewarm(size: window.bounds.size, scale: 1) { continuation.resume() }
                 }
-                await waitUntil { ![.unchecked, .checking].contains(mirror.inlineMask.imageBlur) }
-                try #require(mirror.inlineMask.imageBlur == .verified, "the image blur self-check failed: images would be black")
 
                 let original = render(window)
                 // The first frame draws masked text as bars; the golden is the next one, with `*` drawn.

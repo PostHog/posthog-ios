@@ -106,7 +106,9 @@ final class PostHogWrapperEventTest {
         await waitUntil { self.server.aiRequests.count == 1 }
 
         let request = try #require(server.aiRequests.first)
-        #expect(server.parsePostHogEvents(request).map(\.uuid) == [built.uuid])
+        let sent = server.parsePostHogEvents(request)
+        #expect(sent.map(\.uuid) == [built.uuid])
+        #expect(sent.first?.properties["$sdk_debug_session_start"] != nil)
         #expect(server.batchRequests.isEmpty)
     }
 

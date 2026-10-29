@@ -2022,7 +2022,7 @@ let maxRetryDelay = 30.0
             warnIfNotAiEvent(event)
         } else if event == "$screen" {
             let screen = buildScreenEventForWrapper(properties: properties, options: options)
-            stampWrapperBuild(screen, event: event, ai: false)
+            stampWrapperBuild(screen, event: event)
             return screen
         }
         let built = prepareCaptureEvent(
@@ -2040,20 +2040,20 @@ let maxRetryDelay = 30.0
             forWrapper: true
         )
         built?.wrapperAiLane = ai
-        stampWrapperBuild(built, event: event, ai: ai)
+        stampWrapperBuild(built, event: event)
         return built
     }
 
     /// Records the build-time state a wrapper send checks: this SDK and its setup, the identity, and the
     /// replay debug values, so a `close()`/`setup()`, `reset()` or new session during the round trip doesn't
     /// leak into the event.
-    private func stampWrapperBuild(_ built: PostHogEvent?, event: String, ai: Bool) { // swiftlint:disable:this identifier_name
+    private func stampWrapperBuild(_ built: PostHogEvent?, event: String) {
         guard let built else { return }
         built.wrapperBuildSDK = ObjectIdentifier(self)
         built.wrapperBuildSetupGeneration = wrapperSendLock.withLock { wrapperSetupGeneration }
         built.wrapperBuildDistinctId = getDistinctId()
         built.wrapperBuildResetGeneration = wrapperSendLock.withLock { wrapperResetGeneration }
-        if !ai, Self.isReplayDebugEvent(event) {
+        if Self.isReplayDebugEvent(event) {
             built.wrapperDeferredReplayDebug = replayDebugProperties().filter { !Self.requiredReplayDebugPropertyKeys.contains($0.key) }
         }
     }
@@ -2121,7 +2121,7 @@ let maxRetryDelay = 30.0
             requirePersonProcessing()
         }
         // Eligibility and values come from the build, since the hook can rename the event and the session can change.
-        if !ai, let deferred = event.wrapperDeferredReplayDebug, claimReplayDebugPropertiesWindow() {
+        if let deferred = event.wrapperDeferredReplayDebug, claimReplayDebugPropertiesWindow() {
             // SDK values, so the wrapper's properties win. The required keys were on the built event,
             // so the wrapper already saw them and may have removed them on purpose.
             event.properties.merge(deferred) { current, _ in current }

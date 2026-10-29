@@ -158,6 +158,18 @@ final class PostHogWrapperEventTest {
         #expect(build(sut)?.properties["$screen_name"] == nil)
     }
 
+    @Test("a $screen sent after reset doesn't restore its screen name")
+    func screenNotRestoredAfterReset() throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        let screen = try #require(build(sut, "$screen", properties: ["$screen_name": "Home"]))
+
+        sut.reset()
+        #expect(sut.sendBuiltEventForWrapper(screen, ai: false) != nil)
+
+        #expect(build(sut)?.properties["$screen_name"] == nil)
+    }
+
     @Test("a $screen build without a $screen_name returns nil", arguments: [nil, "", "  "] as [String?])
     func screenNeedsName(name: String?) {
         let sut = makeSDK()

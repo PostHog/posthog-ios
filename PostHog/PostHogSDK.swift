@@ -2138,7 +2138,9 @@ let maxRetryDelay = 30.0
         guard let sent = finishCaptureEvent(event, aiLane: ai) else {
             return nil
         }
+        // A `reset()` since the build cleared the screen name, so the old one isn't restored.
         if sent.event == "$screen",
+           event.wrapperBuildResetGeneration == wrapperSendLock.withLock({ wrapperResetGeneration }),
            let screenName = sent.properties["$screen_name"] as? String,
            let cleaned = PostHogScreenNameSanitizer.sanitize(rawScreenName: screenName)
         {

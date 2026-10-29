@@ -3,7 +3,8 @@
     import UIKit
 
     /// Masks a GPU capture's mirror in place, between the mask walk and `freeze`: text as `*`, drawn off main (bars
-    /// until drawn), images and any other content black. A `postHogMask()` reporter masks everything painted under its
+    /// until drawn), images and any other content black. A `ph-no-capture` view is a black block over its bounds, chrome
+    /// and subtree included, as the rect pass draws it. A `postHogMask()` reporter masks everything painted under its
     /// extent before it: content the same way, and chrome black. Whatever can't be placed, whole portals and objects
     /// with no copy use the rect pass. Main thread.
     final class PostHogInlineMask {
@@ -23,6 +24,9 @@
             case opaque
             /// Chrome (geometry, background, border, corners, opacity, gradients) kept, content filled black.
             case container
+            /// A `ph-no-capture` view, or one under it: its bounds filled opaque black, square, with no chrome and
+            /// nothing below it drawn.
+            case blocked
 
             /// A tag whose instance doesn't match it (it can't, short of a class lying about itself) is filled black.
             fileprivate init(_ tag: Tag, view: UIView?, layer: CALayer) {
@@ -42,7 +46,7 @@
             var dropsDescendants: Bool {
                 switch self {
                 case .container: return false
-                case .label, .textField, .textView, .unreadableText, .opaque: return true
+                case .label, .textField, .textView, .unreadableText, .opaque, .blocked: return true
                 }
             }
 
@@ -50,15 +54,17 @@
             var isTextInput: Bool {
                 switch self {
                 case .textField, .textView: return true
-                case .label, .unreadableText, .opaque, .container: return false
+                case .label, .unreadableText, .opaque, .container, .blocked: return false
                 }
             }
 
-            /// Text inputs and opaque views are replaced whole, since a cover would show their caret, selection or
-            /// subviews around it.
+            /// Text inputs and opaque and blocked views are replaced whole, since a cover would show their caret,
+            /// selection or subviews around it.
             var allowsCover: Bool {
-                if case .opaque = self { return false }
-                return !isTextInput
+                switch self {
+                case .opaque, .blocked: return false
+                default: return !isTextInput
+                }
             }
 
             /// The cache key of this kind's `*` bitmap; nil for kinds without text.
@@ -68,7 +74,7 @@
                 case let .textField(field): return TextSignature(field, size: size, scale: scale)
                 case let .textView(textView): return TextSignature(textView, size: size, scale: scale)
                 case let .unreadableText(traits): return TextSignature(rowsOf: size, scale: scale, traits: traits)
-                case .opaque, .container: return nil
+                case .opaque, .container, .blocked: return nil
                 }
             }
 
@@ -79,7 +85,7 @@
                 case let .textField(field): return TextSource(field, size: size)
                 case let .textView(textView): return TextSource(textView, size: size)
                 case let .unreadableText(traits): return TextSource(rowsOf: size, traits: traits)
-                case .opaque, .container: return nil
+                case .opaque, .container, .blocked: return nil
                 }
             }
         }
@@ -334,6 +340,8 @@
             let isBackdrop: (CALayer) -> Bool
             var visited: Set<ObjectIdentifier> = []
             fileprivate var signatures: [ObjectIdentifier: TextSignature?] = [:]
+            /// Whether each view looked up is `ph-no-capture` or under one, for this capture.
+            private var noCapture: [ObjectIdentifier: Bool] = [:]
             fileprivate var spent: CFTimeInterval = 0
 
             /// Redacts every copy of `object`, and every copy of a portal source under it (a portal draws those
@@ -342,13 +350,18 @@
                 guard let layer = (object as? UIView)?.layer ?? (object as? CALayer) else { return false }
                 let own = index.copies(of: layer)
                 guard !own.isEmpty else { return false }
-                let kind = mask.kind(of: layer, tag: tag)
+                let view = object as? UIView ?? (layer.delegate as? UIView).flatMap { $0.layer === layer ? $0 : nil }
+                var kind = mask.kind(of: layer, tag: tag)
+                if let view, isNoCapture(view) { kind = .blocked }
                 for copy in own {
                     redactTree(copy, source: layer, kind: kind)
                 }
                 for source in portals.sources(under: layer) {
                     for copy in index.copies(of: source) {
-                        if kind.dropsDescendants {
+                        if case .blocked = kind {
+                            // Black where the portal shows it, as the rect pass masks the portal.
+                            _ = redactOwnContent(copy, source: source, as: .blocked)
+                        } else if kind.dropsDescendants {
                             copy.isHidden = true
                         } else {
                             redactTree(copy, source: source, kind: nil)
@@ -356,6 +369,15 @@
                     }
                 }
                 return true
+            }
+
+            /// The walk masks a `ph-no-capture` view's rect, or each subview's when it fills the window, so its
+            /// subviews are blocked too.
+            private mutating func isNoCapture(_ view: UIView) -> Bool {
+                if let known = noCapture[ObjectIdentifier(view)] { return known }
+                let tagged = view.isNoCapture() || view.superview.map { isNoCapture($0) } ?? false
+                noCapture[ObjectIdentifier(view)] = tagged
+                return tagged
             }
 
             private mutating func redactTree(_ copy: CALayer, source: CALayer?, kind known: Kind?) {
@@ -403,6 +425,10 @@
                     if hadContent { PostHogInlineMask.blackOut(copy, .fill) }
                 case .opaque:
                     PostHogInlineMask.blackOut(copy, .fill)
+                case .blocked:
+                    PostHogInlineMask.blackOut(copy, [.fill, .colors, .edges])
+                    copy.cornerRadius = 0
+                    copy.opacity = 1
                 case .unreadableText:
                     // Rows only where the layer drew something, so nothing reads as text that wasn't there.
                     if hadContent { setText(copy, source: source, kind: kind, fallbackToBlack: true) }

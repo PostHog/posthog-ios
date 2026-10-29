@@ -561,7 +561,7 @@
                 },
                 Scenario(title: "UIKit ph-no-capture card",
                          option: "accessibilityIdentifier ph-no-capture (UIKit)",
-                         expected: "card background kept; its text as *, its photo black; label above visible",
+                         expected: "card one black block over its bounds, no chrome; label above visible",
                          configure: Self.explicitMasksOnly)
                 {
                     VStack(spacing: 16) {

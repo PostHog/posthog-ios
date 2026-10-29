@@ -298,54 +298,53 @@
 
         // MARK: - Containers and effects
 
-        @Test("A ph-no-capture container keeps its chrome and masks everything drawn inside it")
-        func noCaptureContainerKeepsChrome() async throws {
+        @Test("A ph-no-capture view is a black block over its bounds: no chrome, nothing inside it drawn")
+        func noCaptureViewIsBlackWhole() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
             let container = noCaptureView(CGRect(x: 10, y: 20, width: 180, height: 260), color: .green)
             container.layer.cornerRadius = 12
+            container.layer.borderWidth = 4
+            container.layer.borderColor = UIColor.orange.cgColor
+            container.alpha = 0.8
             let label = secretLabel(CGRect(x: 10, y: 10, width: 160, height: 40))
             let image = try UIImageView(image: checkerboard(CGSize(width: 80, height: 60)))
             image.frame = CGRect(x: 10, y: 60, width: 80, height: 60)
-            let nested = noCaptureView(CGRect(x: 10, y: 140, width: 80, height: 60), color: .clear)
-            nested.layer.contents = try magentaContents(CGSize(width: 80, height: 60))
-            let deeper = UIView(frame: CGRect(x: 100, y: 140, width: 60, height: 60))
-            let drawn = CALayer()
-            drawn.frame = deeper.bounds
-            drawn.contents = try magentaContents(CGSize(width: 60, height: 60))
-            deeper.layer.addSublayer(drawn)
-            for view in [label, image, nested, deeper] {
+            let child = UIView(frame: CGRect(x: 100, y: 140, width: 60, height: 60))
+            child.backgroundColor = .blue
+            for view in [label, image, child] {
                 container.addSubview(view)
             }
             fixture.window.addSubview(container)
 
             let pixels = try await expectFullyMasked(captureStars(fixture))
-            #expect(pixels[100, 270] == .green)
-            #expect(pixels.count(in: label.convert(label.bounds, to: fixture.window), where: Self.isStar) > 20)
-            #expect(pixels.count(in: CGRect(x: 21, y: 161, width: 78, height: 58), where: Self.isBlack) == 78 * 58)
-            #expect(pixels.count(in: CGRect(x: 111, y: 161, width: 58, height: 58), where: Self.isBlack) == 58 * 58)
+            #expect(pixels.count(in: container.frame, where: Self.isBlack) == 180 * 260)
+            #expect(pixels[11, 21] == RGBA(red: 0, green: 0, blue: 0, alpha: 255))
+            #expect(pixels[100, 290] == .white)
         }
 
-        @Test("Background colours are chrome: kept on a ph-no-capture view and everything under it, while drawn content is masked")
-        func backgroundColorsAreKeptAsChrome() async throws {
+        @Test("An auto-masked view keeps its chrome; the same view under ph-no-capture doesn't")
+        func autoMaskedViewKeepsChrome() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
-            let container = noCaptureView(CGRect(x: 10, y: 20, width: 180, height: 200), color: .green)
-            let child = UIView(frame: CGRect(x: 10, y: 10, width: 80, height: 60))
-            child.backgroundColor = .orange
-            let drawn = UIView(frame: CGRect(x: 10, y: 100, width: 80, height: 60))
-            drawn.backgroundColor = .orange
-            drawn.layer.contents = try magentaContents(drawn.bounds.size)
-            container.addSubview(child)
-            container.addSubview(drawn)
-            fixture.window.addSubview(container)
+            func framedImage(_ frame: CGRect) throws -> UIImageView {
+                let view = try UIImageView(image: checkerboard(frame.size))
+                view.frame = frame
+                view.layer.borderWidth = 6
+                view.layer.borderColor = UIColor.orange.cgColor
+                return view
+            }
+            let auto = try framedImage(CGRect(x: 20, y: 20, width: 160, height: 100))
+            let tagged = try framedImage(CGRect(x: 20, y: 160, width: 160, height: 100))
+            tagged.accessibilityIdentifier = "ph-no-capture"
+            fixture.window.addSubview(auto)
+            fixture.window.addSubview(tagged)
 
             let pixels = try await expectFullyMasked(capture(fixture))
             let isOrange = { (pixel: RGBA) in pixel.red > 240 && (110 ... 150).contains(pixel.green) && pixel.blue < 20 }
-            #expect(pixels[150, 200] == .green)
-            #expect(pixels.count(in: CGRect(x: 21, y: 31, width: 78, height: 58), where: isOrange) == 78 * 58)
-            // A view with drawn content is filled black over its background.
-            #expect(pixels.count(in: CGRect(x: 21, y: 121, width: 78, height: 58), where: Self.isBlack) == 78 * 58)
+            #expect(pixels.count(in: auto.frame, where: isOrange) > 1000)
+            #expect(pixels.count(in: auto.frame.insetBy(dx: 6, dy: 6), where: Self.isBlack) == 148 * 88)
+            #expect(pixels.count(in: tagged.frame, where: Self.isBlack) == 160 * 100)
         }
 
         @Test("A blur over masked text samples the masked copy, not the text")

@@ -21,8 +21,9 @@ final class PostHogWrapperEventTest {
         server.stop()
     }
 
-    private func makeSDK(beforeSend: BeforeSendBlock? = nil) -> PostHogSDK {
+    private func makeSDK(beforeSend: BeforeSendBlock? = nil, reuseAnonymousId: Bool = false) -> PostHogSDK {
         let config = PostHogConfig(projectToken: "phc_wrapper_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.reuseAnonymousId = reuseAnonymousId
         config.flushAt = 1
         config.preloadFeatureFlags = false
         config.sendFeatureFlagEvent = false
@@ -203,6 +204,21 @@ final class PostHogWrapperEventTest {
         sut.sendBuiltEventForWrapper(built, ai: false)
 
         #expect(try #require(sut.remoteConfig).getPersonPropertiesForFlags()["plan"] == nil)
+    }
+
+    @Test("a reset that keeps the distinct ID still counts as a new identity at send")
+    func resetKeepingDistinctIdIsNewIdentity() throws {
+        let sut = makeSDK(reuseAnonymousId: true)
+        defer { sut.close() }
+        let built = try #require(build(sut))
+        let distinctId = sut.getDistinctId()
+
+        sut.reset()
+        #expect(sut.getDistinctId() == distinctId)
+        sut.sendBuiltEventForWrapper(built, ai: false)
+
+        #expect(try #require(sut.remoteConfig).getPersonPropertiesForFlags()["plan"] == nil)
+        #expect(sut.config.storageManager?.isPersonProcessing() == false)
     }
 
     @Test("a build turns on person processing only when it's sent")

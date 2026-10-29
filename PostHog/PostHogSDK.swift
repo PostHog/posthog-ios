@@ -58,6 +58,8 @@ let maxRetryDelay = 30.0
     private let wrapperSendLock = NSLock()
     /// Bumped by `setup` and `close`, so a wrapper event built before a reconfigure isn't sent through the new one.
     private var wrapperSetupGeneration = 0
+    /// Bumped by `reset()`, so a wrapper send treats a reset that keeps the distinct ID as a new identity.
+    private var wrapperResetGeneration = 0
     private var _lastScreenName: String?
     var lastScreenName: String? {
         lastScreenLock.withLock { _lastScreenName }
@@ -944,6 +946,7 @@ let maxRetryDelay = 30.0
         flagCallReportedLock.withLock {
             flagCallReported.removeAll()
         }
+        wrapperSendLock.withLock { wrapperResetGeneration += 1 }
         sessionManager.reset()
 
         // Clear all in-memory caches (feature flags, session replay state, etc.)
@@ -2049,6 +2052,7 @@ let maxRetryDelay = 30.0
         built.wrapperBuildSDK = ObjectIdentifier(self)
         built.wrapperBuildSetupGeneration = wrapperSendLock.withLock { wrapperSetupGeneration }
         built.wrapperBuildDistinctId = getDistinctId()
+        built.wrapperBuildResetGeneration = wrapperSendLock.withLock { wrapperResetGeneration }
         if !ai, Self.isReplayDebugEvent(event) {
             built.wrapperDeferredReplayDebug = replayDebugProperties().filter { !Self.requiredReplayDebugPropertyKeys.contains($0.key) }
         }
@@ -2112,6 +2116,7 @@ let maxRetryDelay = 30.0
         // Person processing and flag person properties apply only while the SDK still has the identity
         // the event was built for, so a `reset()` or `identify()` during the round trip doesn't move them.
         let sameIdentity = event.wrapperBuildDistinctId == getDistinctId()
+            && event.wrapperBuildResetGeneration == wrapperSendLock.withLock { wrapperResetGeneration }
         if sameIdentity, event.wrapperRequiresPersonProcessing {
             requirePersonProcessing()
         }

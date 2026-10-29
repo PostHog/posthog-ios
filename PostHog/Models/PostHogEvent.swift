@@ -53,6 +53,9 @@ import Foundation
     /// The SDK's distinct ID when a wrapper built this event, so a send after `reset()` or `identify()`
     /// doesn't give the new user this event's person properties for feature flags.
     var wrapperBuildDistinctId: String?
+    /// The SDK's reset count when a wrapper built this event, so a `reset()` that keeps the distinct ID
+    /// (`reuseAnonymousId`) still counts as a new identity at send.
+    var wrapperBuildResetGeneration: Int?
     /// The SDK instance and setup generation that built this wrapper event, so a send after `close()`/`setup()`
     /// or on another instance is dropped instead of sent with the new configuration.
     var wrapperBuildSDK: ObjectIdentifier?

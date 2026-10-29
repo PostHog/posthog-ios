@@ -193,6 +193,9 @@
         }
 
         private static let maxCacheBytes = 16 * 1024 * 1024
+        /// Larger text isn't drawn and keeps its bars, so one bitmap evicts at most a quarter of the cache. At 3x, about
+        /// 1,000 by 1,000 pixels: a third of a phone screen.
+        static let maxBitmapBytes = maxCacheBytes / 4
         /// UTF-16 units past which text gets no signature and keeps its bars: keying it scans every character on main,
         /// every capture. A page of text, far past labels and fields.
         static let maxTextLength = 4096
@@ -578,10 +581,15 @@
                         if Thread.isMainThread { self.drawsOnMainForTesting += 1 }
                     #endif
                     guard let image else {
-                        self.entries[signature] = nil
+                        // Too large to draw stays bars, rather than drawn again every capture.
+                        self.entries[signature] = Self.bitmapBytes(text.size, scale: scale) > Self.maxBitmapBytes ? .barsOnly : nil
                         return
                     }
                     let bytes = image.bytesPerRow * image.height
+                    guard bytes <= Self.maxCacheBytes else {
+                        self.entries[signature] = .barsOnly
+                        return
+                    }
                     while self.cacheBytes + bytes > Self.maxCacheBytes, !self.drawnOrder.isEmpty {
                         let oldest = self.drawnOrder.removeFirst()
                         if case let .drawn(old)? = self.entries.removeValue(forKey: oldest) {
@@ -649,11 +657,15 @@
             }
         }
 
+        private static func bitmapBytes(_ size: CGSize, scale: CGFloat) -> Int {
+            Int((size.width * scale).rounded(.up)) * Int((size.height * scale).rounded(.up)) * 4
+        }
+
         /// Any thread. Masks and lays out `source`, then draws it in Core Animation's own pixel format, so committing the
         /// bitmap needs no conversion.
         private static func draw(_ source: TextSource, scale: CGFloat) -> CGImage? {
-            guard let laidOut = source.laidOut() else { return nil }
             let size = source.size
+            guard bitmapBytes(size, scale: scale) <= maxBitmapBytes, let laidOut = source.laidOut() else { return nil }
             let width = Int((size.width * scale).rounded(.up)), height = Int((size.height * scale).rounded(.up))
             guard width > 0, height > 0,
                   let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,

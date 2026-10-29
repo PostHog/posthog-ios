@@ -194,6 +194,21 @@
             #expect(fixture.mask.textDrawsForTesting == 0)
         }
 
+        @Test("Masked text too large to draw keeps its bars, and isn't drawn again on later captures")
+        func oversizedTextKeepsBars() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let label = secretLabel(CGRect(x: 0, y: 0, width: 1200, height: 1200))
+            label.numberOfLines = 0
+            try #require(1200 * 1200 * 4 > PostHogInlineMask.maxBitmapBytes)
+            fixture.window.addSubview(label)
+
+            try await expectFullyMasked(captureStars(fixture))
+            try await expectFullyMasked(captureStars(fixture))
+            #expect(fixture.mask.textDrawsForTesting == 1)
+            #expect(fixture.mask.textBarsForTesting == 4)
+        }
+
         // MARK: - Images
 
         @Test("A masked image is filled black over its bounds")

@@ -179,6 +179,32 @@ final class PostHogWrapperEventTest {
         #expect(server.aiRequests.isEmpty)
     }
 
+    @Test("feature flags get the person properties the wrapper left on the sent event")
+    func flagsUseSentPersonProperties() throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        let built = try #require(build(sut))
+        built.properties["$set"] = ["kept": "yes"]
+
+        sut.sendBuiltEventForWrapper(built, ai: false)
+
+        let flagProperties = try #require(sut.remoteConfig).getPersonPropertiesForFlags()
+        #expect(flagProperties["kept"] as? String == "yes")
+        #expect(flagProperties["plan"] == nil)
+    }
+
+    @Test("an event sent after reset doesn't give its person properties to the new user's flags")
+    func flagsSkipPersonPropertiesAfterReset() throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        let built = try #require(build(sut))
+
+        sut.reset()
+        sut.sendBuiltEventForWrapper(built, ai: false)
+
+        #expect(try #require(sut.remoteConfig).getPersonPropertiesForFlags()["plan"] == nil)
+    }
+
     #if os(iOS)
         #if !SWIFT_PACKAGE || SessionReplay
             @Test("the replay debug bundle is claimed when a wrapper event is sent, not when it's built")
@@ -193,6 +219,21 @@ final class PostHogWrapperEventTest {
                 let sent = try #require(getBatchedEvents(server).first)
 
                 #expect(sent.properties["$sdk_debug_replay_capture_mode"] != nil)
+            }
+
+            @Test("send doesn't add back a required replay property the wrapper removed")
+            func wrapperRemovalOfRequiredReplayPropertyKept() throws {
+                let sut = makeSDK()
+                defer { sut.close() }
+                let built = try #require(build(sut, "$wrapped"))
+                #expect(built.properties["$recording_status"] != nil)
+                built.properties.removeValue(forKey: "$recording_status")
+
+                server.reset(batchCount: 1)
+                sut.sendBuiltEventForWrapper(built, ai: false)
+                let sent = try #require(getBatchedEvents(server).first)
+
+                #expect(sent.properties["$recording_status"] == nil)
             }
         #endif
     #endif

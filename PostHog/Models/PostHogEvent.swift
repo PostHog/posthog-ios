@@ -50,6 +50,9 @@ import Foundation
 
     /// Set when a wrapper build returns this event: true for the AI lane. Cleared once it's sent, so it's sent once.
     var wrapperAiLane: Bool?
+    /// The SDK's distinct ID when a wrapper built this event, so a send after `reset()` or `identify()`
+    /// doesn't give the new user this event's person properties for feature flags.
+    var wrapperBuildDistinctId: String?
 
     init(
         event: String,

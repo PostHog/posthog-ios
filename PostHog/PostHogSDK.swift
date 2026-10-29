@@ -55,6 +55,7 @@ let maxRetryDelay = 30.0
 
     private let lastScreenLock = NSLock()
     private let replayDebugPropertiesLock = NSLock()
+    private let wrapperSendLock = NSLock()
     private var _lastScreenName: String?
     var lastScreenName: String? {
         lastScreenLock.withLock { _lastScreenName }
@@ -2009,7 +2010,9 @@ let maxRetryDelay = 30.0
         if ai {
             warnIfNotAiEvent(event)
         } else if event == "$screen" {
-            return buildScreenEventForWrapper(properties: properties, options: options)
+            let screen = buildScreenEventForWrapper(properties: properties, options: options)
+            screen?.wrapperBuildDistinctId = getDistinctId()
+            return screen
         }
         let built = prepareCaptureEvent(
             event,
@@ -2026,6 +2029,7 @@ let maxRetryDelay = 30.0
             forWrapper: true
         )
         built?.wrapperAiLane = ai
+        built?.wrapperBuildDistinctId = getDistinctId()
         return built
     }
 
@@ -2064,11 +2068,14 @@ let maxRetryDelay = 30.0
         _ event: PostHogEvent,
         ai: Bool // swiftlint:disable:this identifier_name
     ) -> String? {
-        guard let builtLane = event.wrapperAiLane else {
+        let builtLane: Bool? = wrapperSendLock.withLock {
+            defer { event.wrapperAiLane = nil }
+            return event.wrapperAiLane
+        }
+        guard let builtLane else {
             hedgeLog("PostHog event \(event.event) wasn't built by buildEventForWrapper, or was already sent, so it was dropped")
             return nil
         }
-        event.wrapperAiLane = nil
         if ai != builtLane {
             hedgeLog("PostHog event \(event.event) was built for the \(builtLane ? "AI" : "analytics") lane, but is sent on the lane given here")
         }
@@ -2076,9 +2083,20 @@ let maxRetryDelay = 30.0
             return nil
         }
         if !ai, Self.isReplayDebugEvent(event.event), claimReplayDebugPropertiesWindow() {
-            // SDK values, so the wrapper's properties win.
-            event.properties.merge(replayDebugProperties()) { current, _ in current }
+            // SDK values, so the wrapper's properties win. The required keys were on the built event,
+            // so the wrapper already saw them and may have removed them on purpose.
+            let deferred = replayDebugProperties().filter { !Self.requiredReplayDebugPropertyKeys.contains($0.key) }
+            event.properties.merge(deferred) { current, _ in current }
             event.carriesReplayDebugBundle = true
+        }
+        // Feature flags get the person properties the wrapper left on the event, and only while the
+        // SDK still has the identity it was built for.
+        if event.wrapperBuildDistinctId == getDistinctId() {
+            event.flagUserProperties = event.properties["$set"] as? [String: Any]
+            event.flagUserPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]
+        } else {
+            event.flagUserProperties = nil
+            event.flagUserPropertiesSetOnce = nil
         }
         guard let sent = finishCaptureEvent(event, aiLane: ai) else {
             return nil

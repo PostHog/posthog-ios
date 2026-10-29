@@ -233,6 +233,8 @@ bootstrap:
 	brew install swiftlint
 	brew install swiftformat
 	brew install peripheryapp/periphery/periphery
+	brew install prek
+	prek install
 
 # download SDKs and runtimes
 # create Apple Vision Pro simulator if missing

@@ -10,7 +10,7 @@ This repo requires all commits to be signed. To configure commit signing, see th
 
 Use the repository's `make` wrappers rather than invoking `swift` or `xcodebuild` directly; [Makefile](Makefile) owns the commands and options.
 
-For initial setup, install Xcode and, if needed, use `make bootstrap` to install CocoaPods, xcpretty, SwiftLint, SwiftFormat and Periphery. Agents should report missing prerequisites rather than install tools without authorization. Tests import `Testing` and need a Swift 6+ toolchain with Swift Testing (Xcode 16+); use current stable Xcode as CI does. This is separate from the SDK's Swift 5 language compatibility.
+For initial setup, install Xcode and, if needed, use `make bootstrap` to install CocoaPods, xcpretty, SwiftLint, SwiftFormat, Periphery and [prek](https://github.com/j178/prek). Agents should report missing prerequisites rather than install tools without authorization. Tests import `Testing` and need a Swift 6+ toolchain with Swift Testing (Xcode 16+); use current stable Xcode as CI does. This is separate from the SDK's Swift 5 language compatibility.
 
 Iterate with focused checks, then run the core CI-aligned checks before submitting **SDK changes**:
 

@@ -124,16 +124,26 @@ final class PostHogCaptureV1Test {
         #expect(result.retryAfter == 2)
     }
 
-    @Test("treats a 200 without a results map as delivered")
-    func malformedSuccessIsDelivered() async {
-        server.captureV1ResponseHandler = { _, _ in
-            HTTPStubsResponse(data: Data("not json".utf8), statusCode: 200, headers: nil)
+    @Test("drops the whole batch on a 200 without a results map, without retrying it")
+    func malformedSuccessDropsBatch() throws {
+        let wasLogging = hedgeLogEnabled
+        hedgeLogEnabled = true
+        defer { hedgeLogEnabled = wasLogging }
+        let uuids = [UUID().postHogUuidString, UUID().postHogUuidString]
+        let identity = CaptureV1RequestIdentity(uuids: Set(uuids), requestId: "request", attempt: 1, createdAt: "now")
+
+        var result: PostHogUploadInfo?
+        let output = try captureStdout {
+            result = makeApi().captureV1Result(
+                PostHogUploadInfo(statusCode: 200, error: nil), path: PostHogApi.captureV1AnalyticsPath,
+                data: Data("not json".utf8), uuids: uuids, identity: identity
+            )
         }
 
-        let result = await send(makeApi(), [PostHogEvent(event: "test", distinctId: "user")])
-
-        #expect(result.statusCode == 200)
-        #expect(result.retryRecordIds?.isEmpty ?? true)
+        #expect(output.contains("Capture: 2 dropped, 0 duplicates dropped, 0 to retry."))
+        #expect(!output.contains("not json"))
+        #expect(result?.statusCode == 200)
+        #expect(result?.retryRecordIds?.isEmpty ?? true)
     }
 
     @Test("logs each dropped event's name, UUID and reason, without its properties")
@@ -209,8 +219,8 @@ final class PostHogCaptureV1Test {
         #expect(output.contains("Capture: 0 dropped, 2 duplicates dropped, 0 to retry."))
     }
 
-    @Test("treats a 2xx whose transfer then failed as delivered, so its ok events aren't stored twice")
-    func failedTransferAfterSuccessIsDelivered() {
+    @Test("doesn't retry a 2xx whose transfer then failed, so its ok events aren't stored twice")
+    func failedTransferAfterSuccessIsNotRetried() {
         let uuids = [UUID().postHogUuidString, UUID().postHogUuidString]
         let identity = CaptureV1RequestIdentity(uuids: Set(uuids), requestId: "request", attempt: 1, createdAt: "now")
         let info = PostHogUploadInfo(statusCode: 200, error: URLError(.networkConnectionLost))
@@ -631,16 +641,17 @@ final class PostHogCaptureV1OptionsTest {
         #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
     }
 
-    @Test("the crash context keeps $process_person_profile false only when person processing is off")
-    func crashContextKeepsPersonlessProperty() {
-        for (personProfiles, expected) in [(PostHogPersonProfiles.never, false as Bool?), (.always, nil)] {
+    @Test("the crash context saves process_person_profile false as an option only when person processing is off")
+    func crashContextSavesPersonlessOption() {
+        for (personProfiles, expected) in [(PostHogPersonProfiles.never, ["process_person_profile": false] as [String: Bool]?), (.always, nil)] {
             let sut = makeSDK(personProfiles: personProfiles)
-            var eventProperties: [String: Any]?
-            let token = sut.onEventContextChanged.subscribe { eventProperties = $0["event_properties"] as? [String: Any] }
+            var context: [String: Any]?
+            let token = sut.onEventContextChanged.subscribe { context = $0 }
             sut.notifyContextDidChange()
             withExtendedLifetime(token) {}
             sut.close()
-            #expect(eventProperties?["$process_person_profile"] as? Bool == expected)
+            #expect(context?["options"] as? [String: Bool] == expected)
+            #expect((context?["event_properties"] as? [String: Any])?["$process_person_profile"] == nil)
         }
     }
 

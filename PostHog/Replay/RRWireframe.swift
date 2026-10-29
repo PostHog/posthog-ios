@@ -59,35 +59,40 @@ class RRWireframe {
         // Shared so tests can redact through the exact production path instead of reimplementing it.
         static func maskImage(_ image: UIImage, maskableWidgets: [CGRect], pixelScale: CGFloat = 1) -> UIImage? {
             guard !maskableWidgets.isEmpty else { return nil }
-            return redraw(image, pixelScale: pixelScale, maskableWidgets: maskableWidgets)
-        }
-
-        /// Screenshots render at native scale on main; this resize runs at encode time, off main,
-        /// so every screenshot uploads at the same size whether or not it is masked.
-        private static func redraw(_ image: UIImage, pixelScale: CGFloat, maskableWidgets: [CGRect] = []) -> UIImage? {
-            autoreleasepool {
-                let renderer = PostHogGraphicsImageRenderer(size: image.size, scale: pixelScale, roundingUp: true)
-                return renderer.image { context in
-                    // Nearest-neighbour drops thin glyph stems when downsampling.
-                    context.interpolationQuality = .medium
-                    image.draw(at: .zero)
-
-                    // Whole output pixels, so a mask edge that falls mid-pixel can't blend into it.
-                    let toPixels = context.userSpaceToDeviceSpaceTransform
-                    let toPoints = toPixels.inverted()
-                    for rect in maskableWidgets {
-                        UIColor.black.setFill()
-                        UIRectFill(rect.applying(toPixels).integral.applying(toPoints))
-                    }
-                }
+            return autoreleasepool {
+                // Mask at native resolution so resampling can't blend what a mask covers into the output.
+                paintMasks(maskableWidgets, on: image).flatMap { resample($0, pixelScale: pixelScale) }
             }
         }
 
-        /// Nothing to hide, so unlike masking a failed redraw can fall back to the native image.
+        /// Nothing to hide, so unlike masking a failed resample can fall back to the native image.
         static func unmaskedScreenshot(_ image: UIImage, pixelScale: CGFloat) -> UIImage {
-            // Already at the upload resolution, so a redraw would only cost time.
+            autoreleasepool { resample(image, pixelScale: pixelScale) ?? image }
+        }
+
+        /// Screenshots render at native scale on main; masking and the resize to upload scale run at encode
+        /// time, off main, so every screenshot uploads at the same size whether or not it is masked.
+        private static func resample(_ image: UIImage, pixelScale: CGFloat) -> UIImage? {
+            // Already at the upload resolution, so resampling would only cost time.
             guard pixelScale < image.scale else { return image }
-            return redraw(image, pixelScale: pixelScale) ?? image
+            return PostHogGraphicsImageRenderer(size: image.size, scale: pixelScale, roundingUp: true).image { context in
+                // Nearest-neighbour drops thin glyph stems when downsampling.
+                context.interpolationQuality = .medium
+                image.draw(at: .zero)
+            }
+        }
+
+        private static func paintMasks(_ masks: [CGRect], on image: UIImage) -> UIImage? {
+            PostHogGraphicsImageRenderer(size: image.size, scale: image.scale, roundingUp: true).image { context in
+                image.draw(at: .zero)
+                // Whole pixels, so a mask edge that falls mid-pixel can't leave part of it showing.
+                let toPixels = context.userSpaceToDeviceSpaceTransform
+                let toPoints = toPixels.inverted()
+                UIColor.black.setFill()
+                for rect in masks {
+                    UIRectFill(rect.applying(toPixels).integral.applying(toPoints))
+                }
+            }
         }
     #endif
 

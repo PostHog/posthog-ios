@@ -202,17 +202,17 @@
             }
         }
 
-        @Test("a mask edge that falls mid-pixel covers that whole pixel")
+        @Test("a mask edge that falls mid-pixel covers that whole native pixel")
         func maskEdgeRoundsOutward() throws {
             let image = solidImage(.red, size: CGSize(width: 200, height: 300), scale: 3)
-            // At 1.5 pixels per point these edges land on pixels 60.75 and 209.25.
-            let mask = CGRect(x: 40.5, y: 60, width: 99, height: 80)
-            let masked = try #require(RRWireframe.maskImage(image, maskableWidgets: [mask], pixelScale: 1.5)?.cgImage)
-            let row = CGFloat(150)
-            #expect(try isBlack(rgb(masked, at: CGPoint(x: 60, y: row))))
-            #expect(try isBlack(rgb(masked, at: CGPoint(x: 209, y: row))))
-            #expect(try isRed(rgb(masked, at: CGPoint(x: 59, y: row))))
-            #expect(try isRed(rgb(masked, at: CGPoint(x: 210, y: row))))
+            // At 3 pixels per point these edges land on pixels 120.3 and 419.7.
+            let mask = CGRect(x: 40.1, y: 60, width: 99.8, height: 80)
+            let masked = try #require(RRWireframe.maskImage(image, maskableWidgets: [mask], pixelScale: 3)?.cgImage)
+            let row = CGFloat(300)
+            #expect(try isBlack(rgb(masked, at: CGPoint(x: 120, y: row))))
+            #expect(try isBlack(rgb(masked, at: CGPoint(x: 419, y: row))))
+            #expect(try isRed(rgb(masked, at: CGPoint(x: 119, y: row))))
+            #expect(try isRed(rgb(masked, at: CGPoint(x: 420, y: row))))
         }
 
         @Test("an unmasked frame already at native resolution is not redrawn")
@@ -244,6 +244,30 @@
                 let pixel = try rgb(downsampled, at: CGPoint(x: column, y: 15))
                 #expect(!isWhite(pixel), "column \(column) lost its line: \(pixel)")
             }
+        }
+
+        @Test("no pixel of a resized masked frame shows any of the secret", arguments: [1.0, 1.5], [0.0, 1.0 / 3, 2.0 / 3])
+        func maskedSecretDoesNotBleed(pixelScale: CGFloat, offset: CGFloat) throws {
+            let size = CGSize(width: 200, height: 300)
+            let secret = Self.secretRect.offsetBy(dx: offset, dy: offset)
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 3
+            let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+                UIColor.white.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+                UIColor.red.setFill()
+                context.fill(secret)
+            }
+            let masked = try #require(RRWireframe.maskImage(image, maskableWidgets: [secret], pixelScale: pixelScale)?.cgImage)
+            var rgba = [UInt8](repeating: 0, count: masked.width * masked.height * 4)
+            let context = try #require(CGContext(
+                data: &rgba, width: masked.width, height: masked.height, bitsPerComponent: 8, bytesPerRow: masked.width * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ))
+            context.draw(masked, in: CGRect(x: 0, y: 0, width: masked.width, height: masked.height))
+            // Black and white keep every channel equal; only the secret adds red.
+            let tinted = stride(from: 0, to: rgba.count, by: 4).filter { Int(rgba[$0]) - Int(max(rgba[$0 + 1], rgba[$0 + 2])) > 2 }
+            #expect(tinted.isEmpty, "\(tinted.count) pixels show the secret")
         }
     }
 #endif

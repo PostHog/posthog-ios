@@ -56,7 +56,10 @@ app.get("health") { req async throws -> Response in
         // Declares which test suites apply. The iOS SDK posts events to
         // /i/v1/analytics/events (capture_v1) with gzip. Without this, the
         // harness skips the capability-gated capture suites entirely.
-        "capabilities": ["capture_v1", "capture_ai_v1", "encoding_gzip", "event_options"],
+        "capabilities": [
+            "capture_v1", "capture_ai_v1", "encoding_gzip", "event_options",
+            "disable_geoip", "generated_payloads", "property_layers", "fail_open",
+        ],
     ]
 
     print("[ADAPTER] GET /health")
@@ -73,6 +76,9 @@ app.post("init") { req async throws -> Response in
         let maxRetries: Int?
         let enableCompression: Bool?
         let disableGeoip: Bool?
+        let superProperties: [String: AnyCodable]?
+        // Declarative hook: {"set_properties": {...}} sets those keys on every event.
+        let beforeSend: [String: AnyCodable]?
 
         enum CodingKeys: String, CodingKey {
             // Wire field name remains api_key, but it carries the PostHog project token.
@@ -83,16 +89,15 @@ app.post("init") { req async throws -> Response in
             case maxRetries = "max_retries"
             case enableCompression = "enable_compression"
             case disableGeoip = "disable_geoip"
+            case superProperties = "super_properties"
+            case beforeSend = "before_send"
         }
     }
 
     let initReq = try req.content.decode(InitRequest.self)
 
-    // Empty token: setup() stays disabled but the singleton is non-nil, hanging a later
-    // reloadFeatureFlags() (callback never fires when disabled). Fail fast.
-    guard !initReq.apiKey.isEmpty else {
-        throw Abort(.badRequest, reason: "Empty project token; SDK would not enable.")
-    }
+    // An empty or personal (phx_) token is passed through as given: setup() leaves the SDK
+    // disabled, so captures send nothing (fail_open).
 
     // Rewrite host.docker.internal to localhost since adapter runs on macOS host
     let host = initReq.host.replacingOccurrences(of: "host.docker.internal", with: "localhost")
@@ -124,6 +129,12 @@ app.post("init") { req async throws -> Response in
         config.captureAiCompression = .none
     }
     config.disableGeoIp = initReq.disableGeoip ?? config.disableGeoIp
+    if let setProperties = initReq.beforeSend?["set_properties"]?.value as? [String: Any] {
+        config.setBeforeSend { event in
+            event.properties.merge(setProperties) { _, new in new }
+            return event
+        }
+    }
 
     // Disable features for testing
     config.captureApplicationLifecycleEvents = false
@@ -150,6 +161,9 @@ app.post("init") { req async throws -> Response in
 
     // Initialize PostHog SDK
     PostHogSDK.shared.setup(config)
+    if let superProperties = initReq.superProperties {
+        PostHogSDK.shared.register(superProperties.mapValues(\.value))
+    }
     state.posthogSDK = PostHogSDK.shared
     state.apiKey = initReq.apiKey
     state.host = host
@@ -231,6 +245,8 @@ app.on(.POST, "capture_ai", body: .collect(maxSize: "9mb")) { req async throws -
         let properties: [String: AnyCodable]?
         let timestamp: String?
         let options: [String: AnyCodable]?
+        let padPropertiesToBytes: Int?
+        let marker: String?
 
         enum CodingKeys: String, CodingKey {
             case event
@@ -238,6 +254,8 @@ app.on(.POST, "capture_ai", body: .collect(maxSize: "9mb")) { req async throws -
             case properties
             case timestamp
             case options
+            case padPropertiesToBytes = "pad_properties_to_bytes"
+            case marker
         }
     }
 
@@ -248,10 +266,15 @@ app.on(.POST, "capture_ai", body: .collect(maxSize: "9mb")) { req async throws -
         throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
     }
 
+    var properties = captureReq.properties?.mapValues(\.value)
+    if let targetBytes = captureReq.padPropertiesToBytes {
+        properties = try paddedProperties(properties ?? [:], toBytes: targetBytes, marker: captureReq.marker ?? "")
+    }
+
     let uuid = sdk.captureAi(
         captureReq.event,
         distinctId: captureReq.distinctId,
-        properties: captureReq.properties?.mapValues(\.value),
+        properties: properties,
         timestamp: captureReq.timestamp.flatMap(parseHarnessTimestamp),
         options: captureReq.options?.mapValues(\.value)
     )
@@ -259,6 +282,24 @@ app.on(.POST, "capture_ai", body: .collect(maxSize: "9mb")) { req async throws -
     var result: [String: Any] = ["success": true]
     result["uuid"] = uuid
     return try await result.encodeResponse(for: req)
+}
+
+/// Adds a `$test_padding` string so `properties`, as compact UTF-8 JSON, is exactly `targetBytes`
+/// long (generated_payloads). The padding starts with `marker`.
+func paddedProperties(_ properties: [String: Any], toBytes targetBytes: Int, marker: String) throws -> [String: Any] {
+    // The harness asks for at most ~9 MiB; refuse anything far beyond that instead of allocating it.
+    let maxTargetBytes = 64 * 1024 * 1024
+    guard targetBytes <= maxTargetBytes else {
+        throw Abort(.badRequest, reason: "pad_properties_to_bytes \(targetBytes) is over the \(maxTargetBytes)-byte limit.")
+    }
+    var padded = properties
+    padded["$test_padding"] = marker
+    let baseBytes = try JSONSerialization.data(withJSONObject: padded).count
+    guard baseBytes <= targetBytes else {
+        throw Abort(.badRequest, reason: "Properties are already \(baseBytes) bytes, over \(targetBytes).")
+    }
+    padded["$test_padding"] = marker + String(repeating: "x", count: targetBytes - baseBytes)
+    return padded
 }
 
 func fetchFlagsWithRetry(flagsURL: URL, payload: [String: Any]) async throws -> Data {

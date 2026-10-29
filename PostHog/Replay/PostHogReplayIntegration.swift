@@ -2109,21 +2109,18 @@
                 }
                 guard let viewClass else {
                     if isA(layerClass, Self.swiftUIFlattenedContentTypes) { return .opaque }
-                    if isA(layerClass, swiftUITextBasedViewTypes) { return .unreadableText }
-                    return isA(layerClass, swiftUIImageLayerTypes) ? .image : .container
+                    return isA(layerClass, swiftUITextBasedViewTypes) ? .unreadableText : .container
                 }
                 if isA(viewClass, [UITextView.self]) { return .textView }
                 if isA(viewClass, [UITextField.self]) { return .textField }
                 if isA(viewClass, [reactNativeTextView, reactNativeParagraphView]) { return .unreadableText }
-                if isA(viewClass, [UIImageView.self, reactNativeImageView, reactNativeImageComponentView]) { return .image }
                 if isA(viewClass, [UILabel.self]) { return .label }
                 if isA(viewClass, [WKWebView.self, UISwitch.self, UIPickerView.self, reactNativeSvgView, systemSandboxedView] + swiftUIGenericTypes
                     + Self.swiftUIFlattenedContentTypes)
                 {
                     return .opaque
                 }
-                if isA(viewClass, swiftUITextBasedViewTypes) { return .unreadableText }
-                return isA(layerClass, swiftUIImageLayerTypes) ? .image : .container
+                return isA(viewClass, swiftUITextBasedViewTypes) ? .unreadableText : .container
             }
         }
     #endif

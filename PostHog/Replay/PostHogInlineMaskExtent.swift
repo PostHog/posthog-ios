@@ -24,17 +24,19 @@
             private(set) var entries: [ExtentEntry] = []
             private let root: CALayer
             private let reporterCopies: Set<ObjectIdentifier>
+            private let isBackdrop: (CALayer) -> Bool
             /// Where each reporter copy sits in paint order.
             private var reporters: [ObjectIdentifier: Int] = [:]
             /// Entries with a non-zero `zPosition`. It reorders only among siblings, since copies flatten their subtree.
             private var layered: [(index: Int, parent: Int?)] = []
 
             /// nil when the root lands nowhere finite, so no extent can be located in it.
-            init?(root: CALayer, copies: CopyIndex, reporterCopies: Set<ObjectIdentifier>, isBackdrop: (CALayer) -> Bool) {
+            init?(root: CALayer, copies: CopyIndex, reporterCopies: Set<ObjectIdentifier>, isBackdrop: @escaping (CALayer) -> Bool) {
                 self.root = root
                 self.reporterCopies = reporterCopies
+                self.isBackdrop = isBackdrop
                 entries.reserveCapacity(copies.count)
-                let frame = collect(root, parent: nil, isDrawn: true, copies: copies, isBackdrop: isBackdrop)
+                let frame = collect(root, parent: nil, isDrawn: true, copies: copies)
                 guard !frame.isNull, frame.minX.isFinite, frame.minY.isFinite, frame.width.isFinite, frame.height.isFinite else { return nil }
             }
 
@@ -73,14 +75,10 @@
 
             /// Appends the layer and its subtree in pre-order, and returns the subtree's frame. Hidden copies are kept: a
             /// portal hides the source it shows, and what's masked there has to be masked in the portal's copy too.
-            private mutating func collect(_ layer: CALayer, parent: Int?, isDrawn parentIsDrawn: Bool, copies: CopyIndex,
-                                          isBackdrop: (CALayer) -> Bool) -> CGRect
-            {
+            private mutating func collect(_ layer: CALayer, parent: Int?, isDrawn parentIsDrawn: Bool, copies: CopyIndex) -> CGRect {
                 let isDrawn = parentIsDrawn && !layer.isHidden
                 let placement = copies.placement(of: layer)
-                // A backdrop draws what's behind it inside its bounds.
-                let frame = PostHogInlineMask.drawnRect(layer).map { copies.windowFrame(of: layer, root: root, local: $0) }
-                    ?? (isBackdrop(layer) ? copies.windowFrame(of: layer, root: root) : root.bounds)
+                let frame = reach(of: layer, copies: copies)
                 let index = entries.count
                 entries.append(ExtentEntry(copy: layer, frame: frame, coverable: placement.flatMap { $0.hasPlainSublayers ? $0.toWindow : nil },
                                            subtreeFrame: frame, subtreeEnd: index + 1))
@@ -88,11 +86,18 @@
                 if isDrawn, layer.zPosition != 0 { layered.append((index, parent)) }
                 var subtreeFrame = frame
                 for sublayer in layer.sublayers ?? [] {
-                    subtreeFrame = subtreeFrame.union(collect(sublayer, parent: index, isDrawn: isDrawn, copies: copies, isBackdrop: isBackdrop))
+                    subtreeFrame = subtreeFrame.union(collect(sublayer, parent: index, isDrawn: isDrawn, copies: copies))
                 }
                 entries[index].subtreeFrame = subtreeFrame
                 entries[index].subtreeEnd = entries.count
                 return subtreeFrame
+            }
+
+            /// Where the layer's own drawing can reach in the window: the whole window when filters can spread it.
+            private func reach(of layer: CALayer, copies: CopyIndex) -> CGRect {
+                // A backdrop's filters draw what's behind it inside its bounds.
+                guard let local = PostHogInlineMask.drawnRect(layer) ?? (isBackdrop(layer) ? layer.bounds : nil) else { return root.bounds }
+                return copies.windowFrame(of: layer, root: root, local: local)
             }
         }
 
@@ -132,27 +137,22 @@
             copy.mask == nil && copy.compositingFilter == nil
         }
 
-        /// Whether the copy's own drawing can reach past its bounds: a shape's path and stroke, filters, and contents that
-        /// don't scale to the bounds.
-        static func drawsPastBounds(_ copy: CALayer) -> Bool {
-            !copy.masksToBounds && (copy.filters != nil || copy is CAShapeLayer || copy.contents != nil
-                && copy.contentsGravity != .resize && copy.contentsGravity != .resizeAspect)
-        }
-
-        /// The rect, in bounds coordinates, the copy's own drawing can reach; nil when filters can spread it anywhere.
-        static func drawnRect(_ copy: CALayer) -> CGRect? {
-            guard drawsPastBounds(copy) else { return copy.bounds }
+        /// The rect, in bounds coordinates, the copy's own drawing can reach: its bounds, or past them for a shape's
+        /// path and stroke and contents that don't scale to the bounds. nil when filters can spread it anywhere.
+        private static func drawnRect(_ copy: CALayer) -> CGRect? {
+            let bounds = copy.bounds
+            guard !copy.masksToBounds else { return bounds }
             guard copy.filters == nil else { return nil }
-            var rect = copy.bounds
+            var rect = bounds
             let gravity = copy.contentsGravity
             if let contents = copy.contents, gravity != .resize, gravity != .resizeAspect {
-                rect = PostHogGPUMirrorCapture.contentsExtent(copy, contents: contents, gravity: gravity, bounds: rect)
+                rect = PostHogGPUMirrorCapture.contentsExtent(copy, contents: contents, gravity: gravity, bounds: bounds)
             }
-            if let path = (copy as? CAShapeLayer)?.path, let shape = copy as? CAShapeLayer {
+            if let shape = copy as? CAShapeLayer, let path = shape.path {
                 // A stroke reaches half its width past the path, and a miter join up to `miterLimit` half-widths; a
                 // square cap stays within twice.
                 let outset = shape.lineWidth / 2 * max(shape.miterLimit, 2)
-                rect = rect.union(path.boundingBoxOfPath.insetBy(dx: -outset, dy: -outset))
+                rect = rect.union(path.boundingBox.insetBy(dx: -outset, dy: -outset))
             }
             return rect
         }
@@ -164,7 +164,7 @@
             // A cover edge inside a pixel would leave that pixel to rounding.
             let pixels = rect.applying(CGAffineTransform(scaleX: scale, y: scale)).integral
             let local = pixels.applying(CGAffineTransform(scaleX: 1 / scale, y: 1 / scale).concatenating(toWindow.inverted()))
-            let hole = drawsPastBounds(copy) ? local : local.intersection(copy.bounds)
+            let hole = local.intersection(drawnRect(copy) ?? .infinite)
             return hole.isNull || hole.isEmpty ? nil : hole
         }
 

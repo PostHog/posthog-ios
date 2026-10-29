@@ -164,7 +164,6 @@
             return pixels
         }
 
-        /// Magenta and black cells.
         func checkerboard(_ size: CGSize, cell: CGFloat = 4) throws -> UIImage {
             try #require(PostHogGraphicsImageRenderer(size: size, scale: 1).image { context in
                 for y in stride(from: 0, to: size.height, by: cell) {

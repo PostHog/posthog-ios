@@ -10,7 +10,7 @@
     final class PostHogInlineMask {
         /// How copies of a class are redacted, before the instance it applies to is known.
         enum Tag {
-            case label, textField, textView, unreadableText, image, opaque, container
+            case label, textField, textView, unreadableText, opaque, container
         }
 
         /// How a masked copy's content is redacted, chosen from its source.
@@ -37,7 +37,7 @@
                 case .unreadableText:
                     self = .unreadableText((view ?? PostHogGlassStandIn.nearestView(of: layer))?.traitCollection ?? UITraitCollection.current)
                 case .opaque: self = .opaque
-                case .image, .container: self = .container
+                case .container: self = .container
                 }
             }
 
@@ -62,18 +62,31 @@
             /// selection or subviews around it.
             var allowsCover: Bool {
                 switch self {
-                case .opaque, .blocked: return false
-                default: return !isTextInput
+                case .textField, .textView, .opaque, .blocked: return false
+                case .label, .unreadableText, .container: return true
                 }
             }
 
-            /// The cache key of this kind's `*` bitmap; nil for kinds without text.
-            fileprivate func textSignature(size: CGSize, scale: CGFloat) -> TextSignature? {
+            /// How this kind's text shows until it's drawn; nil for kinds without text.
+            fileprivate func textBars(size: CGSize) -> TextBars? {
                 switch self {
-                case let .label(label): return TextSignature(label, size: size, scale: scale)
-                case let .textField(field): return TextSignature(field, size: size, scale: scale)
-                case let .textView(textView): return TextSignature(textView, size: size, scale: scale)
-                case let .unreadableText(traits): return TextSignature(rowsOf: size, scale: scale, traits: traits)
+                case let .label(label): return TextBars(label)
+                case let .textField(field): return TextBars(field, size: size)
+                case let .textView(textView): return TextBars(textView)
+                case let .unreadableText(traits): return TextBars(rowsWith: traits)
+                case .opaque, .container, .blocked: return nil
+                }
+            }
+
+            /// The cache key of this kind's `*` bitmap; nil for kinds without text and for text too long or large to
+            /// draw. The size is checked first: it's free, and the length check scans no text.
+            fileprivate func textSignature(size: CGSize, scale: CGFloat, bars: TextBars) -> TextSignature? {
+                guard PostHogInlineMask.bitmapBytes(size, scale: scale) <= PostHogInlineMask.maxBitmapBytes else { return nil }
+                switch self {
+                case let .label(label): return TextSignature(label, size: size, scale: scale, bars: bars)
+                case let .textField(field): return TextSignature(field, size: size, scale: scale, bars: bars)
+                case let .textView(textView): return TextSignature(textView, size: size, scale: scale, bars: bars)
+                case let .unreadableText(traits): return TextSignature(rowsOf: size, scale: scale, traits: traits, bars: bars)
                 case .opaque, .container, .blocked: return nil
                 }
             }
@@ -157,11 +170,10 @@
                 byCopy[ObjectIdentifier(copy)]?.placement ?? nil
             }
 
-            /// `local` (the copy's bounds by default) in the window: from its placement, else Core Animation's conversion
-            /// to `root`.
-            func windowFrame(of copy: CALayer, root: CALayer, local: CGRect? = nil) -> CGRect {
-                let rect = local ?? copy.bounds
-                return placement(of: copy).map { rect.applying($0.toWindow) } ?? copy.convert(rect, to: root)
+            /// `local`, a rect in the copy's bounds coordinates, in the window: from its placement, else Core Animation's
+            /// conversion to `root`.
+            func windowFrame(of copy: CALayer, root: CALayer, local: CGRect) -> CGRect {
+                placement(of: copy).map { local.applying($0.toWindow) } ?? copy.convert(local, to: root)
             }
         }
 
@@ -182,8 +194,6 @@
             case drawing
             /// Nothing to draw: the view has no text.
             case empty
-            /// Not drawn: the text keeps its bars.
-            case barsOnly
             case drawn(CGImage)
         }
 
@@ -193,11 +203,9 @@
         }
 
         private static let maxCacheBytes = 16 * 1024 * 1024
-        /// Larger text isn't drawn and keeps its bars, so one bitmap evicts at most a quarter of the cache. At 3x, about
-        /// 1,000 by 1,000 pixels: a third of a phone screen.
+        /// Larger text isn't drawn and keeps its bars, so one bitmap evicts at most a quarter of the cache.
         static let maxBitmapBytes = maxCacheBytes / 4
-        /// UTF-16 units past which text gets no signature and keeps its bars: keying it scans every character on main,
-        /// every capture. A page of text, far past labels and fields.
+        /// UTF-16 units past which text gets no signature and keeps its bars: keying it scans every character on main, every capture.
         static let maxTextLength = 4096
         private static let unitRect = CGRect(x: 0, y: 0, width: 1, height: 1)
         private static let barHeightFraction: CGFloat = 0.55
@@ -450,36 +458,45 @@
             /// A drawn `*` bitmap costs a lookup. Otherwise the text shows as glyph-free bars this frame and, within the
             /// budget, is read on main and drawn on the draw queue for a later capture.
             private mutating func setText(_ copy: CALayer, source: CALayer?, kind: Kind, fallbackToBlack: Bool) {
-                let key = source.map(ObjectIdentifier.init) ?? ObjectIdentifier(copy)
                 let size = copy.bounds.size
-                let known = signatures[key] ?? kind.textSignature(size: size, scale: scale)
+                guard let bars = kind.textBars(size: size) else { return }
+                let key = source.map(ObjectIdentifier.init) ?? ObjectIdentifier(copy)
+                let known = signatures[key] ?? kind.textSignature(size: size, scale: scale, bars: bars)
                 signatures[key] = known
-                guard let signature = known else { return }
-                switch signature.masked == nil ? .barsOnly : mask.entry(for: signature) {
+                if let signature = known {
+                    guard showDrawn(signature, on: copy, kind: kind, size: size, fallbackToBlack: fallbackToBlack) else { return }
+                }
+                PostHogInlineMask.addBars(bars, to: copy)
+                #if TESTING
+                    mask.textBarsForTesting += 1
+                #endif
+            }
+
+            /// Shows the drawn bitmap, or black for a view with no text, and queues a draw within the budget. Whether the
+            /// copy still needs bars.
+            private mutating func showDrawn(_ signature: TextSignature, on copy: CALayer, kind: Kind, size: CGSize, fallbackToBlack: Bool) -> Bool {
+                switch mask.entry(for: signature) {
                 case let .drawn(image)?:
                     PostHogInlineMask.setContents(image, on: copy, scale: scale)
-                    return
+                    return false
                 case .empty?:
                     if fallbackToBlack { PostHogInlineMask.blackOut(copy, .fill) }
-                    return
-                case .drawing?, .barsOnly?:
-                    break
+                    return false
+                case .drawing?:
+                    return true
                 case nil:
-                    guard spent < mask.textBudget else { break }
+                    guard spent < mask.textBudget else { return true }
                     let start = CACurrentMediaTime()
                     let text = kind.readText(size: size)
                     spent += CACurrentMediaTime() - start
                     guard let text else {
                         mask.recordEmpty(signature)
                         if fallbackToBlack { PostHogInlineMask.blackOut(copy, .fill) }
-                        return
+                        return false
                     }
                     mask.enqueue(text, for: signature, scale: scale)
+                    return true
                 }
-                PostHogInlineMask.addBars(signature, to: copy)
-                #if TESTING
-                    mask.textBarsForTesting += 1
-                #endif
             }
         }
 
@@ -581,19 +598,14 @@
                         if Thread.isMainThread { self.drawsOnMainForTesting += 1 }
                     #endif
                     guard let image else {
-                        // Too large to draw stays bars, rather than drawn again every capture.
-                        self.entries[signature] = Self.bitmapBytes(text.size, scale: scale) > Self.maxBitmapBytes ? .barsOnly : nil
+                        self.entries[signature] = nil
                         return
                     }
-                    let bytes = image.bytesPerRow * image.height
-                    guard bytes <= Self.maxCacheBytes else {
-                        self.entries[signature] = .barsOnly
-                        return
-                    }
+                    let bytes = image.byteCount
                     while self.cacheBytes + bytes > Self.maxCacheBytes, !self.drawnOrder.isEmpty {
                         let oldest = self.drawnOrder.removeFirst()
                         if case let .drawn(old)? = self.entries.removeValue(forKey: oldest) {
-                            self.cacheBytes -= old.bytesPerRow * old.height
+                            self.cacheBytes -= old.byteCount
                             evicted.append(old)
                         }
                     }
@@ -621,9 +633,8 @@
             keepingWhitespace ? String(text.map { $0.isWhitespace ? $0 : "*" }) : text.mask()
         }
 
-        /// `masked(_:keepingWhitespace:)` for each run, keeping its attributes but not attachments, which draw images,
-        /// shadows, or ruby annotations, which draw their own unmasked text. So the masked text wraps or clips as the
-        /// view would.
+        /// `masked(_:keepingWhitespace:)` for each run, keeping its attributes except attachments (images), shadows, and
+        /// ruby annotations (which draw their own unmasked text), so the text wraps or clips as the view would.
         static func masked(_ text: NSAttributedString, keepingWhitespace: Bool, lineBreakMode: NSLineBreakMode) -> NSAttributedString {
             let result = NSMutableAttributedString()
             text.enumerateAttributes(in: NSRange(location: 0, length: text.length)) { attributes, range, _ in
@@ -641,14 +652,14 @@
         }
 
         /// Contentless bars in the text's colour, one per line the bounds hold: no glyph shapes, no layout, no bitmap.
-        private static func addBars(_ signature: TextSignature, to copy: CALayer) {
+        private static func addBars(_ bars: TextBars, to copy: CALayer) {
             let bounds = copy.bounds
-            let lineHeight = min(signature.lineHeight, bounds.height)
+            let lineHeight = min(bars.lineHeight, bounds.height)
             guard lineHeight > 0 else { return }
-            let lines = signature.singleLine ? 1 : min(200, max(1, Int(bounds.height / lineHeight)))
+            let lines = bars.singleLine ? 1 : min(200, max(1, Int(bounds.height / lineHeight)))
             let barHeight = lineHeight * barHeightFraction
             let top = bounds.minY + (bounds.height - CGFloat(lines) * lineHeight) / 2
-            let color = signature.barColor()
+            let color = bars.cgColor()
             for line in 0 ..< lines {
                 let bar = CALayer()
                 bar.frame = CGRect(x: bounds.minX, y: top + CGFloat(line) * lineHeight + (lineHeight - barHeight) / 2, width: bounds.width, height: barHeight)
@@ -664,8 +675,8 @@
         /// Any thread. Masks and lays out `source`, then draws it in Core Animation's own pixel format, so committing the
         /// bitmap needs no conversion.
         private static func draw(_ source: TextSource, scale: CGFloat) -> CGImage? {
+            guard let laidOut = source.laidOut() else { return nil }
             let size = source.size
-            guard bitmapBytes(size, scale: scale) <= maxBitmapBytes, let laidOut = source.laidOut() else { return nil }
             let width = Int((size.width * scale).rounded(.up)), height = Int((size.height * scale).rounded(.up))
             guard width > 0, height > 0,
                   let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
@@ -687,25 +698,61 @@
 
     // MARK: - Text inputs
 
+    /// The glyph-free bars shown until the `*` are drawn, or instead of them for text too long or large to draw: one per
+    /// line of `lineHeight`, or one for single-line text, in the text's colour where it was read, else the label colour.
+    private struct TextBars: Equatable {
+        let lineHeight: CGFloat
+        let singleLine: Bool
+        let color: UIColor?
+        let style: Int
+
+        init(_ label: UILabel) {
+            self.init(lineHeight: label.font.lineHeight, singleLine: label.numberOfLines == 1, color: label.textColor, traits: label.traitCollection)
+        }
+
+        init(_ field: UITextField, size: CGSize) {
+            self.init(lineHeight: field.font?.lineHeight ?? size.height, singleLine: true, color: field.textColor, traits: field.traitCollection)
+        }
+
+        init(_ textView: UITextView) {
+            self.init(lineHeight: textView.font?.lineHeight ?? UIFont.preferredFont(forTextStyle: .body).lineHeight, singleLine: false,
+                      color: textView.textColor, traits: textView.traitCollection)
+        }
+
+        init(rowsWith traits: UITraitCollection) {
+            self.init(lineHeight: UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits).lineHeight, singleLine: false, color: nil,
+                      traits: traits)
+        }
+
+        private init(lineHeight: CGFloat, singleLine: Bool, color: UIColor?, traits: UITraitCollection) {
+            self.lineHeight = lineHeight
+            self.singleLine = singleLine
+            self.color = color
+            style = traits.userInterfaceStyle.rawValue
+        }
+
+        func cgColor() -> CGColor {
+            let traits = UITraitCollection(userInterfaceStyle: UIUserInterfaceStyle(rawValue: style) ?? .unspecified)
+            return PostHogInlineMask.starColor(color ?? .label).resolvedColor(with: traits).cgColor
+        }
+    }
+
     /// What a `*` bitmap is drawn from, cheap to read on every capture and free of the text itself: the masked string
-    /// with the style and layout inputs. Two views with equal signatures draw the same bitmap.
+    /// with the style and layout inputs. Two views with equal signatures draw the same bitmap. Text longer than
+    /// `maxTextLength` has none.
     private struct TextSignature: Hashable {
-        /// nil for text longer than `maxTextLength`, which is never drawn.
-        let masked: String?
+        let masked: String
         let size: CGSize
         let scale: CGFloat
         let font: UIFont?
-        let color: UIColor?
         let alignment: Int
         let lines: Int
         let flags: Int
         /// Where a text view's text starts, scrolled, and how wide it lays out.
         let origin: CGPoint
         let layoutWidth: CGFloat
-        let style: Int
-        /// For the bars shown until the `*` are drawn: one per line of this height, or one for single-line text.
-        let lineHeight: CGFloat
-        let singleLine: Bool
+        /// Its colour and appearance are drawn too.
+        let bars: TextBars
 
         /// Written out because `CGSize` and `CGPoint` aren't `Hashable` in older SDKs.
         func hash(into hasher: inout Hasher) {
@@ -717,76 +764,49 @@
             hasher.combine(origin.y)
         }
 
-        init(_ label: UILabel, size: CGSize, scale: CGFloat) {
-            masked = Self.key(label.text ?? "", keepingWhitespace: true)
-            self.size = size
-            self.scale = scale
-            font = label.font
-            color = label.textColor
-            alignment = label.textAlignment.rawValue
-            lines = label.numberOfLines
-            flags = label.lineBreakMode.rawValue
-            origin = .zero
-            layoutWidth = 0
-            style = label.traitCollection.userInterfaceStyle.rawValue
-            lineHeight = label.font.lineHeight
-            singleLine = label.numberOfLines == 1
+        init?(_ label: UILabel, size: CGSize, scale: CGFloat, bars: TextBars) {
+            guard let masked = Self.key(label.text ?? "", keepingWhitespace: true) else { return nil }
+            self.init(masked, size: size, scale: scale, font: label.font, alignment: label.textAlignment.rawValue, lines: label.numberOfLines,
+                      flags: label.lineBreakMode.rawValue, bars: bars)
         }
 
-        init(_ field: UITextField, size: CGSize, scale: CGFloat) {
+        init?(_ field: UITextField, size: CGSize, scale: CGFloat, bars: TextBars) {
             // The placeholder shows only when there's no text; a leading NUL keeps the two apart.
             let text = field.text ?? ""
-            masked = text.isEmpty ? Self.key(field.placeholder ?? "", keepingWhitespace: false).map { "\u{0}" + $0 } : Self.key(text, keepingWhitespace: false)
-            self.size = size
-            self.scale = scale
-            font = field.font
-            color = field.textColor
-            alignment = field.textAlignment.rawValue
-            lines = 1
-            flags = (field.isEditing ? 1 : 0) | (field.isSecureTextEntry ? 2 : 0)
-            origin = .zero
-            layoutWidth = 0
-            style = field.traitCollection.userInterfaceStyle.rawValue
-            lineHeight = field.font?.lineHeight ?? size.height
-            singleLine = true
+            guard let key = Self.key(text.isEmpty ? field.placeholder ?? "" : text, keepingWhitespace: false) else { return nil }
+            self.init(text.isEmpty ? "\u{0}" + key : key, size: size, scale: scale, font: field.font, alignment: field.textAlignment.rawValue,
+                      lines: 1, flags: (field.isEditing ? 1 : 0) | (field.isSecureTextEntry ? 2 : 0), bars: bars)
         }
 
-        init(_ textView: UITextView, size: CGSize, scale: CGFloat) {
-            masked = Self.key(textView.text ?? "", keepingWhitespace: true)
-            self.size = size
-            self.scale = scale
-            font = textView.font
-            color = textView.textColor
-            alignment = textView.textAlignment.rawValue
-            lines = 0
-            flags = 0
+        init?(_ textView: UITextView, size: CGSize, scale: CGFloat, bars: TextBars) {
+            guard let masked = Self.key(textView.text ?? "", keepingWhitespace: true) else { return nil }
             let layout = TextSource.textViewLayout(textView)
-            origin = layout.origin
-            layoutWidth = layout.width
-            style = textView.traitCollection.userInterfaceStyle.rawValue
-            lineHeight = textView.font?.lineHeight ?? UIFont.preferredFont(forTextStyle: .body).lineHeight
-            singleLine = false
+            self.init(masked, size: size, scale: scale, font: textView.font, alignment: textView.textAlignment.rawValue, lines: 0, flags: 0,
+                      origin: layout.origin, layoutWidth: layout.width, bars: bars)
         }
 
-        init(rowsOf size: CGSize, scale: CGFloat, traits: UITraitCollection) {
-            masked = ""
+        init(rowsOf size: CGSize, scale: CGFloat, traits: UITraitCollection, bars: TextBars) {
+            self.init("", size: size, scale: scale, font: UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits), alignment: 0,
+                      lines: 0, flags: 0, bars: bars)
+        }
+
+        private init(_ masked: String, size: CGSize, scale: CGFloat, font: UIFont?, alignment: Int, lines: Int, flags: Int,
+                     origin: CGPoint = .zero, layoutWidth: CGFloat = 0, bars: TextBars)
+        {
+            self.masked = masked
             self.size = size
             self.scale = scale
-            let body = UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits)
-            font = body
-            color = nil
-            alignment = 0
-            lines = 0
-            flags = 0
-            origin = .zero
-            layoutWidth = 0
-            style = traits.userInterfaceStyle.rawValue
-            lineHeight = body.lineHeight
-            singleLine = false
+            self.font = font
+            self.alignment = alignment
+            self.lines = lines
+            self.flags = flags
+            self.origin = origin
+            self.layoutWidth = layoutWidth
+            self.bars = bars
         }
 
         /// The text masked per unicode scalar, which is cheap: equal masked text gives an equal key, and the bitmap is
-        /// drawn per character.
+        /// drawn per character. nil past `maxTextLength`, checked before the scan.
         private static func key(_ text: String, keepingWhitespace: Bool) -> String? {
             guard text.utf16.count <= PostHogInlineMask.maxTextLength else { return nil }
             var masked = String.UnicodeScalarView()
@@ -795,12 +815,10 @@
             }
             return String(masked)
         }
+    }
 
-        /// The text's colour where it was read, else the label colour.
-        func barColor() -> CGColor {
-            let traits = UITraitCollection(userInterfaceStyle: UIUserInterfaceStyle(rawValue: style) ?? .unspecified)
-            return PostHogInlineMask.starColor(color ?? .label).resolvedColor(with: traits).cgColor
-        }
+    private extension CGImage {
+        var byteCount: Int { bytesPerRow * height }
     }
 
     /// A view's text as read on main: what only UIKit can give (the text, its rects, colours resolved against the

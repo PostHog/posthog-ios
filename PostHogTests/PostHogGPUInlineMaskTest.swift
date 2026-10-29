@@ -194,7 +194,7 @@
             #expect(fixture.mask.textDrawsForTesting == 0)
         }
 
-        @Test("Masked text too large to draw keeps its bars, and isn't drawn again on later captures")
+        @Test("Masked text too large to draw keeps its bars, and is never drawn")
         func oversizedTextKeepsBars() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
@@ -205,7 +205,7 @@
 
             try await expectFullyMasked(captureStars(fixture))
             try await expectFullyMasked(captureStars(fixture))
-            #expect(fixture.mask.textDrawsForTesting == 1)
+            #expect(fixture.mask.textDrawsForTesting == 0)
             #expect(fixture.mask.textBarsForTesting == 4)
         }
 
@@ -438,7 +438,6 @@
         func shapePastBoundsUnderExtentIsMasked() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
-            // Its bounds sit outside the extent; its path draws inside it.
             let shape = CAShapeLayer()
             shape.frame = CGRect(x: 5, y: 5, width: 0, height: 0)
             shape.path = UIBezierPath(rect: CGRect(x: 35, y: 55, width: 100, height: 50)).cgPath
@@ -620,15 +619,17 @@
             #expect(pixels.count(where: Self.isStar) > 30)
         }
 
-        @Test("Every class the mask walk masks as text, an image, a web view or a sandboxed view has a masking kind of its own")
+        @Test("Every class the mask walk masks as text, a web view or a sandboxed view has a masking kind of its own; images are containers")
         func walkedClassesHaveMaskingKinds() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
             let classes = fixture.integration.maskedClassesForTesting
+            let images: [AnyClass] = [UIImageView.self] + ["RCTImageView", "RCTImageComponentView", "SwiftUI.ImageLayer"].compactMap(NSClassFromString)
             #expect(classes.count >= 10)
             for (view, layer) in classes {
                 let tag = fixture.integration.inlineMaskTag(view: view, layer: layer)
-                #expect(tag != .container, "\(view.map(NSStringFromClass) ?? "no view") / \(NSStringFromClass(layer))")
+                let isImage = images.contains { $0 == (view ?? layer) }
+                #expect((tag == .container) == isImage, "\(view.map(NSStringFromClass) ?? "no view") / \(NSStringFromClass(layer))")
             }
         }
 

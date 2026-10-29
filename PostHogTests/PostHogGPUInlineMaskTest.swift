@@ -176,6 +176,24 @@
             #expect(masked.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor == .red)
         }
 
+        @Test("Masked text past the length cap keeps its bars: no signature, nothing read or drawn")
+        func overlongTextKeepsBars() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let textView = UITextView(frame: CGRect(x: 10, y: 40, width: 180, height: 200))
+            textView.text = String(repeating: "Secret 42 ", count: PostHogInlineMask.maxTextLength / 10 + 1)
+            textView.textColor = .magenta
+            textView.font = .boldSystemFont(ofSize: 18)
+            fixture.window.addSubview(textView)
+            fixture.config.maskAllTextInputs = true
+
+            let result = try await captureStars(fixture)
+            try expectFullyMasked(result)
+            #expect(result.inlineRegionCount == 1)
+            #expect(fixture.mask.textBarsForTesting == 2)
+            #expect(fixture.mask.textDrawsForTesting == 0)
+        }
+
         // MARK: - Images
 
         @Test("A masked image is filled black over its bounds")

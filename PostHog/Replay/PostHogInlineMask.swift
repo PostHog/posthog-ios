@@ -182,6 +182,8 @@
             case drawing
             /// Nothing to draw: the view has no text.
             case empty
+            /// Not drawn: the text keeps its bars.
+            case barsOnly
             case drawn(CGImage)
         }
 
@@ -191,6 +193,9 @@
         }
 
         private static let maxCacheBytes = 16 * 1024 * 1024
+        /// UTF-16 units past which text gets no signature and keeps its bars: keying it scans every character on main,
+        /// every capture. A page of text, far past labels and fields.
+        static let maxTextLength = 4096
         private static let unitRect = CGRect(x: 0, y: 0, width: 1, height: 1)
         private static let barHeightFraction: CGFloat = 0.55
         private static let sRGB = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
@@ -447,14 +452,14 @@
                 let known = signatures[key] ?? kind.textSignature(size: size, scale: scale)
                 signatures[key] = known
                 guard let signature = known else { return }
-                switch mask.entry(for: signature) {
+                switch signature.masked == nil ? .barsOnly : mask.entry(for: signature) {
                 case let .drawn(image)?:
                     PostHogInlineMask.setContents(image, on: copy, scale: scale)
                     return
                 case .empty?:
                     if fallbackToBlack { PostHogInlineMask.blackOut(copy, .fill) }
                     return
-                case .drawing?:
+                case .drawing?, .barsOnly?:
                     break
                 case nil:
                     guard spent < mask.textBudget else { break }
@@ -673,7 +678,8 @@
     /// What a `*` bitmap is drawn from, cheap to read on every capture and free of the text itself: the masked string
     /// with the style and layout inputs. Two views with equal signatures draw the same bitmap.
     private struct TextSignature: Hashable {
-        let masked: String
+        /// nil for text longer than `maxTextLength`, which is never drawn.
+        let masked: String?
         let size: CGSize
         let scale: CGFloat
         let font: UIFont?
@@ -718,7 +724,7 @@
         init(_ field: UITextField, size: CGSize, scale: CGFloat) {
             // The placeholder shows only when there's no text; a leading NUL keeps the two apart.
             let text = field.text ?? ""
-            masked = text.isEmpty ? "\u{0}" + Self.key(field.placeholder ?? "", keepingWhitespace: false) : Self.key(text, keepingWhitespace: false)
+            masked = text.isEmpty ? Self.key(field.placeholder ?? "", keepingWhitespace: false).map { "\u{0}" + $0 } : Self.key(text, keepingWhitespace: false)
             self.size = size
             self.scale = scale
             font = field.font
@@ -769,7 +775,8 @@
 
         /// The text masked per unicode scalar, which is cheap: equal masked text gives an equal key, and the bitmap is
         /// drawn per character.
-        private static func key(_ text: String, keepingWhitespace: Bool) -> String {
+        private static func key(_ text: String, keepingWhitespace: Bool) -> String? {
+            guard text.utf16.count <= PostHogInlineMask.maxTextLength else { return nil }
             var masked = String.UnicodeScalarView()
             for scalar in text.unicodeScalars {
                 masked.append(keepingWhitespace && scalar.properties.isWhitespace ? scalar : "*")

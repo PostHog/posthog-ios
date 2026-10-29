@@ -614,11 +614,11 @@
             let bounds = layer.bounds
             let gravity = layer.contentsGravity
             guard !info.metal, let contents = layer.contents, gravity != .resize, gravity != .resizeAspect else { return bounds }
-            return contentsExtent(layer, contents: contents, gravity: gravity, bounds: bounds)
+            return Self.contentsExtent(layer, contents: contents, gravity: gravity, bounds: bounds)
         }
 
         /// `ownExtent` for contents drawn with a gravity that doesn't scale them to the bounds.
-        private func contentsExtent(_ layer: CALayer, contents: Any, gravity: CALayerContentsGravity, bounds: CGRect) -> CGRect {
+        static func contentsExtent(_ layer: CALayer, contents: Any, gravity: CALayerContentsGravity, bounds: CGRect) -> CGRect {
             let object = contents as AnyObject
             let typeID = CFGetTypeID(object)
             var size: CGSize

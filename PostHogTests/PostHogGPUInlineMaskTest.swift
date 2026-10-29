@@ -383,6 +383,29 @@
             #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 100 * 60)
         }
 
+        @Test("A shape drawn past its zero-size bounds under a postHogMask extent is masked, with no rect for the reporter")
+        func shapePastBoundsUnderExtentIsMasked() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            // Its bounds sit outside the extent; its path draws inside it.
+            let shape = CAShapeLayer()
+            shape.frame = CGRect(x: 5, y: 5, width: 0, height: 0)
+            shape.path = UIBezierPath(rect: CGRect(x: 35, y: 55, width: 100, height: 50)).cgPath
+            shape.fillColor = UIColor.magenta.cgColor
+            shape.strokeColor = UIColor.magenta.cgColor
+            shape.lineWidth = 6
+            fixture.window.layer.addSublayer(shape)
+            #expect(try await Pixels(capture(fixture).image).count(where: Self.isMagenta) > 4000)
+
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 20, y: 40, width: 150, height: 100))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            try await expectFullyMasked(capture(fixture))
+            #expect(fixture.mask.extentStatsForTesting.count == 1)
+        }
+
         // MARK: - Portals
 
         private func makePortal(showing source: CALayer, frame: CGRect, matchesPosition: Bool = true, matchesTransform: Bool = true) throws -> CALayer {

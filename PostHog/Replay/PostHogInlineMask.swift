@@ -157,9 +157,11 @@
                 byCopy[ObjectIdentifier(copy)]?.placement ?? nil
             }
 
-            /// The copy's frame in the window: from its placement, else Core Animation's conversion to `root`.
-            func windowFrame(of copy: CALayer, root: CALayer) -> CGRect {
-                placement(of: copy).map { copy.bounds.applying($0.toWindow) } ?? copy.convert(copy.bounds, to: root)
+            /// `local` (the copy's bounds by default) in the window: from its placement, else Core Animation's conversion
+            /// to `root`.
+            func windowFrame(of copy: CALayer, root: CALayer, local: CGRect? = nil) -> CGRect {
+                let rect = local ?? copy.bounds
+                return placement(of: copy).map { rect.applying($0.toWindow) } ?? copy.convert(rect, to: root)
             }
         }
 

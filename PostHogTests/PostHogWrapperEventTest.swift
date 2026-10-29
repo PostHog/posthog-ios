@@ -130,17 +130,31 @@ final class PostHogWrapperEventTest {
         #expect(try sut.sendBuiltEventForWrapper(#require(build(sut)), ai: false) == nil)
     }
 
-    @Test("a built $screen event records the screen for later events")
-    func screenBuildRecordsScreen() async throws {
+    @Test("a sent $screen event becomes the current screen; a built one doesn't")
+    func screenRecordedAtSend() async throws {
         let sut = makeSDK()
         defer { sut.close() }
 
         let screen = try #require(build(sut, "$screen", properties: ["$screen_name": "Home", "tab": 1]))
-
-        #expect(screen.event == "$screen")
         #expect(screen.properties["$screen_name"] as? String == "Home")
         #expect(screen.properties["tab"] as? Int == 1)
+        #expect(build(sut)?.properties["$screen_name"] == nil)
+
+        sut.sendBuiltEventForWrapper(screen, ai: false)
+
         #expect(build(sut)?.properties["$screen_name"] as? String == "Home")
+    }
+
+    @Test("a $screen the wrapper renames isn't recorded as a screen")
+    func renamedScreenNotRecorded() async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        let screen = try #require(build(sut, "$screen", properties: ["$screen_name": "Home"]))
+        screen.event = "custom"
+
+        sut.sendBuiltEventForWrapper(screen, ai: false)
+
+        #expect(build(sut)?.properties["$screen_name"] == nil)
     }
 
     @Test("a $screen build without a $screen_name returns nil", arguments: [nil, "", "  "] as [String?])
@@ -151,18 +165,18 @@ final class PostHogWrapperEventTest {
         #expect(build(sut, "$screen", properties: name.map { ["$screen_name": $0] }) == nil)
     }
 
-    @Test("an event is sent once, on the lane it was built for")
-    func sendsOnceOnBuiltLane() async throws {
+    @Test("an event is sent once, on the lane given at send")
+    func sendsOnceOnSendLane() async throws {
         let sut = makeSDK()
         defer { sut.close() }
         let built = try #require(build(sut, "$ai_generation", ai: true))
 
         let uuid = sut.sendBuiltEventForWrapper(built, ai: false)
-        await waitUntil { self.server.aiRequests.count == 1 }
+        await waitUntil { self.server.batchRequests.count == 1 }
 
         #expect(uuid == built.uuid.postHogUuidString)
         #expect(sut.sendBuiltEventForWrapper(built, ai: true) == nil)
-        #expect(server.batchRequests.isEmpty)
+        #expect(server.aiRequests.isEmpty)
     }
 
     #if os(iOS)

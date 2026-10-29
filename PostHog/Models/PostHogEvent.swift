@@ -50,9 +50,6 @@ import Foundation
 
     /// Set when a wrapper build returns this event: true for the AI lane. Cleared once it's sent, so it's sent once.
     var wrapperAiLane: Bool?
-    /// The screen a wrapper's `$screen` build recorded, announced once the event is sent.
-    var wrapperScreenName: String?
-    var wrapperScreenNameChanged = false
 
     init(
         event: String,

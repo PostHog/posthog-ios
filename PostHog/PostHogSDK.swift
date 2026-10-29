@@ -1805,7 +1805,8 @@ let maxRetryDelay = 30.0
         ) else {
             return nil
         }
-        return finishCaptureEvent(prepared, aiLane: aiLane, deduplicatePersonProperties: deduplicatePersonProperties)
+        return finishCaptureEvent(prepared, aiLane: aiLane, deduplicatePersonProperties: deduplicatePersonProperties)?
+            .uuid.postHogUuidString
     }
 
     /// Builds the event a capture would queue, without running `beforeSend` or queueing it.
@@ -1920,8 +1921,8 @@ let maxRetryDelay = 30.0
     }
 
     /// Runs `beforeSend` on an event from `prepareCaptureEvent` and queues the result.
-    /// - Returns: The queued event's UUID, or `nil` when the event isn't queued.
-    private func finishCaptureEvent(_ prepared: PostHogEvent, aiLane: Bool, deduplicatePersonProperties: Bool = false) -> String? {
+    /// - Returns: The queued event, as `beforeSend` returned it, or `nil` when the event isn't queued.
+    private func finishCaptureEvent(_ prepared: PostHogEvent, aiLane: Bool, deduplicatePersonProperties: Bool = false) -> PostHogEvent? {
         guard let queue = aiLane ? aiQueue : queue else {
             releaseClaimIfCarried(prepared)
             return nil
@@ -1949,10 +1950,10 @@ let maxRetryDelay = 30.0
             releaseClaimIfCarried(posthogEvent)
             replayQueue?.add(posthogEvent)
             onEventCaptured.invoke(posthogEvent)
-            return replayQueue == nil ? nil : posthogEvent.uuid.postHogUuidString
+            return replayQueue == nil ? nil : posthogEvent
         }
         let stored = queueEvent(posthogEvent, queue: queue, deduplicatePersonProperties: deduplicatePersonProperties)
-        return stored ? posthogEvent.uuid.postHogUuidString : nil
+        return stored ? posthogEvent : nil
     }
 
     private func warnIfNotAiEvent(_ event: String) {
@@ -1965,8 +1966,8 @@ let maxRetryDelay = 30.0
     ///
     /// Builds the event `capture` (or `captureAi` when `ai` is true) would queue, with SDK, registered and
     /// caller properties already merged, but doesn't run `beforeSend` or queue it. A `$screen` event is built
-    /// like `screen(_:properties:options:)` instead: it needs a non-blank `$screen_name` in `properties`, which
-    /// is cached as the current screen, and `distinctId`, person properties, groups and `timestamp` are ignored. This lets a wrapper run
+    /// like `screen(_:properties:options:)` instead: it needs a non-blank `$screen_name` in `properties`, and
+    /// `distinctId`, person properties, groups and `timestamp` are ignored. It becomes the current screen once sent. This lets a wrapper run
     /// its own `beforeSend` on the final event, then hand it back with `sendBuiltEventForWrapper(_:ai:)`.
     /// Edit the returned event in place; its `uuid` and `timestamp` are kept. An event the wrapper drops needs no
     /// cleanup. Distinct ID, session and person processing are read here, at build time.
@@ -2028,8 +2029,8 @@ let maxRetryDelay = 30.0
         return built
     }
 
-    /// Builds a wrapper's `$screen` event like `screen(_:properties:options:)`: `$screen_name` is required and
-    /// cached as the current screen. Subscribers hear about the screen once the event is sent.
+    /// Builds a wrapper's `$screen` event like `screen(_:properties:options:)`, from its required `$screen_name`.
+    /// The screen is recorded at send, from the final event, so a wrapper hook that renames or drops it is respected.
     private func buildScreenEventForWrapper(properties: [String: Any]?, options: [String: Any]?) -> PostHogEvent? {
         guard let screenName = properties?["$screen_name"] as? String, !Self.isBlank(screenName) else {
             hedgeLog("PostHog $screen event without a $screen_name was dropped")
@@ -2039,8 +2040,6 @@ let maxRetryDelay = 30.0
             return nil
         }
         prepared.event.wrapperAiLane = false
-        prepared.event.wrapperScreenName = prepared.screenName
-        prepared.event.wrapperScreenNameChanged = prepared.screenNameChanged
         return prepared.event
     }
 
@@ -2048,12 +2047,13 @@ let maxRetryDelay = 30.0
     ///
     /// Sends an event from `buildEventForWrapper`: runs the native
     /// `beforeSend` chain on it, then queues it on the analytics lane, or the AI lane when `ai` is true.
-    /// The SDK adds no properties, and keeps the event's `uuid` and `timestamp`.
+    /// The SDK adds only the throttled replay debug properties a normal capture would, and keeps the event's
+    /// `uuid` and `timestamp`. A sent `$screen` event becomes the current screen.
     ///
     /// - Parameters:
     ///   - event: The built event, as edited by the wrapper.
-    ///   - ai: True for an AI event. Pass the same value given to `buildEventForWrapper`; the lane chosen at
-    ///     build time wins, with a log, if they differ.
+    ///   - ai: True to send on the AI lane. Pass the same value given to `buildEventForWrapper`; this one wins,
+    ///     with a log, if they differ.
     /// - Returns: The queued event's UUID, or `nil` when it isn't queued: the SDK was opted out since the build,
     ///   `beforeSend` dropped it, or the event was already sent or wasn't built for a wrapper.
     ///
@@ -2070,21 +2070,26 @@ let maxRetryDelay = 30.0
         }
         event.wrapperAiLane = nil
         if ai != builtLane {
-            hedgeLog("PostHog event \(event.event) was built for the \(builtLane ? "AI" : "analytics") lane, so it's sent there")
+            hedgeLog("PostHog event \(event.event) was built for the \(builtLane ? "AI" : "analytics") lane, but is sent on the lane given here")
         }
         if !isEnabled() || isOptOutState() {
             return nil
         }
-        if !builtLane, Self.isReplayDebugEvent(event.event), claimReplayDebugPropertiesWindow() {
+        if !ai, Self.isReplayDebugEvent(event.event), claimReplayDebugPropertiesWindow() {
             // SDK values, so the wrapper's properties win.
             event.properties.merge(replayDebugProperties()) { current, _ in current }
             event.carriesReplayDebugBundle = true
         }
-        let uuid = finishCaptureEvent(event, aiLane: builtLane)
-        if uuid != nil, let screenName = event.wrapperScreenName {
-            didRecordScreen(screenName, changed: event.wrapperScreenNameChanged)
+        guard let sent = finishCaptureEvent(event, aiLane: ai) else {
+            return nil
         }
-        return uuid
+        if sent.event == "$screen",
+           let screenName = sent.properties["$screen_name"] as? String,
+           let cleaned = PostHogScreenNameSanitizer.sanitize(rawScreenName: screenName)
+        {
+            didRecordScreen(cleaned, changed: cacheScreenName(cleaned))
+        }
+        return sent.uuid.postHogUuidString
     }
 
     /// Records a screen view by capturing a `$screen` event.
@@ -2163,11 +2168,7 @@ let maxRetryDelay = 30.0
         // (queue not yet assigned) still seeds the cache for subsequent events.
         // Track whether the value actually changed so we can skip the crash-
         // replay snapshot refresh on duplicate viewDidAppears for the same VC.
-        let screenNameChanged = lastScreenLock.withLock { () -> Bool in
-            let changed = _lastScreenName != cleaned
-            _lastScreenName = cleaned
-            return changed
-        }
+        let screenNameChanged = forWrapper ? false : cacheScreenName(cleaned)
 
         guard queue != nil else {
             return nil
@@ -2190,6 +2191,15 @@ let maxRetryDelay = 30.0
             timestamp: Date()
         )
         return PreparedScreen(event: event, screenName: cleaned, screenNameChanged: screenNameChanged)
+    }
+
+    /// Returns whether the cached screen name changed.
+    private func cacheScreenName(_ cleaned: String) -> Bool {
+        lastScreenLock.withLock { () -> Bool in
+            let changed = _lastScreenName != cleaned
+            _lastScreenName = cleaned
+            return changed
+        }
     }
 
     private func didRecordScreen(_ cleaned: String, changed screenNameChanged: Bool) {

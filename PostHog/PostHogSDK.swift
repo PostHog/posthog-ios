@@ -787,14 +787,6 @@ let maxRetryDelay = 30.0
                 props["$is_identified"] = isIdentified
             }
 
-            // Person processing is sent as the `process_person_profile` option, only when it's off
-            // (see `personProcessingOptions`). A registered or caller `$process_person_profile` wins
-            // over it when the send hoists the property. The crash-context snapshot stores only
-            // properties, so it keeps the property, which the send hoists.
-            if readOnlySession, !hasPersonProcessing() {
-                props["$process_person_profile"] = false
-            }
-
             if config.disableGeoIp {
                 props["$geoip_disable"] = true
             }
@@ -1866,7 +1858,8 @@ let maxRetryDelay = 30.0
             finalProperties[PostHogExceptionStepFields.stepsKey] = steps
         }
 
-        // Snapshots and pre-built crash events don't carry the SDK's person-processing option.
+        // Snapshots don't carry the SDK's person-processing option; pre-built crash events carry the
+        // one saved with their crash context.
         let eventOptions = skipBuildProperties || isSnapshotEvent
             ? sanitizeDictionary(options)
             : personProcessingOptions(sanitizeDictionary(options), properties: finalProperties)
@@ -3871,10 +3864,14 @@ let maxRetryDelay = 30.0
 
         // Build crash context with identity info + event properties
         // This structure allows crash reporting to reconstruct events with crash-time data
-        let context: [String: Any] = [
+        var context: [String: Any] = [
             "distinct_id": distinctId,
             "event_properties": eventProperties,
         ]
+        // Person processing is an option, not a property (see `personProcessingOptions`).
+        if let options = personProcessingOptions(nil, properties: eventProperties) {
+            context["options"] = options
+        }
 
         onEventContextChanged.invoke(context)
     }

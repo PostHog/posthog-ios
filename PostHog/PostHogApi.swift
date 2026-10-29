@@ -307,11 +307,12 @@ class PostHogApi {
 
         if let statusCode, 200 ... 299 ~= statusCode {
             // A 2xx whose results can't be read, including a transfer that failed
-            // after the status arrived, counts as delivered: the server already
-            // stored its ok events, and a resend would store them again.
+            // after the status arrived, fails the whole batch. It isn't retried:
+            // the server may have stored its ok events, and a resend would store them again.
             let results = data.flatMap { fromJSONData($0) }?["results"] as? [String: Any]
             if results == nil {
-                hedgeLog("Capture returned \(statusCode) without readable per-event results, treating \(uuids.count) events as delivered.")
+                dropped = uuids.count
+                hedgeLog("Capture returned \(statusCode) without readable per-event results, dropping \(dropped) events.")
             }
             // Events missing from the results count as delivered. A repeated UUID takes its
             // first copy's result; capture counts the later copies it dropped in `duplicates_dropped`.

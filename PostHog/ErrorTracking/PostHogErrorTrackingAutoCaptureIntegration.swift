@@ -286,6 +286,7 @@ import Foundation
                     distinctId: crashDistinctId,
                     properties: finalProperties,
                     timestamp: crashTimestamp,
+                    options: savedContext["options"] as? [String: Any],
                     skipBuildProperties: true
                 )
 

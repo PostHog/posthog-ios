@@ -1,5 +1,18 @@
 ## Next
 
+## 3.92.7
+
+### Patch Changes
+
+- 047ccee: Upload session replay screenshots at one pixel per point whether or not the frame has masks, instead of at the screen's native scale for unmasked frames.
+
+## 3.92.6
+
+### Patch Changes
+
+- 707d3b2: Mask the whole rect of a `ph-no-capture` view in session replay screenshots, including a view that fills the window.
+- 05c1201: Fix screenshot session replay masks leaving the corners of each masked area visible; masks now cover the full rectangle.
+
 ## 3.92.5
 
 ### Patch Changes

@@ -229,3 +229,5 @@ bootstrap:
 	brew install swiftlint
 	brew install swiftformat
 	brew install peripheryapp/periphery/periphery
+	brew install prek
+	prek install

@@ -1067,20 +1067,11 @@
                 }
             }
 
-            // on RN, lots get converted to RCTRootContentView, RCTRootView, RCTView and sometimes its just the whole screen, we dont want to mask
-            // in such cases
-            var maskDescendants = maskChildren
-            if view.isNoCapture() || maskChildren {
-                let viewRect = view.toAbsoluteRect(window)
-                let windowRect = window.frame
-
-                // Check if the rectangles do not match. A full-window leaf has no descendants
-                // to carry the mask, so it is masked itself.
-                if !viewRect.equalTo(windowRect) || view.subviews.isEmpty {
-                    maskableWidgets.append(.init(view, in: window))
-                } else {
-                    maskDescendants = true
-                }
+            // Masked whole, even when it fills the window, and so is every descendant: an
+            // unclipped descendant can draw outside the view's rect.
+            let maskDescendants = view.isNoCapture() || maskChildren
+            if maskDescendants {
+                maskableWidgets.append(.init(view, in: window))
             }
 
             findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskDescendants)
@@ -1195,6 +1186,10 @@
 
             var maskableWidgets: [MaskedRegion] = []
             findMaskableWidgets(under: cover, in: window, &maskableWidgets)
+            // A reporter inside a `ph-no-capture` view is also reached by the walk. Keep one
+            // entry per reporter: a repeated owner reads as motion to the settle check.
+            let reporters = Set(masked.regions.map(\.owner))
+            maskableWidgets.removeAll { reporters.contains($0.owner) }
             maskableWidgets.append(contentsOf: masked.regions)
             return maskableWidgets
         }
@@ -1794,13 +1789,9 @@
                 guard ancestor.isNoCapture() || maskChildren else {
                     continue
                 }
-                if ancestor.toAbsoluteRect(window).equalTo(window.frame) {
-                    maskChildren = true
-                } else {
-                    // An ancestor that is not the window's size is redacted as one rect, and the
-                    // cover it holds is redacted with it.
-                    maskableWidgets.append(.init(ancestor, in: window))
-                }
+                // Redacted as one rect, and the cover it holds is masked with its descendants.
+                maskableWidgets.append(.init(ancestor, in: window))
+                maskChildren = true
             }
 
             findMaskableWidgets(cover, window, &maskableWidgets, maskChildren)

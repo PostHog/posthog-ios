@@ -46,9 +46,13 @@ class RRWireframe {
         // Shared so tests can redact through the exact production path instead of reimplementing it.
         static func maskImage(_ image: UIImage, maskableWidgets: [CGRect]) -> UIImage? {
             guard !maskableWidgets.isEmpty else { return nil }
+            return redrawAtOnePixelPerPoint(image, maskableWidgets: maskableWidgets)
+        }
 
-            return autoreleasepool {
-                // Use scale=1 to preserve the existing masked screenshot payload size.
+        /// Screenshots render at native scale on main; this downscale runs at encode time, off main,
+        /// so every screenshot uploads at the same size whether or not it is masked.
+        private static func redrawAtOnePixelPerPoint(_ image: UIImage, maskableWidgets: [CGRect] = []) -> UIImage? {
+            autoreleasepool {
                 let renderer = PostHogGraphicsImageRenderer(size: image.size, scale: 1)
                 return renderer.image { context in
                     context.interpolationQuality = .none
@@ -56,7 +60,7 @@ class RRWireframe {
 
                     for rect in maskableWidgets {
                         UIColor.black.setFill()
-                        UIBezierPath(roundedRect: rect, cornerRadius: 10).fill()
+                        UIRectFill(rect)
                     }
                 }
             }
@@ -84,6 +88,9 @@ class RRWireframe {
                         // unset and let the caller drop the frame — never the raw image.
                         maskRenderFailed = true
                     }
+                } else if type == "screenshot" {
+                    // Nothing to hide, so unlike masking a failed redraw can fall back to the native image.
+                    base64 = (RRWireframe.redrawAtOnePixelPerPoint(image) ?? image).toBase64()
                 } else {
                     base64 = image.toBase64()
                 }

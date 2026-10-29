@@ -67,9 +67,9 @@
         /// - A value: that fraction of native resolution. On a 3x device, `1.0` uploads 1206×2622 pixels
         ///   (native) and `0.5` uploads 603×1311 (1.5 pixels per point).
         ///
-        /// Values are clamped to 0.1...1.0, and NaN or infinite values reset it to `nil`. Masked and unmasked
-        /// screenshots upload at the same size, and the replay's viewport in points is unchanged. Does not
-        /// affect wireframe mode or compression quality. Exposed as `NSNumber` so Objective-C can leave it unset.
+        /// Values are clamped to 0.1...1.0, and NaN or infinite values reset it to `nil`. The replay's viewport in
+        /// points is unchanged. Does not affect wireframe mode or compression quality. Exposed as `NSNumber` so
+        /// Objective-C can leave it unset.
         ///
         /// Experimental.
         /// Default: nil (one pixel per point)

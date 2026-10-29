@@ -70,8 +70,6 @@ class RRWireframe {
             autoreleasepool { resample(image, pixelScale: pixelScale) ?? image }
         }
 
-        /// Screenshots render at native scale on main; masking and the resize to upload scale run at encode
-        /// time, off main, so every screenshot uploads at the same size whether or not it is masked.
         private static func resample(_ image: UIImage, pixelScale: CGFloat) -> UIImage? {
             // Already at the upload resolution, so resampling would only cost time.
             guard pixelScale < image.scale else { return image }

@@ -319,7 +319,8 @@ class PostHogApi {
             var seen: Set<String> = []
             for uuid in uuids where seen.insert(uuid).inserted {
                 guard let entry = results?[uuid] as? [String: Any] else { continue }
-                duplicatesDropped += (entry["duplicates_dropped"] as? Int) ?? 0
+                // Clamped to the batch size so a malformed count can't overflow the sum.
+                duplicatesDropped += min(max((entry["duplicates_dropped"] as? Int) ?? 0, 0), uuids.count)
                 switch entry["result"] as? String {
                 case "retry":
                     retryUuids.insert(uuid)

@@ -187,6 +187,28 @@ final class PostHogCaptureV1Test {
         #expect(result?.retryRecordIds?.isEmpty ?? true)
     }
 
+    @Test("clamps a malformed duplicates_dropped count instead of overflowing")
+    func clampsMalformedDuplicatesDropped() throws {
+        let wasLogging = hedgeLogEnabled
+        hedgeLogEnabled = true
+        defer { hedgeLogEnabled = wasLogging }
+        let uuids = [UUID().postHogUuidString, UUID().postHogUuidString]
+        let identity = CaptureV1RequestIdentity(uuids: Set(uuids), requestId: "request", attempt: 1, createdAt: "now")
+        let body = try JSONSerialization.data(withJSONObject: ["results": [
+            uuids[0]: ["result": "ok", "duplicates_dropped": Int.max],
+            uuids[1]: ["result": "ok", "duplicates_dropped": -5],
+        ]])
+
+        let output = try captureStdout {
+            _ = makeApi().captureV1Result(
+                PostHogUploadInfo(statusCode: 200, error: nil), path: PostHogApi.captureV1AnalyticsPath, data: body,
+                uuids: uuids, identity: identity
+            )
+        }
+
+        #expect(output.contains("Capture: 0 dropped, 2 duplicates dropped, 0 to retry."))
+    }
+
     @Test("treats a 2xx whose transfer then failed as delivered, so its ok events aren't stored twice")
     func failedTransferAfterSuccessIsDelivered() {
         let uuids = [UUID().postHogUuidString, UUID().postHogUuidString]

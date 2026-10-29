@@ -53,6 +53,10 @@ import Foundation
     /// The SDK's distinct ID when a wrapper built this event, so a send after `reset()` or `identify()`
     /// doesn't give the new user this event's person properties for feature flags.
     var wrapperBuildDistinctId: String?
+    /// Whether a wrapper-built event may take the replay debug bundle, from the name it was built with.
+    var wrapperReplayDebugEligible = false
+    /// True when a wrapper build passed person properties or groups. Person processing turns on at send.
+    var wrapperRequiresPersonProcessing = false
 
     init(
         event: String,

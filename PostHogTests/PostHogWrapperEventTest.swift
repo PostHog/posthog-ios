@@ -205,6 +205,20 @@ final class PostHogWrapperEventTest {
         #expect(try #require(sut.remoteConfig).getPersonPropertiesForFlags()["plan"] == nil)
     }
 
+    @Test("a build turns on person processing only when it's sent")
+    func personProcessingDeferredToSend() throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        let built = try #require(build(sut))
+
+        #expect(sut.config.storageManager?.isPersonProcessing() == false)
+        #expect(built.options["process_person_profile"] == nil)
+
+        sut.sendBuiltEventForWrapper(built, ai: false)
+
+        #expect(sut.config.storageManager?.isPersonProcessing() == true)
+    }
+
     #if os(iOS)
         #if !SWIFT_PACKAGE || SessionReplay
             @Test("the replay debug bundle is claimed when a wrapper event is sent, not when it's built")
@@ -213,6 +227,20 @@ final class PostHogWrapperEventTest {
                 defer { sut.close() }
                 let built = try #require(build(sut, "$wrapped"))
                 #expect(built.properties["$sdk_debug_replay_capture_mode"] == nil)
+
+                server.reset(batchCount: 1)
+                sut.sendBuiltEventForWrapper(built, ai: false)
+                let sent = try #require(getBatchedEvents(server).first)
+
+                #expect(sent.properties["$sdk_debug_replay_capture_mode"] != nil)
+            }
+
+            @Test("a wrapper event renamed by the hook keeps the replay debug eligibility of its built name")
+            func wrapperReplayEligibilityFromBuiltName() throws {
+                let sut = makeSDK()
+                defer { sut.close() }
+                let built = try #require(build(sut, "$wrapped"))
+                built.event = "renamed"
 
                 server.reset(batchCount: 1)
                 sut.sendBuiltEventForWrapper(built, ai: false)

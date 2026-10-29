@@ -622,9 +622,10 @@ let maxRetryDelay = 30.0
 
     /// Adds `process_person_profile: false` when the SDK doesn't process person profiles for this
     /// event, unless the caller set that option or the legacy `$process_person_profile` property.
-    /// Nothing is added otherwise: PostHog processes person profiles by default.
-    private func personProcessingOptions(_ options: [String: Any]?, properties: [String: Any]) -> [String: Any]? {
-        guard !hasPersonProcessing() else { return options }
+    /// Nothing is added otherwise: PostHog processes person profiles by default. `personProcessingPending`
+    /// counts a person-processing change a wrapper build defers to its send.
+    private func personProcessingOptions(_ options: [String: Any]?, properties: [String: Any], personProcessingPending: Bool = false) -> [String: Any]? {
+        guard !hasPersonProcessing(), !(personProcessingPending && config.personProfiles != .never) else { return options }
         if let legacy = properties["$process_person_profile"], !(legacy is NSNull) {
             return options
         }
@@ -1860,7 +1861,8 @@ let maxRetryDelay = 30.0
             || userPropertiesSetOnce?.isEmpty == false
             || groups?.isEmpty == false
 
-        if !skipBuildProperties, hasPersonData {
+        // A wrapper build defers this to its send, so a build the wrapper drops changes no state.
+        if !skipBuildProperties, hasPersonData, !forWrapper {
             requirePersonProcessing()
         }
 
@@ -1905,7 +1907,7 @@ let maxRetryDelay = 30.0
         // Snapshots and pre-built crash events don't carry the SDK's person-processing option.
         let eventOptions = skipBuildProperties || isSnapshotEvent
             ? sanitizeDictionary(options)
-            : personProcessingOptions(sanitizeDictionary(options), properties: finalProperties)
+            : personProcessingOptions(sanitizeDictionary(options), properties: finalProperties, personProcessingPending: forWrapper && hasPersonData)
 
         let posthogEvent = makeEvent(
             event: event,
@@ -1917,6 +1919,9 @@ let maxRetryDelay = 30.0
         if !skipBuildProperties {
             posthogEvent.flagUserProperties = userProperties
             posthogEvent.flagUserPropertiesSetOnce = userPropertiesSetOnce
+        }
+        if forWrapper {
+            posthogEvent.wrapperRequiresPersonProcessing = hasPersonData
         }
         return posthogEvent
     }
@@ -2012,6 +2017,7 @@ let maxRetryDelay = 30.0
         } else if event == "$screen" {
             let screen = buildScreenEventForWrapper(properties: properties, options: options)
             screen?.wrapperBuildDistinctId = getDistinctId()
+            screen?.wrapperReplayDebugEligible = Self.isReplayDebugEvent(event)
             return screen
         }
         let built = prepareCaptureEvent(
@@ -2030,6 +2036,7 @@ let maxRetryDelay = 30.0
         )
         built?.wrapperAiLane = ai
         built?.wrapperBuildDistinctId = getDistinctId()
+        built?.wrapperReplayDebugEligible = Self.isReplayDebugEvent(event)
         return built
     }
 
@@ -2082,7 +2089,11 @@ let maxRetryDelay = 30.0
         if !isEnabled() || isOptOutState() {
             return nil
         }
-        if !ai, Self.isReplayDebugEvent(event.event), claimReplayDebugPropertiesWindow() {
+        if event.wrapperRequiresPersonProcessing {
+            requirePersonProcessing()
+        }
+        // Eligibility comes from the name the event was built with, since the wrapper's hook can rename it.
+        if !ai, event.wrapperReplayDebugEligible, claimReplayDebugPropertiesWindow() {
             // SDK values, so the wrapper's properties win. The required keys were on the built event,
             // so the wrapper already saw them and may have removed them on purpose.
             let deferred = replayDebugProperties().filter { !Self.requiredReplayDebugPropertyKeys.contains($0.key) }

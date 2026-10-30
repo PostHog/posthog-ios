@@ -282,6 +282,8 @@ import Foundation
                     return
                 }
 
+                finalProperties = PostHogCrashReportProcessor.removingOversizedCrashReport(from: finalProperties)
+
                 // Collect crash timestamp
                 let crashTimestamp = PostHogCrashReportProcessor.getCrashTimestamp(crashReport)
 

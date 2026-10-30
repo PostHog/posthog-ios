@@ -227,6 +227,57 @@ import Testing
             }
         }
 
+        // MARK: - Full Crash Report Tests
+
+        @Suite("Full Crash Report")
+        struct FullCrashReportTests {
+            @Test("attaches the Apple-format report with every thread")
+            func attachesAppleFormatReport() throws {
+                let report = try makeLiveCrashReport()
+
+                let properties = PostHogCrashReportProcessor.processReport(report, config: PostHogErrorTrackingConfig())
+
+                let text = try #require(properties["$exception_crash_report"] as? String)
+                #expect(text.contains("Incident Identifier:"))
+                #expect(text.contains("Binary Images:"))
+                for case let thread as PHPLCrashReportThreadInfo in report.threads {
+                    let header = thread.crashed ? "Thread \(thread.threadNumber) Crashed:" : "Thread \(thread.threadNumber):"
+                    #expect(text.contains(header))
+                }
+            }
+
+            @Test("lists only binary images referenced by a frame")
+            func listsOnlyReferencedImages() throws {
+                let report = try makeLiveCrashReport()
+
+                let text = try #require(PostHogCrashReportProcessor.buildCrashReportText(from: report))
+
+                let imageLines = try #require(text.components(separatedBy: "Binary Images:\n").last)
+                    .split(separator: "\n")
+                #expect(!imageLines.isEmpty)
+                #expect(imageLines.count < report.images.count)
+                // The test runner's own frames are always on the stack.
+                #expect(imageLines.contains { $0.contains("PostHogPackageTests") || $0.contains("xctest") })
+            }
+
+            @Test("drops the report when JSON escaping pushes the event over the limit")
+            func dropsReportWhenSerializedEventTooLarge() {
+                // Quotes double in size once JSON-escaped, and the reason appears in both properties.
+                let reason = String(repeating: "\"", count: 300)
+                let properties: [String: Any] = [
+                    "$exception_list": [["type": "NSInvalidArgumentException", "value": reason]],
+                    "$exception_crash_report": "Reason: \(reason)",
+                ]
+
+                let kept = PostHogCrashReportProcessor.removingOversizedCrashReport(from: properties, maxBytes: 1500)
+                let dropped = PostHogCrashReportProcessor.removingOversizedCrashReport(from: properties, maxBytes: 1000)
+
+                #expect(kept["$exception_crash_report"] != nil)
+                #expect(dropped["$exception_crash_report"] == nil)
+                #expect(dropped["$exception_list"] != nil)
+            }
+        }
+
         // MARK: - Crash Info Type Tests
 
         @Suite("Crash Info Type")

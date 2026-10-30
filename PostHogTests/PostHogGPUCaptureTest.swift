@@ -23,6 +23,10 @@
         override class var layerClass: AnyClass { CAMetalLayer.self }
     }
 
+    private final class TransformLayerView: UIView {
+        override class var layerClass: AnyClass { CATransformLayer.self }
+    }
+
     private final class AppAnimatableLayer: CALayer {
         @objc var progress: CGFloat = 0
 
@@ -274,6 +278,31 @@
             perspective.m34 = -1 / 400
             field.layer.transform = CATransform3DRotate(perspective, 0.6, 0, 1, 0)
             field.layer.anchorPointZ = 80
+
+            let (image, rects) = try await render(window, with: mirror)
+            try expectMagentaMasked(image, rects)
+        }
+
+        @Test("A masked view lifted off a rotated transform layer's plane keeps its 3D place, where its mask is", arguments: [false, true])
+        func transformLayerKeepsSublayersIn3D(nested: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(frame: CGRect(x: 0, y: 0, width: 300, height: 400))
+            await prewarm(mirror, for: window)
+
+            let container = UIView(frame: CGRect(x: 50, y: 100, width: 200, height: 200))
+            container.layer.sublayerTransform.m34 = -1 / 500
+            window.addSubview(container)
+            var host: UIView = container
+            let rotations = [CATransform3DMakeRotation(55 * .pi / 180, 0, 1, 0), CATransform3DMakeRotation(35 * .pi / 180, 1, 0, 0)]
+            for rotation in rotations.prefix(nested ? 2 : 1) {
+                let transformView = TransformLayerView(frame: host.bounds)
+                transformView.layer.transform = rotation
+                host.addSubview(transformView)
+                host = transformView
+            }
+            let secret = noCaptureView(CGRect(x: 60, y: 60, width: 80, height: 80))
+            secret.layer.zPosition = 40
+            host.addSubview(secret)
 
             let (image, rects) = try await render(window, with: mirror)
             try expectMagentaMasked(image, rects)

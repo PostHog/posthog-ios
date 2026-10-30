@@ -333,6 +333,8 @@
         /// The CALayer subclass a plain copy is made with.
         private enum LayerKind {
             case plain, gradient, text, shape
+            /// Flattening one into a plain layer would draw its sublayers off the 3D places their masks are measured at.
+            case transform
         }
 
         private struct ClassInfo {
@@ -732,6 +734,11 @@
             if walk.portalsInProgress.isEmpty, source.delegate is UIView { walk.viewCopies[ObjectIdentifier(source)] = copy }
             if !info.presentationSafe, source.animationKeys() != nil { walk.modelGeometryCopies[ObjectIdentifier(source), default: []].append(copy) }
             copyGeometry(from: presentation, source: source, to: copy)
+            // A transform layer renders none of its own style, contents, effects or mask, and warns when they're set.
+            if info.kind == .transform {
+                copyOpacity(from: presentation, to: copy)
+                return copy
+            }
             copyStyle(from: presentation, to: copy)
             copyContents(from: presentation, source: source, info: info, scale: walk.scale, to: copy)
             if !glassBackground { copyEffects(from: presentation, source: source, to: copy) }
@@ -750,13 +757,16 @@
                 copy.contents = nil
             }
 
-            if let mask = source.mask {
-                // A mask that renders nothing (hidden, transparent) shows nothing of the layer. The copy is hidden
-                // rather than left out, since `walk.viewCopies` may already hold it.
-                copy.mask = mirror(mask, parent: .unknown, walk: &walk)
-                if copy.mask == nil { copy.isHidden = true }
-            }
+            copyMask(of: source, to: copy, walk: &walk)
             return copy
+        }
+
+        private func copyMask(of source: CALayer, to copy: CALayer, walk: inout Walk) {
+            guard let mask = source.mask else { return }
+            // A mask that renders nothing (hidden, transparent) shows nothing of the layer. The copy is hidden
+            // rather than left out, since `walk.viewCopies` may already hold it.
+            copy.mask = mirror(mask, parent: .unknown, walk: &walk)
+            if copy.mask == nil { copy.isHidden = true }
         }
 
         /// The layer's place in window coordinates. nil when its subtree is left out of the frame: it clips to a
@@ -844,12 +854,16 @@
                 if presentation.transform.m12 != 0 || presentation.transform.m21 != 0 { copy.allowsEdgeAntialiasing = true }
             }
             if !CATransform3DIsIdentity(presentation.sublayerTransform) { copy.sublayerTransform = presentation.sublayerTransform }
-            if source.masksToBounds { copy.masksToBounds = true }
+            if source.masksToBounds, !(copy is CATransformLayer) { copy.masksToBounds = true }
             if source.isGeometryFlipped { copy.isGeometryFlipped = true }
         }
 
-        private func copyStyle(from presentation: CALayer, to copy: CALayer) {
+        private func copyOpacity(from presentation: CALayer, to copy: CALayer) {
             if presentation.opacity != 1 { copy.opacity = presentation.opacity }
+        }
+
+        private func copyStyle(from presentation: CALayer, to copy: CALayer) {
+            copyOpacity(from: presentation, to: copy)
             if let color = presentation.backgroundColor { copy.backgroundColor = color }
             let cornerRadii = Self.cornerRadiiKey?.changedValue(in: presentation)
             if presentation.cornerRadius != 0 || cornerRadii != nil {
@@ -944,6 +958,8 @@
                 return copy
             case .plain:
                 return CALayer()
+            case .transform:
+                return CATransformLayer()
             }
         }
 
@@ -975,6 +991,8 @@
                 kind = .text
             } else if chain.contains("CAShapeLayer") {
                 kind = .shape
+            } else if chain.contains("CATransformLayer") {
+                kind = .transform
             } else {
                 kind = .plain
             }

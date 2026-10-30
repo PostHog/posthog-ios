@@ -539,11 +539,15 @@
 
         private func mirrorRoot(_ root: CALayer, walk: inout Walk) -> CALayer? {
             let presentation = root.presentation() ?? root
-            // The texture shows the root's frame; culling assumes that frame is the window's bounds.
-            let isPlain = presentation.frame.origin == .zero && CATransform3DIsIdentity(presentation.transform)
+            let isPlain = CATransform3DIsIdentity(presentation.sublayerTransform) && !presentation.isGeometryFlipped
             // Window coordinates are the root's bounds coordinates, the space mask rects are measured in.
             let space: Space = isPlain ? .known(toWindow: .identity, visible: presentation.bounds) : .unknown
-            return mirror(root, parent: .unknown, childSpace: space, walk: &walk)
+            guard let copy = mirror(root, parent: .unknown, childSpace: space, walk: &walk) else { return nil }
+            // The texture shows the window's bounds wherever its frame sits on screen, as the mask rects do.
+            copy.anchorPoint = .zero
+            copy.position = presentation.bounds.origin
+            copy.transform = CATransform3DIdentity
+            return copy
         }
 
         /// `parent` is the space the layer's position is expressed in. The root, which isn't placed, passes its

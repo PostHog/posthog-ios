@@ -242,6 +242,27 @@
             try expectMagentaMasked(image, rects)
         }
 
+        @Test("A window placed away from the screen's origin, or transformed, is drawn in its own bounds, where its masks are",
+              arguments: [false, true])
+        func offsetWindowIsDrawnInItsBounds(transformed: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(frame: CGRect(x: 30, y: 60, width: 200, height: 300))
+            if transformed { window.transform = CGAffineTransform(scaleX: 0.5, y: 0.5) }
+            await prewarm(mirror, for: window)
+
+            let marker = UIView(frame: CGRect(x: 120, y: 20, width: 30, height: 30))
+            marker.backgroundColor = .blue
+            window.addSubview(marker)
+            window.addSubview(secretField(CGRect(x: 20, y: 100, width: 80, height: 60)))
+
+            let (image, rects) = try await render(window, with: mirror)
+            let pixels = try Pixels(image)
+            #expect(pixels[135, 35] == .blue)
+            #expect(pixels[2, 2] == .white)
+            #expect(pixels[197, 297] == .white)
+            try expectMagentaMasked(image, rects)
+        }
+
         @available(iOS 26.0, *)
         @Test("Corners UIKit rounds per corner, leaving cornerRadius at 0, are rounded in the copy")
         func perCornerRadiiAreCopied() async throws {

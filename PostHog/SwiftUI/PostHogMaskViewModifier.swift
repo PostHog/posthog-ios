@@ -114,6 +114,27 @@
             return MaskedRects(regions: regions, hasUnsettledReporters: hasUnsettledReporters)
         }
 
+        /// The rects of the reporters under `source`, for a portal that draws `source` wherever it shows it: whether
+        /// `source`'s own ancestors hide it doesn't matter there, so visibility is checked only up to `source`.
+        func maskedRects(drawnWith source: UIView, in window: UIWindow) -> MaskedRects {
+            dispatchPrecondition(condition: .onQueue(.main))
+
+            let liveReporters = lock.withLock { reporters.values.compactMap(\.value) }
+            var regions: [PostHogReplayIntegration.MaskedRegion] = []
+            var hasUnsettledReporters = false
+            for reporter in liveReporters where reporter.isDescendant(of: source) && reporter.isVisible(upTo: source) {
+                guard reporter.hasCompletedFirstLayout else {
+                    hasUnsettledReporters = true
+                    continue
+                }
+                let rect = reporter.toPresentationRect(window)
+                if !rect.isEmpty {
+                    regions.append(.init(reporter, rect: rect))
+                }
+            }
+            return MaskedRects(regions: regions, hasUnsettledReporters: hasUnsettledReporters)
+        }
+
         #if TESTING
             var registeredCountForTesting: Int {
                 lock.withLock { reporters.values.compactMap(\.value).count }

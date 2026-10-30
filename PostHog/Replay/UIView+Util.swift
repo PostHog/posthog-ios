@@ -37,6 +37,21 @@
             return view != nil && isInsideCover
         }
 
+        /// Whether this view and its superviews up to and including `ancestor` are all shown.
+        func isVisible(upTo ancestor: UIView) -> Bool {
+            var view: UIView? = self
+            while let current = view {
+                if current.isHidden || !current.hasRenderedOpacity {
+                    return false
+                }
+                if current === ancestor {
+                    return true
+                }
+                view = current.superview
+            }
+            return false
+        }
+
         /// Visibility for the mask walk, stricter than `isVisible()` because anything it
         /// calls invisible is never masked while the screenshot may still draw it:
         /// - A view fading out parks its model `alpha` at 0 on the first frame of the
@@ -163,7 +178,7 @@
         /// mask rects have to come from the presentation tree. Wireframe geometry is a separate
         /// consumer with no pixels to agree with and stays on `toAbsoluteRect`.
         func toPresentationRect(_ window: UIWindow?) -> CGRect {
-            guard layer.presentation() != nil else {
+            guard window != nil || layer.presentation() != nil else {
                 // UIView's own convert, not the layer's: it resolves a nil window to the view's.
                 return convert(bounds, to: window)
             }
@@ -194,10 +209,29 @@
 
     extension CALayer {
         func toPresentationRect(_ window: UIWindow?) -> CGRect {
-            guard let presentationLayer = presentation() else {
-                return convert(bounds, to: window?.layer)
+            let windowLayer = window?.layer.presentation() ?? window?.layer
+            if let presentationLayer = presentation() {
+                return presentationLayer.convert(presentationLayer.bounds, to: windowLayer)
             }
-            return presentationLayer.convert(presentationLayer.bounds, to: window?.layer.presentation() ?? window?.layer)
+            // Not committed yet, so absent from the presentation tree. It's drawn under its ancestors as they are
+            // presented, not where their model layers already sit mid-animation.
+            var ancestor = superlayer
+            while let current = ancestor {
+                if Self.canCopyPresentation(of: current), let presented = current.presentation() {
+                    return presented.convert(convert(bounds, to: current), to: windowLayer)
+                }
+                ancestor = current.superlayer
+            }
+            return convert(bounds, to: window?.layer)
+        }
+
+        /// `presentation()` can trap on an app's own layer subclass (see `PostHogGPUMirrorCapture.isPresentationSafe`).
+        private static func canCopyPresentation(of layer: CALayer) -> Bool {
+            #if canImport(Metal)
+                PostHogGPUMirrorCapture.isPresentationSafe(type(of: layer))
+            #else
+                false
+            #endif
         }
 
         /// Backing flag for the SwiftUI `.postHogNoRageClick()` modifier on layer-backed

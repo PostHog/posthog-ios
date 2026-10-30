@@ -244,7 +244,8 @@ class PostHogApi {
         request.setValue(toISO8601String(Date()), forHTTPHeaderField: "PostHog-Request-Timestamp")
 
         session.uploadTask(with: request, from: payload) { [weak self] data, response, error in
-            processUploadResponse(endpointName: "capture", data: data, response: response, error: error) { info in
+            // No body for the error log: a proxy's error body can echo request content.
+            processUploadResponse(endpointName: "capture", data: nil, response: response, error: error) { info in
                 guard let self else { return completion(info) }
                 if info.statusCode == 404 {
                     self.warnCaptureNotFoundOnce(url: url, path: path)

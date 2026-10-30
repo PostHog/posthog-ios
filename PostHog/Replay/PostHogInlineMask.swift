@@ -751,6 +751,8 @@
         /// Where a text view's text starts, scrolled, and how wide it lays out.
         let origin: CGPoint
         let layoutWidth: CGFloat
+        /// Where a field draws its text: its left, right and clear-button views and border style move it.
+        let textRect: CGRect
         /// Its colour and appearance are drawn too.
         let bars: TextBars
 
@@ -762,6 +764,10 @@
             hasher.combine(scale)
             hasher.combine(origin.x)
             hasher.combine(origin.y)
+            hasher.combine(textRect.origin.x)
+            hasher.combine(textRect.origin.y)
+            hasher.combine(textRect.size.width)
+            hasher.combine(textRect.size.height)
         }
 
         init?(_ label: UILabel, size: CGSize, scale: CGFloat, bars: TextBars) {
@@ -775,7 +781,8 @@
             let text = field.text ?? ""
             guard let key = Self.key(text.isEmpty ? field.placeholder ?? "" : text, keepingWhitespace: false) else { return nil }
             self.init(text.isEmpty ? "\u{0}" + key : key, size: size, scale: scale, font: field.font, alignment: field.textAlignment.rawValue,
-                      lines: 1, flags: (field.isEditing ? 1 : 0) | (field.isSecureTextEntry ? 2 : 0), bars: bars)
+                      lines: 1, flags: (field.isEditing ? 1 : 0) | (field.isSecureTextEntry ? 2 : 0),
+                      textRect: TextSource.fieldRect(field, bounds: CGRect(origin: .zero, size: size)), bars: bars)
         }
 
         init?(_ textView: UITextView, size: CGSize, scale: CGFloat, bars: TextBars) {
@@ -791,7 +798,7 @@
         }
 
         private init(_ masked: String, size: CGSize, scale: CGFloat, font: UIFont?, alignment: Int, lines: Int, flags: Int,
-                     origin: CGPoint = .zero, layoutWidth: CGFloat = 0, bars: TextBars)
+                     origin: CGPoint = .zero, layoutWidth: CGFloat = 0, textRect: CGRect = .zero, bars: TextBars)
         {
             self.masked = masked
             self.size = size
@@ -802,6 +809,7 @@
             self.flags = flags
             self.origin = origin
             self.layoutWidth = layoutWidth
+            self.textRect = textRect
             self.bars = bars
         }
 
@@ -849,24 +857,26 @@
         }
 
         init?(_ field: UITextField, size: CGSize) {
-            let bounds = CGRect(origin: .zero, size: size)
             let source: NSAttributedString
-            let rect: CGRect
             if let text = field.attributedText, text.length > 0 {
                 source = text
-                rect = field.isEditing ? field.editingRect(forBounds: bounds) : field.textRect(forBounds: bounds)
             } else if let placeholder = field.attributedPlaceholder, placeholder.length > 0 {
                 source = placeholder
-                rect = field.placeholderRect(forBounds: bounds)
             } else if let placeholder = field.placeholder, !placeholder.isEmpty {
                 source = NSAttributedString(string: placeholder, attributes: [.font: field.font as Any, .foregroundColor: UIColor.placeholderText])
-                rect = field.placeholderRect(forBounds: bounds)
             } else {
                 return nil
             }
             text = Self.resolvingColors(source, traits: field.traitCollection)
-            layout = .field(rect: rect, editing: field.isEditing, lineHeight: Self.firstFont(source, default: field.font).lineHeight)
+            layout = .field(rect: Self.fieldRect(field, bounds: CGRect(origin: .zero, size: size)), editing: field.isEditing,
+                            lineHeight: Self.firstFont(source, default: field.font).lineHeight)
             self.size = size
+        }
+
+        /// Where the field draws its text, or its placeholder when it has none.
+        static func fieldRect(_ field: UITextField, bounds: CGRect) -> CGRect {
+            guard let text = field.attributedText, text.length > 0 else { return field.placeholderRect(forBounds: bounds) }
+            return field.isEditing ? field.editingRect(forBounds: bounds) : field.textRect(forBounds: bounds)
         }
 
         init?(_ textView: UITextView, size: CGSize) {

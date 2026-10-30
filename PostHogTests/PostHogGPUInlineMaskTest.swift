@@ -121,6 +121,35 @@
             #expect(pixels.count(in: empty.frame, where: Self.isStar) > 20)
         }
 
+        @Test("Fields alike but for a left view draw their `*` each inside its own text rect")
+        func fieldsWithDifferentTextRectsDontShareStars() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            func field(y: CGFloat) -> UITextField {
+                let field = UITextField(frame: CGRect(x: 10, y: y, width: 180, height: 44))
+                field.text = "secret"
+                field.textColor = .magenta
+                field.font = .boldSystemFont(ofSize: 24)
+                fixture.window.addSubview(field)
+                return field
+            }
+            let plain = field(y: 40)
+            let indented = field(y: 120)
+            indented.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 80, height: 44))
+            indented.leftViewMode = .always
+            fixture.window.layoutIfNeeded()
+            let textRect = indented.convert(indented.textRect(forBounds: indented.bounds), to: fixture.window)
+            try #require(textRect.minX >= 80)
+
+            let pixels = try await expectFullyMasked(captureStars(fixture))
+            let stars = pixels.points(where: Self.isStar)
+            let plainStars = stars.filter { plain.frame.contains($0) }
+            let indentedStars = stars.filter { indented.frame.contains($0) }
+            #expect(plainStars.count > 20)
+            #expect(indentedStars.count > 20)
+            #expect(indentedStars.allSatisfy { $0.x >= textRect.minX - 1 }, "\(indentedStars.map(\.x).min() ?? 0) left of \(textRect.minX)")
+        }
+
         @Test("A scrolled text view draws its visible text as `*`, and nothing else of it")
         func scrolledTextViewIsStarred() async throws {
             let fixture = try await makeFixture()

@@ -5,6 +5,16 @@
     import UIKit
 
     extension PostHogReplayIntegration {
+        /// How GPU capture may mask a region in its mirror instead of painting its rect.
+        enum InlineMasking {
+            /// The object owns the pixels the rect covers: its copies are masked.
+            case owned
+            /// A `postHogMask()` reporter: the content under the rect in its SwiftUI host is masked.
+            case extent
+            /// Rect pass only (a whole portal).
+            case rectOnly
+        }
+
         /// A maskable rect tagged with its view/layer identity, so two samples taken moments
         /// apart pair by identity rather than array index — traversal order isn't stable across
         /// cell recycling or z-order changes. `object` is retained because a deallocation would
@@ -13,11 +23,14 @@
             let owner: ObjectIdentifier
             let object: AnyObject
             let rect: CGRect
+            /// See `InlineMasking`.
+            let inline: InlineMasking
 
-            init(_ object: AnyObject, rect: CGRect) {
+            init(_ object: AnyObject, rect: CGRect, inline: InlineMasking = .owned) {
                 owner = ObjectIdentifier(object)
                 self.object = object
                 self.rect = rect
+                self.inline = inline
             }
 
             init(_ view: UIView, in window: UIWindow?) {

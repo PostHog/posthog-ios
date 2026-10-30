@@ -56,6 +56,22 @@ class RRWireframe {
             return RRWireframe.maskImage(image, maskableWidgets: maskableWidgets ?? [], pixelScale: screenshotPixelScale)
         }
 
+        /// The rect pass, resample and WebP encode as `toDict()` runs them: the image that's encoded, and its base64 (nil
+        /// when encoding failed). nil when there's no image, or the rect pass couldn't render.
+        func encodeImage() -> (image: UIImage, base64: String?)? {
+            guard let image else { return nil }
+            let encoded: UIImage
+            if hasMaskableWidgets() {
+                guard let masked = maskImage() else { return nil }
+                encoded = masked
+            } else if type == "screenshot" {
+                encoded = RRWireframe.unmaskedScreenshot(image, pixelScale: screenshotPixelScale)
+            } else {
+                encoded = image
+            }
+            return (encoded, encoded.toBase64())
+        }
+
         // Shared so tests can redact through the exact production path instead of reimplementing it.
         static func maskImage(_ image: UIImage, maskableWidgets: [CGRect], pixelScale: CGFloat = 1) -> UIImage? {
             guard !maskableWidgets.isEmpty else { return nil }

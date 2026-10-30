@@ -108,7 +108,7 @@
                 }
                 let rect = reporter.toPresentationRect(window)
                 if !rect.isEmpty {
-                    regions.append(.init(reporter, rect: rect))
+                    regions.append(.init(reporter, rect: rect, inline: .extent))
                 }
             }
             return MaskedRects(regions: regions, hasUnsettledReporters: hasUnsettledReporters)
@@ -129,7 +129,7 @@
                 }
                 let rect = reporter.toPresentationRect(window)
                 if !rect.isEmpty {
-                    regions.append(.init(reporter, rect: rect))
+                    regions.append(.init(reporter, rect: rect, inline: .rectOnly))
                 }
             }
             return MaskedRects(regions: regions, hasUnsettledReporters: hasUnsettledReporters)

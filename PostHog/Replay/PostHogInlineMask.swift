@@ -1,0 +1,961 @@
+#if os(iOS) && canImport(Metal)
+    import QuartzCore
+    import UIKit
+
+    /// Masks a GPU capture's mirror in place, between the mask walk and `freeze`: text as `*`, drawn off main (bars
+    /// until drawn), images and any other content black. A `ph-no-capture` view is a black block over its bounds, chrome
+    /// and subtree included, as the rect pass draws it. A `postHogMask()` reporter masks everything painted under its
+    /// extent before it: content the same way, and chrome black. Whatever can't be placed, whole portals and objects
+    /// with no copy use the rect pass. Main thread.
+    final class PostHogInlineMask {
+        /// How copies of a class are redacted, before the instance it applies to is known.
+        enum Tag {
+            case label, textField, textView, unreadableText, opaque, container
+        }
+
+        /// How a masked copy's content is redacted, chosen from its source.
+        enum Kind {
+            /// Text read from the view, drawn as `*` in its own style and place.
+            case label(UILabel), textField(UITextField), textView(UITextView)
+            /// Text that can't be read (SwiftUI, React Native): rows of `*` sized from the bounds alone, in the
+            /// traits' label colour.
+            case unreadableText(UITraitCollection)
+            /// Filled black, with nothing below it drawn: web views, sandboxed views, controls.
+            case opaque
+            /// Chrome (geometry, background, border, corners, opacity, gradients) kept, content filled black.
+            case container
+            /// A `ph-no-capture` view, or one under it: its bounds filled opaque black, square, with no chrome and
+            /// nothing below it drawn.
+            case blocked
+
+            /// A tag whose instance doesn't match it (it can't, short of a class lying about itself) is filled black.
+            fileprivate init(_ tag: Tag, view: UIView?, layer: CALayer) {
+                switch tag {
+                case .label: self = (view as? UILabel).map(Kind.label) ?? .opaque
+                case .textField: self = (view as? UITextField).map(Kind.textField) ?? .opaque
+                case .textView: self = (view as? UITextView).map(Kind.textView) ?? .opaque
+                case .unreadableText:
+                    self = .unreadableText((view ?? PostHogGlassStandIn.nearestView(of: layer))?.traitCollection ?? UITraitCollection.current)
+                case .opaque: self = .opaque
+                case .container: self = .container
+                }
+            }
+
+            /// Kinds whose descendants are dropped: a text input's caret and selection are contentless layers whose
+            /// positions give away glyph widths, and the other kinds replace their whole subtree.
+            var dropsDescendants: Bool {
+                switch self {
+                case .container: return false
+                case .label, .textField, .textView, .unreadableText, .opaque, .blocked: return true
+                }
+            }
+
+            /// Text inputs, whose caret and selection are chrome that gives away glyph widths.
+            var isTextInput: Bool {
+                switch self {
+                case .textField, .textView: return true
+                case .label, .unreadableText, .opaque, .container, .blocked: return false
+                }
+            }
+
+            /// Text inputs and opaque and blocked views are replaced whole, since a cover would show their caret,
+            /// selection or subviews around it.
+            var allowsCover: Bool {
+                switch self {
+                case .textField, .textView, .opaque, .blocked: return false
+                case .label, .unreadableText, .container: return true
+                }
+            }
+
+            /// How this kind's text shows until it's drawn; nil for kinds without text.
+            fileprivate func textBars(size: CGSize) -> TextBars? {
+                switch self {
+                case let .label(label): return TextBars(label)
+                case let .textField(field): return TextBars(field, size: size)
+                case let .textView(textView): return TextBars(textView)
+                case let .unreadableText(traits): return TextBars(rowsWith: traits)
+                case .opaque, .container, .blocked: return nil
+                }
+            }
+
+            /// The cache key of this kind's `*` bitmap; nil for kinds without text and for text too long or large to
+            /// draw. The size is checked first: it's free, and the length check scans no text.
+            fileprivate func textSignature(size: CGSize, scale: CGFloat, bars: TextBars) -> TextSignature? {
+                guard PostHogInlineMask.bitmapBytes(size, scale: scale) <= PostHogInlineMask.maxBitmapBytes else { return nil }
+                switch self {
+                case let .label(label): return TextSignature(label, size: size, scale: scale, bars: bars)
+                case let .textField(field): return TextSignature(field, size: size, scale: scale, bars: bars)
+                case let .textView(textView): return TextSignature(textView, size: size, scale: scale, bars: bars)
+                case let .unreadableText(traits): return TextSignature(rowsOf: size, scale: scale, traits: traits, bars: bars)
+                case .opaque, .container, .blocked: return nil
+                }
+            }
+
+            /// The main-thread read the draw queue draws from; nil when there's nothing to draw.
+            fileprivate func readText(size: CGSize) -> TextSource? {
+                switch self {
+                case let .label(label): return TextSource(label, size: size)
+                case let .textField(field): return TextSource(field, size: size)
+                case let .textView(textView): return TextSource(textView, size: size)
+                case let .unreadableText(traits): return TextSource(rowsOf: size, traits: traits)
+                case .opaque, .container, .blocked: return nil
+                }
+            }
+        }
+
+        /// Every copy a mirror made, with its source, in build order. One source can have several copies: where it
+        /// sits and under each portal that shows it.
+        struct CopyMap {
+            private var pairs: [CopyMapEntry] = []
+
+            var count: Int { pairs.count }
+
+            mutating func reserve(_ capacity: Int) {
+                pairs.reserveCapacity(capacity)
+            }
+
+            mutating func record(_ copy: CALayer, of source: CALayer, placement: Placement?) {
+                pairs.append(CopyMapEntry(source: source, copy: copy, placement: placement))
+            }
+
+            /// Drops the placement of every copy recorded from `index` on.
+            mutating func forgetPlacements(from index: Int) {
+                for position in index ..< pairs.count {
+                    pairs[position].placement = nil
+                }
+            }
+
+            func index() -> CopyIndex {
+                var index = CopyIndex()
+                index.bySource.reserveCapacity(pairs.count)
+                index.byCopy.reserveCapacity(pairs.count)
+                for entry in pairs {
+                    index.bySource[ObjectIdentifier(entry.source), default: []].append(entry.copy)
+                    index.byCopy[ObjectIdentifier(entry.copy)] = (entry.source, entry.placement)
+                }
+                return index
+            }
+        }
+
+        fileprivate struct CopyMapEntry {
+            let source: CALayer
+            let copy: CALayer
+            var placement: Placement?
+        }
+
+        /// Where the mirror placed a copy, as it culled: from its bounds to the window (the root copy's bounds).
+        struct Placement {
+            let toWindow: CGAffineTransform
+            /// Whether its sublayers sit in its bounds unchanged (no sublayer transform, not flipped).
+            let hasPlainSublayers: Bool
+        }
+
+        struct CopyIndex {
+            fileprivate var bySource: [ObjectIdentifier: [CALayer]] = [:]
+            fileprivate var byCopy: [ObjectIdentifier: (source: CALayer, placement: Placement?)] = [:]
+
+            var count: Int { byCopy.count }
+
+            func copies(of source: CALayer) -> [CALayer] {
+                bySource[ObjectIdentifier(source)] ?? []
+            }
+
+            func source(of copy: CALayer) -> CALayer? {
+                byCopy[ObjectIdentifier(copy)]?.source
+            }
+
+            /// nil for a copy the mirror couldn't place (3D or flipped geometry above it, or through a portal), and for
+            /// layers it added that aren't copies.
+            func placement(of copy: CALayer) -> Placement? {
+                byCopy[ObjectIdentifier(copy)]?.placement ?? nil
+            }
+
+            /// `local`, a rect in the copy's bounds coordinates, in the window: from its placement, else Core Animation's
+            /// conversion to `root`.
+            func windowFrame(of copy: CALayer, root: CALayer, local: CGRect) -> CGRect {
+                placement(of: copy).map { local.applying($0.toWindow) } ?? copy.convert(local, to: root)
+            }
+        }
+
+        /// Main-thread time per capture for reading the text of views whose `*` isn't drawn yet. Past it, text keeps its
+        /// bars and is read by a later capture.
+        var textBudget: CFTimeInterval = 0.001
+
+        private var tags: [ClassPair: Tag] = [:]
+
+        /// `*` bitmaps by signature, drawn on `drawQueue`; guarded by `lock`, as is `drawnOrder`, oldest first.
+        private var entries: [TextSignature: TextEntry] = [:]
+        private var drawnOrder: [TextSignature] = []
+        private var cacheBytes = 0
+        private let lock = NSLock()
+        private let drawQueue = DispatchQueue(label: "com.posthog.PostHogInlineMask.text", qos: .utility)
+
+        private enum TextEntry {
+            case drawing
+            /// Nothing to draw: the view has no text.
+            case empty
+            case drawn(CGImage)
+        }
+
+        private struct ClassPair: Hashable {
+            let view: ObjectIdentifier?
+            let layer: ObjectIdentifier
+        }
+
+        private static let maxCacheBytes = 16 * 1024 * 1024
+        /// Larger text isn't drawn and keeps its bars, so one bitmap evicts at most a quarter of the cache.
+        static let maxBitmapBytes = maxCacheBytes / 4
+        /// UTF-16 units past which text gets no signature and keeps its bars: keying it scans every character on main, every capture.
+        static let maxTextLength = 4096
+        private static let unitRect = CGRect(x: 0, y: 0, width: 1, height: 1)
+        private static let barHeightFraction: CGFloat = 0.55
+        private static let sRGB = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+
+        #if TESTING
+            /// Replaces the colour masked text is drawn in, so a test can tell `*` from the source's own pixels.
+            static var textColorForTesting: UIColor?
+
+            private var drawsForTesting = 0
+            private var drawsOnMainForTesting = 0
+            private(set) var textCacheHitsForTesting = 0
+            private(set) var textBarsForTesting = 0
+            private(set) var lastInlineRegionCountForTesting = 0
+            struct ExtentStatsForTesting {
+                /// Extents masked inline in the last capture, and how many ignored paint order.
+                var count = 0
+                var unordered = 0
+                /// Copies partly under an extent that were replaced whole.
+                var replaced = 0
+                /// Main-thread time spent on extents.
+                var milliseconds: Double = 0
+            }
+
+            var extentStatsForTesting = ExtentStatsForTesting()
+            /// Off leaves every region to the rect pass.
+            var isEnabledForTesting = true
+            /// Off leaves reporter extents to the rect pass.
+            var isExtentEnabledForTesting = true
+
+            var textDrawsForTesting: Int {
+                lock.withLock { drawsForTesting }
+            }
+
+            var textDrawsOnMainForTesting: Int {
+                lock.withLock { drawsOnMainForTesting }
+            }
+
+            /// Returns once every `*` bitmap queued so far is drawn.
+            func waitForTextDrawsForTesting() {
+                drawQueue.sync {}
+            }
+
+            func clearCacheForTesting() {
+                waitForTextDrawsForTesting()
+                purgeTextCache()
+            }
+        #endif
+
+        /// Any thread. Frees the drawn `*` bitmaps; text being drawn stays queued.
+        func purgeTextCache() {
+            let freed: [TextSignature: TextEntry] = lock.withLock {
+                let all = entries
+                entries = entries.filter { if case .drawing = $0.value { return true } else { return false } }
+                drawnOrder.removeAll()
+                cacheBytes = 0
+                return all
+            }
+            // Released here, outside the lock.
+            withExtendedLifetime(freed) {}
+        }
+
+        /// Redacts the regions' copies it can and returns the regions left for the rect pass, in order.
+        func mask(_ regions: [PostHogReplayIntegration.MaskedRegion], in frame: PostHogGPUMirrorCapture.Frame,
+                  tag: (_ viewClass: AnyClass?, _ layerClass: AnyClass) -> Tag, isBackdrop: (CALayer) -> Bool) -> [PostHogReplayIntegration.MaskedRegion]
+        {
+            #if TESTING
+                lastInlineRegionCountForTesting = 0
+                extentStatsForTesting = .init()
+                guard isEnabledForTesting else { return regions }
+            #endif
+            guard !regions.isEmpty else { return regions }
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            defer { CATransaction.commit() }
+            let remaining = withoutActuallyEscaping(tag) { tag in
+                withoutActuallyEscaping(isBackdrop) { isBackdrop in
+                    var pass = Pass(mask: self, index: frame.copies.index(), portals: PortalIndex(frame.portalSources), scale: frame.scale,
+                                    root: frame.rootCopy, tag: tag, isBackdrop: isBackdrop)
+                    var handled: [ObjectIdentifier: Bool] = [:]
+                    var inline = Set(regions.indices.filter { index in
+                        let region = regions[index]
+                        guard region.inline == .owned else { return false }
+                        let owns = handled[region.owner] ?? pass.redact(region.object)
+                        handled[region.owner] = owns
+                        return owns
+                    })
+                    #if TESTING
+                        let extentStart = CACurrentMediaTime()
+                        defer { extentStatsForTesting.milliseconds = (CACurrentMediaTime() - extentStart) * 1000 }
+                    #endif
+                    // After the owned regions, so what they masked is left as it is.
+                    inline.formUnion(pass.redactExtents(regions))
+                    return regions.enumerated().filter { !inline.contains($0.offset) }.map(\.element)
+                }
+            }
+            #if TESTING
+                lastInlineRegionCountForTesting = regions.count - remaining.count
+            #endif
+            let rectReporters = remaining.filter { $0.inline == .extent }.map(\.rect)
+            // A portal the walk already masks whole, for a reporter inside its source, isn't added again.
+            let portals = Self.wholePortals(coveredBy: rectReporters, of: frame.portalSources).filter { portal in
+                !remaining.contains { $0.owner == portal.owner && $0.rect == portal.rect }
+            }
+            return remaining + portals
+        }
+
+        private func kind(of layer: CALayer, tag: (AnyClass?, AnyClass) -> Tag) -> Kind {
+            let view = (layer.delegate as? UIView).flatMap { $0.layer === layer ? $0 : nil }
+            let viewClass: AnyClass? = view.map { type(of: $0) }
+            let layerClass: AnyClass = type(of: layer)
+            let pair = ClassPair(view: viewClass.map(ObjectIdentifier.init), layer: ObjectIdentifier(layerClass))
+            let known = tags[pair] ?? tag(viewClass, layerClass)
+            tags[pair] = known
+            return Kind(known, view: view, layer: layer)
+        }
+
+        // MARK: - One capture
+
+        /// The frame's portal sources, each with the layers above it, so finding the ones under a masked object costs a
+        /// set lookup per source.
+        fileprivate struct PortalIndex {
+            private var sources: [(layer: CALayer, ancestors: Set<ObjectIdentifier>)] = []
+
+            init(_ portalSources: [PostHogPortalSource]) {
+                for source in portalSources {
+                    var ancestors: Set<ObjectIdentifier> = []
+                    var current = source.view.layer.superlayer
+                    while let next = current {
+                        ancestors.insert(ObjectIdentifier(next))
+                        current = next.superlayer
+                    }
+                    sources.append((source.view.layer, ancestors))
+                }
+            }
+
+            func sources(under layer: CALayer) -> [CALayer] {
+                let id = ObjectIdentifier(layer)
+                return sources.filter { $0.ancestors.contains(id) }.map(\.layer)
+            }
+        }
+
+        struct Pass {
+            let mask: PostHogInlineMask
+            let index: CopyIndex
+            fileprivate let portals: PortalIndex
+            let scale: CGFloat
+            let root: CALayer?
+            let tag: (AnyClass?, AnyClass) -> Tag
+            let isBackdrop: (CALayer) -> Bool
+            var visited: Set<ObjectIdentifier> = []
+            fileprivate var signatures: [ObjectIdentifier: TextSignature?] = [:]
+            /// Whether each view looked up is `ph-no-capture` or under one, for this capture.
+            private var noCapture: [ObjectIdentifier: Bool] = [:]
+            fileprivate var spent: CFTimeInterval = 0
+
+            /// Redacts every copy of `object`, and every copy of a portal source under it (a portal draws those
+            /// outside the object's own copies). False when it has no copy, so its pixels aren't the mirror's to mask.
+            mutating func redact(_ object: AnyObject) -> Bool {
+                guard let layer = (object as? UIView)?.layer ?? (object as? CALayer) else { return false }
+                let own = index.copies(of: layer)
+                guard !own.isEmpty else { return false }
+                let view = object as? UIView ?? (layer.delegate as? UIView).flatMap { $0.layer === layer ? $0 : nil }
+                var kind = mask.kind(of: layer, tag: tag)
+                if let view, isNoCapture(view) { kind = .blocked }
+                for copy in own {
+                    redactTree(copy, source: layer, kind: kind)
+                }
+                for source in portals.sources(under: layer) {
+                    for copy in index.copies(of: source) {
+                        if case .blocked = kind {
+                            // Black where the portal shows it, as the rect pass masks the portal.
+                            _ = redactOwnContent(copy, source: source, as: .blocked)
+                        } else if kind.dropsDescendants {
+                            copy.isHidden = true
+                        } else {
+                            redactTree(copy, source: source, kind: nil)
+                        }
+                    }
+                }
+                return true
+            }
+
+            /// The walk masks a `ph-no-capture` view's rect, or each subview's when it fills the window, so its
+            /// subviews are blocked too.
+            private mutating func isNoCapture(_ view: UIView) -> Bool {
+                if let known = noCapture[ObjectIdentifier(view)] { return known }
+                let tagged = view.isNoCapture() || view.superview.map { isNoCapture($0) } ?? false
+                noCapture[ObjectIdentifier(view)] = tagged
+                return tagged
+            }
+
+            private mutating func redactTree(_ copy: CALayer, source: CALayer?, kind known: Kind?) {
+                guard !visited.contains(ObjectIdentifier(copy)) else { return }
+                guard !redactOwnContent(copy, source: source, as: known ?? kind(of: copy, source: source)) else { return }
+                for sublayer in copy.sublayers ?? [] {
+                    redactTree(sublayer, source: index.source(of: sublayer), kind: nil)
+                }
+            }
+
+            /// How a copy is redacted: text layers, whose strings aren't read, are `*` rows; anything else by its source.
+            func kind(of copy: CALayer, source: CALayer?) -> Kind {
+                if copy is CATextLayer {
+                    return .unreadableText(source.flatMap(PostHogGlassStandIn.nearestView)?.traitCollection ?? UITraitCollection.current)
+                }
+                return source.map { mask.kind(of: $0, tag: tag) } ?? .container
+            }
+
+            /// Redacts one copy's own content as `kind`, or fills it black when `replacingWhole`, and marks it done.
+            /// Whether its sublayers were hidden, as kinds that replace their subtree do.
+            mutating func redactOwnContent(_ copy: CALayer, source: CALayer?, as kind: Kind, replacingWhole: Bool = false) -> Bool {
+                visited.insert(ObjectIdentifier(copy))
+                if kind.dropsDescendants {
+                    // Before the redaction, which can add bars of its own.
+                    copy.sublayers?.forEach { $0.isHidden = true }
+                }
+                if replacingWhole {
+                    PostHogInlineMask.blackOut(copy, [.content, .fill])
+                } else {
+                    redactCopy(copy, source: source, as: kind)
+                }
+                return kind.dropsDescendants
+            }
+
+            /// Redacts one copy's own content in place.
+            private mutating func redactCopy(_ copy: CALayer, source: CALayer?, as kind: Kind) {
+                if isBackdrop(copy) {
+                    // A backdrop draws what's behind it, and has no chrome of its own.
+                    copy.isHidden = true
+                    return
+                }
+                let hadContent = PostHogInlineMask.stripContent(copy)
+                switch kind {
+                case .container:
+                    if hadContent { PostHogInlineMask.blackOut(copy, .fill) }
+                case .opaque:
+                    PostHogInlineMask.blackOut(copy, .fill)
+                case .blocked:
+                    PostHogInlineMask.blackOut(copy, [.fill, .colors, .edges])
+                    copy.cornerRadius = 0
+                    copy.opacity = 1
+                case .unreadableText:
+                    // Rows only where the layer drew something, so nothing reads as text that wasn't there.
+                    if hadContent { setText(copy, source: source, kind: kind, fallbackToBlack: true) }
+                case .label, .textField, .textView:
+                    setText(copy, source: source, kind: kind, fallbackToBlack: false)
+                }
+            }
+
+            /// A drawn `*` bitmap costs a lookup. Otherwise the text shows as glyph-free bars this frame and, within the
+            /// budget, is read on main and drawn on the draw queue for a later capture.
+            private mutating func setText(_ copy: CALayer, source: CALayer?, kind: Kind, fallbackToBlack: Bool) {
+                let size = copy.bounds.size
+                guard let bars = kind.textBars(size: size) else { return }
+                let key = source.map(ObjectIdentifier.init) ?? ObjectIdentifier(copy)
+                let known = signatures[key] ?? kind.textSignature(size: size, scale: scale, bars: bars)
+                signatures[key] = known
+                if let signature = known {
+                    guard showDrawn(signature, on: copy, kind: kind, size: size, fallbackToBlack: fallbackToBlack) else { return }
+                }
+                PostHogInlineMask.addBars(bars, to: copy)
+                #if TESTING
+                    mask.textBarsForTesting += 1
+                #endif
+            }
+
+            /// Shows the drawn bitmap, or black for a view with no text, and queues a draw within the budget. Whether the
+            /// copy still needs bars.
+            private mutating func showDrawn(_ signature: TextSignature, on copy: CALayer, kind: Kind, size: CGSize, fallbackToBlack: Bool) -> Bool {
+                switch mask.entry(for: signature) {
+                case let .drawn(image)?:
+                    PostHogInlineMask.setContents(image, on: copy, scale: scale)
+                    return false
+                case .empty?:
+                    if fallbackToBlack { PostHogInlineMask.blackOut(copy, .fill) }
+                    return false
+                case .drawing?:
+                    return true
+                case nil:
+                    guard spent < mask.textBudget else { return true }
+                    let start = CACurrentMediaTime()
+                    let text = kind.readText(size: size)
+                    spent += CACurrentMediaTime() - start
+                    guard let text else {
+                        mask.recordEmpty(signature)
+                        if fallbackToBlack { PostHogInlineMask.blackOut(copy, .fill) }
+                        return false
+                    }
+                    mask.enqueue(text, for: signature, scale: scale)
+                    return true
+                }
+            }
+        }
+
+        // MARK: - Copy redaction
+
+        /// Removes everything the copy draws besides chrome: contents, shape paths, text, shadows, filters, compositing
+        /// and masks (a mask can be glyph-shaped). Whether it drew content of its own.
+        static func stripContent(_ copy: CALayer) -> Bool {
+            var hadContent = copy.contents != nil
+            if hadContent { copy.contents = nil }
+            if let shape = copy as? CAShapeLayer, shape.path != nil {
+                shape.path = nil
+                hadContent = true
+            }
+            if let text = copy as? CATextLayer, text.string != nil {
+                text.string = nil
+                hadContent = true
+            }
+            if copy.shadowOpacity != 0 { copy.shadowOpacity = 0 }
+            if copy.filters != nil { copy.filters = nil }
+            if copy.backgroundFilters != nil { copy.backgroundFilters = nil }
+            if copy.compositingFilter != nil { copy.compositingFilter = nil }
+            if copy.mask != nil { copy.mask = nil }
+            return hadContent
+        }
+
+        /// What `blackOut` turns black.
+        struct BlackOut: OptionSet {
+            let rawValue: Int
+            /// Content, filters, blends and masks removed first (`stripContent`), so nothing can tint or spread the black.
+            static let content = BlackOut(rawValue: 1 << 0)
+            /// The whole bounds black, contents dropped.
+            static let fill = BlackOut(rawValue: 1 << 1)
+            /// Visible background and gradient colours black, the shape kept.
+            static let colors = BlackOut(rawValue: 1 << 2)
+            /// Border black and shadow off: Core Animation draws both past anything placed under the sublayers.
+            static let edges = BlackOut(rawValue: 1 << 3)
+        }
+
+        static let black = UIColor.black.cgColor
+
+        static func blackOut(_ copy: CALayer, _ parts: BlackOut) {
+            if parts.contains(.content) { _ = stripContent(copy) }
+            if parts.contains(.fill) {
+                copy.contents = nil
+                copy.backgroundColor = black
+            }
+            if parts.contains(.colors) {
+                if isVisible(copy.backgroundColor) { copy.backgroundColor = black }
+                if let gradient = copy as? CAGradientLayer, let colors = gradient.colors, !colors.isEmpty {
+                    gradient.colors = colors.map { _ in black }
+                }
+            }
+            if parts.contains(.edges) {
+                if copy.borderWidth > 0 { copy.borderColor = black }
+                if copy.shadowOpacity != 0 { copy.shadowOpacity = 0 }
+            }
+        }
+
+        static func isVisible(_ color: CGColor?) -> Bool {
+            color.map { $0.alpha > 0 } ?? false
+        }
+
+        private static func setContents(_ image: CGImage, on copy: CALayer, scale: CGFloat) {
+            copy.contents = image
+            copy.contentsGravity = .resize
+            copy.contentsScale = scale
+            copy.contentsRect = unitRect
+            copy.contentsCenter = unitRect
+            for key in PostHogGPUMirrorCapture.contentsKeys {
+                key.reset(on: copy)
+            }
+        }
+
+        // MARK: - Text cache
+
+        private func entry(for signature: TextSignature) -> TextEntry? {
+            let entry = lock.withLock { entries[signature] }
+            #if TESTING
+                if case .drawn? = entry { textCacheHitsForTesting += 1 }
+            #endif
+            return entry
+        }
+
+        private func recordEmpty(_ signature: TextSignature) {
+            lock.withLock { entries[signature] = .empty }
+        }
+
+        private func enqueue(_ text: TextSource, for signature: TextSignature, scale: CGFloat) {
+            lock.withLock { entries[signature] = .drawing }
+            drawQueue.async { [weak self] in
+                guard let self else { return }
+                let image = Self.draw(text, scale: scale)
+                // Released after the lock, outside it.
+                var evicted: [CGImage] = []
+                self.lock.withLock {
+                    #if TESTING
+                        self.drawsForTesting += 1
+                        if Thread.isMainThread { self.drawsOnMainForTesting += 1 }
+                    #endif
+                    guard let image else {
+                        self.entries[signature] = nil
+                        return
+                    }
+                    let bytes = image.byteCount
+                    while self.cacheBytes + bytes > Self.maxCacheBytes, !self.drawnOrder.isEmpty {
+                        let oldest = self.drawnOrder.removeFirst()
+                        if case let .drawn(old)? = self.entries.removeValue(forKey: oldest) {
+                            self.cacheBytes -= old.byteCount
+                            evicted.append(old)
+                        }
+                    }
+                    self.entries[signature] = .drawn(image)
+                    self.drawnOrder.append(signature)
+                    self.cacheBytes += bytes
+                }
+                evicted.removeAll()
+            }
+        }
+
+        // MARK: - Text
+
+        /// The colour masked text is drawn in.
+        fileprivate static func starColor(_ color: UIColor) -> UIColor {
+            #if TESTING
+                return textColorForTesting ?? color
+            #else
+                return color
+            #endif
+        }
+
+        /// Non-whitespace becomes `*` (rrweb's `maskText`), or every character does (rrweb's `maskInputValue`).
+        fileprivate static func masked(_ text: String, keepingWhitespace: Bool) -> String {
+            keepingWhitespace ? String(text.map { $0.isWhitespace ? $0 : "*" }) : text.mask()
+        }
+
+        /// `masked(_:keepingWhitespace:)` for each run, keeping its attributes except attachments (images), shadows, and
+        /// ruby annotations (which draw their own unmasked text), so the text wraps or clips as the view would.
+        static func masked(_ text: NSAttributedString, keepingWhitespace: Bool, lineBreakMode: NSLineBreakMode) -> NSAttributedString {
+            let result = NSMutableAttributedString()
+            text.enumerateAttributes(in: NSRange(location: 0, length: text.length)) { attributes, range, _ in
+                var kept = attributes
+                kept[.attachment] = nil
+                kept[.shadow] = nil
+                kept[NSAttributedString.Key(kCTRubyAnnotationAttributeName as String)] = nil
+                let style = ((attributes[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
+                style.lineBreakMode = lineBreakMode
+                kept[.paragraphStyle] = style
+                let run = (text.string as NSString).substring(with: range)
+                result.append(NSAttributedString(string: masked(run, keepingWhitespace: keepingWhitespace), attributes: kept))
+            }
+            return result
+        }
+
+        /// Contentless bars in the text's colour, one per line the bounds hold: no glyph shapes, no layout, no bitmap.
+        private static func addBars(_ bars: TextBars, to copy: CALayer) {
+            let bounds = copy.bounds
+            let lineHeight = min(bars.lineHeight, bounds.height)
+            guard lineHeight > 0 else { return }
+            let lines = bars.singleLine ? 1 : min(200, max(1, Int(bounds.height / lineHeight)))
+            let barHeight = lineHeight * barHeightFraction
+            let top = bounds.minY + (bounds.height - CGFloat(lines) * lineHeight) / 2
+            let color = bars.cgColor()
+            for line in 0 ..< lines {
+                let bar = CALayer()
+                bar.frame = CGRect(x: bounds.minX, y: top + CGFloat(line) * lineHeight + (lineHeight - barHeight) / 2, width: bounds.width, height: barHeight)
+                bar.backgroundColor = color
+                copy.addSublayer(bar)
+            }
+        }
+
+        private static func bitmapBytes(_ size: CGSize, scale: CGFloat) -> Int {
+            Int((size.width * scale).rounded(.up)) * Int((size.height * scale).rounded(.up)) * 4
+        }
+
+        /// Any thread. Masks and lays out `source`, then draws it in Core Animation's own pixel format, so committing the
+        /// bitmap needs no conversion.
+        private static func draw(_ source: TextSource, scale: CGFloat) -> CGImage? {
+            guard let laidOut = source.laidOut() else { return nil }
+            let size = source.size
+            let width = Int((size.width * scale).rounded(.up)), height = Int((size.height * scale).rounded(.up))
+            guard width > 0, height > 0,
+                  let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                          space: sRGB, bitmapInfo: PostHogGPUMirrorCapture.Target.bgraBitmapInfo)
+            else { return nil }
+            // Cleared so no stale bytes show wherever no text is drawn.
+            context.clear(CGRect(x: 0, y: 0, width: width, height: height))
+            context.translateBy(x: 0, y: CGFloat(height))
+            context.scaleBy(x: scale, y: -scale)
+            context.clip(to: laidOut.clip ?? CGRect(origin: .zero, size: size))
+            UIGraphicsPushContext(context)
+            // Clipping line breaks keep a single line from wrapping; without this option the rect's origin would be the
+            // baseline.
+            laidOut.text.draw(with: laidOut.rect, options: .usesLineFragmentOrigin, context: nil)
+            UIGraphicsPopContext()
+            return context.makeImage()
+        }
+    }
+
+    // MARK: - Text inputs
+
+    /// The glyph-free bars shown until the `*` are drawn, or instead of them for text too long or large to draw: one per
+    /// line of `lineHeight`, or one for single-line text, in the text's colour where it was read, else the label colour.
+    private struct TextBars: Equatable {
+        let lineHeight: CGFloat
+        let singleLine: Bool
+        let color: UIColor?
+        let style: Int
+
+        init(_ label: UILabel) {
+            self.init(lineHeight: label.font.lineHeight, singleLine: label.numberOfLines == 1, color: label.textColor, traits: label.traitCollection)
+        }
+
+        init(_ field: UITextField, size: CGSize) {
+            self.init(lineHeight: field.font?.lineHeight ?? size.height, singleLine: true, color: field.textColor, traits: field.traitCollection)
+        }
+
+        init(_ textView: UITextView) {
+            self.init(lineHeight: textView.font?.lineHeight ?? UIFont.preferredFont(forTextStyle: .body).lineHeight, singleLine: false,
+                      color: textView.textColor, traits: textView.traitCollection)
+        }
+
+        init(rowsWith traits: UITraitCollection) {
+            self.init(lineHeight: UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits).lineHeight, singleLine: false, color: nil,
+                      traits: traits)
+        }
+
+        private init(lineHeight: CGFloat, singleLine: Bool, color: UIColor?, traits: UITraitCollection) {
+            self.lineHeight = lineHeight
+            self.singleLine = singleLine
+            self.color = color
+            style = traits.userInterfaceStyle.rawValue
+        }
+
+        func cgColor() -> CGColor {
+            let traits = UITraitCollection(userInterfaceStyle: UIUserInterfaceStyle(rawValue: style) ?? .unspecified)
+            return PostHogInlineMask.starColor(color ?? .label).resolvedColor(with: traits).cgColor
+        }
+    }
+
+    /// What a `*` bitmap is drawn from, cheap to read on every capture and free of the text itself: the masked string
+    /// with the style and layout inputs. Two views with equal signatures draw the same bitmap. Text longer than
+    /// `maxTextLength` has none.
+    private struct TextSignature: Hashable {
+        let masked: String
+        let size: CGSize
+        let scale: CGFloat
+        let font: UIFont?
+        let alignment: Int
+        let lines: Int
+        let flags: Int
+        /// Where a text view's text starts, scrolled, and how wide it lays out.
+        let origin: CGPoint
+        let layoutWidth: CGFloat
+        /// Its colour and appearance are drawn too.
+        let bars: TextBars
+
+        /// Written out because `CGSize` and `CGPoint` aren't `Hashable` in older SDKs.
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(masked)
+            hasher.combine(size.width)
+            hasher.combine(size.height)
+            hasher.combine(scale)
+            hasher.combine(origin.x)
+            hasher.combine(origin.y)
+        }
+
+        init?(_ label: UILabel, size: CGSize, scale: CGFloat, bars: TextBars) {
+            guard let masked = Self.key(label.text ?? "", keepingWhitespace: true) else { return nil }
+            self.init(masked, size: size, scale: scale, font: label.font, alignment: label.textAlignment.rawValue, lines: label.numberOfLines,
+                      flags: label.lineBreakMode.rawValue, bars: bars)
+        }
+
+        init?(_ field: UITextField, size: CGSize, scale: CGFloat, bars: TextBars) {
+            // The placeholder shows only when there's no text; a leading NUL keeps the two apart.
+            let text = field.text ?? ""
+            guard let key = Self.key(text.isEmpty ? field.placeholder ?? "" : text, keepingWhitespace: false) else { return nil }
+            self.init(text.isEmpty ? "\u{0}" + key : key, size: size, scale: scale, font: field.font, alignment: field.textAlignment.rawValue,
+                      lines: 1, flags: (field.isEditing ? 1 : 0) | (field.isSecureTextEntry ? 2 : 0), bars: bars)
+        }
+
+        init?(_ textView: UITextView, size: CGSize, scale: CGFloat, bars: TextBars) {
+            guard let masked = Self.key(textView.text ?? "", keepingWhitespace: true) else { return nil }
+            let layout = TextSource.textViewLayout(textView)
+            self.init(masked, size: size, scale: scale, font: textView.font, alignment: textView.textAlignment.rawValue, lines: 0, flags: 0,
+                      origin: layout.origin, layoutWidth: layout.width, bars: bars)
+        }
+
+        init(rowsOf size: CGSize, scale: CGFloat, traits: UITraitCollection, bars: TextBars) {
+            self.init("", size: size, scale: scale, font: UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits), alignment: 0,
+                      lines: 0, flags: 0, bars: bars)
+        }
+
+        private init(_ masked: String, size: CGSize, scale: CGFloat, font: UIFont?, alignment: Int, lines: Int, flags: Int,
+                     origin: CGPoint = .zero, layoutWidth: CGFloat = 0, bars: TextBars)
+        {
+            self.masked = masked
+            self.size = size
+            self.scale = scale
+            self.font = font
+            self.alignment = alignment
+            self.lines = lines
+            self.flags = flags
+            self.origin = origin
+            self.layoutWidth = layoutWidth
+            self.bars = bars
+        }
+
+        /// The text masked per unicode scalar, which is cheap: equal masked text gives an equal key, and the bitmap is
+        /// drawn per character. nil past `maxTextLength`, checked before the scan.
+        private static func key(_ text: String, keepingWhitespace: Bool) -> String? {
+            guard text.utf16.count <= PostHogInlineMask.maxTextLength else { return nil }
+            var masked = String.UnicodeScalarView()
+            for scalar in text.unicodeScalars {
+                masked.append(keepingWhitespace && scalar.properties.isWhitespace ? scalar : "*")
+            }
+            return String(masked)
+        }
+    }
+
+    private extension CGImage {
+        var byteCount: Int { bytesPerRow * height }
+    }
+
+    /// A view's text as read on main: what only UIKit can give (the text, its rects, colours resolved against the
+    /// view's traits), for the draw queue to mask, lay out and draw.
+    private struct TextSource {
+        enum Layout {
+            /// UILabel centres its text vertically in `rect`.
+            case label(rect: CGRect, singleLine: Bool, lineHeight: CGFloat)
+            /// One line centred in `rect`, scrolled to its end while editing as the field shows it.
+            case field(rect: CGRect, editing: Bool, lineHeight: CGFloat)
+            /// Already scrolled into the visible bounds' space.
+            case textView(rect: CGRect)
+            /// Rows of `*` filling the bounds, which depend only on the bounds, so they reveal nothing about the text.
+            case rows(font: UIFont, color: UIColor)
+        }
+
+        /// Not mutated after it's read: the draw queue reads it.
+        let text: NSAttributedString?
+        let layout: Layout
+        let size: CGSize
+
+        init?(_ label: UILabel, size: CGSize) {
+            guard let text = label.attributedText, text.length > 0 else { return nil }
+            self.text = Self.resolvingColors(text, traits: label.traitCollection)
+            let rect = label.textRect(forBounds: CGRect(origin: .zero, size: size), limitedToNumberOfLines: label.numberOfLines)
+            layout = .label(rect: rect, singleLine: label.numberOfLines == 1, lineHeight: Self.firstFont(text, default: label.font).lineHeight)
+            self.size = size
+        }
+
+        init?(_ field: UITextField, size: CGSize) {
+            let bounds = CGRect(origin: .zero, size: size)
+            let source: NSAttributedString
+            let rect: CGRect
+            if let text = field.attributedText, text.length > 0 {
+                source = text
+                rect = field.isEditing ? field.editingRect(forBounds: bounds) : field.textRect(forBounds: bounds)
+            } else if let placeholder = field.attributedPlaceholder, placeholder.length > 0 {
+                source = placeholder
+                rect = field.placeholderRect(forBounds: bounds)
+            } else if let placeholder = field.placeholder, !placeholder.isEmpty {
+                source = NSAttributedString(string: placeholder, attributes: [.font: field.font as Any, .foregroundColor: UIColor.placeholderText])
+                rect = field.placeholderRect(forBounds: bounds)
+            } else {
+                return nil
+            }
+            text = Self.resolvingColors(source, traits: field.traitCollection)
+            layout = .field(rect: rect, editing: field.isEditing, lineHeight: Self.firstFont(source, default: field.font).lineHeight)
+            self.size = size
+        }
+
+        init?(_ textView: UITextView, size: CGSize) {
+            guard let text = textView.attributedText, text.length > 0 else { return nil }
+            self.text = Self.resolvingColors(text, traits: textView.traitCollection)
+            let layout = Self.textViewLayout(textView)
+            self.layout = .textView(rect: CGRect(x: layout.origin.x, y: layout.origin.y, width: layout.width,
+                                                 height: max(size.height - layout.origin.y, textView.contentSize.height)))
+            self.size = size
+        }
+
+        init(rowsOf size: CGSize, traits: UITraitCollection) {
+            text = nil
+            let body = UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits)
+            let font = size.height < body.lineHeight ? body.withSize(max(1, body.pointSize * size.height / body.lineHeight)) : body
+            layout = .rows(font: font, color: PostHogInlineMask.starColor(.label).resolvedColor(with: traits))
+            self.size = size
+        }
+
+        /// Where a text view's text starts in its visible bounds (scrolled by the offset) and how wide it lays out.
+        static func textViewLayout(_ textView: UITextView) -> (origin: CGPoint, width: CGFloat) {
+            let inset = textView.textContainerInset, padding = textView.textContainer.lineFragmentPadding, offset = textView.contentOffset
+            return (CGPoint(x: inset.left + padding - offset.x, y: inset.top - offset.y),
+                    max(0, textView.bounds.width - inset.left - inset.right - 2 * padding))
+        }
+
+        /// The masked text, where it's drawn and where it's clipped.
+        struct LaidOut {
+            let text: NSAttributedString
+            let rect: CGRect
+            var clip: CGRect?
+        }
+
+        /// Any thread. nil when there's nothing to draw.
+        func laidOut() -> LaidOut? {
+            switch layout {
+            case let .label(rect, singleLine, lineHeight):
+                guard let text else { return nil }
+                let masked = PostHogInlineMask.masked(text, keepingWhitespace: true, lineBreakMode: singleLine ? .byClipping : .byWordWrapping)
+                var drawn = rect
+                drawn.origin.y = (size.height - rect.height) / 2
+                // Clipped rather than wrapped or truncated: `*` can be wider than the glyphs it replaces.
+                if singleLine { drawn.size.height = max(rect.height, lineHeight) }
+                return LaidOut(text: masked, rect: drawn)
+            case let .field(rect, editing, lineHeight):
+                guard let text else { return nil }
+                let masked = PostHogInlineMask.masked(text, keepingWhitespace: false, lineBreakMode: .byClipping)
+                let width = masked.size().width
+                let left = editing && width > rect.width ? rect.maxX - width : rect.minX
+                return LaidOut(text: masked, rect: CGRect(x: left, y: rect.midY - lineHeight / 2, width: max(rect.maxX - left, width), height: lineHeight),
+                               clip: rect)
+            case let .textView(rect):
+                guard let text else { return nil }
+                return LaidOut(text: PostHogInlineMask.masked(text, keepingWhitespace: true, lineBreakMode: .byWordWrapping), rect: rect)
+            case let .rows(font, color):
+                return Self.rows(size: size, font: font, color: color)
+            }
+        }
+
+        private static func rows(size: CGSize, font: UIFont, color: UIColor) -> LaidOut? {
+            let starWidth = NSAttributedString(string: "*", attributes: [.font: font]).size().width
+            let rows = max(1, Int(size.height / font.lineHeight))
+            let perRow = starWidth > 0 ? Int(size.width / starWidth) : 0
+            guard perRow > 0 else { return nil }
+            let string = Array(repeating: String(repeating: "*", count: perRow), count: rows).joined(separator: "\n")
+            let style = NSMutableParagraphStyle()
+            style.lineBreakMode = .byClipping
+            style.minimumLineHeight = font.lineHeight
+            style.maximumLineHeight = font.lineHeight
+            let text = NSAttributedString(string: string, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: style])
+            let height = CGFloat(rows) * font.lineHeight
+            return LaidOut(text: text, rect: CGRect(x: 0, y: (size.height - height) / 2, width: size.width, height: height))
+        }
+
+        /// Colours resolved against `traits`, since drawing runs off main where dynamic colours can't be.
+        private static func resolvingColors(_ text: NSAttributedString, traits: UITraitCollection) -> NSAttributedString {
+            let resolved = NSMutableAttributedString(attributedString: text)
+            text.enumerateAttributes(in: NSRange(location: 0, length: text.length)) { attributes, range, _ in
+                for (key, value) in attributes {
+                    guard let color = value as? UIColor else { continue }
+                    let drawn = key == .foregroundColor ? PostHogInlineMask.starColor(color) : color
+                    resolved.addAttribute(key, value: drawn.resolvedColor(with: traits), range: range)
+                }
+            }
+            return resolved
+        }
+
+        private static func firstFont(_ text: NSAttributedString, default font: UIFont?) -> UIFont {
+            (text.length > 0 ? text.attribute(.font, at: 0, effectiveRange: nil) as? UIFont : nil) ?? font ?? UIFont.systemFont(ofSize: UIFont.labelFontSize)
+        }
+    }
+#endif

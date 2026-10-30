@@ -18,7 +18,8 @@
 
         private func getSut(
             eventTriggers: [String]? = nil,
-            linkedFlagNotMatched: Bool = false
+            linkedFlagNotMatched: Bool = false,
+            triggerGroups: [[String: Any]]? = nil
         ) -> PostHogSDK {
             // A token per test keeps the seeded recording config apart from other suites' SDK instances
             let config = PostHogConfig(projectToken: "replay_triggers_\(UUID().uuidString)", host: "http://localhost:9001")
@@ -45,6 +46,10 @@
             if linkedFlagNotMatched {
                 // No cached value seeded for this flag, so it evaluates as not matched.
                 sessionRecording["linkedFlag"] = "unmatched_replay_flag"
+            }
+            if let triggerGroups {
+                sessionRecording["version"] = 2
+                sessionRecording["triggerGroups"] = triggerGroups
             }
             storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": sessionRecording])
 
@@ -317,6 +322,45 @@
             #expect(integration?.isActive() == true)
 
             sut.close()
+        }
+
+        // MARK: - v2 Trigger Groups
+
+        @Test("an event-only trigger group waits for its event")
+        func eventOnlyTriggerGroupWaits() async throws {
+            let sut = getSut(triggerGroups: [eventOnlyTriggerGroup])
+            defer { sut.close() }
+
+            #expect(sut.getReplayIntegration()?.isActive() == false)
+        }
+
+        @Test("React Native leaves trigger groups to the JS layer")
+        func reactNativeLeavesTriggerGroupsToJS() async throws {
+            let original = postHogSdkName
+            postHogSdkName = "posthog-react-native"
+            defer { postHogSdkName = original }
+
+            // The same event-only group: JS decides when to start, so native must not refuse it.
+            let sut = getSut(triggerGroups: [eventOnlyTriggerGroup])
+            defer { sut.close() }
+
+            #expect(sut.getReplayIntegration()?.isActive() == true)
+        }
+
+        @Test("the v1 linked flag does not gate recording under trigger groups")
+        func linkedFlagIgnoredUnderTriggerGroups() async throws {
+            let sut = getSut(
+                linkedFlagNotMatched: true,
+                triggerGroups: [["id": "unconditional", "sampleRate": 1, "conditions": ["matchType": "any"]]]
+            )
+            defer { sut.close() }
+
+            #expect(sut.getReplayIntegration()?.isActive() == true)
+            #expect(sut.remoteConfig?.sessionReplayLinkedFlagSnapshot().configured == false)
+        }
+
+        private var eventOnlyTriggerGroup: [String: Any] {
+            ["id": "purchase", "sampleRate": 1, "conditions": ["matchType": "any", "events": [["name": "purchase_completed"]]]]
         }
 
         // MARK: - debugProperties() Trigger Status

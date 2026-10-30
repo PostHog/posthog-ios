@@ -35,12 +35,23 @@
             guard isWindowContext(portal, root: root), let superlayer = source.superlayer else { return nil }
             switch (portal.value(forKey: "matchesPosition") as? Bool, portal.value(forKey: "matchesTransform") as? Bool) {
             case (true, true):
-                return affineTransform(from: superlayer, to: portal).map(Placement.inPlace)
+                return inPlaceTransform(from: superlayer, to: portal).map(Placement.inPlace)
             case (false, false):
                 return .atPortal
             default:
                 return nil
             }
+        }
+
+        /// Measured on the presentation tree, as the mirror draws the source's subtree and the mask rects are measured.
+        /// When one of the layers can't be asked for its presentation copy, the model layers are used unless one is
+        /// animating: then where the source is drawn isn't known and the portal is left out.
+        private static func inPlaceTransform(from superlayer: CALayer, to portal: CALayer) -> CGAffineTransform? {
+            let layers = [superlayer, portal]
+            guard layers.allSatisfy({ PostHogGPUMirrorCapture.isPresentationSafe(type(of: $0)) }) else {
+                return layers.contains { $0.animationKeys() != nil } ? nil : affineTransform(from: superlayer, to: portal)
+            }
+            return affineTransform(from: superlayer.presentation() ?? superlayer, to: portal.presentation() ?? portal)
         }
 
         /// Where an `.atPortal` portal shows `source`, for the mask walk. `root` is the window's layer. Measured on the

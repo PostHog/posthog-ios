@@ -2309,7 +2309,12 @@
                 guard let regions = collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources) else {
                     return nil
                 }
-                frame.omitModelGeometrySubtrees(holding: regions.compactMap { ($0.object as? UIView)?.layer ?? $0.object as? CALayer })
+                let maskedLayers = regions.compactMap { ($0.object as? UIView)?.layer ?? $0.object as? CALayer }
+                guard frame.omitModelGeometrySubtrees(holding: maskedLayers,
+                                                      cover: PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer)
+                else {
+                    return nil
+                }
                 return regions.map(\.rect)
             }
 

@@ -425,6 +425,52 @@
             #expect(try count(Pixels(image), in: CGRect(x: 30, y: 180, width: 120, height: 60), where: { $0 == .blue }) > 120 * 60 * 9 / 10)
         }
 
+        /// Holds `layer`'s `keyPath` at `value` for the whole capture, whatever the model says.
+        private func hold(_ layer: CALayer, keyPath: String, at value: Any) async throws {
+            let animation = CABasicAnimation(keyPath: keyPath)
+            animation.fromValue = value
+            animation.toValue = value
+            animation.duration = 1000
+            animation.beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) - 1
+            layer.add(animation, forKey: keyPath)
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+
+        /// Reports a cover as presented without presenting it, which a window outside a scene can't.
+        private final class CoveredController: UIViewController {
+            var cover: UIViewController?
+            override var presentedViewController: UIViewController? { cover }
+        }
+
+        @Test("A masked view in a full-window cover drawn by an animating app layer skips the frame instead of hiding the cover")
+        func animatingAppLayerCoverSkipsFrame() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let presenter = CoveredController()
+            window.rootViewController = presenter
+            defer { window.rootViewController = nil }
+            presenter.view.frame = window.bounds
+            presenter.view.addSubview(secretField(CGRect(x: 20, y: 200, width: 120, height: 60)))
+            let cover = UIViewController()
+            cover.view = try animatingAppLayerView()
+            cover.view.frame = window.bounds
+            cover.view.addSubview(secretField(CGRect(x: 20, y: 40, width: 120, height: 60)))
+            presenter.cover = cover
+            window.addSubview(cover.view)
+            CATransaction.flush()
+            try await hold(cover.view.layer, keyPath: "opacity", at: 1)
+            try #require(PostHogPresentationCover.frontmostFullWindowCover(in: window) === cover.view)
+
+            window.layoutIfNeeded()
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            defer { frame.release() }
+            // The presenter's masks are left out under the cover, so hiding the cover's copy would expose it.
+            #expect(PostHogReplayIntegration().maskableRects(for: frame, in: window) == nil)
+        }
+
         @available(iOS 26.0, *)
         @Test("Corners UIKit rounds per corner, leaving cornerRadius at 0, are rounded in the copy")
         func perCornerRadiiAreCopied() async throws {
@@ -1219,6 +1265,52 @@
             let (image, rects) = try await render(window, with: mirror)
             let pixels = try Pixels(image)
             #expect(count(pixels, in: CGRect(x: 55, y: 195, width: 90, height: 30), where: Self.isMagenta) > 90 * 30 * 9 / 10)
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("A matched portal whose source's parent is mid-animation draws the source where its masks are measured")
+        func matchedPortalUnderAnimatingParentFollowsPresentation() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let parent = UIView(frame: CGRect(x: 20, y: 20, width: 160, height: 100))
+            let field = secretField(CGRect(x: 10, y: 10, width: 120, height: 60))
+            parent.addSubview(field)
+            window.addSubview(parent)
+            // Over the whole window, so the source shows wherever the portal places it.
+            window.layer.addSublayer(try makePortal(showing: field.layer, frame: window.bounds))
+            CATransaction.flush()
+            try await animateDown(parent.layer, by: 150)
+
+            let (image, rects) = try await render(window, with: mirror)
+            // Where the parent's presentation holds it: 20 + 10 + 5 down.
+            #expect(try count(Pixels(image), in: CGRect(x: 35, y: 35, width: 110, height: 50), where: Self.isMagenta) > 110 * 50 * 9 / 10)
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("A lens portal whose bounds origin is mid-animation draws its source where its masks are measured")
+        func lensPortalWithAnimatingBoundsOriginFollowsPresentation() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            source.addSubview(secretField(CGRect(x: 10, y: 10, width: 100, height: 40)))
+            window.addSubview(source)
+            // Taller than the source, so it would still show the source moved down by the model's origin.
+            let portal = try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 150, width: 120, height: 140))
+            window.layer.addSublayer(portal)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            portal.bounds.origin.y = 60
+            CATransaction.commit()
+            try await hold(portal, keyPath: "bounds.origin", at: NSValue(cgPoint: .zero))
+            try #require(portal.presentation()?.bounds.origin == .zero)
+
+            let (image, rects) = try await render(window, with: mirror)
+            // On the portal at the field's offset in the source: 150 + 10 + 5 down.
+            #expect(try count(Pixels(image), in: CGRect(x: 55, y: 165, width: 90, height: 30), where: Self.isMagenta) > 90 * 30 * 9 / 10)
             #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
         }
 

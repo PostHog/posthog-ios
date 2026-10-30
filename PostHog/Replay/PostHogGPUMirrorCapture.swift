@@ -43,18 +43,32 @@
 
             /// Main thread, between the mask walk and `freeze`. Hides each model-geometry copy whose source holds one of
             /// `maskedLayers`: their masks are measured at presentation geometry and wouldn't land on those pixels.
-            func omitModelGeometrySubtrees(holding maskedLayers: [CALayer]) {
-                guard stage == .built, !modelGeometryCopies.isEmpty else { return }
-                CATransaction.begin()
-                CATransaction.setDisableActions(true)
+            /// Returns false, hiding nothing, when that would hide `cover` or one of its ancestors: the mask walk left
+            /// out the masks of what the cover hides, which would then show.
+            func omitModelGeometrySubtrees(holding maskedLayers: [CALayer], cover: @autoclosure () -> CALayer?) -> Bool {
+                guard stage == .built, !modelGeometryCopies.isEmpty else { return true }
+                var omitted = Set<ObjectIdentifier>()
                 for masked in maskedLayers {
                     var current: CALayer? = masked
                     while let layer = current {
-                        modelGeometryCopies.removeValue(forKey: ObjectIdentifier(layer))?.forEach { $0.isHidden = true }
+                        let id = ObjectIdentifier(layer)
+                        if modelGeometryCopies[id] != nil { omitted.insert(id) }
                         current = layer.superlayer
                     }
                 }
+                guard !omitted.isEmpty else { return true }
+                var coverAncestor = cover()
+                while let layer = coverAncestor {
+                    if omitted.contains(ObjectIdentifier(layer)) { return false }
+                    coverAncestor = layer.superlayer
+                }
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                for id in omitted {
+                    modelGeometryCopies.removeValue(forKey: id)?.forEach { $0.isHidden = true }
+                }
                 CATransaction.commit()
+                return true
             }
 
             /// Main thread. Commits the mirror so CARenderer sees it; host redraws after this, even in place into shared
@@ -644,7 +658,7 @@
         }
 
         private func mirrorPortal(_ portal: CALayer, presentation: CALayer, info: ClassInfo, walk: inout Walk) -> CALayer? {
-            guard let content = portalContent(portal, walk: &walk) else { return nil }
+            guard let content = portalContent(portal, presentation: presentation, walk: &walk) else { return nil }
             let copy = makeCopy(of: portal, presentation: presentation, info: info, walk: &walk)
             copy.sublayers = [content.layer]
             if content.clips { copy.masksToBounds = true }
@@ -660,7 +674,8 @@
         /// or culled where it sits yet still show through the portal. Any other portal stays out, as does a portal
         /// inside a source being drawn through another: its masks would only be found where the inner portal sits.
         /// `clips` is true when the portal shows its source on itself, so masks there can only cover the portal's bounds.
-        private func portalContent(_ portal: CALayer, walk: inout Walk) -> (layer: CALayer, clips: Bool)? {
+        /// `presentation` is the state the portal's own copy is drawn from.
+        private func portalContent(_ portal: CALayer, presentation: CALayer, walk: inout Walk) -> (layer: CALayer, clips: Bool)? {
             guard walk.portalsInProgress.isEmpty,
                   let source = portal.value(forKey: "sourceLayer") as? CALayer,
                   let view = source.delegate as? UIView,
@@ -691,7 +706,7 @@
                 let elsewhere = PostHogPortalSource.elsewhere(source: source, portal: portal, root: walk.root)
                 walk.portalSources.append(PostHogPortalSource(view: view, elsewhere: elsewhere))
                 content.anchorPoint = .zero
-                content.position = portal.bounds.origin
+                content.position = presentation.bounds.origin
                 content.transform = CATransform3DIdentity
                 return (content, true)
             }

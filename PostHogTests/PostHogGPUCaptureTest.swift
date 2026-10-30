@@ -263,6 +263,57 @@
             try expectMagentaMasked(image, rects)
         }
 
+        // MARK: - Masks of uncommitted changes
+
+        /// Moves `layer` down by `distance` over a long linear animation, so its presentation stays near the start while
+        /// the model already sits at the end.
+        private func animateDown(_ layer: CALayer, by distance: CGFloat) async throws {
+            let start = layer.position
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            layer.position.y += distance
+            CATransaction.commit()
+            let animation = CABasicAnimation(keyPath: "position")
+            animation.fromValue = NSValue(cgPoint: start)
+            animation.toValue = NSValue(cgPoint: layer.position)
+            animation.duration = 1000
+            animation.timingFunction = CAMediaTimingFunction(name: .linear)
+            layer.add(animation, forKey: "position")
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            let presented = try #require(layer.presentation()?.position)
+            #expect(abs(presented.y - start.y) < 1)
+        }
+
+        @Test("A view added under a parent mid-animation, before it commits, is masked where the parent's presentation places it",
+              arguments: [true, false])
+        func uncommittedChildUnderAnimatingParentIsMasked(gpu: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let parent = UIView(frame: CGRect(x: 20, y: 20, width: 160, height: 100))
+            window.addSubview(parent)
+            CATransaction.flush()
+            try await animateDown(parent.layer, by: 150)
+            let field = secretField(CGRect(x: 10, y: 10, width: 120, height: 60))
+            parent.addSubview(field)
+            try #require(field.layer.presentation() == nil)
+            let expected = try #require(parent.layer.presentation()).convert(field.frame, to: window.layer)
+
+            if gpu {
+                let (image, rects) = try await render(window, with: mirror)
+                #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(expected) })
+                try expectMagentaMasked(image, rects)
+            } else {
+                let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window))
+                #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(expected) })
+                let image = try #require(window.toImage(preferFidelityRenderer: false))
+                let masked = try Pixels(#require(RRWireframe.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
+                #expect(masked.points(where: Self.isMagenta).isEmpty)
+            }
+        }
+
         @available(iOS 26.0, *)
         @Test("Corners UIKit rounds per corner, leaving cornerRadius at 0, are rounded in the copy")
         func perCornerRadiiAreCopied() async throws {

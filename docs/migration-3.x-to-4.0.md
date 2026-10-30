@@ -76,6 +76,8 @@ With `debug` on, the SDK logs how many events were dropped.
 - An event whose name is over 200 UTF-8 bytes is dropped. Legacy capture had no limit on event name length.
 - An event whose distinct ID is over 200 UTF-8 bytes is dropped. Legacy capture shortened the ID to 200 characters and kept the event.
 
+A `NaN`, infinite or other non-JSON property value is removed before sending, and the event is still sent.
+
 In 3.x, an empty event name or distinct ID made legacy capture reject the whole batch it was in.
 
 The distinct ID can come from `identify(_:)`, the `distinctId` argument of `capture` or `beforeSend`.
@@ -144,6 +146,7 @@ When the event is sent, the SDK removes each one from `properties` and uses it f
 - When `personProfiles` turns person processing off, the SDK sets the `process_person_profile` option to `false`. Otherwise it sends neither, because PostHog processes person profiles by default. To change person processing for one event, pass the `process_person_profile` option or the `$process_person_profile` property. A registered `$process_person_profile` changes it for every event.
 - The SDK sends option values as given. PostHog reads common forms of a value, such as `"false"` or `0` for a boolean, and drops an event whose option value it can't read.
 - Other option keys are sent unchanged, and PostHog ignores keys it doesn't know.
+- There are no global options. To set one for every event, register its legacy property, for example `register(["$cookieless_mode": true])`.
 - Events still queued on disk by 3.x are sent to capture v1 after the update, with their legacy properties moved to options.
 
 ## AI events
@@ -163,11 +166,12 @@ In Objective-C, use `captureAiWithEvent:distinctId:properties:userProperties:use
 - AI events are queued on disk separately from other events. Up to 100 events (`captureAiMaxQueueSize`) and 50 MiB are kept, and the oldest are dropped first. `maxQueueSize` doesn't apply.
 - AI requests are gzipped unless you set `captureAiCompression` to `.none`. `compression` doesn't apply.
 - AI events use `flushAt`, `maxBatchSize` and `flushIntervalSeconds`, like other events. A request carries up to about 5 MiB, as for analytics events (see [Retries](#retries)).
+- `flush()` and `close()` also send AI events, and AI events left on disk are sent after the next launch.
 - The SDK sends AI events unchanged. It doesn't redact or truncate prompts, outputs or media, so use `beforeSend` to remove anything you don't want to send.
 
 ## Retries
 
-- The SDK retries network errors and 404, 408, 429, 500, 502, 503 and 504 responses. Other statuses drop the events. 3.x did not retry 404, and retried 3xx responses.
+- The SDK retries network errors and 404, 408, 429, 500, 502, 503 and 504 responses. Other statuses, such as a 402 when you're over your billing limit, drop the whole request. 3.x did not retry 404, and retried 3xx responses.
 - When the response asks to retry only some events, the SDK keeps those events queued and removes the rest.
 - A `Retry-After` header pauses sending for at most 30 seconds. This also applies to session replay and logs. In 3.x, analytics events and session replay had no cap, and logs allowed up to 5 minutes.
 - After a failed send, the wait before the next one doubles from 1 second up to 30 seconds, with up to 25% random jitter. In 3.x it grew by 1 second per failure. This applies to events, session replay and logs.

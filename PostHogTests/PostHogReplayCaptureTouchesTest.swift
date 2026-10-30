@@ -127,7 +127,19 @@
             window.rootViewController?.view.backgroundColor = .red
             window.makeKeyAndVisible()
             defer { window.isHidden = true }
-            #expect(integration.captureBridgeSnapshot(episodeFirstFrame: false, window: window))
+            // drawHierarchy has no window scene in this hostless bundle and failed draws are dropped, so render
+            // through the presentation tree and hand the frame to the emission step the bridge would reach.
+            let wireframe = RRWireframe()
+            wireframe.type = "screenshot"
+            wireframe.image = try #require(window.toImage(preferFidelityRenderer: false))
+            integration.captureSnapshot(
+                wireframe,
+                window: window,
+                windowSize: window.bounds.size,
+                screenName: nil,
+                postHog: sut,
+                timestampDate: Date()
+            )
             await drainReplayQueue()
             let screenshot = try #require(snapshots.screenshots.first)
             #expect(!(screenshot["base64"] as? String ?? "").isEmpty)

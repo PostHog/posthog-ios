@@ -1,5 +1,15 @@
 ## Next
 
+## 3.93.0
+
+### Minor Changes
+
+- 02e113e: Add an experimental `sessionReplayConfig.screenshotScale` option that sets session replay screenshot resolution as a fraction of the screen's native resolution. Left unset, screenshots stay at one pixel per point.
+
+### Patch Changes
+
+- 02e113e: Keep small text readable in downsized session replay screenshots by resampling them with smoothing instead of nearest-neighbour.
+
 ## 3.92.7
 
 ### Patch Changes

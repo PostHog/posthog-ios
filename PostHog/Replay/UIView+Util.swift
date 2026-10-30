@@ -162,12 +162,67 @@
         /// while the presentation layer holds the in-flight position the screenshot renders, so
         /// mask rects have to come from the presentation tree. Wireframe geometry is a separate
         /// consumer with no pixels to agree with and stays on `toAbsoluteRect`.
-        func toPresentationRect(_ window: UIWindow?) -> CGRect {
+        /// `outsets` grows the rect past the bounds, for content drawn outside them.
+        func toPresentationRect(_ window: UIWindow?, outsets: UIEdgeInsets = .zero) -> CGRect {
             guard layer.presentation() != nil else {
                 // UIView's own convert, not the layer's: it resolves a nil window to the view's.
-                return convert(bounds, to: window)
+                return convert(bounds.outset(by: outsets), to: window)
             }
-            return layer.toPresentationRect(window)
+            return layer.toPresentationRect(window, outsets: outsets)
+        }
+
+        /// How far past its bounds the view draws its own content: an image view that doesn't
+        /// clip draws its image at the size its content mode gives it, and an unclipped layer
+        /// shadow repeats that content at an offset.
+        var drawnOutsets: UIEdgeInsets {
+            var content = bounds
+            if !clipsToBounds, let imageView = self as? UIImageView {
+                content = imageView.drawnImageExtent
+            }
+            return layer.drawnOutsets(of: content)
+        }
+    }
+
+    extension UIImageView {
+        /// The union of the bounds and where each image the view can draw lands, in bounds
+        /// coordinates. Only fill-to-bounds content modes keep the image inside the bounds.
+        var drawnImageExtent: CGRect {
+            switch contentMode {
+            case .scaleToFill, .scaleAspectFit, .redraw:
+                return bounds
+            default:
+                let sources = [image, highlightedImage].compactMap { $0 }
+                    + (animationImages ?? []) + (highlightedAnimationImages ?? [])
+                return sources.reduce(bounds) { $0.union(drawnRect(ofImageSized: $1.size)) }
+            }
+        }
+
+        private func drawnRect(ofImageSized imageSize: CGSize) -> CGRect {
+            var size = imageSize
+            if contentMode == .scaleAspectFill, imageSize.width > 0, imageSize.height > 0 {
+                let scale = max(bounds.width / imageSize.width, bounds.height / imageSize.height)
+                size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+            }
+
+            let originX: CGFloat
+            switch contentMode {
+            case .left, .topLeft, .bottomLeft: originX = 0
+            case .right, .topRight, .bottomRight: originX = bounds.width - size.width
+            default: originX = (bounds.width - size.width) / 2
+            }
+            let originY: CGFloat
+            switch contentMode {
+            case .top, .topLeft, .topRight: originY = 0
+            case .bottom, .bottomLeft, .bottomRight: originY = bounds.height - size.height
+            default: originY = (bounds.height - size.height) / 2
+            }
+            return CGRect(x: bounds.minX + originX, y: bounds.minY + originY, width: size.width, height: size.height)
+        }
+    }
+
+    extension CGRect {
+        func outset(by outsets: UIEdgeInsets) -> CGRect {
+            inset(by: UIEdgeInsets(top: -outsets.top, left: -outsets.left, bottom: -outsets.bottom, right: -outsets.right))
         }
     }
 
@@ -193,11 +248,34 @@
     }
 
     extension CALayer {
-        func toPresentationRect(_ window: UIWindow?) -> CGRect {
+        func toPresentationRect(_ window: UIWindow?, outsets: UIEdgeInsets = .zero) -> CGRect {
             guard let presentationLayer = presentation() else {
-                return convert(bounds, to: window?.layer)
+                return convert(bounds.outset(by: outsets), to: window?.layer)
             }
-            return presentationLayer.convert(presentationLayer.bounds, to: window?.layer.presentation() ?? window?.layer)
+            return presentationLayer.convert(
+                presentationLayer.bounds.outset(by: outsets),
+                to: window?.layer.presentation() ?? window?.layer
+            )
+        }
+
+        /// How far past `bounds` the layer draws, given `content`, the extent of its own drawing
+        /// in bounds coordinates. A shadow without a `shadowPath` repeats the content's shape,
+        /// text included, so it counts; `masksToBounds` clips the shadow away.
+        func drawnOutsets(of content: CGRect) -> UIEdgeInsets {
+            var drawn = content
+            if !masksToBounds, shadowOpacity > 0, shadowColor != nil, shadowPath == nil {
+                // Pad by twice the blur radius so the shadow's soft edge is covered too.
+                let blur = shadowRadius * 2
+                drawn = drawn.union(
+                    content.offsetBy(dx: shadowOffset.width, dy: shadowOffset.height).insetBy(dx: -blur, dy: -blur)
+                )
+            }
+            return UIEdgeInsets(
+                top: max(0, bounds.minY - drawn.minY),
+                left: max(0, bounds.minX - drawn.minX),
+                bottom: max(0, drawn.maxY - bounds.maxY),
+                right: max(0, drawn.maxX - bounds.maxX)
+            )
         }
 
         /// Backing flag for the SwiftUI `.postHogNoRageClick()` modifier on layer-backed

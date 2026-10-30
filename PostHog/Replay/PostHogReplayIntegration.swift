@@ -948,8 +948,11 @@
             }
 
             if let textView = view as? UITextView { // TextEditor, SwiftUI.TextEditorTextView, SwiftUI.UIKitTextView
-                if isTextViewSensitive(textView) {
+                // textStorage rather than attributedText, which copies the whole text
+                if isTextViewSensitive(textView) || hasSensitiveImageAttachment(textView.textStorage) {
                     maskableWidgets.append(.init(view, in: window))
+                    // an unclipped subview can draw outside the text view's mask
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren || view.isNoCapture())
                     return
                 }
             }
@@ -1012,8 +1015,10 @@
             }
 
             if let label = view as? UILabel { // Text, this code might never be reachable in SwiftUI, see swiftUIImageTypes instead
-                if isLabelSensitive(label) {
+                if isLabelSensitive(label) || hasSensitiveImageAttachment(label.attributedText) {
                     maskableWidgets.append(.init(view, in: window))
+                    // an unclipped subview can draw outside the label's mask
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren || view.isNoCapture())
                     return
                 }
             }
@@ -1031,6 +1036,8 @@
             if let button = view as? UIButton {
                 if isButtonSensitive(button) {
                     maskableWidgets.append(.init(view, in: window))
+                    // title and image insets can lay the button's subviews out past its bounds
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren || view.isNoCapture())
                     return
                 }
             }
@@ -1798,6 +1805,29 @@
                 hedgeLog("[Session Replay] Event triggers removed. Starting replay.")
                 startRecording()
             }
+        }
+    }
+
+    private extension PostHogReplayIntegration {
+        /// Image attachments in text are drawn by the label or text view itself, with no image view to
+        /// mask, so masking images masks text that holds one. Like image views, symbols and
+        /// asset-catalog images stay visible; an attachment whose image can't be read is masked.
+        func hasSensitiveImageAttachment(_ text: NSAttributedString?) -> Bool {
+            guard config?.sessionReplayConfig.maskAllImages == true, let text, text.length > 0 else {
+                return false
+            }
+            var found = false
+            text.enumerateAttribute(.attachment, in: NSRange(location: 0, length: text.length)) { value, _, stop in
+                guard let attachment = value as? NSTextAttachment else {
+                    return
+                }
+                if let image = attachment.image, image.isSymbolImage || isAssetsImage(image) {
+                    return
+                }
+                found = true
+                stop.pointee = true
+            }
+            return found
         }
     }
 

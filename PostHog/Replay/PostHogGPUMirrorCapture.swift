@@ -400,6 +400,8 @@
         // Main thread only.
         private var targets: [TargetKey: Target] = [:]
         private var warming: [TargetKey: [() -> Void]] = [:]
+        /// Bumped by `purge`, so a warm-up it overtook doesn't refill the cache.
+        private var purgeGeneration = 0
         private var failedKeys: Set<TargetKey> = []
         private var classInfoCache: [ObjectIdentifier: ClassInfo] = [:]
         private var shareableTypeIDs: [CFTypeID: Bool] = [:]
@@ -459,10 +461,13 @@
                 return
             }
             warming[key] = completion.map { [$0] } ?? []
+            let generation = purgeGeneration
             DispatchQueue.global(qos: .utility).async { [self] in
                 let target = makeTarget(key)
                 target?.warmUp()
                 DispatchQueue.main.async { [self] in
+                    // `purge` already called this warm-up's completions back.
+                    guard generation == purgeGeneration else { return }
                     if let target {
                         if targets[key] == nil { install(target, for: key) }
                     } else {
@@ -506,10 +511,15 @@
 
         /// Main thread. Frees the cached renderers, their textures and the placeholders; the next capture builds what it
         /// needs again. A frame in flight holds its own renderer until it's released, so this is safe at any point.
+        /// Warm-ups in flight are dropped, and whoever waits on them is called back now.
         func purge() {
+            purgeGeneration += 1
+            let waiting = warming.values.flatMap { $0 }
+            warming.removeAll()
             targets.removeAll()
             failedKeys.removeAll()
             placeholders.removeAll()
+            waiting.forEach { $0() }
         }
 
         // MARK: - Targets

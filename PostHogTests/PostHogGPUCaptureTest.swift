@@ -1494,6 +1494,20 @@
             #expect(try Pixels(#require(image))[100, 150] == .blue)
         }
 
+        @Test("Purging while a renderer warms up keeps it out of the cache, and still calls back the capture waiting for it")
+        func purgeDuringPrewarmLeavesCacheEmpty() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            var completed = false
+            mirror.prewarm(size: window.bounds.size, scale: 1) { completed = true }
+            mirror.purge()
+            #expect(completed)
+
+            // Long enough for the warm-up purged above to finish and report back.
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1))
+        }
+
         // MARK: - Routing
 
         @Test("GPU capture is used only when its flag is on, and wins over background capture", arguments: [

@@ -92,15 +92,15 @@
 
         // MARK: - Mask render failure
 
-        /// An image whose pixel size rounds to zero, so `PostHogGraphicsImageRenderer`
-        /// returns nil exactly as it does when the full-frame malloc or the CGContext fails.
+        /// An image whose pixel size rounds to zero even when rounding up (1/10,000 pt), so
+        /// `PostHogGraphicsImageRenderer` returns nil exactly as it does when the full-frame malloc or the CGContext fails.
         private func makeUnrenderableImage() -> UIImage {
             let pixel = CGContext(
                 data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
                 space: CGColorSpaceCreateDeviceRGB(),
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
             )!
-            return UIImage(cgImage: pixel.makeImage()!, scale: 8, orientation: .up)
+            return UIImage(cgImage: pixel.makeImage()!, scale: 10000, orientation: .up)
         }
 
         private func makeRenderableImage() -> UIImage {

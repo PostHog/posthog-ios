@@ -44,6 +44,28 @@ import Foundation
     /// Set by the SDK when this event took the throttled replay debug bundle, so it survives `beforeSend` renames or replacement.
     var carriesReplayDebugBundle = false
 
+    /// The caller's person properties, kept from build to send so feature flags see them once the event is accepted.
+    var flagUserProperties: [String: Any]?
+    var flagUserPropertiesSetOnce: [String: Any]?
+
+    /// Set when a wrapper build returns this event: true for the AI lane. Cleared once it's sent, so it's sent once.
+    var wrapperAiLane: Bool?
+    /// The SDK's distinct ID when a wrapper built this event, so a send after `reset()` or `identify()`
+    /// doesn't give the new user this event's person properties for feature flags.
+    var wrapperBuildDistinctId: String?
+    /// The SDK's reset count when a wrapper built this event, so a `reset()` that keeps the distinct ID
+    /// (`reuseAnonymousId`) still counts as a new identity at send.
+    var wrapperBuildResetGeneration: Int?
+    /// The SDK instance and setup generation that built this wrapper event, so a send after `close()`/`setup()`
+    /// or on another instance is dropped instead of sent with the new configuration.
+    var wrapperBuildSDK: ObjectIdentifier?
+    var wrapperBuildSetupGeneration: Int?
+    /// The optional replay debug values snapshotted when a wrapper built this event, set only when its built name
+    /// is eligible. Send adds them if it claims the throttled window.
+    var wrapperDeferredReplayDebug: [String: Any]?
+    /// True when a wrapper build passed person properties or groups. Person processing turns on at send.
+    var wrapperRequiresPersonProcessing = false
+
     init(
         event: String,
         distinctId: String,

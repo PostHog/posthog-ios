@@ -256,6 +256,11 @@ import Foundation
                     crashSteps = decoded[PostHogExceptionStepFields.stepsKey] as? [[String: Any]] ?? []
                 }
 
+                // Steps alone don't count as a saved context: customData always carries the steps key.
+                if savedContext["event_properties"] == nil {
+                    savedContext.merge(postHog.crashContextFallback()) { _, fallback in fallback }
+                }
+
                 // Extract identity and event properties from saved context
                 let crashDistinctId = savedContext["distinct_id"] as? String
                 let crashEventProperties = savedContext["event_properties"] as? [String: Any] ?? [:]

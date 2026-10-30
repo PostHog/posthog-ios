@@ -696,6 +696,21 @@ final class PostHogCaptureV1OptionsTest {
         }
     }
 
+    @Test("the crash context fallback carries the current person-processing option and $geoip_disable")
+    func crashContextFallback() {
+        let personless = makeSDK(personProfiles: .never)
+        personless.config.disableGeoIp = true
+        let fallback = personless.crashContextFallback()
+        personless.close()
+        #expect(fallback["options"] as? [String: Bool] == ["process_person_profile": false])
+        #expect(fallback["event_properties"] as? [String: Bool] == ["$geoip_disable": true])
+
+        let processed = makeSDK(personProfiles: .always)
+        processed.config.disableGeoIp = false
+        defer { processed.close() }
+        #expect(processed.crashContextFallback().isEmpty)
+    }
+
     @Test("beforeSend has the final say over options")
     func beforeSendEditsOptions() async throws {
         let sut = makeSDK(personProfiles: .never) { event in

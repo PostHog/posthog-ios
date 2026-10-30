@@ -3835,6 +3835,19 @@ let maxRetryDelay = 30.0
         #endif
     }
 
+    /// What a crash event needs from the current state when its report has no saved context, in the
+    /// shape of the saved context: its person-processing option and `$geoip_disable`.
+    func crashContextFallback() -> [String: Any] {
+        var context: [String: Any] = [:]
+        if config.disableGeoIp {
+            context["event_properties"] = ["$geoip_disable": true]
+        }
+        if let options = personProcessingOptions(nil, properties: [:]) {
+            context["options"] = options
+        }
+        return context
+    }
+
     /// Point-in-time counters: the crash path replays the context snapshot verbatim on the next
     /// launch, so these would be stale by definition. Status/config keys stay because the replay
     /// integration re-notifies on every recording transition.

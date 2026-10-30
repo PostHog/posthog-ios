@@ -131,10 +131,10 @@
                 || (copy as? CAGradientLayer)?.colors?.isEmpty == false || copy.shadowOpacity > 0 && isVisible(copy.shadowColor)
         }
 
-        /// Whether a sublayer can cover the copy's content: a mask would clip the cover, and a blend could let the
-        /// content through it.
+        /// Whether a sublayer can cover the copy's content: a mask would clip the cover, a blend could let the
+        /// content through it, and a filter (a blur) could spread the content over it.
         static func layerAllowsCover(_ copy: CALayer) -> Bool {
-            copy.mask == nil && copy.compositingFilter == nil
+            copy.mask == nil && copy.compositingFilter == nil && copy.filters == nil
         }
 
         /// The rect, in bounds coordinates, the copy's own drawing can reach: its bounds, or past them for a shape's

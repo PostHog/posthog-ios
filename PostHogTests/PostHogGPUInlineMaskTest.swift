@@ -456,6 +456,28 @@
             #expect(fixture.mask.extentStatsForTesting.count == 1)
         }
 
+        @Test("A clipped, blurred layer partly under a postHogMask extent is replaced whole: a cover would be blurred into")
+        func blurredLayerPartlyUnderExtentIsReplaced() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let filterClass: AnyObject = try #require(NSClassFromString("CAFilter"))
+            let blur = try #require(filterClass.perform(NSSelectorFromString("filterWithType:"), with: "gaussianBlur")?.takeUnretainedValue() as? NSObject)
+            blur.setValue(8, forKey: "inputRadius")
+            let layer = CALayer()
+            layer.frame = CGRect(x: 20, y: 40, width: 160, height: 100)
+            layer.masksToBounds = true
+            layer.contents = try magentaContents(layer.bounds.size)
+            layer.filters = [blur]
+            fixture.window.layer.addSublayer(layer)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 20, y: 40, width: 80, height: 100))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+        }
+
         // MARK: - Portals
 
         private func makePortal(showing source: CALayer, frame: CGRect, matchesPosition: Bool = true, matchesTransform: Bool = true) throws -> CALayer {

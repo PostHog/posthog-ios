@@ -60,8 +60,7 @@
         /// Default: false
         @objc public var screenshotModeBackgroundCapture: Bool = false
 
-        /// Resolution of `screenshotMode` screenshots, as a multiplier of the screen's native resolution, like
-        /// posthog-android's `screenshotScale`.
+        /// Resolution of `screenshotMode` screenshots, as a multiplier of the screen's native resolution.
         ///
         /// - `nil`: one pixel per point on every device, so a 402×874 pt screen uploads 402×874 pixels.
         /// - A value: that fraction of native resolution. On a 3x device, `1.0` uploads 1206×2622 pixels

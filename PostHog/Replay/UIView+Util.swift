@@ -131,16 +131,17 @@
             let nativeScale = (self as? UIWindow ?? window)?.screen.scale ?? 1
             let renderer = PostHogGraphicsImageRenderer(size: size, scale: nativeScale)
 
-            return autoreleasepool {
+            var drawn = true
+            let image = autoreleasepool {
                 renderer.image { context in
                     if afterScreenUpdates {
                         /// The bridge capture passes `true`: a freshly-presented native VC renders black otherwise.
-                        drawHierarchy(in: bounds, afterScreenUpdates: true)
+                        drawn = drawHierarchy(in: bounds, afterScreenUpdates: true)
                     } else if preferFidelityRenderer {
                         // Chosen when the settle check measured little enough movement that the
                         // displayed frame still matches the current tree, so drawHierarchy's
                         // full fidelity (blur, video, Metal) is worth lagging the render server.
-                        drawHierarchy(in: bounds, afterScreenUpdates: false)
+                        drawn = drawHierarchy(in: bounds, afterScreenUpdates: false)
                     } else {
                         // drawHierarchy lags the render server, so mask rects could sit ahead of
                         // the pixels during scroll or animation; the presentation tree is the same
@@ -151,6 +152,12 @@
                     }
                 }
             }
+            // drawHierarchy returns false with no frame to copy (no window scene, hidden window) and leaves the bitmap blank.
+            guard drawn else {
+                hedgeLog("[Session Replay] Skipping snapshot: drawHierarchy produced no image data")
+                return nil
+            }
+            return image
         }
 
         // you need this because of SwiftUI otherwise the coordinates always zeroed for some reason

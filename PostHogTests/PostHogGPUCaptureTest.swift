@@ -209,6 +209,39 @@
             #expect(masked.points(where: Self.isMagenta).isEmpty)
         }
 
+        /// A clear `ph-no-capture` field with magenta inset in it, as text sits in a text field.
+        private func secretField(_ frame: CGRect, inset: CGFloat = 5) -> UIView {
+            let field = noCaptureView(frame, color: .clear)
+            let secret = UIView(frame: field.bounds.insetBy(dx: inset, dy: inset))
+            secret.backgroundColor = .magenta
+            field.addSubview(secret)
+            return field
+        }
+
+        private func expectMagentaMasked(_ image: CGImage, _ rects: [CGRect], scale: CGFloat = 1) throws {
+            #expect(!(try Pixels(image)).points(where: Self.isMagenta).isEmpty)
+            let uiImage = UIImage(cgImage: image, scale: scale, orientation: .up)
+            let masked = try Pixels(#require(RRWireframe.maskImage(uiImage, maskableWidgets: rects, pixelScale: scale)?.cgImage))
+            #expect(masked.points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("A layer rotated in 3D about an anchor off its plane has its mask over its pixels")
+        func anchorPointZIsMirrored() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let field = secretField(CGRect(x: 40, y: 80, width: 120, height: 100), inset: 10)
+            window.addSubview(field)
+            var perspective = CATransform3DIdentity
+            perspective.m34 = -1 / 400
+            field.layer.transform = CATransform3DRotate(perspective, 0.6, 0, 1, 0)
+            field.layer.anchorPointZ = 80
+
+            let (image, rects) = try await render(window, with: mirror)
+            try expectMagentaMasked(image, rects)
+        }
+
         @available(iOS 26.0, *)
         @Test("Corners UIKit rounds per corner, leaving cornerRadius at 0, are rounded in the copy")
         func perCornerRadiiAreCopied() async throws {

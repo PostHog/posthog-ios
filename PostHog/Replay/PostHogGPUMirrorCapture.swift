@@ -780,6 +780,7 @@
             copy.bounds = presentation.bounds
             copy.position = presentation.position
             if presentation.anchorPoint != Self.defaultAnchor { copy.anchorPoint = presentation.anchorPoint }
+            if presentation.anchorPointZ != 0 { copy.anchorPointZ = presentation.anchorPointZ }
             if presentation.zPosition != 0 { copy.zPosition = presentation.zPosition }
             if !CATransform3DIsIdentity(presentation.transform) {
                 copy.transform = presentation.transform

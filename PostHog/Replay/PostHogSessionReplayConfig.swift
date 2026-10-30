@@ -60,6 +60,28 @@
         /// Default: false
         @objc public var screenshotModeBackgroundCapture: Bool = false
 
+        /// Render screenshots on the GPU instead of with `drawHierarchy` when `screenshotMode` is enabled.
+        ///
+        /// Each capture copies the window's layer tree and renders the copy into a Metal texture, so
+        /// the main thread only builds the copy, and masks are measured from the same layer state the
+        /// pixels come from.
+        ///
+        /// Not captured:
+        /// - Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped
+        ///   "Metal content" placeholder.
+        /// - Video and camera previews stay blank, as they do today.
+        /// - Liquid Glass chrome is not reproduced; the labels and icons on it are.
+        ///
+        /// Captures fall back to the default path when the device has no Metal or a render fails.
+        /// Takes precedence over `screenshotModeBackgroundCapture` when both are enabled.
+        ///
+        /// While recording, the app keeps roughly 25–30 MB more memory resident on average (GPU memory held
+        /// by Metal and Core Animation); peak memory is about the same as the default capture (iPhone 17 Pro).
+        ///
+        /// Experimental. iOS only.
+        /// Default: false
+        @objc public var screenshotModeGPUCapture: Bool = false
+
         /// Resolution of `screenshotMode` screenshots, as a multiplier of the screen's native resolution.
         ///
         /// - `nil`: one pixel per point on every device, so a 402×874 pt screen uploads 402×874 pixels.

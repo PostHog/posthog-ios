@@ -52,6 +52,10 @@
 
         private let screenshotRenderLock = NSLock()
         private var isScreenshotRenderInFlight = false
+        #if canImport(Metal)
+            /// Main thread only. Tests swap in their own instance.
+            lazy var gpuMirror = PostHogGPUMirrorCapture.shared
+        #endif
 
         private let eventTriggersLock = NSLock()
         private var eventTriggers: [String]?
@@ -368,6 +372,7 @@
                 self?.resumeAllPlugins()
             }
 
+            prewarmGPUCapture(postHog)
             hedgeLog("Session replay recording started.")
             notifyRecordingStatusChanged()
         }
@@ -433,24 +438,6 @@
             // Ensure thread-safe access to windowViews
             windowViewsLock.withLock {
                 windowViews.removeAllObjects()
-            }
-        }
-
-        private func tryStartScreenshotRender() -> Bool {
-            // Drop overlapping screenshot renders instead of queueing them up behind slow renders.
-            screenshotRenderLock.withLock {
-                if isScreenshotRenderInFlight {
-                    return false
-                }
-
-                isScreenshotRenderInFlight = true
-                return true
-            }
-        }
-
-        private func finishScreenshotRender() {
-            screenshotRenderLock.withLock {
-                isScreenshotRenderInFlight = false
             }
         }
 
@@ -940,7 +927,7 @@
             return (hasText, hasGraphic)
         }
 
-        private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: Bool) {
+        private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: Bool, _ culled: Culled) {
             // Checked first so an explicit unmask wins over the sensitive-type early-returns
             // below, matching the modifier's precedence.
             if view.isNoMask() {
@@ -981,7 +968,7 @@
                 if isImageViewSensitive(image) {
                     maskableWidgets.append(.init(view, in: window))
                     // subviews can draw outside the image view's bounds, so its mask may not cover them
-                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren)
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren, culled)
                     return
                 }
             }
@@ -1092,7 +1079,7 @@
             // I could not find a consistent pattern to limit this layer search approach,
             // so for iOS 26 we'll need to iterate over the view's sublayers as well to find maskable elements.
             if #available(iOS 26.0, *) {
-                findMaskableLayers(view.layer, view, window, &maskableWidgets)
+                findMaskableLayers(view.layer, view, window, &maskableWidgets, culled)
             }
 
             // this can be anything, so better to be conservative
@@ -1110,16 +1097,18 @@
                 maskableWidgets.append(.init(view, in: window))
             }
 
-            findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskDescendants)
+            findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskDescendants, culled)
         }
 
-        private func findMaskableWidgets(inSubviewsOf view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: Bool) {
+        private func findMaskableWidgets(inSubviewsOf view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion],
+                                         _ maskChildren: Bool, _ culled: Culled)
+        {
             for child in view.subviews {
-                if !child.isVisibleForMasking() {
+                if !child.isVisibleForMasking() || isCulled(child.layer, culled) {
                     continue
                 }
 
-                findMaskableWidgets(child, window, &maskableWidgets, maskChildren)
+                findMaskableWidgets(child, window, &maskableWidgets, maskChildren, culled)
             }
         }
 
@@ -1130,10 +1119,10 @@
         /// heuristics below inspect layers as well. (`.postHogMask()` regions are collected
         /// separately via the mask-reporter registry.)
         @available(iOS 26.0, *)
-        private func findMaskableLayers(_ layer: CALayer, _ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion]) {
+        private func findMaskableLayers(_ layer: CALayer, _ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ culled: Culled) {
             for sublayer in layer.sublayers ?? [] {
-                // Skip layers tagged with .postHogNoMask()
-                if sublayer.postHogNoMask {
+                // Skip layers tagged with .postHogNoMask(), and layers the GPU capture left out of the frame
+                if sublayer.postHogNoMask || isCulled(sublayer, culled) {
                     continue
                 }
 
@@ -1163,7 +1152,7 @@
 
                 // Recursively check sublayers
                 if let sublayers = sublayer.sublayers, !sublayers.isEmpty {
-                    findMaskableLayers(sublayer, view, window, &maskableWidgets)
+                    findMaskableLayers(sublayer, view, window, &maskableWidgets, culled)
                 }
             }
         }
@@ -1196,7 +1185,7 @@
         /// Pre-existing limitation with `screenshotModeBackgroundCapture` (off by default): pixels
         /// render after this collection, so any rect source can go stale for content committed in
         /// between.
-        private func collectMaskedRegions(in window: UIWindow) -> [MaskedRegion]? {
+        private func collectMaskedRegions(in window: UIWindow, culledLayers: Culled = []) -> [MaskedRegion]? {
             guard !window.hasCameraForReplay() else {
                 return nil
             }
@@ -1214,7 +1203,7 @@
             }
 
             var maskableWidgets: [MaskedRegion] = []
-            findMaskableWidgets(under: cover, in: window, &maskableWidgets)
+            findMaskableWidgets(under: cover, in: window, &maskableWidgets, culledLayers)
             // A reporter inside a `ph-no-capture` view is also reached by the walk. Keep one
             // entry per reporter: a repeated owner reads as motion to the settle check.
             let reporters = Set(masked.regions.map(\.owner))
@@ -1223,8 +1212,8 @@
             return maskableWidgets
         }
 
-        func collectMaskableRects(in window: UIWindow) -> [CGRect]? {
-            collectMaskedRegions(in: window)?.map(\.rect)
+        func collectMaskableRects(in window: UIWindow, culledLayers: Culled = []) -> [CGRect]? {
+            collectMaskedRegions(in: window, culledLayers: culledLayers)?.map(\.rect)
         }
 
         private struct ScreenshotCapture {
@@ -1711,17 +1700,7 @@
             }
 
             if postHog.config.sessionReplayConfig.screenshotMode {
-                guard tryStartScreenshotRender() else {
-                    return
-                }
-
-                if postHog.config.sessionReplayConfig.screenshotModeBackgroundCapture {
-                    PostHogReplayIntegration.dispatchQueue.async { [weak self] in
-                        self?.performBracketedBackgroundCapture(window: window, screenName: screenName, postHog: postHog)
-                    }
-                } else {
-                    scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)
-                }
+                startScreenshotCapture(window: window, screenName: screenName, postHog: postHog)
                 return
             }
 
@@ -1995,9 +1974,9 @@
         /// `cover` when one holds it. The views between the window and the cover keep the masking
         /// rules for their subtree, and the cover sits inside that subtree, so the walk starting
         /// below them replays those rules first.
-        func findMaskableWidgets(under cover: UIView?, in window: UIWindow, _ maskableWidgets: inout [MaskedRegion]) {
+        func findMaskableWidgets(under cover: UIView?, in window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ culled: Culled) {
             guard let cover else {
-                findMaskableWidgets(window, window, &maskableWidgets, false)
+                findMaskableWidgets(window, window, &maskableWidgets, false, culled)
                 return
             }
 
@@ -2028,7 +2007,7 @@
                 maskChildren = true
             }
 
-            findMaskableWidgets(cover, window, &maskableWidgets, maskChildren)
+            findMaskableWidgets(cover, window, &maskableWidgets, maskChildren, culled)
         }
     }
 
@@ -2065,6 +2044,228 @@
             return true
         }
     }
+    extension PostHogReplayIntegration {
+        /// Source layers whose whole subtree the GPU capture left out of the frame being captured.
+        typealias Culled = Set<ObjectIdentifier>
+
+        /// Whether `layer`'s pixels can't appear in the GPU-captured frame, so neither it nor anything under it
+        /// needs a mask. Always false outside a GPU capture.
+        fileprivate func isCulled(_ layer: CALayer, _ culled: Culled) -> Bool {
+            culled.contains(ObjectIdentifier(layer))
+        }
+    }
+
+    extension PostHogReplayIntegration {
+        private func tryStartScreenshotRender() -> Bool {
+            // Drop overlapping screenshot renders instead of queueing them up behind slow renders.
+            screenshotRenderLock.withLock {
+                if isScreenshotRenderInFlight {
+                    return false
+                }
+
+                isScreenshotRenderInFlight = true
+                return true
+            }
+        }
+
+        private func finishScreenshotRender() {
+            screenshotRenderLock.withLock {
+                isScreenshotRenderInFlight = false
+            }
+        }
+    }
+
+    extension PostHogReplayIntegration {
+        enum ScreenshotCapturePath {
+            case gpu, background, settled
+        }
+
+        /// Which path screenshot mode captures with. GPU capture takes precedence over background capture.
+        static func screenshotCapturePath(_ config: PostHogSessionReplayConfig) -> ScreenshotCapturePath {
+            if config.screenshotModeGPUCapture {
+                return .gpu
+            }
+            return config.screenshotModeBackgroundCapture ? .background : .settled
+        }
+
+        /// Main thread, screenshot mode. Claims the render slot and starts a capture down the configured path;
+        /// false when a capture is already in flight. The path owns the slot from here and gives it back when done.
+        @discardableResult
+        func startScreenshotCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) -> Bool {
+            guard tryStartScreenshotRender() else {
+                return false
+            }
+
+            switch Self.screenshotCapturePath(postHog.config.sessionReplayConfig) {
+            case .gpu:
+                scheduleGPUCapture(window: window, screenName: screenName, postHog: postHog)
+            case .background:
+                PostHogReplayIntegration.dispatchQueue.async { [weak self] in
+                    self?.performBracketedBackgroundCapture(window: window, screenName: screenName, postHog: postHog)
+                }
+            case .settled:
+                scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)
+            }
+            return true
+        }
+    }
+
+    #if canImport(Metal)
+        extension PostHogReplayIntegration {
+            /// Pixels per point of a GPU capture of `window`, masked or not (see `PostHogSessionReplayConfig.screenshotScale`).
+            func gpuPixelScale(_ window: UIWindow) -> CGFloat {
+                config?.sessionReplayConfig.screenshotPixelScale(nativeScale: window.screen.scale) ?? 1
+            }
+
+            /// Any thread. Gets the GPU capture's renderer ready before the first capture asks for it.
+            func prewarmGPUCapture(_ postHog: PostHogSDK) {
+                let replayConfig = postHog.config.sessionReplayConfig
+                guard replayConfig.screenshotMode, Self.screenshotCapturePath(replayConfig) == .gpu else { return }
+                // Metal device creation stays off main.
+                DispatchQueue.global(qos: .utility).async { [weak self] in
+                    _ = PostHogGPUMirrorCapture.shared
+                    DispatchQueue.main.async {
+                        guard let self, let window = UIApplication.getCurrentWindow() else { return }
+                        self.gpuMirror?.prewarm(size: window.bounds.size, scale: self.gpuPixelScale(window))
+                    }
+                }
+            }
+
+            private struct SettledCaptureRequest {
+                let window: UIWindow
+                let screenName: String?
+                let postHog: PostHogSDK
+            }
+
+            /// Every GPU capture ends here, once: releases its frame and hands the render slot on, to the default
+            /// capture path when `fallback` is set, otherwise back.
+            private func endGPUCapture(_ frame: PostHogGPUMirrorCapture.Frame?, fallback: SettledCaptureRequest? = nil) {
+                frame?.release()
+                if let fallback {
+                    scheduleSettledCapture(window: fallback.window, screenName: fallback.screenName, postHog: fallback.postHog)
+                } else {
+                    finishScreenshotRender()
+                }
+            }
+
+            /// Main thread, with the render slot claimed.
+            private func scheduleGPUCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) {
+                guard let mirror = gpuMirror else {
+                    endGPUCapture(nil, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
+                    return
+                }
+                let scale = gpuPixelScale(window)
+                guard mirror.needsPrewarm(for: window.bounds.size, scale: scale) else {
+                    captureMirrored(window: window, screenName: screenName, postHog: postHog, mirror: mirror, scale: scale)
+                    return
+                }
+                // The renderer is built off-main (see `prewarm`); this capture keeps the slot and resumes once it's ready.
+                mirror.prewarm(size: window.bounds.size, scale: scale) { [weak self, weak window] in
+                    guard let self else { return }
+                    guard let window, postHog.isSessionReplayActive() else {
+                        self.endGPUCapture(nil)
+                        return
+                    }
+                    self.scheduleGPUCapture(window: window, screenName: screenName, postHog: postHog)
+                }
+            }
+
+            /// One capture instead of settle-then-shoot: the settle check exists because drawHierarchy shows the render
+            /// server's last frame rather than the current tree. The mirror copies the presentation tree the mask rects
+            /// are measured from, in the same turn, so pixels and masks agree without waiting. The render runs a turn later.
+            private func captureMirrored(window: UIWindow, screenName: String?, postHog: PostHogSDK, mirror: PostHogGPUMirrorCapture, scale: CGFloat) {
+                // Camera first: its layers can trap when presentation() copies them.
+                guard window.isVisible(), !window.hasCameraForReplay(), !isAnimatingTransition(window) else {
+                    endGPUCapture(nil)
+                    return
+                }
+                let timestampDate = Date()
+                guard let frame = mirror.build(window: window, scale: scale) else {
+                    endGPUCapture(nil, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
+                    return
+                }
+                guard let regions = collectMaskedRegions(in: window, culledLayers: frame.culledLayers) else {
+                    hedgeLog("[Session Replay] Skipping snapshot: a masked view hasn't been laid out yet")
+                    endGPUCapture(frame)
+                    return
+                }
+                frame.freeze()
+                let wireframe = createBasicWireframe(window)
+                wireframe.type = "screenshot"
+                wireframe.maskableWidgets = regions.map(\.rect)
+                wireframe.screenshotPixelScale = frame.scale
+                let capture = MirroredCapture(frame: frame, wireframe: wireframe, windowSize: window.bounds.size,
+                                              screenName: screenName, timestampDate: timestampDate)
+                // Build and render each cost up to a frame on older devices; keep them in separate turns.
+                PostHogGPUMirrorCapture.onNextRunLoopTurn { [weak self, weak window] in
+                    guard let self else {
+                        frame.release()
+                        return
+                    }
+                    self.encodeMirrored(capture, window: window, postHog: postHog)
+                }
+            }
+
+            private struct MirroredCapture {
+                let frame: PostHogGPUMirrorCapture.Frame
+                let wireframe: RRWireframe
+                let windowSize: CGSize
+                let screenName: String?
+                let timestampDate: Date
+            }
+
+            /// Main thread, with the render slot still claimed by `captureMirrored`. Renders the frozen mirror, then
+            /// reads it back and uploads it off-main.
+            private func encodeMirrored(_ capture: MirroredCapture, window: UIWindow?, postHog: PostHogSDK) {
+                let frame = capture.frame
+                // The turn in between can stop replay, close the window or background the app (no GPU work allowed there).
+                guard let window, postHog.isSessionReplayActive(), !DI.main.appLifecyclePublisher.isInBackground else {
+                    endGPUCapture(frame)
+                    return
+                }
+                guard frame.encode() else {
+                    endGPUCapture(frame, fallback: SettledCaptureRequest(window: window, screenName: capture.screenName, postHog: postHog))
+                    return
+                }
+
+                let wireframe = capture.wireframe
+                frame.readback(on: Self.dispatchQueue) { [weak self, weak window] image in
+                    if let self, let image, let window, postHog.isSessionReplayActive() {
+                        self.renderAndEnqueueScreenshot(wireframe, window: window, windowSize: capture.windowSize, screenName: capture.screenName,
+                                                        postHog: postHog, timestampDate: capture.timestampDate,
+                                                        image: UIImage(cgImage: image, scale: frame.scale, orientation: .up))
+                    }
+                    DispatchQueue.main.async {
+                        guard let self else {
+                            frame.release()
+                            return
+                        }
+                        if image == nil, let window, postHog.isSessionReplayActive() {
+                            self.endGPUCapture(frame, fallback: SettledCaptureRequest(window: window, screenName: capture.screenName, postHog: postHog))
+                        } else {
+                            self.endGPUCapture(frame)
+                        }
+                    }
+                }
+            }
+        }
+    #else
+        private extension PostHogReplayIntegration {
+            func scheduleGPUCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) {
+                scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)
+            }
+
+            func prewarmGPUCapture(_: PostHogSDK) {}
+        }
+    #endif
+
+    #if TESTING
+        extension PostHogReplayIntegration {
+            var isScreenshotRenderInFlightForTesting: Bool {
+                screenshotRenderLock.withLock { isScreenshotRenderInFlight }
+            }
+        }
+    #endif
 
     private protocol AnyObjectUIHostingViewController: AnyObject {}
 

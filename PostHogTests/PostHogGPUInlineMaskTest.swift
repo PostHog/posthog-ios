@@ -480,13 +480,15 @@
 
         // MARK: - Portals
 
-        private func makePortal(showing source: CALayer, frame: CGRect, matchesPosition: Bool = true, matchesTransform: Bool = true) throws -> CALayer {
+        private func makePortal(showing source: CALayer, frame: CGRect, matchesPosition: Bool = true, matchesTransform: Bool = true,
+                                hidesSource: Bool = true) throws -> CALayer
+        {
             let portalClass = try #require(NSClassFromString("CAPortalLayer") as? CALayer.Type)
             let portal = portalClass.init()
             portal.frame = frame
             portal.masksToBounds = true
             portal.setValue(source, forKey: "sourceLayer")
-            portal.setValue(true, forKey: "hidesSourceLayer")
+            portal.setValue(hidesSource, forKey: "hidesSourceLayer")
             portal.setValue(matchesPosition, forKey: "matchesPosition")
             portal.setValue(matchesTransform, forKey: "matchesTransform")
             portal.setValue(0, forKey: "sourceContextId")
@@ -610,6 +612,26 @@
 
             let pixels = try await Pixels(capture(fixture).image)
             #expect(pixels.count(where: Self.isMagenta) == 0, "\(pixels.count(in: portalRect, where: Self.isMagenta)) in the portal")
+        }
+
+        @Test("A postHogMask overlay inside a source still drawn where it sits masks it there, though a portal painted earlier shows it too")
+        func reporterInsideSourceShownEarlierByPortalIsMasked() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let source = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            source.layer.contents = try magentaContents(source.bounds.size)
+            source.accessibilityIdentifier = "ph-no-mask"
+            let reporter = PostHogMaskReporterUIView(frame: source.bounds)
+            source.addSubview(reporter)
+            let portalRect = CGRect(x: 10, y: 180, width: 180, height: 60)
+            fixture.window.layer.addSublayer(try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false,
+                                                            hidesSource: false))
+            fixture.window.addSubview(source)
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: source.frame, where: Self.isMagenta) == 0)
+            #expect(pixels.count(in: portalRect, where: Self.isMagenta) == 0)
         }
 
         // MARK: - iOS 26 SwiftUI layers

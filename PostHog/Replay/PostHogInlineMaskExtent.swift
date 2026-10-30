@@ -43,7 +43,8 @@
             /// Entries `rect` reaches in paint order, up to the reporter's own copy unless a `zPosition` can reorder
             /// them against it. `ordered` is false when it can, or when the reporter's copy isn't drawn here.
             func entries(reachedBy rect: CGRect, reporter copies: Set<ObjectIdentifier>) -> (indices: [Int], ordered: Bool) {
-                let reporterIndex = copies.compactMap { reporters[$0] }.min()
+                // The last copy: a portal painted earlier can show the reporter while its source is still drawn.
+                let reporterIndex = copies.compactMap { reporters[$0] }.max()
                 let reordered = reporterIndex.map { reporter in layered.contains { canReorder($0, against: reporter, in: rect) } } ?? false
                 let end = reordered ? entries.count : reporterIndex ?? entries.count
                 var indices: [Int] = []

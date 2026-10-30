@@ -359,7 +359,7 @@
             var visited: Set<ObjectIdentifier> = []
             fileprivate var signatures: [ObjectIdentifier: TextSignature?] = [:]
             /// Whether each view looked up is `ph-no-capture` or under one, for this capture.
-            private var noCapture: [ObjectIdentifier: Bool] = [:]
+            fileprivate var noCapture: [ObjectIdentifier: Bool] = [:]
             fileprivate var spent: CFTimeInterval = 0
 
             /// Redacts every copy of `object`, and every copy of a portal source under it (a portal draws those

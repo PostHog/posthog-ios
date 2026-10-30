@@ -167,7 +167,7 @@ final class PostHogCaptureV1Test {
         #expect(output.contains(line) == (dropped > 0))
     }
 
-    @Test("logs each dropped event's name, UUID and reason, without its properties")
+    @Test("logs one line per batch with the drop reasons, without event names or UUIDs")
     func logsDropReasons() throws {
         let wasLogging = hedgeLogEnabled
         hedgeLogEnabled = true
@@ -183,13 +183,14 @@ final class PostHogCaptureV1Test {
         let output = try captureStdout {
             _ = makeApi().captureV1Result(
                 PostHogUploadInfo(statusCode: 200, error: nil), path: PostHogApi.captureV1AiPath, data: body,
-                uuids: uuids, identity: identity, eventNames: [uuids[0]: "$ai_generation", uuids[1]: "signup"]
+                uuids: uuids, identity: identity
             )
         }
 
-        #expect(output.contains("Capture dropped '$ai_generation' (\(uuids[0])): ai_event_too_big."))
-        #expect(output.contains("Capture dropped 'signup' (\(uuids[1])): misrouted_event."))
-        #expect(!output.contains(uuids[2]))
+        #expect(output.contains("Capture \(PostHogApi.captureV1AiPath) (status 200): 2 dropped (ai_event_too_big: 1, misrouted_event: 1), 0 duplicates dropped, 0 to retry."))
+        for uuid in uuids {
+            #expect(!output.contains(uuid))
+        }
     }
 
     @Test("counts duplicate copies capture dropped once per UUID")

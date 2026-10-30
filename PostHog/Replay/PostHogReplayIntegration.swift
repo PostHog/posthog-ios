@@ -373,7 +373,7 @@
 
             // Start listening to application foreground events and resume all plugins
             applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
-                self?.resumeAllPlugins()
+                self?.didBecomeActive()
             }
 
             prewarmGPUCapture(postHog)
@@ -1839,6 +1839,12 @@
             updateAllPlugins { $0.resume() }
         }
 
+        private func didBecomeActive() {
+            resumeAllPlugins()
+            // GPU capture skips its warm-up in the background.
+            if let postHog { prewarmGPUCapture(postHog) }
+        }
+
         private func updateAllPlugins(_ update: (PostHogSessionReplayPlugin) -> Void) {
             let plugins = installedPluginsLock.withLock { installedPlugins }
             for plugin in plugins {
@@ -2188,18 +2194,34 @@
                 }
             }
 
-            /// Any thread. Gets the GPU capture's renderer ready before the first capture asks for it.
+            /// Any thread. Gets the GPU capture's renderer ready before the first capture asks for it. Skipped in the
+            /// background, where the warm-up's GPU work isn't allowed; becoming active calls this again.
             func prewarmGPUCapture(_ postHog: PostHogSDK) {
                 let replayConfig = postHog.config.sessionReplayConfig
-                guard replayConfig.screenshotMode, Self.screenshotCapturePath(replayConfig) == .gpu else { return }
+                guard replayConfig.screenshotMode, Self.screenshotCapturePath(replayConfig) == .gpu,
+                      !DI.main.appLifecyclePublisher.isInBackground
+                else { return }
                 // Metal device creation stays off main.
                 DispatchQueue.global(qos: .utility).async { [weak self] in
                     _ = PostHogGPUMirrorCapture.shared
                     DispatchQueue.main.async {
-                        guard let self, let window = UIApplication.getCurrentWindow() else { return }
+                        // `isInBackground` reads false off main, so the check above can miss it.
+                        guard let self, !DI.main.appLifecyclePublisher.isInBackground, let window = Self.prewarmWindow() else { return }
                         self.gpuMirror?.prewarm(size: window.bounds.size, scale: self.gpuPixelScale(window))
                     }
                 }
+            }
+
+            #if TESTING
+                /// Hostless tests have no scene for `getCurrentWindow()` to find a window in.
+                static var prewarmWindowForTesting: UIWindow?
+            #endif
+
+            private static func prewarmWindow() -> UIWindow? {
+                #if TESTING
+                    if let window = prewarmWindowForTesting { return window }
+                #endif
+                return UIApplication.getCurrentWindow()
             }
 
             private struct SettledCaptureRequest {
@@ -2228,6 +2250,10 @@
                 let scale = gpuPixelScale(window)
                 guard mirror.needsPrewarm(for: window.bounds.size, scale: scale) else {
                     captureMirrored(window: window, screenName: screenName, postHog: postHog, mirror: mirror, scale: scale)
+                    return
+                }
+                guard !DI.main.appLifecyclePublisher.isInBackground else {
+                    endGPUCapture(nil)
                     return
                 }
                 // The renderer is built off-main (see `prewarm`); this capture keeps the slot and resumes once it's ready.

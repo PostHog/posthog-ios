@@ -1508,6 +1508,34 @@
             #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1))
         }
 
+        @Test("No GPU warm-up runs while the app is in the background, and one runs once it becomes active")
+        func noWarmUpInBackground() async throws {
+            let mirror = try makeMirror()
+            let mockLifecycle = MockApplicationLifecyclePublisher()
+            mockLifecycle.isInBackground = true
+            DI.main.appLifecyclePublisher = mockLifecycle
+            defer { DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared }
+            let window = makeWindow()
+            PostHogReplayIntegration.prewarmWindowForTesting = window
+            defer { PostHogReplayIntegration.prewarmWindowForTesting = nil }
+            let (sut, integration, _) = try makeSut()
+            integration.gpuMirror = mirror
+            defer { sut.close() }
+            let scale = integration.gpuPixelScale(window)
+
+            integration.prewarmGPUCapture(sut)
+            #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
+            await waitForCaptureToFinish(integration)
+            // Long enough for any warm-up started above to finish.
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: scale))
+
+            mockLifecycle.isInBackground = false
+            mockLifecycle.simulateAppDidBecomeActive()
+            await waitUntil { !mirror.needsPrewarm(for: window.bounds.size, scale: scale) }
+            #expect(!mirror.needsPrewarm(for: window.bounds.size, scale: scale))
+        }
+
         // MARK: - Routing
 
         @Test("GPU capture is used only when its flag is on, and wins over background capture", arguments: [

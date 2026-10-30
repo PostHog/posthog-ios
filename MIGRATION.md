@@ -100,17 +100,9 @@ If an app updates from a 2.x SDK straight to 4.0, events still queued on disk by
 
 ### Capture v1
 
-4.0 sends analytics events to `/i/v1/analytics/events` instead of `/batch`. Session replay (`/s/`), logs (`/i/v1/logs`) and feature flags (`/flags`) keep their endpoints. Check these if they apply to you:
+4.0 sends analytics events to `/i/v1/analytics/events` instead of `/batch`. Session replay (`/s/`), logs (`/i/v1/logs`) and feature flags (`/flags`) keep their endpoints.
 
-- **Reverse proxies and self-hosted instances:** forward `/i/v1/analytics/events` before you upgrade. PostHog Cloud already serves it. A 404 makes the SDK resend to `/batch` until the app restarts, with the 3.x retry rules. On `/i/v1/analytics/events`, 408, 500, 502, 503 and 504 keep the events and retry them, and 413 retries in smaller batches until a single event is rejected, which is dropped. Other errors, such as 403, 405 or 429, drop the events.
-- **`Authorization` in `requestHeaders`:** capture requests now send `Authorization: Bearer <projectToken>`, which replaces yours. Authenticate your proxy with another header, such as `X-Proxy-Token`.
-- **Redirects:** only 307 and 308 redirects to the same origin as `host` are followed, at most 5 times. Other redirects drop the events, so point `host` at the final host.
-- **Event validation:** PostHog drops an event with an empty event name, an empty distinct ID, or an event name or distinct ID over 200 UTF-8 bytes. The rest of the batch is still delivered. Shorten or hash long distinct IDs, such as JWTs, before you upgrade.
-- **`projectToken`:** a personal API key (`phx_...`) now disables the SDK at setup. Use your project token (`phc_...`).
-- **`$lib` and `$lib_version`:** PostHog sets these from the SDK. A value you set in properties, a super property or `beforeSend` is ignored.
-- **Property precedence:** super properties now override SDK properties such as `$os`, and the properties you pass override `$is_identified`, `$process_person_profile` and `$geoip_disable`.
-- **`$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at`, `$product_tour_id`:** still work, but are sent as capture options. PostHog drops an event whose option value it can't read, such as `"maybe"`. New code can pass `options:` to `capture` instead.
-- **Retries:** 429 and 3xx responses are no longer retried, `Retry-After` pauses sending for at most 30 seconds, and the wait between failed sends doubles from 1 second up to 30 seconds. Queued events are still kept until they're delivered.
+Most apps need no code changes. Check the [capture v1 guide](docs/migration-3.x-to-4.0.md) if you use a reverse proxy or self-host PostHog, set `Authorization` in `requestHeaders`, send long distinct IDs such as JWTs, or override SDK properties. It covers endpoints, event validation, property precedence, capture options and retries.
 
 ## Compile errors and how to fix them
 

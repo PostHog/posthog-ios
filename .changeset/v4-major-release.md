@@ -51,3 +51,4 @@ PostHog iOS 4.0. Every breaking change below names what to use instead. See the 
 
 - Fix session replay recording nothing for apps whose window root is a SwiftUI view.
 - Fix secure-entry text fields being unmasked inside a `postHogNoMask()` or `ph-no-mask` subtree.
+- Fix session replay leaving masked content visible where it is drawn outside its view (unclipped images, layer shadows, button titles) and image attachments in text unmasked when `maskAllImages` is on.

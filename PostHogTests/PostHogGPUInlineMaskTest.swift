@@ -507,6 +507,38 @@
             #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
         }
 
+        @Test("A translucent layer with group opacity off, partly under a postHogMask extent, is replaced whole: a cover would fade apart from its content",
+              arguments: [false, true])
+        func ungroupedOpacityPartlyUnderExtentIsReplaced(onAncestor: Bool) async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let label = secretLabel(CGRect(x: 20, y: 40, width: 160, height: 100))
+            label.backgroundColor = .magenta
+            label.textColor = .black
+            let translucent: UIView
+            if onAncestor {
+                translucent = UIView(frame: label.frame)
+                label.frame = translucent.bounds
+                translucent.addSubview(label)
+            } else {
+                translucent = label
+            }
+            translucent.layer.opacity = 0.5
+            translucent.layer.allowsGroupOpacity = false
+            fixture.window.addSubview(translucent)
+            fixture.config.maskAllTextInputs = false
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 20, y: 40, width: 80, height: 100))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let result = try await capture(fixture)
+            #expect(result.rectRegions.isEmpty)
+            let pixels = try Pixels(result.image)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 80 * 100)
+        }
+
         @Test("A shadow cast into a postHogMask extent from outside it doesn't survive, whether its own content or a sublayer's casts it",
               arguments: [false, true])
         func shadowCastIntoExtentIsDropped(castBySublayer: Bool) async throws {

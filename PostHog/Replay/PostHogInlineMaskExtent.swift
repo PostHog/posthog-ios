@@ -38,7 +38,7 @@
                 self.reporterCopies = reporterCopies
                 self.isBackdrop = isBackdrop
                 entries.reserveCapacity(copies.count)
-                let frame = collect(root, parent: nil, isDrawn: true, copies: copies)
+                let frame = collect(root, parent: nil, isDrawn: true, fadesApart: false, copies: copies)
                 guard !frame.isNull, frame.minX.isFinite, frame.minY.isFinite, frame.width.isFinite, frame.height.isFinite else { return nil }
             }
 
@@ -78,18 +78,23 @@
 
             /// Appends the layer and its subtree in pre-order, and returns the subtree's frame. Hidden copies are kept: a
             /// portal hides the source it shows, and what's masked there has to be masked in the portal's copy too.
-            private mutating func collect(_ layer: CALayer, parent: Int?, isDrawn parentIsDrawn: Bool, copies: CopyIndex) -> CGRect {
+            private mutating func collect(_ layer: CALayer, parent: Int?, isDrawn parentIsDrawn: Bool, fadesApart parentFadesApart: Bool,
+                                          copies: CopyIndex) -> CGRect
+            {
                 let isDrawn = parentIsDrawn && !layer.isHidden
+                // An ancestor's ungrouped opacity fades its descendants' covers apart from their content too.
+                let fadesApart = parentFadesApart || PostHogInlineMask.fadesApart(layer)
                 let placement = copies.placement(of: layer)
                 let frame = reach(of: layer, copies: copies)
                 let index = entries.count
-                entries.append(ExtentEntry(copy: layer, frame: frame, coverable: placement.flatMap { $0.hasPlainSublayers ? $0.toWindow : nil },
+                let coverable = fadesApart ? nil : placement.flatMap { $0.hasPlainSublayers ? $0.toWindow : nil }
+                entries.append(ExtentEntry(copy: layer, frame: frame, coverable: coverable,
                                            shadow: nil, subtreeFrame: frame, subtreeEnd: index + 1))
                 if isDrawn, reporterCopies.contains(ObjectIdentifier(layer)) { reporters[ObjectIdentifier(layer)] = index }
                 if isDrawn, layer.zPosition != 0 { layered.append((index, parent)) }
                 var subtreeFrame = frame
                 for sublayer in layer.sublayers ?? [] {
-                    subtreeFrame = subtreeFrame.union(collect(sublayer, parent: index, isDrawn: isDrawn, copies: copies))
+                    subtreeFrame = subtreeFrame.union(collect(sublayer, parent: index, isDrawn: isDrawn, fadesApart: fadesApart, copies: copies))
                 }
                 if let shadow = shadowReach(of: layer, subtree: subtreeFrame, copies: copies) {
                     entries[index].shadow = shadow
@@ -164,9 +169,14 @@
         }
 
         /// Whether a sublayer can cover the copy's content: a mask would clip the cover, a blend could let the
-        /// content through it, and a filter (a blur) could spread the content over it.
+        /// content through it, a filter (a blur) could spread the content over it, and ungrouped opacity fades the two apart.
         static func layerAllowsCover(_ copy: CALayer) -> Bool {
-            copy.mask == nil && copy.compositingFilter == nil && copy.filters == nil
+            copy.mask == nil && copy.compositingFilter == nil && copy.filters == nil && !fadesApart(copy)
+        }
+
+        /// Whether the copy's opacity applies per sublayer rather than to their composite.
+        static func fadesApart(_ copy: CALayer) -> Bool {
+            copy.opacity < 1 && !copy.allowsGroupOpacity
         }
 
         /// The rect, in bounds coordinates, the copy's own drawing can reach: its bounds, or past them for a shape's

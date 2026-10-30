@@ -608,7 +608,8 @@
         private func mirrorPortal(_ portal: CALayer, presentation: CALayer, info: ClassInfo, walk: inout Walk) -> CALayer? {
             guard let content = portalContent(portal, walk: &walk) else { return nil }
             let copy = makeCopy(of: portal, presentation: presentation, info: info, walk: &walk)
-            copy.sublayers = [content]
+            copy.sublayers = [content.layer]
+            if content.clips { copy.masksToBounds = true }
             return copy
         }
 
@@ -620,7 +621,8 @@
         /// masks with the same map. The walk visits each source again without culling, since a source can be clipped
         /// or culled where it sits yet still show through the portal. Any other portal stays out, as does a portal
         /// inside a source being drawn through another: its masks would only be found where the inner portal sits.
-        private func portalContent(_ portal: CALayer, walk: inout Walk) -> CALayer? {
+        /// `clips` is set for a portal that shows its source on itself: masks there can cover only the portal's bounds.
+        private func portalContent(_ portal: CALayer, walk: inout Walk) -> (layer: CALayer, clips: Bool)? {
             guard walk.portalsInProgress.isEmpty,
                   let source = portal.value(forKey: "sourceLayer") as? CALayer,
                   let view = source.delegate as? UIView,
@@ -646,14 +648,14 @@
                 space.anchorPoint = .zero
                 space.transform = CATransform3DMakeAffineTransform(toPortal)
                 space.sublayers = [content]
-                return space
+                return (space, false)
             case .atPortal:
                 let elsewhere = PostHogPortalSource.elsewhere(source: source, portal: portal, root: walk.root)
                 walk.portalSources.append(PostHogPortalSource(view: view, elsewhere: elsewhere))
                 content.anchorPoint = .zero
                 content.position = portal.bounds.origin
                 content.transform = CATransform3DIdentity
-                return content
+                return (content, true)
             }
         }
 

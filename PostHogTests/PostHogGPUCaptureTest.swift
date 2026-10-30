@@ -874,6 +874,41 @@
             #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
         }
 
+        @Test("A lens portal smaller than its source, masked whole, draws nothing of the source past its bounds",
+              arguments: [true, false])
+        func lensPortalMaskedWholeClipsItsSource(reporter: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 160, height: 80))
+            let secret = UIView(frame: source.bounds.insetBy(dx: 10, dy: 10))
+            secret.backgroundColor = .magenta
+            source.addSubview(secret)
+            let reporterView = reporter ? PostHogMaskReporterUIView(frame: secret.frame) : nil
+            if let reporterView {
+                source.addSubview(reporterView)
+            } else {
+                secret.accessibilityIdentifier = "ph-no-capture"
+            }
+            defer { reporterView?.removeFromSuperview() }
+            window.addSubview(source)
+            let portal = try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 180, width: 60, height: 40))
+            portal.masksToBounds = false
+            if !reporter {
+                // No exact map for the masks under the source, so the whole portal is masked instead.
+                var perspective = CATransform3DIdentity
+                perspective.m34 = -1 / 200
+                portal.transform = CATransform3DRotate(perspective, 0.4, 0, 1, 0)
+            }
+            window.layer.addSublayer(portal)
+
+            let (image, rects) = try await render(window, with: mirror)
+            #expect(rects.contains(window.layer.convert(portal.bounds, from: portal)))
+            #expect(!(try Pixels(image)).points(where: Self.isMagenta).isEmpty)
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
         @Test("Renderers are cached per output scale")
         func renderersAreKeyedByScale() async throws {
             let mirror = try makeMirror()

@@ -635,7 +635,7 @@
         /// masks with the same map. The walk visits each source again without culling, since a source can be clipped
         /// or culled where it sits yet still show through the portal. Any other portal stays out, as does a portal
         /// inside a source being drawn through another: its masks would only be found where the inner portal sits.
-        /// `clips` is set for a portal that shows its source on itself: masks there can cover only the portal's bounds.
+        /// `clips` is true when the portal shows its source on itself, so masks there can only cover the portal's bounds.
         private func portalContent(_ portal: CALayer, walk: inout Walk) -> (layer: CALayer, clips: Bool)? {
             guard walk.portalsInProgress.isEmpty,
                   let source = portal.value(forKey: "sourceLayer") as? CALayer,

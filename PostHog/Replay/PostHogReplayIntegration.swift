@@ -1842,7 +1842,6 @@
 
         private func didBecomeActive() {
             resumeAllPlugins()
-            // GPU capture skips its warm-up in the background.
             if let postHog { prewarmGPUCapture(postHog) }
         }
 
@@ -2196,7 +2195,7 @@
             }
 
             /// Any thread. Gets the GPU capture's renderer ready before the first capture asks for it. Skipped in the
-            /// background, where the warm-up's GPU work isn't allowed; becoming active calls this again.
+            /// background (no GPU work there); becoming active calls it again.
             func prewarmGPUCapture(_ postHog: PostHogSDK) {
                 let replayConfig = postHog.config.sessionReplayConfig
                 guard replayConfig.screenshotMode, Self.screenshotCapturePath(replayConfig) == .gpu,
@@ -2220,9 +2219,10 @@
 
             private static func prewarmWindow() -> UIWindow? {
                 #if TESTING
-                    if let window = prewarmWindowForTesting { return window }
+                    prewarmWindowForTesting ?? UIApplication.getCurrentWindow()
+                #else
+                    UIApplication.getCurrentWindow()
                 #endif
-                return UIApplication.getCurrentWindow()
             }
 
             private struct SettledCaptureRequest {

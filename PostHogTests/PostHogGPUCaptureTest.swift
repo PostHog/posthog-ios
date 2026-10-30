@@ -220,11 +220,26 @@
             return field
         }
 
-        private func expectMagentaMasked(_ image: CGImage, _ rects: [CGRect], scale: CGFloat = 1) throws {
-            #expect(!(try Pixels(image)).points(where: Self.isMagenta).isEmpty)
-            let uiImage = UIImage(cgImage: image, scale: scale, orientation: .up)
-            let masked = try Pixels(#require(RRWireframe.maskImage(uiImage, maskableWidgets: rects, pixelScale: scale)?.cgImage))
-            #expect(masked.points(where: Self.isMagenta).isEmpty)
+        private func expectMagentaMasked(_ image: UIImage, _ rects: [CGRect]) throws {
+            #expect(!(try Pixels(#require(image.cgImage))).points(where: Self.isMagenta).isEmpty)
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
+        private func expectMagentaMasked(_ image: CGImage, _ rects: [CGRect]) throws {
+            try expectMagentaMasked(UIImage(cgImage: image), rects)
+        }
+
+        /// One capture's pixels and mask rects, through the GPU mirror or the default path's presentation-tree render.
+        private func capture(_ window: UIWindow, gpu: Bool, mirror: PostHogGPUMirrorCapture,
+                             integration: PostHogReplayIntegration) async throws -> (UIImage, [CGRect])
+        {
+            if gpu {
+                let (image, rects) = try await render(window, with: mirror, integration: integration)
+                return (UIImage(cgImage: image), rects)
+            }
+            window.layoutIfNeeded()
+            let rects = try #require(integration.collectMaskableRects(in: window))
+            return try (#require(window.toImage(preferFidelityRenderer: false)), rects)
         }
 
         @Test("A layer rotated in 3D about an anchor off its plane has its mask over its pixels")
@@ -303,16 +318,13 @@
             try #require(field.layer.presentation() == nil)
             let expected = try #require(parent.layer.presentation()).convert(field.frame, to: window.layer)
 
+            let (image, rects) = try await capture(window, gpu: gpu, mirror: mirror, integration: PostHogReplayIntegration())
+            #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(expected) })
             if gpu {
-                let (image, rects) = try await render(window, with: mirror)
-                #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(expected) })
                 try expectMagentaMasked(image, rects)
             } else {
-                let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window))
-                #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(expected) })
-                let image = try #require(window.toImage(preferFidelityRenderer: false))
-                let masked = try Pixels(#require(RRWireframe.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
-                #expect(masked.points(where: Self.isMagenta).isEmpty)
+                // The presentation tree the default path renders doesn't hold the uncommitted view yet.
+                #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
             }
         }
 
@@ -338,18 +350,13 @@
             // No run-loop turn in between: the layer still holds the old text's bitmap.
             label.text = ""
 
+            let (image, rects) = try await capture(window, gpu: gpu, mirror: mirror, integration: integration)
+            #expect(rects.contains(label.frame))
             if gpu {
-                let (image, rects) = try await render(window, with: mirror, integration: integration)
-                #expect(rects.contains(label.frame))
-                let masked = try Pixels(#require(RRWireframe.maskImage(UIImage(cgImage: image), maskableWidgets: rects, pixelScale: 1)?.cgImage))
-                #expect(masked.points(where: Self.isMagenta).isEmpty)
+                // `freeze` commits before the render, which can redraw the label first.
+                #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
             } else {
-                let rects = try #require(integration.collectMaskableRects(in: window))
-                #expect(rects.contains(label.frame))
-                let image = try #require(window.toImage(preferFidelityRenderer: false))
-                #expect(!(try Pixels(#require(image.cgImage))).points(where: Self.isMagenta).isEmpty)
-                let masked = try Pixels(#require(RRWireframe.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
-                #expect(masked.points(where: Self.isMagenta).isEmpty)
+                try expectMagentaMasked(image, rects)
             }
         }
 
@@ -897,7 +904,11 @@
         }
 
         private func maskedPixels(_ image: CGImage, _ rects: [CGRect]) throws -> Pixels {
-            try Pixels(#require(RRWireframe.maskImage(UIImage(cgImage: image), maskableWidgets: rects, pixelScale: 1)?.cgImage))
+            try maskedPixels(UIImage(cgImage: image), rects)
+        }
+
+        private func maskedPixels(_ image: UIImage, _ rects: [CGRect]) throws -> Pixels {
+            try Pixels(#require(RRWireframe.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
         }
 
         @Test("A lens portal draws its source on the portal, and masked text in it is masked there and where it sits")
@@ -1016,8 +1027,7 @@
 
             let (image, rects) = try await render(window, with: mirror)
             #expect(rects.contains(window.layer.convert(portal.bounds, from: portal)))
-            #expect(!(try Pixels(image)).points(where: Self.isMagenta).isEmpty)
-            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+            try expectMagentaMasked(image, rects)
         }
 
         @Test("Renderers are cached per output scale")

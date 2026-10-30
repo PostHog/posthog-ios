@@ -10,6 +10,8 @@ Send events through capture V1 and add `captureAi(...)` for AI events. See the [
   - If you use a reverse proxy or self-host PostHog, make sure `/i/v1/analytics/events` is served: a 404 is retried, so events stay queued until the route exists, and the SDK prints a warning once, also without `debug`.
   - Capture requests replace any `Authorization` header from `requestHeaders`, so authenticate your proxy with a different header.
   - Only a 307 or 308 redirect to the same origin as `host` is followed, at most 5 times. Other redirects drop the events, so point `host` at the final host.
+- **Breaking:** drop an event whose distinct ID is over 200 UTF-8 bytes, instead of shortening the ID and keeping the event. Shorten or hash long IDs, such as JWTs, before you upgrade.
+- **Breaking:** disable the SDK at setup when `projectToken` is a personal API key (`phx_...`). Use your project token (`phc_...`).
 - **Breaking:** pause sending for at most 30 seconds on `Retry-After`, including session replay and logs.
 - **Breaking:** send the `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` properties as capture options. PostHog drops an event whose option value it can't read.
 - **Breaking:** merge event properties as: properties the SDK sets itself, then registered super properties, then the properties you pass, then `beforeSend`. Super properties now override SDK properties such as `$os`, and both super and event properties override `$is_identified`, `$process_person_profile`, `$geoip_disable` and the session replay debug values.

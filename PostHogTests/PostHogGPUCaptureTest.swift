@@ -1,9 +1,23 @@
 #if os(iOS) && canImport(Metal)
     import Foundation
+    import IOSurface
     @testable import PostHog
     import QuartzCore
+    import SwiftUI
     import Testing
     import UIKit
+
+    private final class GlassBackdropView: UIView {
+        override class var layerClass: AnyClass { NSClassFromString("CABackdropLayer") ?? CALayer.self }
+    }
+
+    private final class GlassSDFView: UIView {
+        override class var layerClass: AnyClass { NSClassFromString("CASDFLayer") ?? CALayer.self }
+    }
+
+    private final class GlassShapeView: UIView {
+        override class var layerClass: AnyClass { NSClassFromString("CASDFElementLayer") ?? CALayer.self }
+    }
 
     private final class MetalView: UIView {
         override class var layerClass: AnyClass { CAMetalLayer.self }
@@ -83,7 +97,8 @@
             window.layoutIfNeeded()
             let frame = try #require(mirror.build(window: window, scale: scale))
             #expect(frame.scale == scale)
-            let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window, culledLayers: frame.culledLayers))
+            let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window, culledLayers: frame.culledLayers,
+                                                                                     portalSources: frame.portalSources))
             frame.freeze()
             #expect(frame.encode())
             let image = await withCheckedContinuation { continuation in
@@ -194,6 +209,638 @@
             #expect(masked.points(where: Self.isMagenta).isEmpty)
         }
 
+        @available(iOS 26.0, *)
+        @Test("Corners UIKit rounds per corner, leaving cornerRadius at 0, are rounded in the copy")
+        func perCornerRadiiAreCopied() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let card = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 80))
+            card.backgroundColor = .blue
+            card.cornerConfiguration = .corners(radius: .fixed(30))
+            window.addSubview(card)
+            #expect(card.layer.cornerRadius == 0)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[22, 22] == .white)
+            #expect(pixels[137, 97] == .white)
+            #expect(pixels[80, 60] == .blue)
+            #expect(pixels[80, 21] == .blue)
+        }
+
+        @Test("A NaN corner radius, UIKit's capsule, is drawn as a capsule")
+        func nanCornerRadiusIsCapsule() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let platter = CALayer()
+            platter.frame = CGRect(x: 20, y: 100, width: 160, height: 60)
+            platter.backgroundColor = UIColor.blue.cgColor
+            platter.cornerRadius = .nan
+            window.layer.addSublayer(platter)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[100, 130] == .blue)
+            #expect(pixels[22, 102] == .white)
+            #expect(pixels[177, 157] == .white)
+            #expect(pixels[100, 101] == .blue)
+        }
+
+        @Test("Template images keep their tint in the copy")
+        func templateImagesKeepTheirTint() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let symbol = UIImage(systemName: "square.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 40))
+            let imageView = UIImageView(image: symbol)
+            imageView.tintColor = .red
+            imageView.contentMode = .center
+            imageView.frame = CGRect(x: 20, y: 20, width: 160, height: 160)
+            window.addSubview(imageView)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[100, 100] == .red)
+            // Centred at its own size, not stretched to the view.
+            #expect(pixels[25, 25] == .white)
+            #expect(pixels[175, 175] == .white)
+        }
+
+        /// The shape Liquid Glass builds: a backdrop with the glass background filter over a signed-distance-field shape.
+        /// Built from the private classes because UIKit only builds real glass in a window with a scene.
+        private func makeGlass(frame: CGRect, cornerRadius: CGFloat, filter: String) throws -> CALayer {
+            let backdropClass = try #require(NSClassFromString("CABackdropLayer") as? CALayer.Type)
+            let shapeClass = try #require(NSClassFromString("CASDFElementLayer") as? CALayer.Type)
+            let filterClass: AnyObject = try #require(NSClassFromString("CAFilter"))
+            let glassFilter = try #require(filterClass.perform(NSSelectorFromString("filterWithType:"), with: filter)?.takeUnretainedValue())
+            let backdrop = backdropClass.init()
+            backdrop.frame = frame
+            backdrop.filters = [glassFilter]
+            backdrop.setValue(true, forKey: "tracksLuma")
+            backdrop.setValue(6, forKey: "marginWidth")
+            let shape = shapeClass.init()
+            shape.frame = backdrop.bounds
+            shape.cornerRadius = cornerRadius
+            backdrop.addSublayer(shape)
+            return backdrop
+        }
+
+        /// Glass without luminance tracking or a sampling margin, over a shape whose output range ends at
+        /// `outputMaximum`: a sheet's when that's tens of points, clear glass's when it's 1.
+        private func makeUntrackedGlass(frame: CGRect, outputMaximum: Double) throws -> CALayer {
+            let backdrop = try makeGlass(frame: frame, cornerRadius: 20, filter: "glassBackground")
+            backdrop.setValue(false, forKey: "tracksLuma")
+            backdrop.setValue(0, forKey: "marginWidth")
+            let sdfClass = try #require(NSClassFromString("CASDFLayer") as? CALayer.Type)
+            let outputClass = try #require(NSClassFromString("CASDFOutputEffect") as? NSObject.Type)
+            let output = outputClass.init()
+            output.setValue(outputMaximum, forKey: "maximum")
+            let sdf = sdfClass.init()
+            sdf.frame = backdrop.bounds
+            sdf.setValue(output, forKey: "effect")
+            sdf.sublayers = backdrop.sublayers
+            backdrop.sublayers = [sdf]
+            return backdrop
+        }
+
+        @Test("A sheet's glass, which shares clear glass's zero margin, fills like regular glass, not clear")
+        func sheetGlassIsNotClear() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .red)
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeUntrackedGlass(frame: CGRect(x: 20, y: 40, width: 160, height: 80), outputMaximum: 34))
+            window.layer.addSublayer(try makeUntrackedGlass(frame: CGRect(x: 20, y: 160, width: 160, height: 80), outputMaximum: 1))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[100, 80].green > 200)
+            #expect(pixels[100, 200].green < 120)
+        }
+
+        @Test("Panel-sized glass (sheets, alerts) draws as a blurred system material; control-sized keeps the flat fill")
+        func panelGlassDrawsAsBackdropMaterial() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .green)
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 10, y: 10, width: 180, height: 150), cornerRadius: 20, filter: "glassBackground"))
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 20, y: 200, width: 160, height: 60), cornerRadius: 30, filter: "glassBackground"))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            // The material maps green to about (141, 255, 141); 0.6 white over green would be (153, 255, 153).
+            let panel = pixels[100, 85]
+            #expect((132 ... 148).contains(panel.red) && panel.green > 235 && (132 ... 148).contains(panel.blue), "\(panel)")
+            // Rounded like the shape.
+            #expect(pixels[11, 11] == RGBA(red: 0, green: 255, blue: 0, alpha: 255))
+            // 0.85 white over green.
+            let control = pixels[100, 230]
+            #expect(control.red > 200 && control.blue > 200)
+        }
+
+        @Test("Light panel glass over a light grey comes out a lighter grey, as on screen, not white")
+        func lightPanelGlassOverGreyIsNotWhite() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: UIColor(white: 0.8, alpha: 1))
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 10, y: 10, width: 180, height: 150), cornerRadius: 20, filter: "glassBackground"))
+
+            // iOS 26 draws a sheet over a dimmed white page (204) at about 236.
+            let panel = try await Pixels(render(window, with: mirror).0)[100, 85]
+            #expect([panel.red, panel.green, panel.blue].allSatisfy { (226 ... 246).contains($0) }, "\(panel)")
+        }
+
+        @Test("Panel glass at the edge of the window keeps its colour up to the edge instead of fading")
+        func panelGlassAtWindowEdgeDoesNotFade() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .green)
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 0, y: 10, width: 180, height: 150), cornerRadius: 20, filter: "glassBackground"))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            let interior = pixels[100, 85]
+            let edge = pixels[1, 85]
+            let difference = [(edge.red, interior.red), (edge.green, interior.green), (edge.blue, interior.blue)]
+                .map { abs(Int($0.0) - Int($0.1)) }.max() ?? 0
+            #expect(difference <= 4, "edge \(edge) vs interior \(interior)")
+        }
+
+        @Test("Untinted glass controls in dark mode read as dark grey over black, not black")
+        func darkGlassControlIsDarkGrey() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .black)
+            window.overrideUserInterfaceStyle = .dark
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 20, y: 100, width: 160, height: 60), cornerRadius: 30, filter: "glassBackground"))
+
+            // iOS 26 draws regular glass over black at about (19, 19, 19) to (25, 25, 25).
+            let pixel = try await Pixels(render(window, with: mirror).0)[100, 130]
+            #expect((15 ... 30).contains(pixel.red) && pixel.red == pixel.green && pixel.green == pixel.blue, "\(pixel)")
+        }
+
+        @Test("Untinted dark glass in a bar reads lighter than on a button, as iOS 26 draws it")
+        func darkGlassInBarIsLighterThanButton() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .black)
+            window.overrideUserInterfaceStyle = .dark
+            await prewarm(mirror, for: window)
+
+            final class FloatingBarContainer: UIView {}
+            let bar = FloatingBarContainer(frame: CGRect(x: 20, y: 200, width: 160, height: 60))
+            bar.addSubview(try makeGlassGroup(frame: bar.bounds, tinted: false))
+            window.addSubview(bar)
+            window.addSubview(try makeGlassGroup(frame: CGRect(x: 20, y: 100, width: 160, height: 60), tinted: false))
+
+            // iOS 26 over black: about 25 for a tab bar platter or bar item, 19 for a glass button.
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            let barPixel = pixels[100, 230], buttonPixel = pixels[100, 130]
+            #expect((24 ... 30).contains(barPixel.red), "\(barPixel)")
+            #expect((18 ... 23).contains(buttonPixel.red), "\(buttonPixel)")
+        }
+
+        @Test("Glass without a view of its own (SwiftUI) takes dark mode from the nearest view above it")
+        func darkPanelGlassUsesDarkMaterial() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .green)
+            window.overrideUserInterfaceStyle = .dark
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 10, y: 10, width: 180, height: 150), cornerRadius: 20, filter: "glassBackground"))
+
+            // The dark material maps green to about (0, 127, 0); the light one would brighten it.
+            let panel = try await Pixels(render(window, with: mirror).0)[100, 85]
+            #expect(panel.red < 20 && (115 ... 140).contains(panel.green) && panel.blue < 20)
+        }
+
+        @Test("Liquid Glass draws as a flat translucent fill in its shape instead of nothing")
+        func liquidGlassDrawsAsFlatFill() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .red)
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 20, y: 100, width: 160, height: 60), cornerRadius: 30,
+                                                   filter: "glassBackground"))
+            // Other backdrops keep their own rendering and get no fill.
+            window.layer.addSublayer(try makeGlass(frame: CGRect(x: 20, y: 200, width: 160, height: 60), cornerRadius: 30,
+                                                   filter: "gaussianBlur"))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            let inside = pixels[100, 130]
+            #expect(inside.red > 200 && inside.green > 150 && inside.blue > 150)
+            // Rounded like the shape: the frame's corner stays outside it.
+            #expect(pixels[21, 101] == .red)
+            #expect(pixels[10, 130] == .red)
+            #expect(pixels[100, 230].green < 60)
+        }
+
+        /// UIKit's glass built from views, so the shape can find the control that owns it: a group holding a material
+        /// with the glass background over the shape and, for tinted glass, a sibling layer composited `destIn`.
+        /// `untintedShapes` share the group, as a toolbar's plain buttons share it with a tinted one: the tint layer keeps
+        /// their outlines hidden.
+        private func makeGlassGroup(frame: CGRect, tinted: Bool, tintMatrix: [Float]? = nil, tintedShape: CGRect? = nil,
+                                    untintedShapes: [CGRect] = []) throws -> UIView
+        {
+            let filterClass: AnyObject = try #require(NSClassFromString("CAFilter"))
+            let glassFilter = try #require(filterClass.perform(NSSelectorFromString("filterWithType:"), with: "glassBackground")?.takeUnretainedValue())
+            let group = UIView(frame: frame)
+            let material = UIView(frame: group.bounds)
+            let backdrop = GlassBackdropView(frame: group.bounds)
+            backdrop.layer.filters = [glassFilter]
+            backdrop.layer.setValue(true, forKey: "tracksLuma")
+            backdrop.layer.setValue(6, forKey: "marginWidth")
+            let tintedFrame = tintedShape ?? group.bounds
+            for shapeFrame in [tintedFrame] + untintedShapes {
+                let shape = GlassShapeView(frame: shapeFrame)
+                shape.layer.cornerRadius = shapeFrame.height / 2
+                backdrop.addSubview(shape)
+            }
+            material.addSubview(backdrop)
+            group.addSubview(material)
+            if tinted {
+                // The tint is a gradient shape drawn through the colour matrix; the shape it's cut to is composited `destIn`.
+                let tintMaterial = GlassSDFView(frame: group.bounds)
+                let gradientClass = try #require(NSClassFromString("CASDFGradientEffect") as? NSObject.Type)
+                tintMaterial.layer.setValue(gradientClass.init(), forKey: "effect")
+                let tintCutout = UIView(frame: group.bounds)
+                tintCutout.layer.compositingFilter = "destIn"
+                for shapeFrame in [tintedFrame] + untintedShapes {
+                    let outline = GlassShapeView(frame: shapeFrame)
+                    outline.isHidden = shapeFrame != tintedFrame
+                    tintCutout.addSubview(outline)
+                }
+                tintMaterial.addSubview(tintCutout)
+                if var tintMatrix {
+                    let matrixFilter = try #require(filterClass.perform(NSSelectorFromString("filterWithType:"), with: "vibrantColorMatrix")?
+                        .takeUnretainedValue() as? NSObject)
+                    let value = NSValue(bytes: &tintMatrix, objCType: "{CAColorMatrix=ffffffffffffffffffff}")
+                    matrixFilter.setValue(value, forKey: "inputColorMatrix")
+                    tintMaterial.layer.filters = [matrixFilter]
+                }
+                group.addSubview(tintMaterial)
+            }
+            return group
+        }
+
+        @Test("Tinted glass takes the tint its material's colour matrix gives the light background, before any owner's tint")
+        func tintedGlassTakesMaterialTint() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            // Luminance weights scaled per channel plus offsets, as SwiftUI builds `.glassEffect(.regular.tint(.orange))`:
+            // white maps to (1, 0.5, 0).
+            let orange: [Float] = [0.06, 0.2, 0.02, 0, 0.72,
+                                   0.05, 0.15, 0.0, 0, 0.3,
+                                   0, 0, 0, 0, 0,
+                                   0, 0, 0, 1, 0]
+            let button = UIButton(type: .custom)
+            button.frame = CGRect(x: 20, y: 100, width: 160, height: 60)
+            button.tintColor = .blue
+            button.addSubview(try makeGlassGroup(frame: button.bounds, tinted: true, tintMatrix: orange))
+            window.addSubview(button)
+
+            let pixel = try await Pixels(render(window, with: mirror).0)[100, 130]
+            #expect(pixel.red > 245 && (118 ... 137).contains(pixel.green) && pixel.blue < 10)
+        }
+
+        @Test("In dark mode the tint is what the colour matrix gives the dark background, not white")
+        func darkTintedGlassAppliesMatrixToDarkBackground() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            window.overrideUserInterfaceStyle = .dark
+            await prewarm(mirror, for: window)
+
+            // iOS 26's dark prominent-glass blue: black maps to (0, 0.559, 1), white to a lighter (0.17, 0.63, 0.97).
+            let blue: [Float] = [0.043, 0.146, 0.015, 0, -0.031,
+                                 0.014, 0.048, 0.005, 0, 0.559,
+                                 -0.008, -0.027, -0.003, 0, 1.006,
+                                 0, 0, 0, 1, 0]
+            let button = UIButton(type: .custom)
+            button.frame = CGRect(x: 20, y: 100, width: 160, height: 60)
+            button.addSubview(try makeGlassGroup(frame: button.bounds, tinted: true, tintMatrix: blue))
+            window.addSubview(button)
+
+            let pixel = try await Pixels(render(window, with: mirror).0)[100, 130]
+            #expect(pixel.red < 10 && (135 ... 150).contains(pixel.green) && pixel.blue > 245)
+        }
+
+        @Test("Only the glass shapes the tint layer outlines are tinted, when one group holds several")
+        func sharedGlassGroupTintsOnlyItsTintedShape() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .red)
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            let blue: [Float] = [0, 0, 0, 0, 0,
+                                 0, 0, 0, 0, 0,
+                                 0, 0, 0, 0, 1,
+                                 0, 0, 0, 1, 0]
+            let group = try makeGlassGroup(frame: CGRect(x: 10, y: 100, width: 180, height: 60), tinted: true, tintMatrix: blue,
+                                           tintedShape: CGRect(x: 100, y: 0, width: 80, height: 60),
+                                           untintedShapes: [CGRect(x: 0, y: 0, width: 60, height: 60)])
+            window.addSubview(group)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            let plain = pixels[40, 130], tinted = pixels[150, 130]
+            #expect(plain.red > 230 && plain.green > 190 && plain.blue > 190)
+            #expect(tinted.red < 20 && tinted.green < 20 && tinted.blue > 230)
+        }
+
+        private static func isGrey(_ pixel: RGBA) -> Bool {
+            max(pixel.red, pixel.green, pixel.blue) - min(pixel.red, pixel.green, pixel.blue) < 20 && (90 ... 200).contains(pixel.red)
+        }
+
+        @Test("Tinted glass takes the tint of the button it belongs to")
+        func tintedGlassTakesButtonTint() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            let button = UIButton(type: .custom)
+            button.frame = CGRect(x: 20, y: 100, width: 160, height: 60)
+            button.tintColor = .red
+            button.addSubview(try makeGlassGroup(frame: button.bounds, tinted: true))
+            window.addSubview(button)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[100, 130] == .red)
+        }
+
+        @available(iOS 15.0, *)
+        @Test("Glass with a white label, or tinted with no tint to read, is grey so its label still reads")
+        func untintableGlassContrastsWithItsLabel() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            window.addSubview(try makeGlassGroup(frame: CGRect(x: 20, y: 20, width: 160, height: 60), tinted: true))
+            var configuration = UIButton.Configuration.plain()
+            configuration.baseForegroundColor = .white
+            let button = UIButton(configuration: configuration)
+            button.frame = CGRect(x: 20, y: 100, width: 160, height: 60)
+            button.addSubview(try makeGlassGroup(frame: button.bounds, tinted: false))
+            window.addSubview(button)
+            // Plain glass with a dark label keeps the light fill.
+            window.addSubview(try makeGlassGroup(frame: CGRect(x: 20, y: 200, width: 160, height: 60), tinted: false))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(Self.isGrey(pixels[100, 50]))
+            #expect(Self.isGrey(pixels[100, 130]))
+            #expect(pixels[100, 230].red > 230 && pixels[100, 230].green > 230)
+        }
+
+        @Test("Tinted-image contents, which SwiftUI draws text on glass into, are shared with the copy")
+        func tintedImageContentsAreShared() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let context = try #require(CGContext(data: nil, width: 8, height: 8, bitsPerComponent: 8, bytesPerRow: 0,
+                                                 space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.setFillColor(UIColor.black.cgColor)
+            context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+            let image = try #require(context.makeImage())
+            let tintedImageClass: AnyObject = try #require(NSClassFromString("CATintedImage"))
+            let tinted = try #require(tintedImageClass.perform(NSSelectorFromString("tintedImageWithCGImage:tint:"), with: image,
+                                                               with: UIColor.red.cgColor)?.takeUnretainedValue())
+            let layer = CALayer()
+            layer.frame = CGRect(x: 20, y: 20, width: 100, height: 100)
+            layer.contents = tinted
+            window.layer.addSublayer(layer)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[70, 70] != .white)
+            #expect(pixels[150, 150] == .white)
+        }
+
+        // MARK: - Portals
+
+        private func makePortal(showing source: CALayer, frame: CGRect, matchesPosition: Bool = true, matchesTransform: Bool = true,
+                                sourceContextId: UInt32 = 0, hidesSource: Bool = true) throws -> CALayer
+        {
+            let portalClass = try #require(NSClassFromString("CAPortalLayer") as? CALayer.Type)
+            let portal = portalClass.init()
+            portal.frame = frame
+            portal.masksToBounds = true
+            portal.setValue(source, forKey: "sourceLayer")
+            portal.setValue(hidesSource, forKey: "hidesSourceLayer")
+            portal.setValue(matchesPosition, forKey: "matchesPosition")
+            portal.setValue(matchesTransform, forKey: "matchesTransform")
+            portal.setValue(sourceContextId, forKey: "sourceContextId")
+            return portal
+        }
+
+        private func count(_ pixels: Pixels, in rect: CGRect, where predicate: (RGBA) -> Bool) -> Int {
+            var count = 0
+            for y in Int(rect.minY) ..< Int(rect.maxY) {
+                for x in Int(rect.minX) ..< Int(rect.maxX) where predicate(pixels[x, y]) {
+                    count += 1
+                }
+            }
+            return count
+        }
+
+        @Test("A matched portal draws a source clipped away where it sits, and the source stays masked")
+        func matchedPortalContentStaysMasked() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            // The secret sits outside its clipping parent, so nothing of it shows where it sits.
+            let clipper = UIView(frame: CGRect(x: 10, y: 200, width: 40, height: 40))
+            clipper.clipsToBounds = true
+            // Inset inside its masked field, as text is: masks are drawn with rounded corners.
+            let field = noCaptureView(CGRect(x: 10, y: -150, width: 120, height: 60), color: .clear)
+            let secret = UIView(frame: field.bounds.insetBy(dx: 5, dy: 5))
+            secret.backgroundColor = .magenta
+            field.addSubview(secret)
+            clipper.addSubview(field)
+            window.addSubview(clipper)
+            let fieldRect = field.convert(field.bounds, to: window)
+            let secretRect = secret.convert(secret.bounds, to: window)
+            window.layer.addSublayer(try makePortal(showing: field.layer, frame: fieldRect))
+            window.layoutIfNeeded()
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            #expect(frame.culledLayers.contains(ObjectIdentifier(field.layer)))
+            #expect(frame.portalSources.contains { $0.view === field && $0.elsewhere == nil })
+            frame.release()
+
+            let (image, rects) = try await render(window, with: mirror)
+            let pixels = try Pixels(image)
+            #expect(count(pixels, in: secretRect, where: Self.isMagenta) > Int(secretRect.width * secretRect.height) * 9 / 10)
+            #expect(rects.contains(fieldRect))
+
+            let masked = try Pixels(#require(RRWireframe.maskImage(UIImage(cgImage: image), maskableWidgets: rects, pixelScale: 1)?.cgImage))
+            #expect(masked.points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("A matched portal that hides its source leaves the source out where the portal doesn't show it")
+        func hidingPortalLeavesSourceOut() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 100, width: 120, height: 60))
+            source.backgroundColor = .blue
+            window.addSubview(source)
+            // Over the left half only.
+            window.layer.addSublayer(try makePortal(showing: source.layer, frame: CGRect(x: 20, y: 100, width: 60, height: 60)))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[50, 130] == .blue)
+            #expect(pixels[110, 130] == .white)
+        }
+
+        @Test("A source shown by two matched portals is drawn by each")
+        func sourceSharedByTwoPortals() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 100, width: 120, height: 60))
+            source.backgroundColor = .blue
+            window.addSubview(source)
+            window.layer.addSublayer(try makePortal(showing: source.layer, frame: CGRect(x: 20, y: 100, width: 40, height: 60)))
+            window.layer.addSublayer(try makePortal(showing: source.layer, frame: CGRect(x: 100, y: 100, width: 40, height: 60)))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[40, 130] == .blue)
+            #expect(pixels[120, 130] == .blue)
+            #expect(pixels[80, 130] == .white)
+        }
+
+        @Test("Portals that don't show their source in place, or show another context's, stay out of the frame",
+              arguments: [(false, true, 0), (true, false, 0), (true, true, 7), (false, false, 7)] as [(Bool, Bool, UInt32)])
+        func unmatchedPortalsStayOut(matchesPosition: Bool, matchesTransform: Bool, sourceContextId: UInt32) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let secret = noCaptureView(CGRect(x: 20, y: 20, width: 60, height: 40))
+            window.addSubview(secret)
+            let portalRect = CGRect(x: 100, y: 200, width: 60, height: 40)
+            let portal = try makePortal(showing: secret.layer, frame: portalRect, matchesPosition: matchesPosition,
+                                        matchesTransform: matchesTransform, sourceContextId: sourceContextId, hidesSource: false)
+            #expect((portal.value(forKey: "sourceContextId") as? NSNumber)?.uint32Value == sourceContextId)
+            window.layer.addSublayer(portal)
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            #expect(frame.portalSources.isEmpty)
+            frame.release()
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(count(pixels, in: portalRect, where: Self.isMagenta) == 0)
+            #expect(Self.isMagenta(pixels[50, 40]))
+        }
+
+        /// A portal that shows its source at its own position, as SwiftUI's glass shows its text: the source's bounds
+        /// land on the portal's.
+        private func makeLensPortal(showing source: UIView, frame: CGRect) throws -> CALayer {
+            try makePortal(showing: source.layer, frame: frame, matchesPosition: false, matchesTransform: false)
+        }
+
+        private func maskedPixels(_ image: CGImage, _ rects: [CGRect]) throws -> Pixels {
+            try Pixels(#require(RRWireframe.maskImage(UIImage(cgImage: image), maskableWidgets: rects, pixelScale: 1)?.cgImage))
+        }
+
+        @Test("A lens portal draws its source on the portal, and masked text in it is masked there and where it sits")
+        func lensPortalMovesItsMasks() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let field = noCaptureView(CGRect(x: 10, y: 10, width: 100, height: 40), color: .clear)
+            let secret = UIView(frame: field.bounds.insetBy(dx: 5, dy: 5))
+            secret.backgroundColor = .magenta
+            field.addSubview(secret)
+            source.addSubview(field)
+            window.addSubview(source)
+            let portalRect = CGRect(x: 40, y: 180, width: 120, height: 60)
+            window.layer.addSublayer(try makeLensPortal(showing: source, frame: portalRect))
+
+            let (image, rects) = try await render(window, with: mirror)
+            let pixels = try Pixels(image)
+            // Hidden where it sits, drawn on the portal at the field's offset in the source.
+            #expect(count(pixels, in: CGRect(x: 35, y: 35, width: 90, height: 30), where: Self.isMagenta) == 0)
+            #expect(count(pixels, in: CGRect(x: 55, y: 195, width: 90, height: 30), where: Self.isMagenta) > 90 * 30 * 9 / 10)
+            #expect(rects.contains(CGRect(x: 50, y: 190, width: 100, height: 40)))
+
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("A lens portal over a source with no masked views draws it on the portal, unmasked")
+        func lensPortalDrawsUnmaskedContent() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let label = UIView(frame: CGRect(x: 10, y: 10, width: 100, height: 40))
+            label.backgroundColor = .blue
+            source.addSubview(label)
+            window.addSubview(source)
+            window.layer.addSublayer(try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 180, width: 120, height: 60)))
+
+            let (image, rects) = try await render(window, with: mirror)
+            #expect(rects.isEmpty)
+            let pixels = try Pixels(image)
+            #expect(pixels[100, 210] == .blue)
+            #expect(pixels[60, 50] == .white)
+        }
+
+        @Test("A postHogMask reporter under a lens portal's source masks the whole portal")
+        func lensPortalWithReporterMasksWholePortal() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 10, width: 30, height: 20))
+            source.addSubview(reporter)
+            window.addSubview(source)
+            defer { reporter.removeFromSuperview() }
+            let portal = try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 180, width: 120, height: 60))
+            window.layer.addSublayer(portal)
+
+            let (_, rects) = try await render(window, with: mirror)
+            #expect(rects.contains(window.layer.convert(portal.bounds, from: portal)))
+        }
+
+        @Test("A lens portal whose placement isn't affine masks the whole portal when its source has masks")
+        func lensPortalWithoutExactMapMasksWholePortal() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let field = noCaptureView(CGRect(x: 10, y: 10, width: 100, height: 40))
+            source.addSubview(field)
+            window.addSubview(source)
+            let portal = try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 180, width: 120, height: 60))
+            var perspective = CATransform3DIdentity
+            perspective.m34 = -1 / 200
+            portal.transform = CATransform3DRotate(perspective, 0.4, 0, 1, 0)
+            window.layer.addSublayer(portal)
+
+            let (image, rects) = try await render(window, with: mirror)
+            #expect(rects.contains(window.layer.convert(portal.bounds, from: portal)))
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
         @Test("Renderers are cached per output scale")
         func renderersAreKeyedByScale() async throws {
             let mirror = try makeMirror()
@@ -240,6 +887,110 @@
             #expect(grey > Int(region.width * region.height) * 8 / 10)
         }
 
+        @Test("A layer whose mask is hidden or transparent draws nothing, as on screen", arguments: [true, false])
+        func layerWithInvisibleMaskIsNotDrawn(hidden: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let layer = CALayer()
+            layer.frame = CGRect(x: 20, y: 20, width: 160, height: 100)
+            layer.backgroundColor = UIColor.magenta.cgColor
+            let mask = CALayer()
+            mask.frame = layer.bounds
+            mask.backgroundColor = UIColor.black.cgColor
+            if hidden {
+                mask.isHidden = true
+            } else {
+                mask.opacity = 0
+            }
+            layer.mask = mask
+            window.layer.addSublayer(layer)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels.points(where: Self.isMagenta).isEmpty)
+            #expect(pixels[100, 70] == .white)
+        }
+
+        @Test("A frame that renders nothing at all reads back as a failure, so the capture falls back")
+        func blankFrameReadsBackAsFailure() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .clear)
+            await prewarm(mirror, for: window)
+
+            window.layoutIfNeeded()
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            frame.freeze()
+            #expect(frame.encode())
+            let image = await withCheckedContinuation { continuation in
+                frame.readback(on: .global()) { continuation.resume(returning: $0) }
+            }
+            frame.release()
+            #expect(image == nil)
+        }
+
+        @Test("A lens portal or its source mid-animation has its masks where the pixels are drawn", arguments: [true, false])
+        func animatingLensPortalMasksFollowPresentation(animatePortal: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let field = noCaptureView(CGRect(x: 10, y: 10, width: 100, height: 40), color: .clear)
+            let secret = UIView(frame: field.bounds.insetBy(dx: 5, dy: 5))
+            secret.backgroundColor = .magenta
+            field.addSubview(secret)
+            source.addSubview(field)
+            window.addSubview(source)
+            let portal = try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 180, width: 120, height: 60))
+            window.layer.addSublayer(portal)
+
+            // Held at its start for the whole capture, while the model already sits at the destination.
+            let moving = animatePortal ? portal : source.layer
+            let start = moving.position
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            moving.position.y += 50
+            CATransaction.commit()
+            let animation = CABasicAnimation(keyPath: "position")
+            animation.fromValue = NSValue(cgPoint: start)
+            animation.toValue = NSValue(cgPoint: start)
+            animation.duration = 1000
+            animation.beginTime = moving.convertTime(CACurrentMediaTime(), from: nil) - 1
+            moving.add(animation, forKey: "position")
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            #expect(moving.presentation()?.position == start)
+
+            let (image, rects) = try await render(window, with: mirror)
+            let pixels = try Pixels(image)
+            #expect(count(pixels, in: CGRect(x: 55, y: 195, width: 90, height: 30), where: Self.isMagenta) > 90 * 30 * 9 / 10)
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("A portal inside another portal's source draws nothing through the outer portal")
+        func nestedPortalIsNotDrawnThroughOuterPortal() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let secret = noCaptureView(CGRect(x: 20, y: 240, width: 60, height: 40))
+            window.addSubview(secret)
+            let outerSource = UIView(frame: CGRect(x: 20, y: 20, width: 160, height: 80))
+            outerSource.backgroundColor = .blue
+            window.addSubview(outerSource)
+            outerSource.layer.addSublayer(try makePortal(showing: secret.layer, frame: CGRect(x: 10, y: 10, width: 60, height: 40),
+                                                         matchesPosition: false, matchesTransform: false))
+            window.layer.addSublayer(try makePortal(showing: outerSource.layer, frame: CGRect(x: 20, y: 120, width: 160, height: 80),
+                                                    matchesPosition: false, matchesTransform: false))
+
+            let (image, rects) = try await render(window, with: mirror)
+            let pixels = try Pixels(image)
+            #expect(pixels[150, 160] == .blue)
+            #expect(count(pixels, in: CGRect(x: 30, y: 130, width: 60, height: 40), where: Self.isMagenta) == 0)
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
         // MARK: - Lifecycle
 
         private func makeSut(gpuCapture: Bool = true) throws -> (PostHogSDK, PostHogReplayIntegration, ReplaySnapshots) {
@@ -248,7 +999,7 @@
 
         /// Waits for the capture to give the render slot back, through both turns and the readback.
         private func waitForCaptureToFinish(_ integration: PostHogReplayIntegration) async {
-            await waitUntil(timeout: 2) { !integration.isScreenshotRenderInFlightForTesting }
+            await waitUntil(timeout: 5) { !integration.isScreenshotRenderInFlightForTesting }
             #expect(!integration.isScreenshotRenderInFlightForTesting)
             await drainReplayQueue()
         }
@@ -383,6 +1134,10 @@
             try #require(window.screen.scale == 3, "the expected sizes are for a 3x simulator")
             // 402x874 pt (iPhone 17 Pro): 402x874 px unset, 603x1311 at 0.5, 1206x2622 at 1.0.
             let pixelsPerPoint = screenshotScale.map { 3 * CGFloat($0) } ?? 1
+            // Each size builds its own renderer; build it up front so the wait below only covers the capture.
+            if gpu {
+                await prewarm(mirror, for: window, scale: integration.gpuPixelScale(window))
+            }
 
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
             await waitForCaptureToFinish(integration)
@@ -472,6 +1227,155 @@
             config.screenshotModeGPUCapture = flags.gpu
             config.screenshotModeBackgroundCapture = flags.background
             #expect(PostHogReplayIntegration.screenshotCapturePath(config) == flags.expected)
+        }
+
+        // MARK: - Shared contents
+
+        /// Builds a frame with one layer showing `contents` and reports whether the copy kept it.
+        private func copyShares(_ contents: AnyObject, in mirror: PostHogGPUMirrorCapture, window: UIWindow) throws -> Bool {
+            let layer = CALayer()
+            layer.frame = CGRect(x: 20, y: 20, width: 40, height: 40)
+            layer.contents = contents
+            window.layer.addSublayer(layer)
+            defer { layer.removeFromSuperlayer() }
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            defer { frame.release() }
+            return mirror.copiesForTesting.allObjects.contains { ($0.contents as AnyObject?) === contents }
+        }
+
+        /// The contents Core Animation keeps for a view or a layer that draws itself.
+        private func drawnContents(_ drawn: CALayer, in window: UIWindow) throws -> AnyObject {
+            drawn.frame = CGRect(x: 0, y: 0, width: 20, height: 20)
+            window.layer.addSublayer(drawn)
+            defer { drawn.removeFromSuperlayer() }
+            drawn.setNeedsDisplay()
+            drawn.displayIfNeeded()
+            return try #require(drawn.contents as AnyObject?)
+        }
+
+        /// What `contents` is: its CF type for a Core Foundation object, otherwise its class.
+        private static func kind(of contents: AnyObject) throws -> String {
+            guard NSStringFromClass(try #require(object_getClass(contents))) == "__NSCFType" else {
+                return NSStringFromClass(try #require(object_getClass(contents)))
+            }
+            return try #require(CFCopyTypeIDDescription(CFGetTypeID(contents)) as String?)
+        }
+
+        @Test("Copies share image, surface, backing-store and tinted-image contents, and drop any other kind")
+        func sharedContentsKinds() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let image = try #require(UIGraphicsImageRenderer(size: CGSize(width: 4, height: 4)).image { _ in }.cgImage)
+            #expect(try copyShares(image, in: mirror, window: window))
+            let surface = try #require(IOSurface(properties: [.width: 4, .height: 4, .bytesPerElement: 4, .pixelFormat: 0x4247_5241]))
+            #expect(try copyShares(surface, in: mirror, window: window))
+
+            let view = DrawnView()
+            let viewDrawn = try drawnContents(view.layer, in: window)
+            try #require(try Self.kind(of: viewDrawn) == "CABackingStore")
+            #expect(try copyShares(viewDrawn, in: mirror, window: window))
+            // iOS 26 keeps a layer's own drawing as a tinted image; earlier versions as a backing store.
+            let layerDrawn = try drawnContents(DrawnLayer(), in: window)
+            try #require(["CABackingStore", "CATintedImage"].contains(try Self.kind(of: layerDrawn)))
+            #expect(try copyShares(layerDrawn, in: mirror, window: window))
+
+            #expect(try !copyShares(NSObject(), in: mirror, window: window))
+        }
+
+        /// A SwiftUI `Image(uiImage:)` filling the window, and the layer that shows it.
+        private func showSwiftUIImage(_ model: SwiftUIImageModel, in window: UIWindow) async throws -> CALayer {
+            window.rootViewController = UIHostingController(rootView: SwiftUIImageView(model: model))
+            window.layoutIfNeeded()
+            // SwiftUI sets the layer's contents on its next update.
+            try await Task.sleep(nanoseconds: 300_000_000)
+            return try #require(Self.layers(in: window.layer).first { NSStringFromClass(type(of: $0)).contains("ImageLayer") && $0.contents != nil })
+        }
+
+        private static func layers(in root: CALayer) -> [CALayer] {
+            [root] + (root.sublayers ?? []).flatMap(layers(in:))
+        }
+
+        private static func solidImage(_ color: UIColor) -> UIImage {
+            UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40)).image { context in
+                color.setFill()
+                context.fill(CGRect(x: 0, y: 0, width: 40, height: 40))
+            }
+        }
+
+        @Test("A SwiftUI image renders, and the next capture after it changes shows the new one")
+        func swiftUIImagesRender() async throws {
+            let mirror = try makeMirror()
+            // In an app host SwiftUI only updates a window that has a scene.
+            let window = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first.map(UIWindow.init(windowScene:)) ?? makeWindow()
+            window.frame = CGRect(x: 0, y: 0, width: 200, height: 300)
+            window.isHidden = false
+            defer { window.isHidden = true }
+            await prewarm(mirror, for: window)
+            let model = SwiftUIImageModel(Self.solidImage(.red))
+            let imageLayer = try await showSwiftUIImage(model, in: window)
+            let first = try #require(imageLayer.contents as AnyObject?)
+            // iOS 26 wraps the bitmap in an Objective-C proxy; earlier versions hand the layer the CGImage itself.
+            try #require(["_SwiftUIProxyImage", "CGImage"].contains(try Self.kind(of: first)))
+
+            #expect(try await Pixels(render(window, with: mirror).0)[100, 150] == .red)
+
+            model.image = Self.solidImage(.blue)
+            try await Task.sleep(nanoseconds: 300_000_000)
+            // The on-screen layer takes the new image after a capture shared the old one.
+            #expect(try #require(imageLayer.contents as AnyObject?) !== first)
+            #expect(try await Pixels(render(window, with: mirror).0)[100, 150] == .blue)
+        }
+
+        @Test("Contents whose CF type ID is an address, like IOSurface's, are dropped instead of described")
+        func addressTypedContentsAreDropped() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let contents = AddressTypedContents()
+            try #require(CFGetTypeID(contents) > CFTypeID(UInt32.max))
+            #expect(try !copyShares(contents, in: mirror, window: window))
+        }
+    }
+
+    private final class SwiftUIImageModel: ObservableObject {
+        @Published var image: UIImage
+
+        init(_ image: UIImage) {
+            self.image = image
+        }
+    }
+
+    private struct SwiftUIImageView: View {
+        @ObservedObject var model: SwiftUIImageModel
+
+        var body: some View {
+            Image(uiImage: model.image).resizable().frame(width: 100, height: 100)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private final class DrawnView: UIView {
+        override func draw(_: CGRect) {
+            UIColor.red.setFill()
+            UIRectFill(bounds)
+        }
+    }
+
+    private final class DrawnLayer: CALayer {
+        override func draw(in ctx: CGContext) {
+            ctx.setFillColor(UIColor.red.cgColor)
+            ctx.fill(bounds)
+        }
+    }
+
+    /// An Objective-C object reporting its class pointer as its CF type ID, the way IOSurface does: Core Foundation
+    /// asks Objective-C objects for `_cfTypeID`.
+    private final class AddressTypedContents: NSObject {
+        @objc func _cfTypeID() -> UInt {
+            unsafeBitCast(AddressTypedContents.self as AnyClass, to: UInt.self)
         }
     }
 #endif

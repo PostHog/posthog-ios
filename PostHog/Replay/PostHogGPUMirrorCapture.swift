@@ -7,8 +7,9 @@
     /// Screenshots a window by rendering a shallow copy of its presentation layer tree, sharing the live layers'
     /// `contents`, with `CARenderer` into a Metal texture: main only walks the tree and encodes the render.
     ///
-    /// Not reproduced: content hosted in another render context (`CAPortalLayer`, `CALayerHost`), image-queue
-    /// contents such as video, and `CAMetalLayer` pixels, which are drawn as a labelled placeholder.
+    /// Not reproduced: content hosted in another render context (`CALayerHost`), portals that don't show a source from
+    /// this window either in place or on themselves, image-queue contents such as video, and `CAMetalLayer` pixels,
+    /// which are drawn as a labelled placeholder.
     final class PostHogGPUMirrorCapture {
         /// One mirrored tree, taken through `freeze`, `encode` and `readback` in that order on main. Each step is
         /// a no-op (or reports failure) out of order or after `release`, and `release` is safe to call more than once,
@@ -22,12 +23,17 @@
             /// off screen). Nothing under them reaches this frame's pixels, so the mask walk can skip them.
             /// Emptied by `freeze`, since the walk runs before it.
             private(set) var culledLayers: Set<ObjectIdentifier>
+            /// Views whose layers this frame also draws through a portal. The mask walk visits each again, ignoring
+            /// `culledLayers`: culling describes where the source sits, not where the portal shows it.
+            /// Emptied by `freeze`.
+            private(set) var portalSources: [PostHogPortalSource]
             private var stage = FrameStage.built
 
-            fileprivate init(target: Target, root: CALayer, culledLayers: Set<ObjectIdentifier>) {
+            fileprivate init(target: Target, root: CALayer, culledLayers: Set<ObjectIdentifier>, portalSources: [PostHogPortalSource]) {
                 self.target = target
                 self.root = root
                 self.culledLayers = culledLayers
+                self.portalSources = portalSources
             }
 
             /// Main thread. Commits the mirror so CARenderer sees it; host redraws after this, even in place into shared
@@ -37,6 +43,7 @@
                 guard stage == .built else { return }
                 CATransaction.flush()
                 culledLayers = []
+                portalSources = []
                 stage = .frozen
             }
 
@@ -100,6 +107,9 @@
             let scale: CGFloat
             let wrapper = CALayer()
             let pixelBounds: CGRect
+            /// The clear the latest `render` encoded: the only part of a render whose result can be checked, since
+            /// CARenderer doesn't expose its own command buffer.
+            private var lastClear: MTLCommandBuffer?
             /// The texture's layout, BGRA premultiplied.
             private static let bgraBitmapInfo = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
 
@@ -128,7 +138,8 @@
 
             /// Encodes a render of the wrapper's committed tree on `queue`, without waiting for it.
             func render() -> Bool {
-                guard clear() else { return false }
+                guard let clear = clear() else { return false }
+                lastClear = clear
                 renderer.beginFrame(atTime: CACurrentMediaTime(), timeStamp: nil)
                 renderer.addUpdate(pixelBounds)
                 renderer.render()
@@ -142,9 +153,11 @@
                     completionQueue.async { completion(nil) }
                     return
                 }
+                let clear = lastClear
                 fence.addCompletedHandler { [self] buffer in
+                    let failed = buffer.error != nil || clear?.status != .completed
                     completionQueue.async {
-                        completion(buffer.error == nil ? self.copyPixels() : nil)
+                        completion(failed ? nil : self.copyPixels())
                     }
                 }
                 fence.commit()
@@ -169,16 +182,16 @@
                 CATransaction.flush()
             }
 
-            private func clear() -> Bool {
+            private func clear() -> MTLCommandBuffer? {
                 let pass = MTLRenderPassDescriptor()
                 pass.colorAttachments[0].texture = texture
                 pass.colorAttachments[0].loadAction = .clear
                 pass.colorAttachments[0].storeAction = .store
                 pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
-                guard let buffer = queue.makeCommandBuffer(), let encoder = buffer.makeRenderCommandEncoder(descriptor: pass) else { return false }
+                guard let buffer = queue.makeCommandBuffer(), let encoder = buffer.makeRenderCommandEncoder(descriptor: pass) else { return nil }
                 encoder.endEncoding()
                 buffer.commit()
-                return true
+                return buffer
             }
 
             private func copyPixels() -> CGImage? {
@@ -188,8 +201,22 @@
                     let data = context.data
                 else { return nil }
                 texture.getBytes(data, bytesPerRow: context.bytesPerRow, from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
+                // A window paints at least its background, so a frame with every pixel transparent is a render that
+                // didn't happen. The scan stops at the first painted pixel, which is usually the first one.
+                guard !Self.isBlank(data, width: width, height: height, bytesPerRow: context.bytesPerRow) else { return nil }
                 Self.flipRows(data, height: height, bytesPerRow: context.bytesPerRow)
                 return context.makeImage()
+            }
+
+            private static func isBlank(_ data: UnsafeMutableRawPointer, width: Int, height: Int, bytesPerRow: Int) -> Bool {
+                for row in 0 ..< height {
+                    let pixels = (data + row * bytesPerRow).assumingMemoryBound(to: UInt32.self)
+                    // BGRA little-endian: alpha is the top byte.
+                    for column in 0 ..< width where pixels[column] & 0xFF00_0000 != 0 {
+                        return false
+                    }
+                }
+                return true
             }
 
             private static func flipRows(_ data: UnsafeMutableRawPointer, height: Int, bytesPerRow: Int) {
@@ -275,14 +302,49 @@
         private struct ClassInfo {
             let kind: LayerKind
             let unmirrorable: Bool
+            let portal: Bool
+            let glassShape: Bool
+            let signedDistanceField: Bool
             let metal: Bool
             let copiesWithInitLayer: Bool
             let presentationSafe: Bool
         }
 
+        /// A private CALayer property newer OSes draw with. Read and written through KVC, which CALayer answers for any
+        /// key; nil where CALayer doesn't declare it, so older OSes skip it.
+        struct PrivateLayerKey {
+            let name: String
+            private let defaultValue: NSObject?
+
+            init?(_ name: String) {
+                guard CALayer.instancesRespond(to: NSSelectorFromString(name)) else { return nil }
+                self.name = name
+                defaultValue = CALayer().value(forKey: name) as? NSObject
+            }
+
+            /// The layer's value when it differs from a fresh layer's.
+            func changedValue(in layer: CALayer) -> NSObject? {
+                guard let value = layer.value(forKey: name) as? NSObject, !value.isEqual(defaultValue) else { return nil }
+                return value
+            }
+
+            func set(_ value: NSObject, on layer: CALayer) {
+                layer.setValue(value, forKey: name)
+            }
+        }
+
         private struct Walk {
             let scale: CGFloat
+            let root: CALayer
             var culled: Set<ObjectIdentifier> = []
+            var portalSources: [PostHogPortalSource] = []
+            /// Sources a portal draws in place of themselves: left out where they sit, without being culled.
+            var hiddenSources: Set<ObjectIdentifier> = []
+            /// Copies of view-backed layers outside any portal, for hiding a source mirrored before its portal.
+            var viewCopies: [ObjectIdentifier: CALayer] = [:]
+            var portalsInProgress: Set<ObjectIdentifier> = []
+            /// The Liquid Glass background the walk is inside, if any.
+            var glass: PostHogGlassStandIn.Kind?
         }
 
         /// Where a layer's sublayers land in the window.
@@ -299,18 +361,37 @@
 
         // Matched by name: these are private Core Animation / UIKit classes with no public symbol to compare against.
         /// Contexts hosting another process's or context's pixels: nothing in-process to share.
-        private static let unmirrorableClasses: Set<String> = ["CAPortalLayer", "CALayerHost"]
+        private static let unmirrorableClasses: Set<String> = ["CALayerHost"]
+        /// Shows another layer's subtree; mirrored only when it shows it in place (see `portalContent`).
+        private static let portalClass = "CAPortalLayer"
+        /// A Liquid Glass shape, drawn as a flat stand-in under a backdrop with the glass background filter.
+        private static let glassShapeClass = "CASDFElementLayer"
+        private static let signedDistanceFieldPrefix = "CASDF"
         /// Backdrop blur only renders through the layer's own class; every other layer is copied into a plain CALayer.
         private static let initLayerClasses: Set<String> = ["UICABackdropLayer", "CABackdropLayer"]
         /// Private contents types safe to share, besides CGImage and IOSurface. Image-queue contents (CAMetalLayer,
         /// video) are excluded: handing them to a second renderer stops the on-screen layer from updating.
         private static let shareablePrivateContentTypes: Set<String> = ["CAIOSurface", "CABackingStore"]
+        /// Shareable contents that are Objective-C objects, so they have no CF type of their own: SwiftUI draws text on
+        /// Liquid Glass into a tinted image, and hands an `Image` layer its bitmap as a proxy wrapping one CGImage. Both
+        /// are replaced, not redrawn in place, when the content changes.
+        private static let shareablePrivateContentClasses: Set<String> = ["CATintedImage", "_SwiftUIProxyImage"]
+        /// Core Foundation's own type IDs are small indexes into its class table. An Objective-C object reports
+        /// whatever its `_cfTypeID` returns (IOSurface returns its class pointer), and `CFCopyTypeIDDescription` reads
+        /// past the table and faults on an ID that size.
+        private static let maxDescribableTypeID = CFTypeID(UInt16.max)
         private static let maxPlaceholders = 8
         /// Slack around the visible rect so antialiased edges of a layer just outside it still render.
         private static let cullMargin: CGFloat = 1
         private static let unitRect = CGRect(x: 0, y: 0, width: 1, height: 1)
         private static let defaultAnchor = CGPoint(x: 0.5, y: 0.5)
         private static let nextTurnFallbackDelay: TimeInterval = 0.02
+        /// iOS 26 rounds UIKit's own views (button backgrounds, `cornerConfiguration`, sheets) per corner through this,
+        /// leaving `cornerRadius` at 0.
+        static let cornerRadiiKey = PrivateLayerKey("cornerRadii")
+        /// iOS 26 image views place, tint and recolour their image through these rather than through gravity and a
+        /// pre-tinted bitmap: without them a template symbol draws black and at the wrong size.
+        private static let contentsKeys = ["contentsTransform", "contentsMultiplyColor", "contentsSwizzle"].compactMap(PrivateLayerKey.init)
 
         private let queue: MTLCommandQueue
         private let device: MTLDevice
@@ -320,6 +401,7 @@
         private var failedKeys: Set<TargetKey> = []
         private var classInfoCache: [ObjectIdentifier: ClassInfo] = [:]
         private var shareableTypeIDs: [CFTypeID: Bool] = [:]
+        private var shareableClasses: [ObjectIdentifier: Bool] = [:]
         private var placeholders: [TargetKey: CGImage] = [:]
 
         /// nil when the device has no Metal. Production code uses `shared`; tests make their own.
@@ -399,14 +481,14 @@
             let key = TargetKey(size: window.bounds.size, scale: scale)
             guard key.width > 0, key.height > 0, let target = targets[key] ?? makeAndInstallTarget(key) else { return nil }
 
-            var walk = Walk(scale: scale)
+            var walk = Walk(scale: scale, root: window.layer)
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             let root = mirrorRoot(window.layer, walk: &walk)
             if target.wrapper.sublayers?.first !== root { target.wrapper.sublayers = root.map { [$0] } }
             CATransaction.commit()
             guard let root else { return nil }
-            return Frame(target: target, root: root, culledLayers: walk.culled)
+            return Frame(target: target, root: root, culledLayers: walk.culled, portalSources: walk.portalSources)
         }
 
         #if TESTING
@@ -456,9 +538,12 @@
 
         /// `parent` is the space the layer's position is expressed in. The root, which isn't placed, passes its
         /// sublayers' space as `childSpace`. Returns nil when nothing of the subtree renders.
-        private func mirror(_ source: CALayer, parent: Space, childSpace rootChildSpace: Space? = nil, walk: inout Walk) -> CALayer? {
+        private func mirror(_ source: CALayer, parent: Space, childSpace rootChildSpace: Space? = nil, throughPortal: Bool = false,
+                            walk: inout Walk) -> CALayer?
+        {
             let info = classInfo(type(of: source))
             if info.unmirrorable { return nil }
+            if !throughPortal, walk.hiddenSources.contains(ObjectIdentifier(source)) { return nil }
             // Culling reads the model layer unless it's animating: a stale model only costs fidelity (the mask walk
             // skips exactly what the mirror culled), and presentation() allocates a copy per layer. Layers that
             // render are copied from their presentation state, the state the mask rects are measured from.
@@ -480,12 +565,12 @@
                 ownVisible = placed.ownVisible
             }
 
-            var children: [CALayer] = []
-            for child in source.sublayers ?? [] {
-                if let childCopy = mirror(child, parent: childSpace, walk: &walk) {
-                    children.append(childCopy)
-                }
+            if info.portal {
+                let presentation = (animating || !info.presentationSafe) ? geometry : (source.presentation() ?? source)
+                return mirrorPortal(source, presentation: presentation, info: info, walk: &walk)
             }
+
+            let children = mirrorChildren(of: source, info: info, space: childSpace, walk: &walk)
             if !ownVisible, children.isEmpty {
                 walk.culled.insert(ObjectIdentifier(source))
                 return nil
@@ -497,16 +582,97 @@
             return copy
         }
 
+        private func mirrorChildren(of source: CALayer, info: ClassInfo, space: Space, walk: inout Walk) -> [CALayer] {
+            let enclosingGlass = walk.glass
+            if info.copiesWithInitLayer, PostHogGlassStandIn.isGlassBackground(source) { walk.glass = PostHogGlassStandIn.kind(of: source) }
+            defer { walk.glass = enclosingGlass }
+            var children: [CALayer] = []
+            for child in source.sublayers ?? [] {
+                if let childCopy = mirror(child, parent: space, walk: &walk) {
+                    children.append(childCopy)
+                }
+            }
+            return children
+        }
+
+        private func mirrorPortal(_ portal: CALayer, presentation: CALayer, info: ClassInfo, walk: inout Walk) -> CALayer? {
+            guard let content = portalContent(portal, walk: &walk) else { return nil }
+            let copy = makeCopy(of: portal, presentation: presentation, info: info, walk: &walk)
+            copy.sublayers = [content]
+            return copy
+        }
+
+        /// The subtree a portal shows, mirrored again under the portal's copy; nil leaves the portal out of the frame.
+        ///
+        /// Only a portal that shows a view's layer from this window, from that layer's own render context, is drawn
+        /// (`PostHogPortalSource.placement`). Its pixels land either where the source sits, where the mask walk
+        /// measures the source's views, or on the portal, where `Frame.portalSources` has the walk move the source's
+        /// masks with the same map. The walk visits each source again without culling, since a source can be clipped
+        /// or culled where it sits yet still show through the portal. Any other portal stays out, as does a portal
+        /// inside a source being drawn through another: its masks would only be found where the inner portal sits.
+        private func portalContent(_ portal: CALayer, walk: inout Walk) -> CALayer? {
+            guard walk.portalsInProgress.isEmpty,
+                  let source = portal.value(forKey: "sourceLayer") as? CALayer,
+                  let view = source.delegate as? UIView,
+                  isLayer(source, inside: walk.root),
+                  let placement = PostHogPortalSource.placement(of: portal, source: source, root: walk.root)
+            else { return nil }
+
+            let id = ObjectIdentifier(source)
+            walk.portalsInProgress.insert(id)
+            let content = mirror(source, parent: .unknown, throughPortal: true, walk: &walk)
+            walk.portalsInProgress.remove(id)
+            guard let content else { return nil }
+
+            if portal.value(forKey: "hidesSourceLayer") as? Bool == true {
+                walk.hiddenSources.insert(id)
+                walk.viewCopies[id]?.isHidden = true
+            }
+            switch placement {
+            case let .inPlace(toPortal):
+                walk.portalSources.append(PostHogPortalSource(view: view, elsewhere: nil))
+                // Puts the source's copy, positioned in its superlayer's space, where that space sits in the portal.
+                let space = CALayer()
+                space.anchorPoint = .zero
+                space.transform = CATransform3DMakeAffineTransform(toPortal)
+                space.sublayers = [content]
+                return space
+            case .atPortal:
+                let elsewhere = PostHogPortalSource.elsewhere(source: source, portal: portal, root: walk.root)
+                walk.portalSources.append(PostHogPortalSource(view: view, elsewhere: elsewhere))
+                content.anchorPoint = .zero
+                content.position = portal.bounds.origin
+                content.transform = CATransform3DIdentity
+                return content
+            }
+        }
+
+        private func isLayer(_ layer: CALayer, inside root: CALayer) -> Bool {
+            var current: CALayer? = layer
+            while let ancestor = current {
+                if ancestor === root { return true }
+                current = ancestor.superlayer
+            }
+            return false
+        }
+
         private func makeCopy(of source: CALayer, presentation: CALayer, info: ClassInfo, walk: inout Walk) -> CALayer {
-            let copy = (info.copiesWithInitLayer ? initLayerCopy(source) : nil) ?? plainCopy(presentation, kind: info.kind)
+            // CARenderer drops a glass background's whole subtree, so it's copied as a plain layer without its filters.
+            let glassBackground = info.copiesWithInitLayer && PostHogGlassStandIn.isGlassBackground(source)
+            let copy = (info.copiesWithInitLayer && !glassBackground ? initLayerCopy(source) : nil) ?? plainCopy(presentation, kind: info.kind)
             #if TESTING
                 copiesForTesting.add(copy)
                 copiesMadeForTesting += 1
             #endif
+            if walk.portalsInProgress.isEmpty, source.delegate is UIView { walk.viewCopies[ObjectIdentifier(source)] = copy }
             copyGeometry(from: presentation, source: source, to: copy)
             copyStyle(from: presentation, to: copy)
             copyContents(from: presentation, source: source, info: info, scale: walk.scale, to: copy)
-            copyEffects(from: presentation, source: source, to: copy)
+            if !glassBackground { copyEffects(from: presentation, source: source, to: copy) }
+            // CARenderer draws nothing for a signed-distance-field layer, so a `destIn` meant to shape glass with it
+            // would erase everything under it instead.
+            if info.signedDistanceField { copy.compositingFilter = nil }
+            if info.glassShape, let glass = walk.glass { PostHogGlassStandIn.fill(copy, source: source, kind: glass) }
 
             if info.metal {
                 copy.contents = placeholder(size: presentation.bounds.size, scale: walk.scale)
@@ -519,8 +685,10 @@
             }
 
             if let mask = source.mask {
-                // Masks are never culled: a missing mask would show more of the layer, not less.
+                // A mask that renders nothing (hidden, transparent) shows nothing of the layer. The copy is hidden
+                // rather than left out, since `walk.viewCopies` may already hold it.
                 copy.mask = mirror(mask, parent: .unknown, walk: &walk)
+                if copy.mask == nil { copy.isHidden = true }
             }
             return copy
         }
@@ -616,8 +784,15 @@
         private func copyStyle(from presentation: CALayer, to copy: CALayer) {
             if presentation.opacity != 1 { copy.opacity = presentation.opacity }
             if let color = presentation.backgroundColor { copy.backgroundColor = color }
-            if presentation.cornerRadius != 0 {
-                copy.cornerRadius = presentation.cornerRadius
+            let cornerRadii = Self.cornerRadiiKey?.changedValue(in: presentation)
+            if presentation.cornerRadius != 0 || cornerRadii != nil {
+                if presentation.cornerRadius.isNaN {
+                    // UIKit's capsule radius; CARenderer draws a NaN radius square.
+                    copy.cornerRadius = min(presentation.bounds.width, presentation.bounds.height) / 2
+                } else if presentation.cornerRadius != 0 {
+                    copy.cornerRadius = presentation.cornerRadius
+                }
+                if let cornerRadii { Self.cornerRadiiKey?.set(cornerRadii, on: copy) }
                 copy.cornerCurve = presentation.cornerCurve
                 copy.maskedCorners = presentation.maskedCorners
             }
@@ -651,6 +826,9 @@
             if presentation.contentsRect != Self.unitRect { copy.contentsRect = presentation.contentsRect }
             if source.contentsCenter != Self.unitRect { copy.contentsCenter = source.contentsCenter }
             if source.magnificationFilter != .linear { copy.magnificationFilter = source.magnificationFilter }
+            for key in Self.contentsKeys {
+                if let value = key.changedValue(in: presentation) { key.set(value, on: copy) }
+            }
         }
 
         private func copyEffects(from presentation: CALayer, source: CALayer, to copy: CALayer) {
@@ -735,6 +913,9 @@
             }
             let info = ClassInfo(kind: kind,
                                  unmirrorable: chain.contains { Self.unmirrorableClasses.contains($0) },
+                                 portal: chain.contains(Self.portalClass),
+                                 glassShape: chain.contains(Self.glassShapeClass),
+                                 signedDistanceField: chain.contains { $0.hasPrefix(Self.signedDistanceFieldPrefix) },
                                  metal: chain.contains("CAMetalLayer"),
                                  copiesWithInitLayer: chain.contains { Self.initLayerClasses.contains($0) },
                                  presentationSafe: Self.isPresentationSafe(cls))
@@ -745,7 +926,7 @@
         /// `presentation()` instantiates the layer's class through `initWithLayer:`; a Swift subclass that doesn't
         /// override `init(layer:)` traps there. CALayer's own implementation, and any that lives in a system image
         /// (found with `dladdr`, since the app's own subclasses are the ones that can trap), are trusted.
-        private static func isPresentationSafe(_ cls: AnyClass) -> Bool {
+        static func isPresentationSafe(_ cls: AnyClass) -> Bool {
             let selector = NSSelectorFromString("initWithLayer:")
             let implementation = class_getMethodImplementation(cls, selector)
             if implementation == class_getMethodImplementation(CALayer.self, selector) { return true }
@@ -756,11 +937,21 @@
         }
 
         private func isShareable(_ contents: Any) -> Bool {
-            let typeID = CFGetTypeID(contents as AnyObject)
-            if let cached = shareableTypeIDs[typeID] { return cached }
-            let shareable = typeID == CGImage.typeID || typeID == IOSurfaceGetTypeID()
-                || Self.shareablePrivateContentTypes.contains((CFCopyTypeIDDescription(typeID) as String?) ?? "")
-            shareableTypeIDs[typeID] = shareable
+            let object = contents as AnyObject
+            let typeID = CFGetTypeID(object)
+            let shareableType = shareableTypeIDs[typeID] ?? {
+                let shareable = typeID == CGImage.typeID || typeID == IOSurfaceGetTypeID()
+                    || typeID <= Self.maxDescribableTypeID
+                    && Self.shareablePrivateContentTypes.contains((CFCopyTypeIDDescription(typeID) as String?) ?? "")
+                shareableTypeIDs[typeID] = shareable
+                return shareable
+            }()
+            if shareableType { return true }
+            let cls: AnyClass = type(of: object)
+            let key = ObjectIdentifier(cls)
+            if let cached = shareableClasses[key] { return cached }
+            let shareable = Self.shareablePrivateContentClasses.contains(NSStringFromClass(cls))
+            shareableClasses[key] = shareable
             return shareable
         }
 

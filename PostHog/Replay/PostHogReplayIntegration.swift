@@ -1185,7 +1185,9 @@
         /// Pre-existing limitation with `screenshotModeBackgroundCapture` (off by default): pixels
         /// render after this collection, so any rect source can go stale for content committed in
         /// between.
-        private func collectMaskedRegions(in window: UIWindow, culledLayers: Culled = []) -> [MaskedRegion]? {
+        /// `portalSources` are views a GPU capture also draws through a portal: they're masked wherever they sit,
+        /// culled or not, outside a cover too, and again where the portal shows them.
+        private func collectMaskedRegions(in window: UIWindow, culledLayers: Culled = [], portalSources: [PostHogPortalSource] = []) -> [MaskedRegion]? {
             guard !window.hasCameraForReplay() else {
                 return nil
             }
@@ -1197,13 +1199,17 @@
             let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)
 
             // The cheap registry read can veto the frame; keep it before the walk.
-            let masked = PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window, insideCover: cover)
+            let reporterCover = cover.flatMap { cover in portalSources.allSatisfy { $0.view.isDescendant(of: cover) } ? cover : nil }
+            let masked = PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window, insideCover: reporterCover)
             guard !masked.hasUnsettledReporters else {
                 return nil
             }
 
             var maskableWidgets: [MaskedRegion] = []
             findMaskableWidgets(under: cover, in: window, &maskableWidgets, culledLayers)
+            for source in portalSources {
+                maskableWidgets += maskedRegions(shownThrough: source, in: window, reporters: masked.regions)
+            }
             // A reporter inside a `ph-no-capture` view is also reached by the walk. Keep one
             // entry per reporter: a repeated owner reads as motion to the settle check.
             let reporters = Set(masked.regions.map(\.owner))
@@ -1212,8 +1218,25 @@
             return maskableWidgets
         }
 
-        func collectMaskableRects(in window: UIWindow, culledLayers: Culled = []) -> [CGRect]? {
-            collectMaskedRegions(in: window, culledLayers: culledLayers)?.map(\.rect)
+        /// The masks under a portal's source where it sits and, for a portal that shows it elsewhere, there too: moved
+        /// with the map its pixels were placed with, or the whole portal when that map is missing or a `postHogMask()`
+        /// reporter sits under the source.
+        private func maskedRegions(shownThrough source: PostHogPortalSource, in window: UIWindow, reporters: [MaskedRegion]) -> [MaskedRegion] {
+            var regions: [MaskedRegion] = []
+            findMaskableWidgets(under: source.view, in: window, &regions, [])
+            guard let elsewhere = source.elsewhere else { return regions }
+            let hasReporter = reporters.contains { ($0.object as? UIView)?.isDescendant(of: source.view) == true }
+            if let map = elsewhere.map, !hasReporter {
+                return regions + regions.map { MaskedRegion($0.object, rect: $0.rect.applying(map)) }
+            }
+            if hasReporter || !regions.isEmpty {
+                regions.append(MaskedRegion(source.view, rect: elsewhere.portalRect))
+            }
+            return regions
+        }
+
+        func collectMaskableRects(in window: UIWindow, culledLayers: Culled = [], portalSources: [PostHogPortalSource] = []) -> [CGRect]? {
+            collectMaskedRegions(in: window, culledLayers: culledLayers, portalSources: portalSources)?.map(\.rect)
         }
 
         private struct ScreenshotCapture {
@@ -2184,7 +2207,7 @@
                     endGPUCapture(nil, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
                     return
                 }
-                guard let regions = collectMaskedRegions(in: window, culledLayers: frame.culledLayers) else {
+                guard let regions = collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources) else {
                     hedgeLog("[Session Replay] Skipping snapshot: a masked view hasn't been laid out yet")
                     endGPUCapture(frame)
                     return

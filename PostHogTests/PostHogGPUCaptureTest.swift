@@ -991,6 +991,86 @@
             #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
         }
 
+        @Test("postHogMask reporters in a portal's source mask what the portal draws when the source sits under a transparent or hidden parent",
+              arguments: [(true, false), (false, false), (true, true), (false, true)] as [(Bool, Bool)])
+        func portalSourceUnderInvisibleParentKeepsReporterMasks(lens: Bool, hiddenParent: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let parent = UIView(frame: window.bounds)
+            if hiddenParent {
+                parent.isHidden = true
+            } else {
+                parent.alpha = 0
+            }
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let secret = UIView(frame: CGRect(x: 20, y: 15, width: 60, height: 30))
+            secret.backgroundColor = .magenta
+            // Larger than the secret: masks are drawn with rounded corners.
+            let reporter = PostHogMaskReporterUIView(frame: secret.frame.insetBy(dx: -8, dy: -8))
+            source.addSubview(secret)
+            source.addSubview(reporter)
+            parent.addSubview(source)
+            window.addSubview(parent)
+            defer { reporter.removeFromSuperview() }
+            let portal = lens
+                ? try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 180, width: 120, height: 60))
+                : try makePortal(showing: source.layer, frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            window.layer.addSublayer(portal)
+
+            let (image, rects) = try await render(window, with: mirror)
+            #expect(!(try Pixels(image)).points(where: Self.isMagenta).isEmpty)
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("A postHogMask reporter not yet laid out under a portal source's transparent parent masks what the portal draws instead of skipping the frame",
+              arguments: [true, false])
+        func unsettledReporterUnderInvisibleParentMasksPortal(lens: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let parent = UIView(frame: window.bounds)
+            parent.alpha = 0
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            source.backgroundColor = .magenta
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 10, width: 60, height: 30))
+            source.addSubview(reporter)
+            parent.addSubview(source)
+            window.addSubview(parent)
+            defer { reporter.removeFromSuperview() }
+            let portal = lens
+                ? try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 180, width: 120, height: 60))
+                : try makePortal(showing: source.layer, frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            window.layer.addSublayer(portal)
+            try #require(!reporter.hasCompletedFirstLayout)
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            defer { frame.release() }
+            let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window, culledLayers: frame.culledLayers,
+                                                                                     portalSources: frame.portalSources))
+            #expect(rects.contains(lens ? window.layer.convert(portal.bounds, from: portal) : source.frame))
+        }
+
+        @Test("A huge Metal layer's placeholder bitmap is capped instead of sized to the layer")
+        func hugeMetalLayerPlaceholderIsCapped() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .red)
+            await prewarm(mirror, for: window)
+
+            let metal = MetalView(frame: CGRect(x: -5000, y: -5000, width: 10000, height: 10000))
+            window.addSubview(metal)
+            window.layoutIfNeeded()
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            defer { frame.release() }
+            let images = mirror.copiesForTesting.allObjects.compactMap { $0.contents as AnyObject? }
+                .filter { CFGetTypeID($0) == CGImage.typeID }.map { $0 as! CGImage }
+            let placeholder = try #require(images.first)
+            #expect(max(placeholder.width, placeholder.height) <= 1024, "\(placeholder.width) x \(placeholder.height)")
+        }
+
         // MARK: - Lifecycle
 
         private func makeSut(gpuCapture: Bool = true) throws -> (PostHogSDK, PostHogReplayIntegration, ReplaySnapshots) {
@@ -1212,6 +1292,66 @@
             let live = mirror.copiesForTesting.allObjects.count
             #expect(perCapture > 40)
             #expect(live < perCapture, "\(live) mirror layers alive after \(captures) captures of \(perCapture)")
+        }
+
+        @Test("A memory warning while GPU capture is configured frees the cached renderers")
+        func memoryWarningPurgesRenderers() async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, _) = try makeSut()
+            integration.gpuMirror = mirror
+            defer { sut.close() }
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+            #expect(!mirror.needsPrewarm(for: window.bounds.size, scale: 1))
+
+            NotificationCenter.default.post(name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
+            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1))
+        }
+
+        @Test("Uninstalling frees the cached renderers, and later memory warnings are no longer observed")
+        func uninstallPurgesRenderers() async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, _) = try makeSut()
+            integration.gpuMirror = mirror
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            sut.close()
+            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1))
+
+            await prewarm(mirror, for: window)
+            NotificationCenter.default.post(name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
+            #expect(!mirror.needsPrewarm(for: window.bounds.size, scale: 1))
+        }
+
+        @Test("Purging frees the cached renderers, so the next capture at that size builds its renderer again")
+        func purgeFreesRenderers() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+            #expect(!mirror.needsPrewarm(for: window.bounds.size, scale: 1))
+
+            mirror.purge()
+            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1))
+            let (image, _) = try await render(window, with: mirror)
+            #expect(try Pixels(image)[100, 150] == .white)
+        }
+
+        @Test("Purging while a frame is in flight leaves that frame's renderer to finish it")
+        func purgeDuringFrameKeepsItsRenderer() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .blue)
+            await prewarm(mirror, for: window)
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            frame.freeze()
+            mirror.purge()
+            #expect(frame.encode())
+            let image = await withCheckedContinuation { continuation in
+                frame.readback(on: .global()) { continuation.resume(returning: $0) }
+            }
+            frame.release()
+            #expect(try Pixels(#require(image))[100, 150] == .blue)
         }
 
         // MARK: - Routing

@@ -37,6 +37,21 @@
             return view != nil && isInsideCover
         }
 
+        /// Whether this view and its superviews up to and including `ancestor` are all shown.
+        func isVisible(upTo ancestor: UIView) -> Bool {
+            var view: UIView? = self
+            while let current = view {
+                if current.isHidden || !current.hasRenderedOpacity {
+                    return false
+                }
+                if current === ancestor {
+                    return true
+                }
+                view = current.superview
+            }
+            return false
+        }
+
         /// Visibility for the mask walk, stricter than `isVisible()` because anything it
         /// calls invisible is never masked while the screenshot may still draw it:
         /// - A view fading out parks its model `alpha` at 0 on the first frame of the

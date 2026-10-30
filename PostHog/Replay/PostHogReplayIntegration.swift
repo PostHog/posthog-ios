@@ -55,6 +55,8 @@
         #if canImport(Metal)
             /// Main thread only. Tests swap in their own instance.
             lazy var gpuMirror = PostHogGPUMirrorCapture.shared
+            /// Set while installed with GPU capture configured.
+            private var memoryWarningObserver: NSObjectProtocol?
         #endif
 
         private let eventTriggersLock = NSLock()
@@ -214,6 +216,7 @@
                 eventCapturedToken = postHog.onEventCaptured.subscribe { [weak self] event in
                     self?.handleEventCaptured(event: event.event)
                 }
+                observeMemoryWarnings(postHog)
 
                 start()
             }
@@ -226,6 +229,7 @@
                 remoteConfigLoadedToken = nil
                 featureFlagsLoadedToken = nil
                 eventCapturedToken = nil
+                releaseGPUCapture()
                 self.postHog = nil
                 statusNotifyLock.withLock { lastNotifiedStatusKey = nil }
 
@@ -1205,34 +1209,28 @@
                 return nil
             }
 
+            // A portal draws its source even where the source's own ancestors hide it, so the reporters under each
+            // source are collected again, past those ancestors.
+            var reporters = masked.regions
+            var unsettledSources = Set<ObjectIdentifier>()
+            for source in portalSources {
+                let drawn = PostHogSessionReplayMaskRegistry.shared.maskedRects(drawnWith: source.view, in: window)
+                if drawn.hasUnsettledReporters { unsettledSources.insert(ObjectIdentifier(source.view)) }
+                reporters += drawn.regions.filter { region in !reporters.contains { $0.owner == region.owner } }
+            }
+
             var maskableWidgets: [MaskedRegion] = []
             findMaskableWidgets(under: cover, in: window, &maskableWidgets, culledLayers)
             for source in portalSources {
-                maskableWidgets += maskedRegions(shownThrough: source, in: window, reporters: masked.regions)
+                maskableWidgets += maskedRegions(shownThrough: source, in: window, reporters: reporters,
+                                                 hasUnsettledReporter: unsettledSources.contains(ObjectIdentifier(source.view)))
             }
             // A reporter inside a `ph-no-capture` view is also reached by the walk. Keep one
             // entry per reporter: a repeated owner reads as motion to the settle check.
-            let reporters = Set(masked.regions.map(\.owner))
-            maskableWidgets.removeAll { reporters.contains($0.owner) }
-            maskableWidgets.append(contentsOf: masked.regions)
+            let reporterOwners = Set(reporters.map(\.owner))
+            maskableWidgets.removeAll { reporterOwners.contains($0.owner) }
+            maskableWidgets.append(contentsOf: reporters)
             return maskableWidgets
-        }
-
-        /// The masks under a portal's source where it sits and, for a portal that shows it elsewhere, there too: moved
-        /// with the map its pixels were placed with, or the whole portal when that map is missing or a `postHogMask()`
-        /// reporter sits under the source.
-        private func maskedRegions(shownThrough source: PostHogPortalSource, in window: UIWindow, reporters: [MaskedRegion]) -> [MaskedRegion] {
-            var regions: [MaskedRegion] = []
-            findMaskableWidgets(under: source.view, in: window, &regions, [])
-            guard let elsewhere = source.elsewhere else { return regions }
-            let hasReporter = reporters.contains { ($0.object as? UIView)?.isDescendant(of: source.view) == true }
-            if let map = elsewhere.map, !hasReporter {
-                return regions + regions.map { MaskedRegion($0.object, rect: $0.rect.applying(map)) }
-            }
-            if hasReporter || !regions.isEmpty {
-                regions.append(MaskedRegion(source.view, rect: elsewhere.portalRect))
-            }
-            return regions
         }
 
         func collectMaskableRects(in window: UIWindow, culledLayers: Culled = [], portalSources: [PostHogPortalSource] = []) -> [CGRect]? {
@@ -1803,6 +1801,33 @@
         }
     }
 
+    // MARK: - Portals
+
+    extension PostHogReplayIntegration {
+        /// The masks under a portal's source where it sits and, for a portal that shows it elsewhere, there too: moved
+        /// with the map its pixels were placed with, or the whole portal when that map is missing or a `postHogMask()`
+        /// reporter sits under the source. A reporter under the source that hasn't been laid out masks all of it
+        /// instead of skipping the frame: under an ancestor that hides it, it may never be laid out.
+        private func maskedRegions(shownThrough source: PostHogPortalSource, in window: UIWindow, reporters: [MaskedRegion],
+                                   hasUnsettledReporter: Bool) -> [MaskedRegion]
+        {
+            var regions: [MaskedRegion] = []
+            findMaskableWidgets(under: source.view, in: window, &regions, [])
+            if hasUnsettledReporter {
+                regions.append(MaskedRegion(source.view, in: window))
+            }
+            guard let elsewhere = source.elsewhere else { return regions }
+            let hasReporter = hasUnsettledReporter || reporters.contains { ($0.object as? UIView)?.isDescendant(of: source.view) == true }
+            if let map = elsewhere.map, !hasReporter {
+                return regions + regions.map { MaskedRegion($0.object, rect: $0.rect.applying(map)) }
+            }
+            if hasReporter || !regions.isEmpty {
+                regions.append(MaskedRegion(source.view, rect: elsewhere.portalRect))
+            }
+            return regions
+        }
+    }
+
     // MARK: - Plugins
 
     extension PostHogReplayIntegration {
@@ -2140,6 +2165,29 @@
                 config?.sessionReplayConfig.screenshotPixelScale(nativeScale: window.screen.scale) ?? 1
             }
 
+            /// Any thread. GPU capture's cached renderers are freed on memory warnings, not when recording stops: a new
+            /// session would only build them again.
+            func observeMemoryWarnings(_ postHog: PostHogSDK) {
+                guard Self.screenshotCapturePath(postHog.config.sessionReplayConfig) == .gpu else { return }
+                memoryWarningObserver = NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification,
+                                                                               object: nil, queue: .main)
+                { [weak self] _ in
+                    self?.gpuMirror?.purge()
+                }
+            }
+
+            /// Any thread. Stops observing memory warnings and frees GPU capture's cached renderers, on main.
+            func releaseGPUCapture() {
+                guard let observer = memoryWarningObserver else { return }
+                NotificationCenter.default.removeObserver(observer)
+                memoryWarningObserver = nil
+                if Thread.isMainThread {
+                    gpuMirror?.purge()
+                } else {
+                    DispatchQueue.main.async { self.gpuMirror?.purge() }
+                }
+            }
+
             /// Any thread. Gets the GPU capture's renderer ready before the first capture asks for it.
             func prewarmGPUCapture(_ postHog: PostHogSDK) {
                 let replayConfig = postHog.config.sessionReplayConfig
@@ -2279,6 +2327,10 @@
             }
 
             func prewarmGPUCapture(_: PostHogSDK) {}
+
+            func observeMemoryWarnings(_: PostHogSDK) {}
+
+            func releaseGPUCapture() {}
         }
     #endif
 

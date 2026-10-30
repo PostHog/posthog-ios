@@ -381,6 +381,8 @@
         /// past the table and faults on an ID that size.
         private static let maxDescribableTypeID = CFTypeID(UInt16.max)
         private static let maxPlaceholders = 8
+        /// The copy stretches its placeholder to the layer, so the bitmap only needs to be big enough to read.
+        private static let maxPlaceholderPixels: CGFloat = 1024
         /// Slack around the visible rect so antialiased edges of a layer just outside it still render.
         private static let cullMargin: CGFloat = 1
         private static let unitRect = CGRect(x: 0, y: 0, width: 1, height: 1)
@@ -501,6 +503,14 @@
                 targets.values.contains { !($0.wrapper.sublayers ?? []).isEmpty }
             }
         #endif
+
+        /// Main thread. Frees the cached renderers, their textures and the placeholders; the next capture builds what it
+        /// needs again. A frame in flight holds its own renderer until it's released, so this is safe at any point.
+        func purge() {
+            targets.removeAll()
+            failedKeys.removeAll()
+            placeholders.removeAll()
+        }
 
         // MARK: - Targets
 
@@ -957,8 +967,12 @@
 
         // MARK: - Metal placeholder
 
-        /// Grey with stripes and a label, so it isn't mistaken for a privacy mask.
-        private func placeholder(size: CGSize, scale: CGFloat) -> CGImage? {
+        /// Grey with stripes and a label, so it isn't mistaken for a privacy mask. At most `maxPlaceholderPixels` on its
+        /// longer side, keeping the layer's aspect ratio; stripes and label are sized to that bitmap.
+        private func placeholder(size layerSize: CGSize, scale: CGFloat) -> CGImage? {
+            let longest = max(layerSize.width, layerSize.height) * scale
+            let fit = longest > Self.maxPlaceholderPixels ? Self.maxPlaceholderPixels / longest : 1
+            let size = CGSize(width: layerSize.width * fit, height: layerSize.height * fit)
             let key = TargetKey(size: size, scale: scale)
             guard key.width > 0, key.height > 0 else { return nil }
             if let cached = placeholders[key] { return cached }

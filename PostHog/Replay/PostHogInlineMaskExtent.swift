@@ -12,7 +12,9 @@
             let frame: CGRect
             /// Bounds-to-window map, when affine and sublayers sit unchanged in bounds, so a cover can be placed.
             let coverable: CGAffineTransform?
-            /// `frame` with every descendant's: a zero-size layer (a portal source) still reaches what it holds.
+            /// Where its shadow, cast by its whole subtree, can reach in window coordinates; nil when it casts none.
+            var shadow: CGRect?
+            /// `frame` and `shadow` with every descendant's: a zero-size layer (a portal source) still reaches what it holds.
             var subtreeFrame: CGRect
             /// The index past its last descendant: in pre-order, a subtree is the range up to it.
             var subtreeEnd: Int
@@ -55,7 +57,7 @@
                         index = entry.subtreeEnd
                         continue
                     }
-                    if entry.frame.intersects(rect) { indices.append(index) }
+                    if entry.frame.intersects(rect) || entry.shadow?.intersects(rect) == true { indices.append(index) }
                     index += 1
                 }
                 return (indices, reporterIndex != nil && !reordered)
@@ -82,12 +84,16 @@
                 let frame = reach(of: layer, copies: copies)
                 let index = entries.count
                 entries.append(ExtentEntry(copy: layer, frame: frame, coverable: placement.flatMap { $0.hasPlainSublayers ? $0.toWindow : nil },
-                                           subtreeFrame: frame, subtreeEnd: index + 1))
+                                           shadow: nil, subtreeFrame: frame, subtreeEnd: index + 1))
                 if isDrawn, reporterCopies.contains(ObjectIdentifier(layer)) { reporters[ObjectIdentifier(layer)] = index }
                 if isDrawn, layer.zPosition != 0 { layered.append((index, parent)) }
                 var subtreeFrame = frame
                 for sublayer in layer.sublayers ?? [] {
                     subtreeFrame = subtreeFrame.union(collect(sublayer, parent: index, isDrawn: isDrawn, copies: copies))
+                }
+                if let shadow = shadowReach(of: layer, subtree: subtreeFrame, copies: copies) {
+                    entries[index].shadow = shadow
+                    subtreeFrame = subtreeFrame.union(shadow)
                 }
                 entries[index].subtreeFrame = subtreeFrame
                 entries[index].subtreeEnd = entries.count
@@ -99,6 +105,31 @@
                 // A backdrop's filters draw what's behind it inside its bounds.
                 guard let local = PostHogInlineMask.drawnRect(layer) ?? (isBackdrop(layer) ? layer.bounds : nil) else { return root.bounds }
                 return copies.windowFrame(of: layer, root: root, local: local)
+            }
+
+            /// Where the layer's shadow can reach in the window: its `shadowPath`, or the window frame of everything it
+            /// holds (`subtree`), offset and blurred. The whole window when that isn't finite; clipped away by `masksToBounds`.
+            private func shadowReach(of layer: CALayer, subtree: CGRect, copies: CopyIndex) -> CGRect? {
+                guard !layer.masksToBounds, layer.shadowOpacity > 0, PostHogInlineMask.isVisible(layer.shadowColor) else { return nil }
+                let offset = layer.shadowOffset
+                // A Gaussian blur fades out within three radii.
+                let blur = layer.shadowRadius * 3
+                let reach: CGRect
+                if let path = layer.shadowPath {
+                    let local = path.boundingBox.offsetBy(dx: offset.width, dy: offset.height).insetBy(dx: -blur, dy: -blur)
+                    reach = copies.windowFrame(of: layer, root: root, local: local)
+                } else {
+                    guard !subtree.isNull else { return nil }
+                    // The outset in window units, for a scaled or rotated copy.
+                    let outset = blur + max(abs(offset.width), abs(offset.height))
+                    let bounds = layer.bounds
+                    let own = copies.windowFrame(of: layer, root: root, local: bounds)
+                    let widened = copies.windowFrame(of: layer, root: root, local: bounds.insetBy(dx: -outset, dy: -outset))
+                    let margin = max(own.minX - widened.minX, widened.maxX - own.maxX, own.minY - widened.minY, widened.maxY - own.maxY)
+                    reach = subtree.insetBy(dx: -margin, dy: -margin)
+                }
+                guard !reach.isNull, reach.minX.isFinite, reach.minY.isFinite, reach.width.isFinite, reach.height.isFinite else { return root.bounds }
+                return reach
             }
         }
 
@@ -181,6 +212,12 @@
             }
         }
 
+        /// A shadow can show the shape of what casts it, from outside the extent.
+        static func dropShadow(of entry: ExtentEntry, castInto rect: CGRect) {
+            guard entry.shadow?.intersects(rect) == true, entry.copy.shadowOpacity != 0 else { return }
+            entry.copy.shadowOpacity = 0
+        }
+
         /// Black over `hole`, painted over the copy's own background and content and under its sublayers. Its border
         /// and shadow are drawn past any sublayer, so they turn black and off all round.
         static func cover(_ hole: CGRect, in copy: CALayer) {
@@ -239,8 +276,9 @@
             for entryIndex in reached.indices where entryIndex >= skipUntil {
                 let entry = tree.entries[entryIndex]
                 let copy = entry.copy
+                PostHogInlineMask.dropShadow(of: entry, castInto: rect)
                 let source = index.source(of: copy)
-                guard let treatment = extentTreatment(of: copy, source: source) else { continue }
+                guard let treatment = extentTreatment(of: entry, under: rect, source: source) else { continue }
                 let others = source.map { index.copies(of: $0).filter { $0 !== copy } } ?? []
                 let isPartial = !inside.contains(entry.frame)
                 let kind: PostHogInlineMask.Kind
@@ -295,9 +333,13 @@
             return false
         }
 
-        /// nil when the copy shows nothing of its own. Copies already masked keep their redaction and only lose their
-        /// colour.
-        private func extentTreatment(of copy: CALayer, source: CALayer?) -> PostHogInlineMask.ExtentTreatment? {
+        /// nil when the copy shows nothing of its own under `rect` (only its shadow reached it). Copies already masked
+        /// keep their redaction and only lose their colour.
+        private func extentTreatment(of entry: PostHogInlineMask.ExtentEntry, under rect: CGRect,
+                                     source: CALayer?) -> PostHogInlineMask.ExtentTreatment?
+        {
+            guard entry.frame.intersects(rect) else { return nil }
+            let copy = entry.copy
             let drawsColor = PostHogInlineMask.drawsColor(copy)
             if visited.contains(ObjectIdentifier(copy)) {
                 return drawsColor ? .color(strippingFirst: false) : nil

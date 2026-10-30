@@ -507,6 +507,39 @@
             #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
         }
 
+        @Test("A shadow cast into a postHogMask extent from outside it doesn't survive, whether its own content or a sublayer's casts it",
+              arguments: [false, true])
+        func shadowCastIntoExtentIsDropped(castBySublayer: Bool) async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let caster = CALayer()
+            let content = CGRect(x: 20, y: 20, width: 160, height: 40)
+            if castBySublayer {
+                // Zero-size, so only what it holds reaches the extent.
+                caster.frame = CGRect(origin: content.origin, size: .zero)
+                let sublayer = CALayer()
+                sublayer.frame = CGRect(origin: .zero, size: content.size)
+                sublayer.contents = try magentaContents(content.size)
+                caster.addSublayer(sublayer)
+            } else {
+                caster.frame = content
+                caster.contents = try magentaContents(content.size)
+            }
+            caster.shadowColor = UIColor.magenta.cgColor
+            caster.shadowOpacity = 1
+            caster.shadowRadius = 0
+            caster.shadowOffset = CGSize(width: 0, height: 120)
+            fixture.window.layer.addSublayer(caster)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 20, y: 130, width: 160, height: 60))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: content, where: Self.isMagenta) > 1000)
+        }
+
         // MARK: - Portals
 
         private func makePortal(showing source: CALayer, frame: CGRect, matchesPosition: Bool = true, matchesTransform: Bool = true,

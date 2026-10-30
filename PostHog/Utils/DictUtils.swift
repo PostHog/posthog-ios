@@ -103,6 +103,14 @@ private func sanitizeArray(_ array: [Any]) -> [Any] {
     return sanitized
 }
 
+/// Whether a value is missing or serializes as JSON `null`: `nil`, `NSNull`, or a `nil` optional boxed in `Any`.
+func isNullValue(_ value: Any?) -> Bool {
+    guard let value else { return true }
+    if value is NSNull { return true }
+    let mirror = Mirror(reflecting: value)
+    return mirror.displayStyle == .optional && mirror.children.isEmpty
+}
+
 private func isValidObject(_ object: Any) -> Bool {
     if object is String || object is Bool {
         return true

@@ -626,11 +626,11 @@ let maxRetryDelay = 30.0
     /// Nothing is added otherwise: PostHog processes person profiles by default.
     private func personProcessingOptions(_ options: [String: Any]?, properties: [String: Any]) -> [String: Any]? {
         guard !hasPersonProcessing() else { return options }
-        if let legacy = properties["$process_person_profile"], !(legacy is NSNull) {
+        if !isNullValue(properties["$process_person_profile"]) {
             return options
         }
         var options = options ?? [:]
-        if options["process_person_profile"] == nil || options["process_person_profile"] is NSNull {
+        if isNullValue(options["process_person_profile"]) {
             options["process_person_profile"] = false
         }
         return options

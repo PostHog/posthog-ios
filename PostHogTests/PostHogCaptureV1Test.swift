@@ -643,6 +643,25 @@ final class PostHogCaptureV1OptionsTest {
         #expect(sent["options"] as? [String: Bool] == ["process_person_profile": true, "cookieless_mode": true])
     }
 
+    @Test("a nil boxed in Any counts as unset for process_person_profile")
+    func boxedNilProcessPersonProfile() async throws {
+        let sut = makeSDK(personProfiles: .never)
+        defer { sut.close() }
+        let unset: Bool? = nil
+
+        var sent = try await captureAndSend(sut) { $0.capture("test", options: ["process_person_profile": unset as Any]) }
+        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
+
+        sent = try await captureAndSend(sut) { $0.capture("test", properties: ["$process_person_profile": unset as Any]) }
+        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
+
+        // The legacy property still fills an option that is only a boxed nil.
+        sent = try await captureAndSend(sut) {
+            $0.capture("test", properties: ["$process_person_profile": true], options: ["process_person_profile": unset as Any])
+        }
+        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": true])
+    }
+
     @Test("the SDK sends process_person_profile only as a false option when person processing is off")
     func processPersonProfileOnlyWhenOff() async throws {
         let personless = makeSDK(personProfiles: .never)

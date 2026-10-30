@@ -690,6 +690,29 @@
             }
         }
 
+        @Test("A postHogMask overlay beside a source hidden by a portal painted first masks the copy the portal shows elsewhere",
+              arguments: [true, false])
+        func siblingReporterMasksPortalPaintedBeforeItsHiddenSource(extentInline: Bool) async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            fixture.mask.isExtentEnabledForTesting = extentInline
+            let source = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            source.layer.contents = try magentaContents(source.bounds.size)
+            source.accessibilityIdentifier = "ph-no-mask"
+            let reporter = PostHogMaskReporterUIView(frame: source.frame)
+            let portalRect = CGRect(x: 10, y: 180, width: 180, height: 60)
+            fixture.window.layer.addSublayer(try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false,
+                                                            hidesSource: true))
+            fixture.window.addSubview(source)
+            fixture.window.addSubview(reporter)
+            fixture.window.layoutIfNeeded()
+
+            let result = try await capture(fixture)
+            let pixels = try Pixels(result.image)
+            #expect(pixels.count(where: Self.isMagenta) == 0, "\(pixels.count(in: portalRect, where: Self.isMagenta)) in the portal")
+            #expect(result.rectRegions.contains(portalRect))
+        }
+
         @Test("A postHogMask overlay inside a portal's source masks the copy the portal shows elsewhere")
         func reporterInsideSourceMasksPortalShownElsewhere() async throws {
             let fixture = try await makeFixture()

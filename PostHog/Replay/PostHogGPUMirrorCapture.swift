@@ -522,7 +522,7 @@
                 return (space, false)
             case .atPortal:
                 let elsewhere = PostHogPortalSource.elsewhere(source: source, portal: portal, root: walk.root)
-                walk.portalSources.append(PostHogPortalSource(view: view, elsewhere: elsewhere))
+                walk.portalSources.append(PostHogPortalSource(view: view, elsewhere: elsewhere, hasInPlaceCopy: walk.viewCopies[id] != nil))
                 content.anchorPoint = .zero
                 content.position = portal.bounds.origin
                 content.transform = CATransform3DIdentity

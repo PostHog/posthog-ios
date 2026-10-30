@@ -11,6 +11,8 @@
         let view: UIView
         /// Set when the portal shows the source somewhere other than where it sits.
         let elsewhere: Elsewhere?
+        /// False when the portal was walked first and hides the source, so no copy of it is drawn where it sits.
+        var hasInPlaceCopy = true
 
         struct Elsewhere {
             /// Maps window points where the source sits to where the portal shows them; nil when that couldn't be

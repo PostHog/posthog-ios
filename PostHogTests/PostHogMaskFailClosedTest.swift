@@ -490,6 +490,32 @@
             #expect(isCovered(photo.toAbsoluteRect(window), by: sut.integration.collectMaskableRects(in: window)))
         }
 
+        @Test("a plain subview overflowing no-capture text is masked", arguments: ["label", "textView"])
+        func plainSubviewOverflowingNoCaptureText(kind: String) {
+            let sut = makeSut(maskAllTextInputs: false, maskAllImages: false)
+            defer { teardown(sut) }
+
+            let frame = CGRect(x: 24, y: 120, width: 200, height: 40)
+            let view: UIView
+            switch kind {
+            case "label":
+                let label = UILabel(frame: frame)
+                label.text = "Sensitive"
+                view = label
+            default:
+                let textView = UITextView(frame: frame)
+                textView.text = "Sensitive"
+                view = textView
+            }
+            view.accessibilityIdentifier = "ph-no-capture"
+            view.clipsToBounds = false
+            let overflow = CustomDrawnSecretView(frame: CGRect(x: 0, y: 60, width: 80, height: 32))
+            view.addSubview(overflow)
+            let window = makeWindow(containing: view)
+
+            #expect(isCovered(overflow.toAbsoluteRect(window), by: sut.integration.collectMaskableRects(in: window)))
+        }
+
         @Test("a symbol attachment in text stays visible when only images are masked")
         func symbolAttachmentInLabel() throws {
             let sut = makeSut(maskAllTextInputs: false, maskAllImages: true)

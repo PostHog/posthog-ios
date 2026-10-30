@@ -915,7 +915,7 @@
                 if isTextViewSensitive(textView) {
                     maskableWidgets.append(.init(view, in: window))
                     // an unclipped subview can draw outside the text view's mask
-                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren)
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren || view.isNoCapture())
                     return
                 }
             }
@@ -981,7 +981,7 @@
                 if isLabelSensitive(label) {
                     maskableWidgets.append(.init(view, in: window))
                     // an unclipped subview can draw outside the label's mask
-                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren)
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren || view.isNoCapture())
                     return
                 }
             }

@@ -20,6 +20,7 @@ class RRWireframe {
     #if os(iOS)
         var image: UIImage?
         var maskableWidgets: [CGRect]?
+        var screenshotPixelScale: CGFloat = 1
         /// Set by `toDict()` when mask rects were collected but the redacted image could not
         /// be rendered. The caller must drop the frame: the wireframe carries no image, and
         /// the raw screenshot would show masked content.
@@ -40,28 +41,42 @@ class RRWireframe {
             guard hasMaskableWidgets(), let image else {
                 return nil
             }
-            return RRWireframe.maskImage(image, maskableWidgets: maskableWidgets ?? [])
+            return RRWireframe.maskImage(image, maskableWidgets: maskableWidgets ?? [], pixelScale: screenshotPixelScale)
         }
 
         // Shared so tests can redact through the exact production path instead of reimplementing it.
-        static func maskImage(_ image: UIImage, maskableWidgets: [CGRect]) -> UIImage? {
+        static func maskImage(_ image: UIImage, maskableWidgets: [CGRect], pixelScale: CGFloat = 1) -> UIImage? {
             guard !maskableWidgets.isEmpty else { return nil }
-            return redrawAtOnePixelPerPoint(image, maskableWidgets: maskableWidgets)
+            return autoreleasepool {
+                // Mask at native resolution so resampling can't blend what a mask covers into the output.
+                paintMasks(maskableWidgets, on: image).flatMap { resample($0, pixelScale: pixelScale) }
+            }
         }
 
-        /// Screenshots render at native scale on main; this downscale runs at encode time, off main,
-        /// so every screenshot uploads at the same size whether or not it is masked.
-        private static func redrawAtOnePixelPerPoint(_ image: UIImage, maskableWidgets: [CGRect] = []) -> UIImage? {
-            autoreleasepool {
-                let renderer = PostHogGraphicsImageRenderer(size: image.size, scale: 1)
-                return renderer.image { context in
-                    context.interpolationQuality = .none
-                    image.draw(at: .zero)
+        /// Nothing to hide, so unlike masking a failed resample can fall back to the native image.
+        static func unmaskedScreenshot(_ image: UIImage, pixelScale: CGFloat) -> UIImage {
+            autoreleasepool { resample(image, pixelScale: pixelScale) ?? image }
+        }
 
-                    for rect in maskableWidgets {
-                        UIColor.black.setFill()
-                        UIRectFill(rect)
-                    }
+        private static func resample(_ image: UIImage, pixelScale: CGFloat) -> UIImage? {
+            // Already at the upload resolution, so resampling would only cost time.
+            guard pixelScale < image.scale else { return image }
+            return PostHogGraphicsImageRenderer(size: image.size, scale: pixelScale, roundingUp: true).image { context in
+                // Nearest-neighbour drops thin glyph stems when downsampling.
+                context.interpolationQuality = .medium
+                image.draw(at: .zero)
+            }
+        }
+
+        private static func paintMasks(_ masks: [CGRect], on image: UIImage) -> UIImage? {
+            PostHogGraphicsImageRenderer(size: image.size, scale: image.scale, roundingUp: true).image { context in
+                image.draw(at: .zero)
+                // Whole pixels, so a mask edge that falls mid-pixel can't leave part of it showing.
+                let toPixels = context.userSpaceToDeviceSpaceTransform
+                let toPoints = toPixels.inverted()
+                UIColor.black.setFill()
+                for rect in masks {
+                    UIRectFill(rect.applying(toPixels).integral.applying(toPoints))
                 }
             }
         }
@@ -89,8 +104,7 @@ class RRWireframe {
                         maskRenderFailed = true
                     }
                 } else if type == "screenshot" {
-                    // Nothing to hide, so unlike masking a failed redraw can fall back to the native image.
-                    base64 = (RRWireframe.redrawAtOnePixelPerPoint(image) ?? image).toBase64()
+                    base64 = RRWireframe.unmaskedScreenshot(image, pixelScale: screenshotPixelScale).toBase64()
                 } else {
                     base64 = image.toBase64()
                 }

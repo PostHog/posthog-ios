@@ -344,6 +344,7 @@ PostHog | PostHogSessionReplayConfig.maskAllImages | property | @objc var maskAl
 PostHog | PostHogSessionReplayConfig.maskAllSandboxedViews | property | @objc var maskAllSandboxedViews: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllSandboxedViews
 PostHog | PostHogSessionReplayConfig.maskAllTextInputs | property | @objc var maskAllTextInputs: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllTextInputs
 PostHog | PostHogSessionReplayConfig.sampleRate | property | @objc var sampleRate: NSNumber? { get set } | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)sampleRate
+PostHog | PostHogSessionReplayConfig.screenshotScale | property | @objc var screenshotScale: NSNumber? { get set } | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)screenshotScale
 PostHog | PostHogSessionReplayConfig.throttleDelay | property | @objc var throttleDelay: TimeInterval | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)throttleDelay
 PostHog | PostHogSessionReplayConsoleLogConfig | class | @objc class PostHogSessionReplayConsoleLogConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig
 PostHog | PostHogSessionReplayConsoleLogConfig.logSanitizer | property | @objc var logSanitizer: (String) -> PostHogConsoleLogEntry? | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig(py)logSanitizer

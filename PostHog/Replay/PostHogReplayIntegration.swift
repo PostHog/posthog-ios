@@ -1160,6 +1160,7 @@
 
             let wireframe = createBasicWireframe(window)
             wireframe.maskableWidgets = maskableWidgets
+            wireframe.screenshotPixelScale = config?.sessionReplayConfig.screenshotPixelScale(nativeScale: window.screen.scale) ?? 1
             wireframe.type = "screenshot"
             return wireframe
         }

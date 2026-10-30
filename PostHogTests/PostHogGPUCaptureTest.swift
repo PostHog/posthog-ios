@@ -23,6 +23,27 @@
         override class var layerClass: AnyClass { CAMetalLayer.self }
     }
 
+    private final class AppAnimatableLayer: CALayer {
+        @objc var progress: CGFloat = 0
+
+        override init() {
+            super.init()
+        }
+
+        override init(layer: Any) {
+            super.init(layer: layer)
+            progress = (layer as? AppAnimatableLayer)?.progress ?? 0
+        }
+
+        required init?(coder: NSCoder) {
+            super.init(coder: coder)
+        }
+    }
+
+    private final class AppLayerView: UIView {
+        override class var layerClass: AnyClass { AppAnimatableLayer.self }
+    }
+
     @Suite("Replay GPU capture", .serialized)
     @MainActor
     struct PostHogGPUCaptureTest {
@@ -99,8 +120,7 @@
             window.layoutIfNeeded()
             let frame = try #require(mirror.build(window: window, scale: scale))
             #expect(frame.scale == scale)
-            let rects = try #require(integration.collectMaskableRects(in: window, culledLayers: frame.culledLayers,
-                                                                      portalSources: frame.portalSources))
+            let rects = try #require(integration.maskableRects(for: frame, in: window))
             frame.freeze()
             #expect(frame.encode())
             let image = await withCheckedContinuation { continuation in
@@ -358,6 +378,51 @@
             } else {
                 try expectMagentaMasked(image, rects)
             }
+        }
+
+        /// A view whose layer, like Lottie's, is an app class with its own `init(layer:)`: the mirror copies it at its
+        /// model geometry, since it never calls `presentation()` on app classes.
+        private func animatingAppLayerView() throws -> UIView {
+            try #require(!PostHogGPUMirrorCapture.isPresentationSafe(AppAnimatableLayer.self))
+            let view = AppLayerView(frame: CGRect(x: 20, y: 20, width: 160, height: 100))
+            view.backgroundColor = .lightGray
+            return view
+        }
+
+        @Test("A masked view under an animating app layer the mirror copies at its model geometry leaves no magenta unmasked")
+        func maskedViewUnderAnimatingAppLayerIsNotExposed() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let view = try animatingAppLayerView()
+            view.addSubview(secretField(CGRect(x: 10, y: 10, width: 120, height: 60)))
+            window.addSubview(view)
+            CATransaction.flush()
+            try await animateDown(view.layer, by: 150)
+
+            let (image, rects) = try await render(window, with: mirror)
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("An animating app layer the mirror copies at its model geometry still draws when nothing under it is masked")
+        func animatingAppLayerWithoutMasksStillDraws() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let view = try animatingAppLayerView()
+            let marker = UIView(frame: CGRect(x: 10, y: 10, width: 120, height: 60))
+            marker.backgroundColor = .blue
+            view.addSubview(marker)
+            window.addSubview(view)
+            CATransaction.flush()
+            try await animateDown(view.layer, by: 150)
+
+            let (image, rects) = try await render(window, with: mirror)
+            #expect(rects.isEmpty)
+            // Drawn where the model sits: 20 + 150 + 10 down.
+            #expect(try count(Pixels(image), in: CGRect(x: 30, y: 180, width: 120, height: 60), where: { $0 == .blue }) > 120 * 60 * 9 / 10)
         }
 
         @available(iOS 26.0, *)

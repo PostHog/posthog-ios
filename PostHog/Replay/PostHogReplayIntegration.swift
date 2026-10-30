@@ -2282,7 +2282,7 @@
                     endGPUCapture(nil, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
                     return
                 }
-                guard let regions = collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources) else {
+                guard let rects = maskableRects(for: frame, in: window) else {
                     hedgeLog("[Session Replay] Skipping snapshot: a masked view hasn't been laid out yet")
                     endGPUCapture(frame)
                     return
@@ -2290,7 +2290,7 @@
                 frame.freeze()
                 let wireframe = createBasicWireframe(window)
                 wireframe.type = "screenshot"
-                wireframe.maskableWidgets = regions.map(\.rect)
+                wireframe.maskableWidgets = rects
                 wireframe.screenshotPixelScale = frame.scale
                 let capture = MirroredCapture(frame: frame, wireframe: wireframe, windowSize: window.bounds.size,
                                               screenName: screenName, timestampDate: timestampDate)
@@ -2302,6 +2302,15 @@
                     }
                     self.encodeMirrored(capture, window: window, postHog: postHog)
                 }
+            }
+
+            /// The mask walk of a GPU capture, between `build` and `freeze`; nil when the frame must be skipped.
+            func maskableRects(for frame: PostHogGPUMirrorCapture.Frame, in window: UIWindow) -> [CGRect]? {
+                guard let regions = collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources) else {
+                    return nil
+                }
+                frame.omitModelGeometrySubtrees(holding: regions.compactMap { ($0.object as? UIView)?.layer ?? $0.object as? CALayer })
+                return regions.map(\.rect)
             }
 
             private struct MirroredCapture {

@@ -27,13 +27,34 @@
             /// `culledLayers`: culling describes where the source sits, not where the portal shows it.
             /// Emptied by `freeze`.
             private(set) var portalSources: [PostHogPortalSource]
+            /// Copies drawn at model geometry (animating, class not presentation-safe), by source layer. Emptied by `freeze`.
+            private var modelGeometryCopies: [ObjectIdentifier: [CALayer]]
             private var stage = FrameStage.built
 
-            fileprivate init(target: Target, root: CALayer, culledLayers: Set<ObjectIdentifier>, portalSources: [PostHogPortalSource]) {
+            fileprivate init(target: Target, root: CALayer, culledLayers: Set<ObjectIdentifier>, portalSources: [PostHogPortalSource],
+                             modelGeometryCopies: [ObjectIdentifier: [CALayer]])
+            {
                 self.target = target
                 self.root = root
                 self.culledLayers = culledLayers
                 self.portalSources = portalSources
+                self.modelGeometryCopies = modelGeometryCopies
+            }
+
+            /// Main thread, between the mask walk and `freeze`. Hides each model-geometry copy whose source holds one of
+            /// `maskedLayers`: their masks are measured at presentation geometry and wouldn't land on those pixels.
+            func omitModelGeometrySubtrees(holding maskedLayers: [CALayer]) {
+                guard stage == .built, !modelGeometryCopies.isEmpty else { return }
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                for masked in maskedLayers {
+                    var current: CALayer? = masked
+                    while let layer = current {
+                        modelGeometryCopies.removeValue(forKey: ObjectIdentifier(layer))?.forEach { $0.isHidden = true }
+                        current = layer.superlayer
+                    }
+                }
+                CATransaction.commit()
             }
 
             /// Main thread. Commits the mirror so CARenderer sees it; host redraws after this, even in place into shared
@@ -44,6 +65,7 @@
                 CATransaction.flush()
                 culledLayers = []
                 portalSources = []
+                modelGeometryCopies = [:]
                 stage = .frozen
             }
 
@@ -345,6 +367,7 @@
             var portalsInProgress: Set<ObjectIdentifier> = []
             /// The Liquid Glass background the walk is inside, if any.
             var glass: PostHogGlassStandIn.Kind?
+            var modelGeometryCopies: [ObjectIdentifier: [CALayer]] = [:]
         }
 
         /// Where a layer's sublayers land in the window.
@@ -495,7 +518,8 @@
             if target.wrapper.sublayers?.first !== root { target.wrapper.sublayers = root.map { [$0] } }
             CATransaction.commit()
             guard let root else { return nil }
-            return Frame(target: target, root: root, culledLayers: walk.culled, portalSources: walk.portalSources)
+            return Frame(target: target, root: root, culledLayers: walk.culled, portalSources: walk.portalSources,
+                         modelGeometryCopies: walk.modelGeometryCopies)
         }
 
         #if TESTING
@@ -691,6 +715,7 @@
                 copiesMadeForTesting += 1
             #endif
             if walk.portalsInProgress.isEmpty, source.delegate is UIView { walk.viewCopies[ObjectIdentifier(source)] = copy }
+            if !info.presentationSafe, source.animationKeys() != nil { walk.modelGeometryCopies[ObjectIdentifier(source), default: []].append(copy) }
             copyGeometry(from: presentation, source: source, to: copy)
             copyStyle(from: presentation, to: copy)
             copyContents(from: presentation, source: source, info: info, scale: walk.scale, to: copy)

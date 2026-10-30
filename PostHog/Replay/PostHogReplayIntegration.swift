@@ -1384,7 +1384,8 @@
         }
 
         private func isLabelSensitive(_ view: UILabel) -> Bool {
-            isTextInputSensitive(view) && hasText(view.text)
+            // Cleared text stays on screen until the label redraws.
+            isTextInputSensitive(view) && (hasText(view.text) || view.layer.needsDisplay())
         }
 
         private func isButtonSensitive(_ view: UIButton) -> Bool {

@@ -93,12 +93,14 @@
         }
 
         /// Turn 1 and turn 2 of a capture, without the replay pipeline around them: the pixels and the mask rects.
-        private func render(_ window: UIWindow, with mirror: PostHogGPUMirrorCapture, scale: CGFloat = 1) async throws -> (CGImage, [CGRect]) {
+        private func render(_ window: UIWindow, with mirror: PostHogGPUMirrorCapture, scale: CGFloat = 1,
+                            integration: PostHogReplayIntegration = PostHogReplayIntegration()) async throws -> (CGImage, [CGRect])
+        {
             window.layoutIfNeeded()
             let frame = try #require(mirror.build(window: window, scale: scale))
             #expect(frame.scale == scale)
-            let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window, culledLayers: frame.culledLayers,
-                                                                                     portalSources: frame.portalSources))
+            let rects = try #require(integration.collectMaskableRects(in: window, culledLayers: frame.culledLayers,
+                                                                      portalSources: frame.portalSources))
             frame.freeze()
             #expect(frame.encode())
             let image = await withCheckedContinuation { continuation in
@@ -309,6 +311,43 @@
                 let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window))
                 #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(expected) })
                 let image = try #require(window.toImage(preferFidelityRenderer: false))
+                let masked = try Pixels(#require(RRWireframe.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
+                #expect(masked.points(where: Self.isMagenta).isEmpty)
+            }
+        }
+
+        @Test("A sensitive label cleared since its last display stays masked while its layer still shows the old text",
+              arguments: [true, false])
+        func clearedLabelStaysMaskedUntilRedrawn(gpu: Bool) async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, _) = try makeSut()
+            defer { sut.close() }
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let label = UILabel(frame: CGRect(x: 20, y: 40, width: 160, height: 80))
+            label.text = "SECRET"
+            label.font = .boldSystemFont(ofSize: 48)
+            label.textColor = .magenta
+            window.addSubview(label)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try #require(!label.layer.needsDisplay())
+            try #require(try #require(integration.collectMaskableRects(in: window)).contains(label.frame))
+
+            // No run-loop turn in between: the layer still holds the old text's bitmap.
+            label.text = ""
+
+            if gpu {
+                let (image, rects) = try await render(window, with: mirror, integration: integration)
+                #expect(rects.contains(label.frame))
+                let masked = try Pixels(#require(RRWireframe.maskImage(UIImage(cgImage: image), maskableWidgets: rects, pixelScale: 1)?.cgImage))
+                #expect(masked.points(where: Self.isMagenta).isEmpty)
+            } else {
+                let rects = try #require(integration.collectMaskableRects(in: window))
+                #expect(rects.contains(label.frame))
+                let image = try #require(window.toImage(preferFidelityRenderer: false))
+                #expect(!(try Pixels(#require(image.cgImage))).points(where: Self.isMagenta).isEmpty)
                 let masked = try Pixels(#require(RRWireframe.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
                 #expect(masked.points(where: Self.isMagenta).isEmpty)
             }

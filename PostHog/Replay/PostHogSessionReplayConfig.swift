@@ -121,4 +121,32 @@
             }
         #endif
     }
+
+    // MARK: - Removed in 4.0
+
+    // Unavailable stubs for 3.x names, so code that still uses them gets a compile error that
+    // names the replacement. Swift-only: Objective-C callers see the old selectors disappear.
+    /// Session replay options removed or renamed in PostHog 4.0.
+    public extension PostHogSessionReplayConfig {
+        /// Removed in PostHog 4.0. Use `throttleDelay` instead.
+        @available(*, unavailable, renamed: "throttleDelay", message: "Renamed in PostHog 4.0.")
+        var debouncerDelay: TimeInterval {
+            get { throttleDelay }
+            set { throttleDelay = newValue }
+        }
+
+        /// Removed in PostHog 4.0. It had no effect.
+        @available(*, unavailable, message: "Removed in PostHog 4.0. It had no effect: delete the assignment.")
+        var maskPhotoLibraryImages: Bool {
+            get { false }
+            set {} // swiftlint:disable:this unused_setter_value
+        }
+
+        /// Removed in PostHog 4.0. Screenshots are always captured on the main thread.
+        @available(*, unavailable, message: "Removed in PostHog 4.0. Screenshots are always captured on the main thread: delete the assignment.")
+        var screenshotModeBackgroundCapture: Bool {
+            get { false }
+            set {} // swiftlint:disable:this unused_setter_value
+        }
+    }
 #endif

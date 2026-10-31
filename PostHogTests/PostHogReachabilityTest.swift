@@ -157,5 +157,17 @@ import Testing
             #expect(reachability.connection == nil)
             #expect(Date().timeIntervalSince(start) < 0.05)
         }
+
+        @Test("connectionIfKnown doesn't wait for the first path")
+        func connectionIfKnownDoesNotWait() {
+            let reachability = Reachability(notificationQueue: nil, monitorsPaths: false)
+
+            let start = Date()
+            #expect(reachability.connectionIfKnown == nil)
+            #expect(Date().timeIntervalSince(start) < 0.05)
+
+            reachability.update(.cellular)
+            #expect(reachability.connectionIfKnown == .cellular)
+        }
     }
 #endif

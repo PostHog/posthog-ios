@@ -19,4 +19,11 @@
         /// Error messages indicating failures or critical issues
         case error
     }
+
+    // Gated on the SessionReplay trait, like `PostHogConsoleLogLevel`.
+    #if !SWIFT_PACKAGE || SessionReplay
+        /// Renamed to `PostHogConsoleLogLevel` in PostHog 4.0.
+        @available(*, unavailable, renamed: "PostHogConsoleLogLevel", message: "Renamed in PostHog 4.0.")
+        public typealias PostHogLogLevel = PostHogConsoleLogLevel
+    #endif
 #endif

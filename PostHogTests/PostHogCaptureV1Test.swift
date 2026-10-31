@@ -643,6 +643,25 @@ final class PostHogCaptureV1OptionsTest {
         #expect(sent["options"] as? [String: Bool] == ["process_person_profile": true, "cookieless_mode": true])
     }
 
+    @Test("a nil boxed in Any counts as unset for process_person_profile")
+    func boxedNilProcessPersonProfile() async throws {
+        let sut = makeSDK(personProfiles: .never)
+        defer { sut.close() }
+        let unset: Bool? = nil
+
+        var sent = try await captureAndSend(sut) { $0.capture("test", options: ["process_person_profile": unset as Any]) }
+        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
+
+        sent = try await captureAndSend(sut) { $0.capture("test", properties: ["$process_person_profile": unset as Any]) }
+        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
+
+        // The legacy property still fills an option that is only a boxed nil.
+        sent = try await captureAndSend(sut) {
+            $0.capture("test", properties: ["$process_person_profile": true], options: ["process_person_profile": unset as Any])
+        }
+        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": true])
+    }
+
     @Test("the SDK sends process_person_profile only as a false option when person processing is off")
     func processPersonProfileOnlyWhenOff() async throws {
         let personless = makeSDK(personProfiles: .never)
@@ -675,6 +694,21 @@ final class PostHogCaptureV1OptionsTest {
             #expect(context?["options"] as? [String: Bool] == expected)
             #expect((context?["event_properties"] as? [String: Any])?["$process_person_profile"] == nil)
         }
+    }
+
+    @Test("the crash context fallback carries the current person-processing option and $geoip_disable")
+    func crashContextFallback() {
+        let personless = makeSDK(personProfiles: .never)
+        personless.config.disableGeoIp = true
+        let fallback = personless.crashContextFallback()
+        personless.close()
+        #expect(fallback["options"] as? [String: Bool] == ["process_person_profile": false])
+        #expect(fallback["event_properties"] as? [String: Bool] == ["$geoip_disable": true])
+
+        let processed = makeSDK(personProfiles: .always)
+        processed.config.disableGeoIp = false
+        defer { processed.close() }
+        #expect(processed.crashContextFallback().isEmpty)
     }
 
     @Test("beforeSend has the final say over options")

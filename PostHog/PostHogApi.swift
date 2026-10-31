@@ -384,7 +384,7 @@ class PostHogApi {
         var options = event.options
         for (property, option) in legacyOptionProperties {
             guard let legacy = properties.removeValue(forKey: property) else { continue }
-            if options[option] == nil || options[option] is NSNull {
+            if isNullValue(options[option]) {
                 options[option] = legacy
             }
         }

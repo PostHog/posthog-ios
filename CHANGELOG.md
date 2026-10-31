@@ -1,5 +1,34 @@
 ## Next
 
+## 3.93.1
+
+### Patch Changes
+
+- 9b7e911: Fix `screenshotMode` session replay leaving masked content visible where it is drawn outside its view (unclipped images, layer shadows, button titles) and image attachments in text unmasked when `maskAllImages` is on.
+
+## 3.93.0
+
+### Minor Changes
+
+- 02e113e: Add an experimental `sessionReplayConfig.screenshotScale` option that sets session replay screenshot resolution as a fraction of the screen's native resolution. Left unset, screenshots stay at one pixel per point.
+
+### Patch Changes
+
+- 02e113e: Keep small text readable in downsized session replay screenshots by resampling them with smoothing instead of nearest-neighbour.
+
+## 3.92.7
+
+### Patch Changes
+
+- 047ccee: Upload session replay screenshots at one pixel per point whether or not the frame has masks, instead of at the screen's native scale for unmasked frames.
+
+## 3.92.6
+
+### Patch Changes
+
+- 707d3b2: Mask the whole rect of a `ph-no-capture` view in session replay screenshots, including a view that fills the window.
+- 05c1201: Fix screenshot session replay masks leaving the corners of each masked area visible; masks now cover the full rectangle.
+
 ## 3.92.5
 
 ### Patch Changes

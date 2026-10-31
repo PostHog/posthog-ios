@@ -17,15 +17,24 @@
     final class PostHogGraphicsImageRenderer {
         private let size: CGSize
         private let scale: CGFloat
+        private let roundingUp: Bool
 
-        init(size: CGSize, scale: CGFloat) {
+        /// `roundingUp` rounds the pixel size up instead of down, and stretches `size` over every pixel so none
+        /// is left undrawn.
+        init(size: CGSize, scale: CGFloat, roundingUp: Bool = false) {
             self.size = size
             self.scale = scale
+            self.roundingUp = roundingUp
+        }
+
+        private func pixels(_ points: CGFloat) -> Int {
+            // The tolerance keeps float error, such as 100 × 0.30000000000000004, from adding a pixel.
+            roundingUp ? Int((points * scale - 0.001).rounded(.up)) : Int(points * scale)
         }
 
         func image(actions: (CGContext) -> Void) -> UIImage? {
-            let pixelsPerRow = Int(size.width * scale)
-            let pixelsPerColumn = Int(size.height * scale)
+            let pixelsPerRow = pixels(size.width)
+            let pixelsPerColumn = pixels(size.height)
             let bytesPerPixel = 4
             let bytesPerRow = bytesPerPixel * pixelsPerRow
             let bitsPerComponent = 8
@@ -53,8 +62,10 @@
             }
 
             // UIKit's coordinate system is flipped relative to CoreGraphics.
-            context.translateBy(x: 0, y: size.height * scale)
-            context.scaleBy(x: scale, y: -scale)
+            let scaleX = roundingUp ? CGFloat(pixelsPerRow) / size.width : scale
+            let scaleY = roundingUp ? CGFloat(pixelsPerColumn) / size.height : scale
+            context.translateBy(x: 0, y: size.height * scaleY)
+            context.scaleBy(x: scaleX, y: -scaleY)
 
             UIGraphicsPushContext(context)
             actions(context)

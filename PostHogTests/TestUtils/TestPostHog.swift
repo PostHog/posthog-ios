@@ -158,6 +158,28 @@ extension Trait where Self == ResetGlobalStateTrait {
     static var resetsGlobalState: ResetGlobalStateTrait { ResetGlobalStateTrait() }
 }
 
+/// Returns what `body` printed to stdout, such as `hedgeLog` lines. Stdout is process-wide, so
+/// match on something unique to the test rather than asserting the whole output.
+func captureStdout(_ body: () throws -> Void) throws -> String {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    FileManager.default.createFile(atPath: url.path, contents: nil)
+    defer { try? FileManager.default.removeItem(at: url) }
+    let file = try FileHandle(forWritingTo: url)
+    defer { file.closeFile() }
+    fflush(stdout)
+    let saved = dup(STDOUT_FILENO)
+    try #require(saved >= 0)
+    defer { close(saved) }
+    try #require(dup2(file.fileDescriptor, STDOUT_FILENO) >= 0)
+    defer {
+        fflush(stdout)
+        dup2(saved, STDOUT_FILENO)
+    }
+    try body()
+    fflush(stdout)
+    return try String(contentsOf: url, encoding: .utf8)
+}
+
 /// Adaptive poll that returns the instant `condition` holds (or after `timeout`). Yields the thread
 /// between checks instead of spinning. Use this only when the state you're asserting isn't tied to an
 /// awaitable signal (e.g. an async storage write with no completion callback) — when a callback exists,

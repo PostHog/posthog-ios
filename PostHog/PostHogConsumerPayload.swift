@@ -13,4 +13,7 @@ import Foundation
 struct PostHogConsumerPayload<Record> {
     let records: [Record]
     let completion: (Bool) -> Void
+    /// Removes every record except those whose `QueueEndpoint.recordId` is in
+    /// the given set, then ends the flush so the kept records wait for backoff.
+    let completeKeeping: (Set<String>) -> Void
 }

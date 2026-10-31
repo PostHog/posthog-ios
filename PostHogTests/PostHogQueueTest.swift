@@ -78,12 +78,14 @@ final class PostHogQueueTest {
         #expect(latch.isSignaled, sourceLocation: sourceLocation)
     }
 
-    private func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3, sender: ControlledBatchSender? = nil, afterUpload: (() -> Void)? = nil) -> PostHogQueue<PostHogEvent> {
+    private func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3, sender: ControlledBatchSender? = nil,
+                        maxBatchBytes: Int? = nil, jitterUnit: @escaping () -> Double = { 0.5 }, afterUpload: (() -> Void)? = nil) -> PostHogQueue<PostHogEvent>
+    {
         let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
         config.maxBatchSize = maxBatchSize
-        config.maxRetries = maxRetries
+        config.pushNotificationSubscriptionMaxRetries = maxRetries
         config.sendFeatureFlagEvent = false
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
@@ -101,6 +103,8 @@ final class PostHogQueueTest {
             encode: base.encode,
             decode: base.decode,
             describe: base.describe,
+            recordId: base.recordId,
+            maxBatchBytes: maxBatchBytes,
             send: { events, completion in
                 let send = sender?.send ?? base.send
                 send(events) { result in
@@ -110,8 +114,9 @@ final class PostHogQueueTest {
             },
             isRetriableStatusCode: base.isRetriableStatusCode
         )
-        let sut = PostHogQueue(config, storage, endpoint, nil)
-        // Only count /batch requests from this fixture's queue: the stub and the activation hook are
+        // 0.5 is a jitter factor of 1, so backoff waits are exact unless a test injects its own.
+        let sut = PostHogQueue(config, storage, endpoint, nil, jitterUnit: jitterUnit)
+        // Only count capture requests from this fixture's queue: the stub and the activation hook are
         // process-global, so a stray request from another queue/SDK instance would otherwise shift
         // batchRequests.count and the request number the batchResponseHandler keys on.
         server.batchProjectToken = config.projectToken
@@ -178,6 +183,20 @@ final class PostHogQueueTest {
         sut.add(event3)
         #expect(sut.depth == 1)
         #expect(sender.requestCount == 1)
+
+        sut.clear()
+    }
+
+    @Test("flushes below flushAt once queued bytes reach the batch byte limit")
+    func flushesOnBatchByteThresholdWithoutQueueByteCap() async {
+        let sender = ControlledBatchSender()
+        let sut = getSut(flushAt: 100, sender: sender, maxBatchBytes: 1000)
+
+        sut.add(PostHogEvent(event: "small", distinctId: "distinctId"))
+        #expect(sender.requestCount == 0)
+
+        sut.add(PostHogEvent(event: "large", distinctId: "distinctId", properties: ["blob": String(repeating: "x", count: 2000)]))
+        await expectEventually({ sender.requestCount }, 1)
 
         sut.clear()
     }
@@ -311,29 +330,88 @@ final class PostHogQueueTest {
         sut.clear()
     }
 
-    @Test("retains batch on HTTP 429 and does not change cap")
-    func retainsBatchOnHTTP429AndDoesNotChangeCap() async {
-        let sut = getSut(flushAt: 2, maxBatchSize: 4)
-        server.batchResponseHandler = { _, _ in
-            HTTPStubsResponse(jsonObject: [], statusCode: 429, headers: nil)
+    @Test("caps Retry-After at the maximum retry delay", arguments: [("5", 5.0), ("3600", maxRetryDelay)])
+    func capsRetryAfter(retryAfter: String, expectedDelay: TimeInterval) async throws {
+        try await withMockedClock { clock in
+            let uploaded = AsyncLatch()
+            let sut = getSut(flushAt: 100) { uploaded.signal() }
+            server.batchResponseHandler = { _, _ in
+                HTTPStubsResponse(jsonObject: [], statusCode: 503, headers: ["Retry-After": retryAfter])
+            }
+
+            sut.add(PostHogEvent(event: "event", distinctId: "id"))
+            sut.flush()
+            await expectSignaled(uploaded)
+
+            let pausedUntil = try #require(sut.pausedUntilForTesting)
+            #expect(abs(pausedUntil.timeIntervalSince(clock.date) - expectedDelay) < 0.001)
+            sut.clear()
         }
-
-        sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
-        sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
-
-        _ = getBatchedEvents(server)
-
-        await expectEventually({ sut.depth }, 2)
-        await expectEventually({ sut.currentBatchCapForTesting }, 4)
-
-        sut.clear()
     }
 
-    @Test("retains batch on HTTP 408 (request timeout is retriable) and does not change cap")
-    func retainsBatchOnHTTP408AndDoesNotChangeCap() async {
+    @Test("backoff doubles from the base delay up to the ceiling", arguments: [
+        (1, 1.0), (2, 2.0), (3, 4.0), (4, 8.0), (5, 16.0), (6, maxRetryDelay), (50, maxRetryDelay),
+    ])
+    func backoffDoublesUpToCeiling(attempt: Int, expected: TimeInterval) {
+        let delay = queueRetryDelay(attempt: attempt, jitterUnit: 0.5, retryAfter: nil, retryAfterCap: maxRetryDelay)
+        #expect(delay == expected)
+    }
+
+    @Test("jitter scales the backoff within 25% and never exceeds the ceiling", arguments: [
+        (1, 0.0, 0.75), (1, 0.75, 1.125), (3, 0.0, 3.0), (3, 0.75, 4.5), (6, 0.0, 22.5), (6, 0.999, maxRetryDelay),
+    ])
+    func jitterScalesBackoff(attempt: Int, jitterUnit: Double, expected: TimeInterval) {
+        let delay = queueRetryDelay(attempt: attempt, jitterUnit: jitterUnit, retryAfter: nil, retryAfterCap: maxRetryDelay)
+        #expect(abs(delay - expected) < 0.000_001)
+    }
+
+    @Test("Retry-After is a floor applied after jitter, clamped to its cap", arguments: [
+        (10.0, 10.0), (0.5, 0.75), (3600.0, maxRetryDelay), (-5.0, 0.75),
+    ])
+    func retryAfterFloorsJitteredBackoff(retryAfter: TimeInterval, expected: TimeInterval) {
+        let delay = queueRetryDelay(attempt: 1, jitterUnit: 0, retryAfter: retryAfter, retryAfterCap: maxRetryDelay)
+        #expect(delay == expected)
+    }
+
+    @Test("unusable randomness falls back to the unjittered backoff", arguments: [Double.nan, 1.0, -0.1, Double.infinity])
+    func unusableJitterFallsBack(jitterUnit: Double) {
+        let delay = queueRetryDelay(attempt: 3, jitterUnit: jitterUnit, retryAfter: nil, retryAfterCap: maxRetryDelay)
+        #expect(delay == 4.0)
+    }
+
+    @Test("pauses for the jittered exponential backoff after consecutive failures")
+    func pausesForJitteredExponentialBackoff() async throws {
+        try await withMockedClock { clock in
+            let uploads = (1 ... 3).map { _ in AsyncLatch() }
+            var uploadIndex = 0
+            let sut = getSut(flushAt: 100, jitterUnit: { 0 }) {
+                guard uploadIndex < uploads.count else { return }
+                uploads[uploadIndex].signal()
+                uploadIndex += 1
+            }
+            server.batchResponseHandler = { _, _ in
+                HTTPStubsResponse(jsonObject: [], statusCode: 503, headers: nil)
+            }
+
+            sut.add(PostHogEvent(event: "event", distinctId: "id"))
+            // Jitter factor 0.75 on 1s, 2s and 4s.
+            for (index, expectedDelay) in [0.75, 1.5, 3.0].enumerated() {
+                sut.flush()
+                await expectSignaled(uploads[index])
+                let pausedUntil = try #require(sut.pausedUntilForTesting)
+                #expect(abs(pausedUntil.timeIntervalSince(clock.date) - expectedDelay) < 0.001)
+                #expect(sut.depth == 1)
+                clock.date = pausedUntil.addingTimeInterval(0.001)
+            }
+            sut.clear()
+        }
+    }
+
+    @Test("retains batch on a retriable HTTP status and does not change cap", arguments: [404, 408, 429])
+    func retainsBatchOnRetriableStatusAndDoesNotChangeCap(statusCode: Int32) async {
         let sut = getSut(flushAt: 2, maxBatchSize: 4)
         server.batchResponseHandler = { _, _ in
-            HTTPStubsResponse(jsonObject: [], statusCode: 408, headers: nil)
+            HTTPStubsResponse(jsonObject: [], statusCode: statusCode, headers: nil)
         }
 
         sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
@@ -633,7 +711,7 @@ struct PostHogQueueUploadDispositionTest {
         let config = PostHogConfig(projectToken: "queue_disposition_\(UUID().uuidString)", host: "http://localhost:9001")
         config.flushAt = 100
         config.maxBatchSize = 4
-        config.maxRetries = 0
+        config.pushNotificationSubscriptionMaxRetries = 0
         let api = PostHogApi(config)
         let base: QueueEndpoint<PostHogEvent> = snapshot ? .snapshot(api: api) : .batch(api: api)
         let endpoint = QueueEndpoint<PostHogEvent>(
@@ -649,6 +727,7 @@ struct PostHogQueueUploadDispositionTest {
             encode: base.encode,
             decode: base.decode,
             describe: base.describe,
+            recordId: base.recordId,
             canBatchTogether: base.canBatchTogether,
             send: sender.send,
             isRetriableStatusCode: base.isRetriableStatusCode
@@ -661,7 +740,7 @@ struct PostHogQueueUploadDispositionTest {
         try #require(sender.requestCount == count)
     }
 
-    @Test("received HTTP disposition wins over an accompanying transport error", arguments: [-1, 200, 400, 408, 429, 503], [false, true])
+    @Test("received HTTP disposition wins over an accompanying transport error", arguments: [-1, 200, 400, 404, 408, 429, 503], [false, true])
     func receivedHTTPDisposition(statusCode: Int, snapshot: Bool) async throws {
         let sender = ControlledBatchSender()
         let queue = makeQueue(snapshot: snapshot, sender: sender)
@@ -680,7 +759,7 @@ struct PostHogQueueUploadDispositionTest {
             sender.completeRequest(at: 0, with: $0)
         }
 
-        let retryable = [-1, 408, 429, 503].contains(statusCode)
+        let retryable = [-1, 408, 429, 503].contains(statusCode) || (!snapshot && statusCode == 404)
         let expectedIds = retryable ? allIds : allIds.filter { !sentIds.contains($0) }
         #expect(queue.fileQueue.peekEntries(2).map(\.id) == expectedIds)
         #expect(queue.currentRetryCountForTesting == (retryable ? 1 : 0))

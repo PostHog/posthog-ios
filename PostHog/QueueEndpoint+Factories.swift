@@ -5,9 +5,8 @@
 
 import Foundation
 
-/// Retry policy shared by `/batch` (events) and `/snapshot` (replay): 408, 429,
-/// the listed 5xx, plus 3xx redirects.
-private func isEventsRetriableStatusCode(_ code: Int) -> Bool {
+/// `/snapshot` (replay) retry policy: 408, 429, the listed 5xx, plus 3xx redirects.
+private func isSnapshotRetriableStatusCode(_ code: Int) -> Bool {
     [408, 429, 500, 502, 503, 504].contains(code)
         || (300 ... 399).contains(code)
 }
@@ -17,8 +16,24 @@ private func isEventsRetriableStatusCode(_ code: Int) -> Bool {
 /// floors the backoff, so it can't strand the logs queue. Matches posthog-js.
 let logsMaxRetryAfterSeconds: TimeInterval = 5 * 60
 
+/// Capture V1 retry policy: 404, 408, 429 and the listed 5xx. Everything else,
+/// including 3xx, is terminal; 413 is handled by the queue's batch halving.
+func isCaptureV1RetriableStatusCode(_ code: Int) -> Bool {
+    [404, 408, 429, 500, 502, 503, 504].contains(code)
+}
+
+/// Size limit for a whole serialized AI event at the default `captureAiMaxEventBytes`.
+let aiMaxEventBytes = PostHogConfig.Defaults.captureAiMaxEventBytes
+/// Soft request size for the capture V1 analytics and AI endpoints, matching
+/// the other PostHog SDKs and well under capture V1's 10 MiB request limit.
+let captureV1MaxBatchBytes = 5 * 1024 * 1024
+/// Disk budget for queued AI events; the oldest are dropped first.
+let aiMaxQueueBytes = 50 * 1024 * 1024
+
 extension QueueEndpoint where Record == PostHogEvent {
-    /// `/batch` endpoint for analytics events.
+    /// Analytics events endpoint: capture V1 (`/i/v1/analytics/events`).
+    /// Batches by bytes as well as count, so a batch of large events stays
+    /// under the request limit.
     static func batch(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
         QueueEndpoint<PostHogEvent>(
             storageKey: .queue,
@@ -33,15 +48,49 @@ extension QueueEndpoint where Record == PostHogEvent {
             encode: { event in toJSONData(event.toJSON()) },
             decode: { data in PostHogEvent.fromJSON(data) },
             describe: { event in "event '\(event.event)'" },
+            recordId: { event in event.uuid.postHogUuidString },
+            maxBatchBytes: captureV1MaxBatchBytes,
             send: { events, completion in
-                api.batch(events: events, completion: completion)
+                api.captureV1(events: events, completion: completion)
             },
-            isRetriableStatusCode: isEventsRetriableStatusCode
+            isRetriableStatusCode: isCaptureV1RetriableStatusCode
         )
     }
 
-    /// `/snapshot` endpoint for session-replay snapshots. Shares its retry
-    /// policy with `/batch`.
+    /// Capture V1 AI endpoint (`/i/v1/ai/events`) for events sent with
+    /// `captureAi`. Same retry policy as capture V1.
+    /// Batches by bytes as well as count, since AI events can be megabytes.
+    static func ai(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
+        let maxEventBytes = api.config.effectiveCaptureAiMaxEventBytes
+        // Read once per SDK setup, so this warns once.
+        if api.config.captureAiMaxEventBytes > maxEventBytes {
+            hedgeLog("Warning: captureAiMaxEventBytes \(api.config.captureAiMaxEventBytes) is over the \(maxEventBytes) byte ceiling, using \(maxEventBytes).")
+        }
+        return QueueEndpoint<PostHogEvent>(
+            storageKey: .aiQueue,
+            oldStorageKeys: [],
+            dispatchQueueLabel: "com.posthog.AiQueue",
+            initialCap: { $0.maxBatchSize },
+            initialFlushAt: { $0.flushAt },
+            maxQueueSize: { $0.effectiveCaptureAiMaxQueueSize },
+            flushIntervalSeconds: { $0.flushIntervalSeconds },
+            rateCapMax: { _ in 0 },
+            rateCapWindowSeconds: { _ in 0 },
+            encode: { event in toJSONData(event.toJSON()) },
+            decode: { data in PostHogEvent.fromJSON(data) },
+            describe: { event in "AI event '\(event.event)'" },
+            recordId: { event in event.uuid.postHogUuidString },
+            maxBatchBytes: captureV1MaxBatchBytes,
+            maxRecordBytes: maxEventBytes,
+            maxQueueBytes: aiMaxQueueBytes,
+            send: { events, completion in
+                api.captureAi(events: events, completion: completion)
+            },
+            isRetriableStatusCode: isCaptureV1RetriableStatusCode
+        )
+    }
+
+    /// `/snapshot` endpoint for session-replay snapshots.
     static func snapshot(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
         QueueEndpoint<PostHogEvent>(
             storageKey: .replayQeueue,
@@ -64,7 +113,7 @@ extension QueueEndpoint where Record == PostHogEvent {
             send: { events, completion in
                 api.snapshot(events: events, completion: completion)
             },
-            isRetriableStatusCode: isEventsRetriableStatusCode
+            isRetriableStatusCode: isSnapshotRetriableStatusCode
         )
     }
 }
@@ -115,5 +164,23 @@ extension QueueEndpoint where Record == PostHogLogRecord {
             },
             maxRetryAfterSeconds: logsMaxRetryAfterSeconds
         )
+    }
+}
+
+extension PostHogConfig {
+    /// `captureAiMaxQueueSize`, or its default when it isn't positive.
+    var effectiveCaptureAiMaxQueueSize: Int {
+        captureAiMaxQueueSize > 0 ? captureAiMaxQueueSize : Defaults.captureAiMaxQueueSize
+    }
+
+    /// `captureAiTimeout`, or its default when it isn't positive.
+    var effectiveCaptureAiTimeout: TimeInterval {
+        captureAiTimeout > 0 ? captureAiTimeout : Defaults.captureAiTimeout
+    }
+
+    /// `captureAiMaxEventBytes`, capped at its default, or the default when it isn't positive.
+    var effectiveCaptureAiMaxEventBytes: Int {
+        let limit = Defaults.captureAiMaxEventBytes
+        return captureAiMaxEventBytes > 0 ? min(captureAiMaxEventBytes, limit) : limit
     }
 }

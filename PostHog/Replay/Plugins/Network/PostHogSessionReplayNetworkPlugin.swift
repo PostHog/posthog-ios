@@ -101,6 +101,8 @@
             }
 
             let path = strippingAPIHostPathPrefix(from: url.path, apiHostPath: apiHost.path)
+            // The SDK no longer sends to /batch, but React Native apps record replay through
+            // this plugin while their JS SDK still posts there.
             let ignoredPaths = [snapshotEndpoint, "/batch", "/e/", "/i/"]
 
             return ignoredPaths.contains { ignoredPath in

@@ -824,15 +824,15 @@ final class PostHogPushSubscriptionHandler {
             return retryCount
         }
 
-        if attempt > config.maxRetries {
+        if attempt > config.pushNotificationSubscriptionMaxRetries {
             stateLock.withLock { halted = true }
-            hedgeLog("Push subscription: max retries (\(config.maxRetries)) exceeded. Keeping record for next launch.")
+            hedgeLog("Push subscription: max retries (\(config.pushNotificationSubscriptionMaxRetries)) exceeded. Keeping record for next launch.")
             return
         }
 
         let delay = info.retryAfter ?? retryDelay(forAttempt: attempt)
         stateLock.withLock { pausedUntil = Date().addingTimeInterval(delay) }
-        hedgeLog("Push subscription failed (attempt \(attempt)/\(config.maxRetries)). Retrying in \(delay)s.")
+        hedgeLog("Push subscription failed (attempt \(attempt)/\(config.pushNotificationSubscriptionMaxRetries)). Retrying in \(delay)s.")
     }
 
     /// Keep the delivered record so the token can be re-sent when the distinct id changes, but only if

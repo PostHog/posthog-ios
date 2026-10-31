@@ -11,6 +11,37 @@ private func clamped(_ value: Int) -> Int {
     max(1, value)
 }
 
+/// Largest fraction a retry wait moves either way, so devices refused together
+/// don't all come back at the same moment. Matches the capture V1 server SDKs
+/// (a factor drawn from `[0.75, 1.25)`).
+let retryJitter = 0.25
+
+/// Number of consecutive failures after which the exponential backoff reaches
+/// `maxRetryDelay`. The retry counter stops there; it only ramps the delay.
+let maxRetryBackoffStep = 1 + Int(ceil(log2(maxRetryDelay / retryDelay)))
+
+/// Wait before the queue sends again after its `attempt`-th consecutive failure.
+///
+/// The delay doubles from `retryDelay` and is capped at `maxRetryDelay`, then
+/// scaled by a jitter factor in `[1 - retryJitter, 1 + retryJitter)` and capped
+/// again. A server `Retry-After`, clamped to `retryAfterCap`, is a floor applied
+/// after jitter, so jitter never retries earlier than the server asked.
+///
+/// - Parameter jitterUnit: A uniform value in `[0, 1)`. A value outside that
+///   range (e.g. no randomness available) falls back to the unjittered delay.
+func queueRetryDelay(attempt: Int,
+                     jitterUnit: Double,
+                     retryAfter: TimeInterval?,
+                     retryAfterCap: TimeInterval) -> TimeInterval
+{
+    let step = min(max(attempt, 1), maxRetryBackoffStep)
+    let computed = min(retryDelay * pow(2, Double(step - 1)), maxRetryDelay)
+    let factor = (0 ..< 1).contains(jitterUnit) ? 1 - retryJitter + 2 * retryJitter * jitterUnit : 1
+    let jittered = min(computed * factor, maxRetryDelay)
+    let retryAfterFloor = min(max(retryAfter ?? 0, 0), retryAfterCap)
+    return max(jittered, retryAfterFloor)
+}
+
 /// Adaptive limits stored privately on the queue rather than mutating
 /// `config.maxBatchSize` / `config.flushAt` so user-supplied config fields
 /// aren't silently changed. Both `cap` and `flushAt` are halved together on
@@ -55,6 +86,8 @@ class PostHogQueue<Record> {
     private let endpoint: QueueEndpoint<Record>
     private let configuredMaxQueueSize: Int
     private let timerInterval: TimeInterval
+    /// Source of the backoff jitter: a uniform value in `[0, 1)`.
+    private let jitterUnit: () -> Double
 
     /// Guards `paused`, `pausedUntil`, and `retryCount`. These are touched from
     /// the URLSession completion queue (handleResult), the timer's main-thread
@@ -106,10 +139,13 @@ class PostHogQueue<Record> {
     let fileQueue: PostHogFileBackedQueue
 
     #if !os(watchOS)
-        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ endpoint: QueueEndpoint<Record>, _ reachability: Reachability?) {
+        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ endpoint: QueueEndpoint<Record>, _ reachability: Reachability?,
+             jitterUnit: @escaping () -> Double = { Double.random(in: 0 ..< 1) })
+        {
             self.config = config
             self.endpoint = endpoint
             self.reachability = reachability
+            self.jitterUnit = jitterUnit
             configuredMaxQueueSize = endpoint.maxQueueSize(config)
             timerInterval = endpoint.flushIntervalSeconds(config)
             batchLimits = .initial(cap: endpoint.initialCap(config), flushAt: endpoint.initialFlushAt(config))
@@ -118,14 +154,20 @@ class PostHogQueue<Record> {
             fileQueue = PostHogFileBackedQueue(
                 queue: storage.url(forKey: endpoint.storageKey),
                 oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) },
-                maxSize: configuredMaxQueueSize
+                maxSize: configuredMaxQueueSize,
+                maxBytes: endpoint.maxQueueBytes,
+                // `flushIfOverThreshold` reads `byteCount` for the batch byte threshold.
+                trackBytes: endpoint.maxBatchBytes != nil
             )
             dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }
     #else
-        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ endpoint: QueueEndpoint<Record>) {
+        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ endpoint: QueueEndpoint<Record>,
+             jitterUnit: @escaping () -> Double = { Double.random(in: 0 ..< 1) })
+        {
             self.config = config
             self.endpoint = endpoint
+            self.jitterUnit = jitterUnit
             configuredMaxQueueSize = endpoint.maxQueueSize(config)
             timerInterval = endpoint.flushIntervalSeconds(config)
             batchLimits = .initial(cap: endpoint.initialCap(config), flushAt: endpoint.initialFlushAt(config))
@@ -134,7 +176,10 @@ class PostHogQueue<Record> {
             fileQueue = PostHogFileBackedQueue(
                 queue: storage.url(forKey: endpoint.storageKey),
                 oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) },
-                maxSize: configuredMaxQueueSize
+                maxSize: configuredMaxQueueSize,
+                maxBytes: endpoint.maxQueueBytes,
+                // `flushIfOverThreshold` reads `byteCount` for the batch byte threshold.
+                trackBytes: endpoint.maxBatchBytes != nil
             )
             dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }
@@ -154,15 +199,7 @@ class PostHogQueue<Record> {
         let isRetriable = statusCode == -1 || endpoint.isRetriableStatusCode(statusCode)
 
         if isRetriable {
-            let newCount = nextRetryCount()
-            let backoffDelay = min(TimeInterval(newCount) * retryDelay, maxRetryDelay)
-            var retryAfter = result.retryAfter ?? 0
-            if let maxRetryAfter = endpoint.maxRetryAfterSeconds {
-                retryAfter = min(retryAfter, maxRetryAfter)
-            }
-            let delay = max(backoffDelay, retryAfter)
-            pauseFor(seconds: delay)
-            hedgeLog("Pausing queue consumption for \(delay) seconds due to \(newCount) API failure(s).")
+            pauseForBackoff(retryAfter: result.retryAfter)
             payload.completion(false)
             return
         }
@@ -189,16 +226,34 @@ class PostHogQueue<Record> {
             return
         }
 
+        // A 2xx that asks to retry some records (capture V1) removes the rest
+        // and backs off before resending the kept ones.
+        if let retryRecordIds = result.retryRecordIds, !retryRecordIds.isEmpty {
+            pauseForBackoff(retryAfter: result.retryAfter)
+            payload.completeKeeping(retryRecordIds)
+            return
+        }
+
         // 2xx success or a terminal response removes the exact snapshotted
         // entries. The adaptive cap stays where it is.
         resetRetryState()
         payload.completion(true)
     }
 
+    private func pauseForBackoff(retryAfter: TimeInterval?) {
+        let newCount = nextRetryCount()
+        // A server's Retry-After can't hold the queue longer than the backoff ceiling
+        // or the endpoint's documented maximum, whichever is lower.
+        let retryAfterCap = min(maxRetryDelay, endpoint.maxRetryAfterSeconds ?? maxRetryDelay)
+        let delay = queueRetryDelay(attempt: newCount, jitterUnit: jitterUnit(),
+                                    retryAfter: retryAfter, retryAfterCap: retryAfterCap)
+        pauseFor(seconds: delay)
+        hedgeLog("Pausing queue consumption for \(delay) seconds due to \(newCount) API failure(s).")
+    }
+
     private func nextRetryCount() -> Int {
         stateLock.withLock {
-            let maximumBackoffStep = max(1, Int(maxRetryDelay / retryDelay))
-            if retryCount < maximumBackoffStep {
+            if retryCount < maxRetryBackoffStep {
                 retryCount += 1
             }
             return retryCount
@@ -325,7 +380,10 @@ class PostHogQueue<Record> {
 
     func flushIfOverThreshold() {
         let threshold = batchLimitsLock.withLock { batchLimits.flushAt }
-        if fileQueue.depth >= threshold {
+        // A full byte-sized batch also flushes, so large records go out before
+        // the queue's byte cap starts evicting them.
+        let overByteThreshold = endpoint.maxBatchBytes.map { fileQueue.byteCount >= $0 } == true
+        if fileQueue.depth >= threshold || overByteThreshold {
             flush()
         }
     }
@@ -351,11 +409,16 @@ class PostHogQueue<Record> {
             hedgeLog("Tried to queue unserialisable record")
             return false
         }
+        // Name and size only: AI properties can hold prompts and media.
+        if let maxRecordBytes = endpoint.maxRecordBytes, data.count > maxRecordBytes {
+            hedgeLog("Dropping \(endpoint.describe(record)) of \(data.count) bytes, over the \(maxRecordBytes) byte limit.")
+            return false
+        }
 
         let result = fileQueue.add(data, maxSize: configuredMaxQueueSize)
         guard result.success else { return false }
-        if result.evicted != nil {
-            hedgeLog("Queue is full, dropping oldest record")
+        if !result.evicted.isEmpty {
+            hedgeLog("Queue is full, dropped \(result.evicted.count) oldest record(s)")
         }
         hedgeLog("Queued \(endpoint.describe(record)). Depth: \(fileQueue.depth)")
         flushIfOverThreshold()
@@ -431,7 +494,8 @@ class PostHogQueue<Record> {
 
             // Bound this flush to its original FIFO window, including across
             // replay boundaries. Concurrent appends belong to a later flush.
-            let entries = self.fileQueue.peekEntries(count)
+            // A byte-limited endpoint reads about one batch, not the whole window.
+            let entries = self.fileQueue.peekEntries(count, maxBytes: self.endpoint.maxBatchBytes)
             self.consume(entries, from: 0, completion: completion)
         }
     }
@@ -450,6 +514,9 @@ class PostHogQueue<Record> {
 
         var processing: [Record] = []
         var selectedIds: [String] = []
+        // Entry ID -> `endpoint.recordId`, for removing all but retried records.
+        var recordIds: [String: String] = [:]
+        var batchBytes = 0
         var next = start
         while next < entries.count {
             let entry = entries[next]
@@ -460,14 +527,26 @@ class PostHogQueue<Record> {
                 {
                     break
                 }
+                if !processing.isEmpty, let maxBatchBytes = endpoint.maxBatchBytes,
+                   batchBytes + entry.data.count > maxBatchBytes
+                {
+                    break
+                }
+                batchBytes += entry.data.count
                 processing.append(record)
+                recordIds[entry.id] = endpoint.recordId?(record)
             }
             selectedIds.append(entry.id)
             next += 1
         }
         let nextIndex = next
 
-        completion(PostHogConsumerPayload(records: processing) { [weak self] success in
+        let finishFlush: () -> Void = { [weak self] in
+            guard let self else { return }
+            self.isFlushingLock.withLock { self.isFlushing = false }
+        }
+
+        completion(PostHogConsumerPayload(records: processing, completion: { [weak self] success in
             guard let self else { return }
             if success, !selectedIds.isEmpty {
                 self.fileQueue.remove(ids: selectedIds)
@@ -479,9 +558,19 @@ class PostHogQueue<Record> {
                     self?.consume(entries, from: nextIndex, completion: completion)
                 }
             } else {
-                self.isFlushingLock.withLock { self.isFlushing = false }
+                finishFlush()
             }
-        })
+        }, completeKeeping: { [weak self] keepRecordIds in
+            guard let self else { return }
+            let delivered = selectedIds.filter { id in
+                recordIds[id].map { !keepRecordIds.contains($0) } ?? true
+            }
+            if !delivered.isEmpty {
+                self.fileQueue.remove(ids: delivered)
+            }
+            hedgeLog("Completed \(delivered.count) of \(selectedIds.count) records, keeping the rest for retry.")
+            finishFlush()
+        }))
     }
 
     #if !os(watchOS)

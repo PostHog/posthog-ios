@@ -17,6 +17,7 @@ class MockPostHogServer {
     private var recordedSnapshotRequests = [URLRequest]()
     private var recordedLogsRequests = [URLRequest]()
     private var recordedFlagsRequests = [URLRequest]()
+    private var recordedAiRequests = [URLRequest]()
 
     var batchRequests: [URLRequest] {
         get { requestsLock.withLock { recordedBatchRequests } }
@@ -34,6 +35,14 @@ class MockPostHogServer {
         get { requestsLock.withLock { recordedFlagsRequests } }
         set { requestsLock.withLock { recordedFlagsRequests = newValue } }
     }
+    /// Requests to the capture V1 AI endpoint (`/i/v1/ai/events`), with buffered bodies.
+    var aiRequests: [URLRequest] {
+        get { requestsLock.withLock { recordedAiRequests } }
+        set { requestsLock.withLock { recordedAiRequests = newValue } }
+    }
+    /// Optional override for `/i/v1/ai/events` responses, given the request and its
+    /// 1-based number. When `nil`, every event gets an `ok` result.
+    var aiResponseHandler: ((URLRequest, Int) -> HTTPStubsResponse)?
     var batchExpectation: XCTestExpectation?
     var snapshotExpectation: XCTestExpectation?
     var logsExpectation: XCTestExpectation?
@@ -75,7 +84,7 @@ class MockPostHogServer {
     var logsResponseHandler: ((URLRequest, Int) -> HTTPStubsResponse)?
     var version: Int = 3
 
-    /// When set, `/batch` requests whose `api_key` differs are not recorded, so batches from other
+    /// When set, capture V1 requests whose Bearer token differs are not recorded, so batches from other
     /// tests' still-running SDK instances can't satisfy or inflate this server's expectations.
     var batchProjectToken: String?
     /// When set, `/flags` requests whose `api_key` differs are not recorded, for the same reason.
@@ -86,7 +95,8 @@ class MockPostHogServer {
         if let batchProjectToken {
             // Buffer the body: a stream-backed body can only be read once.
             request.httpBody = request.body()
-            guard parseRequest(request)?["api_key"] as? String == batchProjectToken else { return }
+            let token = request.value(forHTTPHeaderField: "Authorization").map { String($0.dropFirst("Bearer ".count)) }
+            guard token == batchProjectToken else { return }
         }
 
         requestsLock.lock()
@@ -141,11 +151,20 @@ class MockPostHogServer {
 
     var errorsWhileComputingFlags = false
     var return500 = false
-    /// Optional override for `/batch` responses. When set, takes precedence
+    /// Optional override for capture V1 responses. When set, takes precedence
     /// over `return500`. The closure receives the incoming request and the
     /// 1-based index of that request in the batch sequence so callers can
     /// vary the response (e.g. 413 then 200).
     var batchResponseHandler: ((URLRequest, Int) -> HTTPStubsResponse)?
+    /// Optional override for capture V1 (`/i/v1/analytics/events`) responses,
+    /// with the same arguments as `batchResponseHandler`. When `nil`, V1 uses
+    /// `batchResponseHandler`, then `return500`, then a 200 with per-event
+    /// results from `captureV1EventResult`.
+    var captureV1ResponseHandler: ((URLRequest, Int) -> HTTPStubsResponse)?
+    /// Per-event result (`ok`, `warning`, `drop`, `retry`) for the default V1
+    /// 200 response, given the event UUID and the 1-based request index.
+    /// `nil` returns `ok` for every event.
+    var captureV1EventResult: ((String, Int) -> String)?
     var returnReplay = false
     var returnReplayWithVariant = false
     var returnReplayWithMultiVariant = false
@@ -404,15 +423,40 @@ class MockPostHogServer {
             return response
         })
 
-        stubDescriptors.append(stub(condition: pathEndsWith("/batch")) { request in
-            if let handler = self.batchResponseHandler {
-                let index = self.batchRequests.count + 1
+        stubDescriptors.append(stub(condition: pathEndsWith("/i/v1/analytics/events")) { request in
+            // Buffer the body and record here: a stream-backed body can only be
+            // read once, and the default response needs the event UUIDs.
+            var request = request
+            request.httpBody = request.body()
+            let index = self.batchRequests.count + 1
+            defer { self.trackBatchRequest(request) }
+            if let handler = self.captureV1ResponseHandler ?? self.batchResponseHandler {
                 return handler(request, index)
             }
             if self.return500 {
                 return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
             }
-            return HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+            let uuids = (self.parseRequest(request)?["batch"] as? [[String: Any]] ?? []).compactMap { $0["uuid"] as? String }
+            var results: [String: Any] = [:]
+            for uuid in uuids {
+                results[uuid] = ["result": self.captureV1EventResult?(uuid, index) ?? "ok"]
+            }
+            return HTTPStubsResponse(jsonObject: ["results": results], statusCode: 200, headers: nil)
+        })
+
+        stubDescriptors.append(stub(condition: pathEndsWith("/i/v1/ai/events")) { request in
+            var request = request
+            request.httpBody = request.body()
+            let index = self.requestsLock.withLock { () -> Int in
+                self.recordedAiRequests.append(request)
+                return self.recordedAiRequests.count
+            }
+            if let handler = self.aiResponseHandler {
+                return handler(request, index)
+            }
+            let uuids = (self.parseRequest(request)?["batch"] as? [[String: Any]] ?? []).compactMap { $0["uuid"] as? String }
+            let results = Dictionary(uniqueKeysWithValues: uuids.map { ($0, ["result": "ok"]) })
+            return HTTPStubsResponse(jsonObject: ["results": results], statusCode: 200, headers: nil)
         })
 
         stubDescriptors.append(stub(condition: pathEndsWith("/s")) { _ in
@@ -572,9 +616,8 @@ class MockPostHogServer {
         })
 
         HTTPStubs.onStubActivation { request, _, _ in
-            if request.url?.lastPathComponent == "batch" {
-                self.trackBatchRequest(request)
-            } else if request.url?.lastPathComponent == "s" {
+            // Capture V1 requests are recorded by their stub.
+            if request.url?.lastPathComponent == "s" {
                 self.trackSnapshotRequest(request)
             } else if request.url?.lastPathComponent == "logs" {
                 self.trackLogsRequest(request)
@@ -606,6 +649,8 @@ class MockPostHogServer {
         snapshotRequests = []
         logsRequests = []
         flagsRequests = []
+        aiRequests = []
+        aiResponseHandler = nil
         pushSubscriptionRequests = []
         batchExpectation = XCTestExpectation(description: "\(batchCount) batch requests to occur")
         snapshotExpectation = XCTestExpectation(description: "\(snapshotCount) snapshot requests to occur")
@@ -621,6 +666,8 @@ class MockPostHogServer {
         errorsWhileComputingFlags = false
         return500 = false
         batchResponseHandler = nil
+        captureV1ResponseHandler = nil
+        captureV1EventResult = nil
         returnPushSubscription500 = false
         pushSubscriptionStatusCode = nil
         pushSubscriptionStatusHandler = nil
@@ -635,15 +682,45 @@ class MockPostHogServer {
         return try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
     }
 
+    static func isCaptureV1(_ request: URLRequest) -> Bool {
+        request.url.map { $0.path.hasSuffix("/i/v1/analytics/events") || $0.path.hasSuffix("/i/v1/ai/events") } == true
+    }
+
+    /// Decodes the events of a capture V1 request. It puts
+    /// back what the server injects (`$session_id`, `$window_id`, `$lib`,
+    /// `$lib_version` and the legacy property of each known option), so event
+    /// assertions don't depend on the transport. V1 events keep `options` too.
     func parsePostHogEvents(_ context: URLRequest) -> [PostHogEvent] {
         let data = parseRequest(context)
         guard let batchEvents = data?["batch"] as? [[String: Any]] else {
             return []
         }
 
+        var sdkInfo: (lib: String, version: String)?
+        if Self.isCaptureV1(context),
+           let header = context.value(forHTTPHeaderField: "PostHog-Sdk-Info"),
+           let slash = header.lastIndex(of: "/")
+        {
+            sdkInfo = (String(header[..<slash]), String(header[header.index(after: slash)...]))
+        }
+
         var events = [PostHogEvent]()
 
-        for event in batchEvents {
+        for var event in batchEvents {
+            if Self.isCaptureV1(context) {
+                var properties = event["properties"] as? [String: Any] ?? [:]
+                properties["$session_id"] = event["session_id"]
+                properties["$window_id"] = event["window_id"]
+                if let sdkInfo {
+                    properties["$lib"] = sdkInfo.lib
+                    properties["$lib_version"] = sdkInfo.version
+                }
+                let options = event["options"] as? [String: Any] ?? [:]
+                for (property, option) in PostHogApi.legacyOptionProperties {
+                    properties[property] = options[option]
+                }
+                event["properties"] = properties
+            }
             guard let posthogEvent = PostHogEvent.fromJSON(event) else { continue }
             events.append(posthogEvent)
         }

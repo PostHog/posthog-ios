@@ -35,6 +35,29 @@
         /// Note: When enabled, can be disabled remotely via project settings
         @objc public var captureNetworkTelemetry: Bool = true
 
+        /// Resolution of screenshots, as a multiplier of the screen's native resolution.
+        ///
+        /// - `nil`: one pixel per point on every device, so a 402×874 pt screen uploads 402×874 pixels.
+        /// - A value: that fraction of native resolution. On a 3x device, `1.0` uploads 1206×2622 pixels
+        ///   (native) and `0.5` uploads 603×1311 (1.5 pixels per point).
+        ///
+        /// Values are clamped to 0.1...1.0, and NaN or infinite values reset it to `nil`. The replay's viewport in
+        /// points is unchanged. Does not affect compression quality. Exposed as `NSNumber` so
+        /// Objective-C can leave it unset.
+        ///
+        /// Experimental.
+        /// Default: nil (one pixel per point)
+        @objc public var screenshotScale: NSNumber? {
+            didSet {
+                guard let value = screenshotScale?.doubleValue else { return }
+                screenshotScale = value.isFinite ? NSNumber(value: min(max(value, 0.1), 1)) : nil
+            }
+        }
+
+        func screenshotPixelScale(nativeScale: CGFloat) -> CGFloat {
+            screenshotScale.map { nativeScale * CGFloat($0.doubleValue) } ?? 1
+        }
+
         /// Throttle delay used to reduce the number of snapshots captured and reduce performance impact
         /// This is used for capturing the screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact

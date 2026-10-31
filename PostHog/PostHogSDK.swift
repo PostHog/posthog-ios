@@ -54,6 +54,7 @@ let maxRetryDelay = 30.0
     private let identifyLock = NSLock()
     private let emptyEventNameLock = NSLock()
     private var warnedEmptyEventName = false
+    var printWarning: (String) -> Void = hedgeLogWarning
 
     private let lastScreenLock = NSLock()
     private let replayDebugPropertiesLock = NSLock()
@@ -192,13 +193,13 @@ let maxRetryDelay = 30.0
             }
 
             if config.projectToken.isEmpty {
-                hedgeLog("PostHog SDK will be disabled because projectToken is empty.")
+                printWarning("PostHog SDK will be disabled because projectToken is empty.")
                 return
             }
 
             // PostHog rejects a personal API key for capture with a 401, and every event would be dropped.
             if config.projectToken.hasPrefix("phx_") {
-                hedgeLog("PostHog SDK will be disabled because projectToken is a personal API key (phx_...), not a project token (phc_...).")
+                printWarning("PostHog SDK will be disabled because projectToken is a personal API key (phx_...), not a project token (phc_...).")
                 return
             }
 

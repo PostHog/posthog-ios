@@ -10,7 +10,7 @@ This repo requires all commits to be signed. To configure commit signing, see th
 
 Use the repository's `make` wrappers rather than invoking `swift` or `xcodebuild` directly; [Makefile](Makefile) owns the commands and options.
 
-For initial setup, install Xcode 26 or later and, if needed, use `make bootstrap` to install xcpretty, SwiftLint, SwiftFormat and Periphery. Agents should report missing prerequisites rather than install tools without authorization. The package uses swift-tools-version 6.2 and compiles in Swift 5 language mode; use current stable Xcode as CI does.
+For initial setup, install Xcode 26 or later and, if needed, use `make bootstrap` to install xcpretty, SwiftLint, SwiftFormat, Periphery and [prek](https://github.com/j178/prek). Agents should report missing prerequisites rather than install tools without authorization. The package uses swift-tools-version 6.2 and compiles in Swift 5 language mode; use current stable Xcode as CI does.
 
 Iterate with focused checks, then run the core CI-aligned checks before submitting **SDK changes**:
 

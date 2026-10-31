@@ -1,5 +1,5 @@
 import Foundation
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 import XCTest
 
@@ -118,7 +118,7 @@ final class PostHogEventSnapshotTests {
         )
 
         let loaded = AsyncLatch()
-        sut.reloadFeatureFlags { loaded.signal() }
+        sut.reloadFeatureFlags { _ in loaded.signal() }
         await loaded.wait()
 
         let request = try #require(server.flagsRequests.first)
@@ -273,8 +273,7 @@ final class PostHogEventSnapshotTests {
         // destination (xcodebuild), absent under SwiftPM's macOS command-line test bundle.
         // Validate then omit so the golden doesn't depend on which host compiled the test.
         if let captureMode = properties["$sdk_debug_replay_capture_mode"] {
-            let mode = try #require(captureMode as? String)
-            #expect(mode == "wireframe" || mode == "screenshot")
+            #expect(captureMode as? String == "screenshot")
             properties.removeValue(forKey: "$sdk_debug_replay_capture_mode")
         }
         if let appBuild = properties["$app_build"] {

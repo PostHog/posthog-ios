@@ -207,7 +207,7 @@ class PostHogApi {
         }
 
         for event in events {
-            event.apiKey = config.projectToken
+            event.projectToken = config.projectToken
         }
 
         let toSend = events.map { $0.toJSON() }

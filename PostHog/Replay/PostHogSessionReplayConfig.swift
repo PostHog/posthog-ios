@@ -4,7 +4,7 @@
 //
 //  Created by Manoel Aranda Neto on 19.03.24.
 //
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
 
     /// Configuration for iOS session replay capture.
@@ -24,15 +24,6 @@
         /// Default: true
         @objc public var maskAllSandboxedViews: Bool = true
 
-        /// Deprecated placeholder for photo-library image masking.
-        ///
-        /// This property has no effect. To manually mask user photos, see the privacy controls
-        /// documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS
-        ///
-        /// Default: `false`.
-        @available(*, deprecated, message: "This property has no effect and will be removed in the next major release. To learn how to manually mask user photos please see our Privacy controls documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS")
-        @objc public var maskPhotoLibraryImages: Bool = false
-
         /// Enable recording touch coordinates in session replay. Screenshot capture is unaffected.
         /// Set before SDK setup. Runtime changes are not supported.
         /// Default: true
@@ -41,33 +32,17 @@
         /// Enable capturing network telemetry
         /// Default: true
         ///
-        /// Note: When enabled, can be disabled remotely via project settings (requires `PostHogConfig.remoteConfig` to be enabled)
+        /// Note: When enabled, can be disabled remotely via project settings
         @objc public var captureNetworkTelemetry: Bool = true
 
-        /// By default Session replay will capture all the views on the screen as a wireframe,
-        /// By enabling this option, PostHog will capture the screenshot of the screen.
-        /// The screenshot may contain sensitive information, use with caution.
-        /// Default: false
-        @objc public var screenshotMode: Bool = false
-
-        /// Schedule screenshot image capture on a background queue when `screenshotMode` is enabled.
-        ///
-        /// Warning: Enabling this option will trigger Main Thread Checker warnings and may
-        /// briefly freeze the app the first time a screenshot is captured. Consider disabling
-        /// Main Thread Checker in your scheme's run diagnostics when enabling this.
-        ///
-        /// Experimental.
-        /// Default: false
-        @objc public var screenshotModeBackgroundCapture: Bool = false
-
-        /// Resolution of `screenshotMode` screenshots, as a multiplier of the screen's native resolution.
+        /// Resolution of screenshots, as a multiplier of the screen's native resolution.
         ///
         /// - `nil`: one pixel per point on every device, so a 402×874 pt screen uploads 402×874 pixels.
         /// - A value: that fraction of native resolution. On a 3x device, `1.0` uploads 1206×2622 pixels
         ///   (native) and `0.5` uploads 603×1311 (1.5 pixels per point).
         ///
         /// Values are clamped to 0.1...1.0, and NaN or infinite values reset it to `nil`. The replay's viewport in
-        /// points is unchanged. Does not affect wireframe mode or compression quality. Exposed as `NSNumber` so
+        /// points is unchanged. Does not affect compression quality. Exposed as `NSNumber` so
         /// Objective-C can leave it unset.
         ///
         /// Experimental.
@@ -83,22 +58,10 @@
             screenshotScale.map { nativeScale * CGFloat($0.doubleValue) } ?? 1
         }
 
-        /// Debouncer delay used to reduce the number of snapshots captured and reduce performance impact
-        /// This is used for capturing the view as a wireframe or screenshot
-        /// The lower the number more snapshots will be captured but higher the performance impact
-        /// Defaults to 1s
-        @available(*, deprecated, message: "Deprecated in favor of 'throttleDelay' which provides identical functionality. Will be removed in the next major release.")
-        @objc public var debouncerDelay: TimeInterval {
-            get { throttleDelay }
-            set { throttleDelay = newValue }
-        }
-
         /// Throttle delay used to reduce the number of snapshots captured and reduce performance impact
-        /// This is used for capturing the view as a wireframe or screenshot
+        /// This is used for capturing the screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact
         /// Defaults to 1s
-        ///
-        /// Note: Previously `debouncerDelay`
         @objc public var throttleDelay: TimeInterval = 1
 
         /// Enable capturing console output for session replay.
@@ -114,7 +77,7 @@
         ///
         /// Defaults to `false`
         ///
-        /// Note: When enabled, can be disabled remotely via project settings (requires `PostHogConfig.remoteConfig` to be enabled)
+        /// Note: When enabled, can be disabled remotely via project settings
         @objc public var captureLogs: Bool = false
 
         /// Further configuration for capturing console output
@@ -141,19 +104,21 @@
             }
         }
 
-        /// Returns an array of plugin types based on current configuration
-        func getPluginTypes() -> [PostHogSessionReplayPlugin.Type] {
-            var types: [PostHogSessionReplayPlugin.Type] = []
+        #if !SWIFT_PACKAGE || SessionReplay
+            /// Returns an array of plugin types based on current configuration
+            func getPluginTypes() -> [PostHogSessionReplayPlugin.Type] {
+                var types: [PostHogSessionReplayPlugin.Type] = []
 
-            if captureLogs {
-                types.append(PostHogSessionReplayConsoleLogsPlugin.self)
+                if captureLogs {
+                    types.append(PostHogSessionReplayConsoleLogsPlugin.self)
+                }
+
+                if captureNetworkTelemetry {
+                    types.append(PostHogSessionReplayNetworkPlugin.self)
+                }
+
+                return types
             }
-
-            if captureNetworkTelemetry {
-                types.append(PostHogSessionReplayNetworkPlugin.self)
-            }
-
-            return types
-        }
+        #endif
     }
 #endif

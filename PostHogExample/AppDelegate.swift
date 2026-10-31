@@ -31,13 +31,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         #endif
 
         #if os(iOS)
-            if #available(iOS 15.0, *) {
-                config.surveys = true
-                // Uncomment to force-render any matching survey in a specific language regardless of device locale.
-                // config.surveysConfig.overrideDisplayLanguage = "fr"
-            }
+            config.surveys = true
+            // Uncomment to force-render any matching survey in a specific language regardless of device locale.
+            // config.surveysConfig.overrideDisplayLanguage = "fr"
             config.sessionReplay = false
-            config.sessionReplayConfig.screenshotMode = true
             config.sessionReplayConfig.maskAllTextInputs = true
             config.sessionReplayConfig.maskAllImages = true
             config.sessionReplayConfig.captureLogs = true
@@ -46,7 +43,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 // Skip some logs
                 guard !log.contains("[SKIP]") else { return nil }
                 // all logs are lowercased and info level
-                return PostHogLogEntry(level: .info, message: log.lowercased())
+                return PostHogConsoleLogEntry(level: .info, message: log.lowercased())
             }
         #endif
 
@@ -57,19 +54,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
 //        PostHogSDK.shared.identify("Manoel")
 
-        let defaultCenter = NotificationCenter.default
-
         #if os(iOS) || os(tvOS) || os(visionOS)
-            defaultCenter.addObserver(self,
-                                      selector: #selector(receiveFeatureFlags),
-                                      name: PostHogSDK.didReceiveFeatureFlags,
-                                      object: nil)
+            PostHogSDK.shared.onFeatureFlags { [weak self] _ in
+                self?.receiveFeatureFlags()
+            }
         #endif
 
         return true
     }
 
-    @objc func receiveFeatureFlags() {
+    func receiveFeatureFlags() {
         print("user receiveFeatureFlags callback")
         #if DEBUG
             let testFlag = PostHogSDK.shared.getFeatureFlag("bool-value")

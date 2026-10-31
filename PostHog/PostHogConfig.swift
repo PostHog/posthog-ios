@@ -13,7 +13,7 @@ import Foundation
 ///
 /// - Parameter event: The event about to be queued.
 /// - Returns: The event to queue, or `nil` to drop it.
-public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
+public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
 
 /// Runtime configuration for a `PostHogSDK` instance.
 ///
@@ -39,12 +39,9 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Network connectivity mode required before queued data may be flushed.
     @frozen @objc(PostHogDataMode) public enum PostHogDataMode: Int {
         /// Flush only while the device is connected to Wi-Fi.
-        case wifi
-        /// Behaves the same as `.any`. Use `.any` instead.
-        @available(*, deprecated, message: "Behaves the same as .any. Use .any instead. This will be removed in the next major version.")
-        case cellular
+        case wifi = 0
         /// Flush while any network connection is available.
-        case any
+        case any = 2
     }
 
     /// PostHog ingestion host used for all SDK network requests.
@@ -60,12 +57,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// This field was formerly named `apiKey`.
     @objc public let projectToken: String
 
-    /// Obsolete alias for `projectToken`.
-    @available(*, deprecated, message: "Use projectToken instead. This will be removed in the next major version.")
-    @objc public var apiKey: String {
-        hedgeLog("apiKey is deprecated and will be removed in the next major version. Use projectToken instead.")
-        return projectToken
-    }
     /// Number of queued events that triggers an automatic flush.
     ///
     /// Lower values send data sooner but can increase battery and network usage.
@@ -123,21 +114,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     ///
     /// Default: `true`.
     @objc public var preloadFeatureFlags: Bool = true
-
-    /// Deprecated no-op for remote config loading.
-    ///
-    /// Remote config is now always loaded; setting this property has no effect.
-    ///
-    /// - Deprecated: Remote config is always loaded. This option will be removed in a future version.
-    @available(*, deprecated, message: "Remote config is now always loaded. This option is a no-op and will be removed in a future version.")
-    @objc public var remoteConfig: Bool {
-        get { true }
-        set {
-            if !newValue {
-                hedgeLog("remoteConfig is deprecated and is now always enabled. Setting it to false has no effect.")
-            }
-        }
-    }
 
     /// Whether the SDK automatically captures application lifecycle events.
     ///
@@ -229,7 +205,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// here stalls the SDK's push retry/offline-resume flow (though not your app's main thread).
     ///
     /// Default: `nil` (requests carry no identity token).
-    @objc public var pushIdentityProvider: ((_ distinctId: String, _ appId: String, _ completion: @escaping (String?) -> Void) -> Void)?
+    @objc public var pushIdentityProvider: (@Sendable (_ distinctId: String, _ appId: String, _ completion: @escaping @Sendable (String?) -> Void) -> Void)?
 
     #if os(iOS) || targetEnvironment(macCatalyst)
         /// Enables UIKit element interaction autocapture on iOS and Mac Catalyst.
@@ -306,11 +282,12 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Hook used to customize newly generated anonymous IDs.
     ///
     /// The SDK passes its generated UUID v7 and stores the UUID returned by this closure.
-    /// Existing stored anonymous IDs are not regenerated.
+    /// Existing stored anonymous IDs are not regenerated. The closure can be called on any thread,
+    /// so it must not read main-actor state.
     ///
     /// - Parameter uuid: The SDK-generated anonymous UUID.
     /// - Returns: The UUID to persist as the anonymous ID.
-    @objc public var getAnonymousId: ((UUID) -> UUID) = { uuid in uuid }
+    @objc public var getAnonymousId: (@Sendable (UUID) -> UUID) = { uuid in uuid }
 
     /// Pre-seeded identity and feature-flag state applied during setup, before any
     /// network request completes.
@@ -347,18 +324,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Defaults to false.
     @objc public var reuseAnonymousId: Bool = false
 
-    private var _propertiesSanitizer: PostHogPropertiesSanitizer?
-    var legacyPropertiesSanitizer: PostHogPropertiesSanitizer? {
-        _propertiesSanitizer
-    }
-
-    /// Hook that allows to sanitize the event properties
-    /// The hook is called before the event is cached or sent over the wire
-    @available(*, deprecated, message: "Use beforeSend instead")
-    @objc public var propertiesSanitizer: PostHogPropertiesSanitizer? {
-        get { _propertiesSanitizer }
-        set { _propertiesSanitizer = newValue }
-    }
     /// Determines the behavior for processing user profiles.
     @objc public var personProfiles: PostHogPersonProfiles = .identifiedOnly
 
@@ -404,20 +369,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: nil (all flags are evaluated)
     @objc public var evaluationContexts: [String]?
 
-    /// Deprecated alias for `evaluationContexts`.
-    ///
-    /// - Deprecated: Use `evaluationContexts` instead. This property will be removed in a future version.
-    @available(*, deprecated, message: "Use evaluationContexts instead. This property will continue to work but will be removed in a future version.")
-    @objc public var evaluationEnvironments: [String]? {
-        get { evaluationContexts }
-        set {
-            if newValue != nil {
-                hedgeLog("evaluationEnvironments is deprecated. Use evaluationContexts instead.")
-            }
-            evaluationContexts = newValue
-        }
-    }
-
     /// The identifier of the App Group that should be used to store shared analytics data.
     /// PostHog will try to get the physical location of the App Group’s shared container, otherwise fallback to the default location
     /// Default: nil
@@ -427,7 +378,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     ///
     /// - Warning: This value is managed by the SDK from remote configuration and should not
     ///   be changed by application code.
-    @objc public var snapshotEndpoint: String = "/s/"
+    @_spi(PostHogInternal) public var snapshotEndpoint: String = "/s/"
 
     /// Default PostHog ingestion host for US Cloud projects.
     ///
@@ -448,8 +399,12 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// - iOS does not send `X-POSTHOG-WINDOW-ID` because mobile apps do not have a per-window/tab concept
         /// - Existing values for these headers will be overwritten
         @objc public var tracingHeaders: [String]?
+    #endif
 
+    #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
         /// Enable Recording of Session Replays for iOS
+        ///
+        /// With Swift Package Manager, this is only available with the `SessionReplay` package trait, which is enabled by default.
         ///
         /// Note: Ingestion controls (sampling, feature flags, and event triggers) are currently applied using AND logic.
         /// All configured conditions must be satisfied for recording to start.
@@ -457,6 +412,8 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// Default: false
         @objc public var sessionReplay: Bool = false
         /// Session Replay configuration
+        ///
+        /// With Swift Package Manager, this is only available with the `SessionReplay` package trait, which is enabled by default.
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 
@@ -469,35 +426,37 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Mutate fields on `config.logs` before calling `PostHogSDK.setup(_:)`.
     @objc public let logs: PostHogLogsConfig = .init()
 
-    /// Enable mobile surveys
-    ///
-    /// Default: true
-    ///
-    /// Note: Event triggers will only work with the instance that first enables surveys.
-    /// In case of multiple instances, please make sure you are capturing events on the instance that has config.surveys = true
-    @available(iOS 15.0, *)
-    @available(watchOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @available(tvOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @available(visionOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @objc public var surveys: Bool {
-        get { _surveys }
-        set { setSurveys(newValue) }
-    }
+    #if !SWIFT_PACKAGE || Surveys
+        /// Enable mobile surveys
+        ///
+        /// With Swift Package Manager, this is only available with the `Surveys` package trait, which is enabled by default.
+        ///
+        /// Default: true
+        ///
+        /// Note: Event triggers will only work with the instance that first enables surveys.
+        /// In case of multiple instances, please make sure you are capturing events on the instance that has config.surveys = true
+        @available(watchOS, unavailable, message: "Surveys are only available on iOS")
+        @available(macOS, unavailable, message: "Surveys are only available on iOS")
+        @available(tvOS, unavailable, message: "Surveys are only available on iOS")
+        @available(visionOS, unavailable, message: "Surveys are only available on iOS")
+        @objc public var surveys: Bool {
+            get { _surveys }
+            set { _surveys = newValue }
+        }
 
-    /// Configuration for mobile survey presentation and localization.
-    ///
-    /// Mutate fields on `config.surveysConfig` or replace this object before calling setup.
-    /// Available on iOS 15 and later.
-    @available(iOS 15.0, *)
-    @available(watchOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @available(tvOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @available(visionOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @objc public var surveysConfig: PostHogSurveysConfig {
-        get { _surveysConfig }
-        set { setSurveysConfig(newValue) }
-    }
+        /// Configuration for mobile survey presentation and localization.
+        ///
+        /// Mutate fields on `config.surveysConfig` or replace this object before calling setup.
+        /// With Swift Package Manager, this is only available with the `Surveys` package trait, which is enabled by default.
+        @available(watchOS, unavailable, message: "Surveys are only available on iOS")
+        @available(macOS, unavailable, message: "Surveys are only available on iOS")
+        @available(tvOS, unavailable, message: "Surveys are only available on iOS")
+        @available(visionOS, unavailable, message: "Surveys are only available on iOS")
+        @objc public var surveysConfig: PostHogSurveysConfig {
+            get { _surveysConfig }
+            set { _surveysConfig = newValue }
+        }
+    #endif
 
     /// Optional custom URLSessionConfiguration for network requests
     /// If not set, uses URLSessionConfiguration.default
@@ -526,7 +485,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     ///
     /// - Warning: This is an SDK extension point used internally to share identity storage
     ///   with SDK integrations and tests. Application code should not normally replace it.
-    public var storageManager: PostHogStorageManager?
+    @_spi(PostHogInternal) public var storageManager: PostHogStorageManager?
 
     private static func normalizeProjectToken(_ projectToken: String) -> String {
         projectToken.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -560,40 +519,11 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         self.host = URL(string: normalizedHost.isEmpty ? PostHogConfig.defaultHost : normalizedHost) ?? URL(string: PostHogConfig.defaultHost)!
     }
 
-    /// Creates a configuration using the deprecated `apiKey` name.
-    ///
-    /// - Parameter apiKey: Your PostHog project token.
-    /// - Deprecated: Use `init(projectToken:)` instead.
-    @available(*, deprecated, message: "Use init(projectToken:) instead. This will be removed in the next major version.")
-    @objc(apiKey:)
-    public convenience init(
-        apiKey: String
-    ) {
-        hedgeLog("apiKey is deprecated and will be removed in the next major version. Use projectToken instead.")
-        self.init(projectToken: apiKey)
-    }
-
-    /// Creates a configuration using the deprecated `apiKey` name and an explicit host.
-    ///
-    /// - Parameters:
-    ///   - apiKey: Your PostHog project token.
-    ///   - host: PostHog ingestion host. Empty or invalid values fall back to `defaultHost`.
-    /// - Deprecated: Use `init(projectToken:host:)` instead.
-    @available(*, deprecated, message: "Use init(projectToken:host:) instead. This will be removed in the next major version.")
-    @objc(apiKey:host:)
-    public convenience init(
-        apiKey: String,
-        host: String = defaultHost
-    ) {
-        hedgeLog("apiKey is deprecated and will be removed in the next major version. Use projectToken instead.")
-        self.init(projectToken: apiKey, host: host)
-    }
-
     /// Returns an array of integrations to be installed based on current configuration
     func getIntegrations() -> [PostHogIntegration] {
         var integrations: [PostHogIntegration] = []
 
-        #if os(iOS) || os(macOS) || os(tvOS)
+        #if (os(iOS) || os(macOS) || os(tvOS)) && (!SWIFT_PACKAGE || CrashReporting)
             if errorTrackingConfig.autoCapture {
                 integrations.append(PostHogErrorTrackingAutoCaptureIntegration())
             }
@@ -609,15 +539,18 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
             if tracingHeaders?.isEmpty == false {
                 integrations.append(PostHogTracingHeadersIntegration())
             }
+        #endif
 
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
             if sessionReplay {
                 integrations.append(PostHogReplayIntegration())
             }
+        #endif
 
+        #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
             if _surveys {
                 integrations.append(PostHogSurveyIntegration())
             }
-
         #endif
 
         #if os(iOS) || targetEnvironment(macCatalyst)
@@ -631,17 +564,15 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         #endif
 
         #if os(iOS) || os(macOS)
-            if #available(iOS 14.0, macOS 11.0, *) {
-                // Token registration is iOS-only in v1 (the backend rejects `macos`); opened-capture
-                // works on both platforms.
-                #if os(iOS)
-                    if capturePushNotificationSubscriptions {
-                        integrations.append(PostHogPushNotificationSubscriptionIntegration())
-                    }
-                #endif
-                if installsPushNotificationOpenIntegration {
-                    integrations.append(PostHogPushNotificationOpenIntegration())
+            // Token registration is iOS-only in v1 (the backend rejects `macos`); opened-capture
+            // works on both platforms.
+            #if os(iOS)
+                if capturePushNotificationSubscriptions {
+                    integrations.append(PostHogPushNotificationSubscriptionIntegration())
                 }
+            #endif
+            if installsPushNotificationOpenIntegration {
+                integrations.append(PostHogPushNotificationOpenIntegration())
             }
         #endif
 
@@ -657,23 +588,11 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         }
     #endif
 
-    var _surveys: Bool = true // swiftlint:disable:this identifier_name
-    private func setSurveys(_ value: Bool) {
-        // protection against objc API availability warning instead of error
-        // Unlike swift, which enforces stricter safety rules, objc just displays a warning
-        if #available(iOS 15.0, *) {
-            _surveys = value
-        }
-    }
+    #if !SWIFT_PACKAGE || Surveys
+        var _surveys: Bool = true // swiftlint:disable:this identifier_name
 
-    var _surveysConfig: PostHogSurveysConfig = .init() // swiftlint:disable:this identifier_name
-    private func setSurveysConfig(_ value: PostHogSurveysConfig) {
-        // protection against objc API availability warning instead of error
-        // Unlike swift, which enforces stricter safety rules, objc just displays a warning
-        if #available(iOS 15.0, *) {
-            _surveysConfig = value
-        }
-    }
+        var _surveysConfig: PostHogSurveysConfig = .init() // swiftlint:disable:this identifier_name
+    #endif
 
     /// Hook that allows to sanitize the event
     /// The hook is called before the event is cached or sent over the wire
@@ -696,13 +615,24 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         setBeforeSend(blocks)
     }
 
+    /// Replaces the event `beforeSend` chain with blocks from an array typed
+    /// `[(PostHogEvent) -> PostHogEvent?]`.
+    ///
+    /// The blocks can run on any thread, so they must be safe to call from any thread.
+    ///
+    /// - Parameter blocks: Ordered callbacks that can mutate or drop events.
+    @_disfavoredOverload
+    public func setBeforeSend(_ blocks: [(PostHogEvent) -> PostHogEvent?]) {
+        setBeforeSend(BeforeSendChain<PostHogEvent>.wrapping(blocks))
+    }
+
     /// Replaces the event `beforeSend` chain from Objective-C boxed callbacks.
     ///
     /// - Parameter blocks: Ordered Objective-C callback boxes.
     @available(swift, obsoleted: 1.0, message: "Use setBeforeSend(_ blocks: BeforeSendBlock...) instead")
     @objc public func setBeforeSend(_ blocks: [BoxedBeforeSendBlock]) {
         setBeforeSend(blocks.map { box in
-            { event in box.invokeSafely(with: event) }
+            { @Sendable event in box.invokeSafely(with: event) }
         })
     }
 

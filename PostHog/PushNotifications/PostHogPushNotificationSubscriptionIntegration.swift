@@ -10,7 +10,6 @@
     ///
     /// Swizzle installation and teardown are driven entirely by the publisher (via the subscriber-count
     /// callback), so this integration only owns the subscription token.
-    @available(iOS 14.0, *)
     final class PostHogPushNotificationSubscriptionIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { true }
 
@@ -65,7 +64,6 @@
     }
 
     #if TESTING
-        @available(iOS 14.0, *)
         extension PostHogPushNotificationSubscriptionIntegration {
             static func clearInstalls() {
                 integrationInstallState.clear()

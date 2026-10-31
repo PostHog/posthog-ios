@@ -5,10 +5,9 @@
 //  Created by Ioannis Josephides on 07/03/2025.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     import SwiftUI
 
-    @available(iOS 15.0, *)
     struct SurveysRootView: View {
         @EnvironmentObject private var displayManager: SurveyDisplayController
 

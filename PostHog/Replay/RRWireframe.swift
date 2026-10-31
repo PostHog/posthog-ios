@@ -16,12 +16,7 @@ class RRWireframe {
     var posY: Int = 0
     var width: Int = 0
     var height: Int = 0
-    var childWireframes: [RRWireframe]?
-    var type: String? // text|image|rectangle|input|div|screenshot
-    var inputType: String?
-    var text: String?
-    var label: String?
-    var value: Any? // string or number
+    var type: String? // screenshot
     #if os(iOS)
         var image: UIImage?
         var maskableWidgets: [CGRect]?
@@ -32,13 +27,6 @@ class RRWireframe {
         private(set) var maskRenderFailed = false
     #endif
     var base64: String?
-    var style: RRStyle?
-    var disabled: Bool?
-    var checked: Bool?
-    var options: [String]?
-    var max: Int?
-    // internal
-    var parentId: Int?
 
     #if os(iOS)
         private func hasMaskableWidgets() -> Bool {
@@ -103,21 +91,7 @@ class RRWireframe {
             "height": height,
         ]
 
-        if let childWireframes = childWireframes {
-            dict["childWireframes"] = childWireframes.map { $0.toDict() }
-        }
-
         dict["type"] = type
-
-        dict["inputType"] = inputType
-
-        dict["text"] = text
-
-        dict["label"] = label
-
-        if let value = value {
-            dict["value"] = value
-        }
 
         #if os(iOS)
             if let image = image {
@@ -141,18 +115,6 @@ class RRWireframe {
         #endif
 
         dict["base64"] = base64
-
-        if let style = style {
-            dict["style"] = style.toDict()
-        }
-
-        dict["disabled"] = disabled
-
-        dict["checked"] = checked
-
-        dict["options"] = options
-
-        dict["max"] = max
 
         return dict
     }

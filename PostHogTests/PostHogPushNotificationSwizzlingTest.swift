@@ -249,7 +249,6 @@
         }
 
         @Test("the public prewarm API reaches the publisher")
-        @available(iOS 14.0, macOS 11.0, *)
         func publicPrewarmApiReachesPublisher() {
             #expect(publisher.prewarmCount == 0)
             PostHogSDK.prewarmPushNotificationOpenCapture()
@@ -257,7 +256,6 @@
         }
 
         /// Mirrors `PostHogIntegrationInstallationTest.getSut`, trimmed to what the discard gate reads.
-        @available(iOS 14.0, macOS 11.0, *)
         private func makeSut(
             optOut: Bool = false,
             capturePushNotificationOpened: Bool = true,
@@ -269,8 +267,10 @@
             config.disableReachabilityForTesting = true
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false
-            config.errorTrackingConfig.autoCapture = false
-            #if os(iOS)
+            #if !SWIFT_PACKAGE || CrashReporting
+                config.errorTrackingConfig.autoCapture = false
+            #endif
+            #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 config.sessionReplay = false
             #endif
             config.optOut = optOut
@@ -286,7 +286,6 @@
         }
 
         @Test("setup() releases a prewarm when push-open capture is disabled")
-        @available(iOS 14.0, macOS 11.0, *)
         func setupDiscardsPrewarmWhenCaptureDisabled() {
             let sut = makeSut(capturePushNotificationOpened: false)
             defer { sut.close() }
@@ -297,7 +296,6 @@
         /// `setup()` skips `installIntegrations()` entirely while opted out, so the discard cannot
         /// live there without leaving an opted-out app swizzled for the process lifetime.
         @Test("setup() releases a prewarm while opted out, even with push-open capture enabled")
-        @available(iOS 14.0, macOS 11.0, *)
         func setupDiscardsPrewarmWhileOptedOut() {
             let sut = makeSut(optOut: true, capturePushNotificationOpened: true)
             defer { sut.close() }
@@ -306,7 +304,6 @@
         }
 
         @Test("setup() with push-open capture enabled does not discard the prewarm")
-        @available(iOS 14.0, macOS 11.0, *)
         func setupKeepsPrewarmWhenCaptureEnabled() {
             publisher.prewarmNotificationResponseCapture()
 

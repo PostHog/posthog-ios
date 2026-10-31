@@ -489,7 +489,7 @@
             private let integration = PostHogReplayIntegration()
 
             init() {
-                let config = PostHogConfig(apiKey: "phc_maskSnapshotTest")
+                let config = PostHogConfig(projectToken: "phc_maskSnapshotTest")
                 config.disableReachabilityForTesting = true
                 sdk = PostHogSDK.with(config)
                 _ = integration.install(sdk)

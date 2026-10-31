@@ -61,7 +61,6 @@ private final class SDKTestFixture {
                 captureApplicationLifecycleEvents: Bool = false,
                 flushAt: Int = 1,
                 optOut: Bool = false,
-                propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly,
                 setDefaultPersonProperties: Bool = true,
                 beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
@@ -75,7 +74,6 @@ private final class SDKTestFixture {
         config.disableFlushOnBackgroundForTesting = true
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.optOut = optOut
-        config.propertiesSanitizer = propertiesSanitizer
         config.personProfiles = personProfiles
         config.setDefaultPersonProperties = setDefaultPersonProperties
 
@@ -142,15 +140,13 @@ final class PostHogSDKTests {
                         sendFeatureFlagEvent: Bool = false,
                         captureApplicationLifecycleEvents: Bool = false,
                         flushAt: Int = 1,
-                        optOut: Bool = false,
-                        propertiesSanitizer: PostHogPropertiesSanitizer? = nil) -> PostHogSDK
+                        optOut: Bool = false) -> PostHogSDK
     {
         fixture.getSut(preloadFeatureFlags: preloadFeatureFlags,
                        sendFeatureFlagEvent: sendFeatureFlagEvent,
                        captureApplicationLifecycleEvents: captureApplicationLifecycleEvents,
                        flushAt: flushAt,
-                       optOut: optOut,
-                       propertiesSanitizer: propertiesSanitizer)
+                       optOut: optOut)
     }
 
     private func bootstrapReconcileConfig(existing: (anon: String, distinct: String?, identified: Bool)) -> PostHogConfig {
@@ -174,18 +170,6 @@ final class PostHogSDKTests {
     @Test("no-ops setup when project token is empty after trimming")
     func noOpsSetupWhenProjectTokenIsEmpty() {
         let config = PostHogConfig(projectToken: " \n\t ", host: "http://localhost:9001")
-
-        let sut = PostHogSDK.with(config)
-
-        #expect(sut.config.projectToken.isEmpty)
-        #expect(sut.storage == nil)
-        #expect(sut.getDistinctId().isEmpty)
-        #expect(sut.getSessionId() == nil)
-    }
-
-    @Test("no-ops setup when legacy api key is empty after trimming")
-    func noOpsSetupWhenLegacyApiKeyIsEmpty() {
-        let config = PostHogConfig(apiKey: " \n\t ", host: "http://localhost:9001")
 
         let sut = PostHogSDK.with(config)
 
@@ -471,38 +455,40 @@ final class PostHogSDKTests {
     }
 
     #if os(iOS)
-        @Test("captures $recording_status on every event and the full replay debug bundle on the first eligible SDK event only")
-        func capturesRecordingStatusAndReplayDebugBundle() throws {
-            server.reset(batchCount: 1)
-            let sut = getSut(flushAt: 3)
+        #if !SWIFT_PACKAGE || SessionReplay
+            @Test("captures $recording_status on every event and the full replay debug bundle on the first eligible SDK event only")
+            func capturesRecordingStatusAndReplayDebugBundle() throws {
+                server.reset(batchCount: 1)
+                let sut = getSut(flushAt: 3)
 
-            sut.capture("test event")
-            sut.screen("theScreen")
-            sut.capture("$exception", properties: ["foo": "bar"])
+                sut.capture("test event")
+                sut.screen("theScreen")
+                sut.capture("$exception", properties: ["foo": "bar"])
 
-            let events = getBatchedEvents(server)
-            try #require(events.count == 3)
+                let events = getBatchedEvents(server)
+                try #require(events.count == 3)
 
-            #expect(events[0].properties["$recording_status"] as? String == "disabled")
-            #expect(events[0].properties["$sdk_debug_session_start"] == nil)
-            #expect(events[0].properties["$sdk_debug_replay_capture_mode"] == nil)
+                #expect(events[0].properties["$recording_status"] as? String == "disabled")
+                #expect(events[0].properties["$sdk_debug_session_start"] == nil)
+                #expect(events[0].properties["$sdk_debug_replay_capture_mode"] == nil)
 
-            #expect(events[1].properties["$recording_status"] as? String == "disabled")
-            #expect(events[1].properties["$sdk_debug_replay_capture_mode"] as? String == "wireframe")
-            #expect(events[1].properties["$sdk_debug_session_start"] != nil)
+                #expect(events[1].properties["$recording_status"] as? String == "disabled")
+                #expect(events[1].properties["$sdk_debug_replay_capture_mode"] as? String == "screenshot")
+                #expect(events[1].properties["$sdk_debug_session_start"] != nil)
 
-            // Inside the 30s window opened by $screen.
-            #expect(events[2].properties["$recording_status"] as? String == "disabled")
-            #expect(events[2].properties["$sdk_debug_session_start"] == nil)
-            #expect(events[2].properties["$sdk_debug_replay_capture_mode"] == nil)
+                // Inside the 30s window opened by $screen.
+                #expect(events[2].properties["$recording_status"] as? String == "disabled")
+                #expect(events[2].properties["$sdk_debug_session_start"] == nil)
+                #expect(events[2].properties["$sdk_debug_replay_capture_mode"] == nil)
 
-            for event in events {
-                #expect(event.properties["$sdk_debug_pending_queue_size"] != nil)
+                for event in events {
+                    #expect(event.properties["$sdk_debug_pending_queue_size"] != nil)
+                }
+
+                sut.reset()
+                sut.close()
             }
-
-            sut.reset()
-            sut.close()
-        }
+        #endif
 
         @Test("excludes $recording_status and $sdk_debug_* properties from $snapshot events")
         func excludesRecordingStatusAndDebugPropertiesFromSnapshotEvents() throws {
@@ -534,23 +520,6 @@ final class PostHogSDKTests {
 
             #expect(props["$recording_status"] == nil)
             #expect(!props.keys.contains { $0.hasPrefix("$sdk_debug_") })
-
-            sut.reset()
-            sut.close()
-        }
-
-        @Test("reports screenshot capture mode for the flutter host")
-        func reportsScreenshotCaptureModeForFlutterHost() {
-            server.reset(batchCount: 1)
-            let original = postHogSdkName
-            postHogSdkName = "posthog-flutter"
-            defer { postHogSdkName = original }
-
-            let sut = getSut()
-            sut.screen("theScreen")
-
-            let events = getBatchedEvents(server)
-            #expect(events.first?.properties["$sdk_debug_replay_capture_mode"] as? String == "screenshot")
 
             sut.reset()
             sut.close()
@@ -600,12 +569,11 @@ final class PostHogSDKTests {
         let sut = getSut()
         sut.close()
 
-        var called = false
-        sut.reloadFeatureFlags {
-            called = true
-        }
+        var result: PostHogFeatureFlagsLoaded?
+        sut.reloadFeatureFlags { result = $0 }
 
-        #expect(called)
+        #expect(result?.errorsLoading == true)
+        #expect(result?.flags.isEmpty == true)
     }
 
     @Test("captures a screen event")
@@ -760,7 +728,7 @@ final class PostHogSDKTests {
         let group = DispatchGroup()
         group.enter()
 
-        sut.reloadFeatureFlags {
+        sut.reloadFeatureFlags { _ in
             group.leave()
         }
 
@@ -1515,24 +1483,6 @@ final class PostHogSDKTests {
         #expect(FileManager.default.fileExists(atPath: appFolder.path) == true)
     }
 
-    @Test("client sanitize properties")
-    func clientSanitizeProperties() throws {
-        let sanitizer = ExampleSanitizer()
-        let sut = getSut(propertiesSanitizer: sanitizer)
-
-        let props: [String: Any] = ["empty": ""]
-
-        sut.capture("event", properties: props)
-
-        let events = getBatchedEvents(server)
-
-        let event = try #require(events.first)
-        #expect(event.properties["empty"] as? String == nil)
-
-        sut.reset()
-        sut.close()
-    }
-
     @Test("reset reloads flags as anon user")
     func resetReloadsFlagsAsAnonUser() {
         let sut = getSut()
@@ -1635,7 +1585,7 @@ final class PostHogSDKTests {
         _ = sut.getFeatureFlag("some_key")
 
         let reloaded = XCTestExpectation(description: "second flag lookup completed")
-        sut.reloadFeatureFlags {
+        sut.reloadFeatureFlags { _ in
             _ = sut.getFeatureFlag("some_key")
             reloaded.fulfill()
         }
@@ -1661,7 +1611,7 @@ final class PostHogSDKTests {
         // Change the mock server to return a different value for the same key
         server.disabledFlag = true
 
-        sut.reloadFeatureFlags {
+        sut.reloadFeatureFlags { _ in
             // Second call gets a true value
             _ = sut.getFeatureFlag("disabled-flag")
             sut.capture("force_batch_flush")

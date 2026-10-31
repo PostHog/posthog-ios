@@ -16,21 +16,17 @@ class PostHogIntegrationInstallationTest {
     init() {
         server = MockPostHogServer()
         server.start()
-        #if os(iOS)
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
             PostHogReplayIntegration.clearInstalls()
         #endif
         #if os(iOS) || targetEnvironment(macCatalyst)
             PostHogAutocaptureIntegration.clearInstalls()
         #endif
         #if os(iOS) || os(macOS)
-            if #available(iOS 14.0, macOS 11.0, *) {
-                PostHogPushNotificationOpenIntegration.clearInstalls()
-            }
+            PostHogPushNotificationOpenIntegration.clearInstalls()
         #endif
         #if os(iOS)
-            if #available(iOS 14.0, *) {
-                PostHogPushNotificationSubscriptionIntegration.clearInstalls()
-            }
+            PostHogPushNotificationSubscriptionIntegration.clearInstalls()
         #endif
         PostHogAppLifeCycleIntegration.clearInstalls()
         PostHogScreenViewIntegration.clearInstalls()
@@ -63,7 +59,7 @@ class PostHogIntegrationInstallationTest {
         config.disableReachabilityForTesting = true
         config.enableSwizzling = enableSwizzling
 
-        #if os(iOS)
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
             config.sessionReplay = sessionReplay
         #endif
 
@@ -78,7 +74,9 @@ class PostHogIntegrationInstallationTest {
         #endif
 
         config.captureScreenViews = captureScreenViews
-        config.errorTrackingConfig.autoCapture = errorTrackingAutoCapture
+        #if !SWIFT_PACKAGE || CrashReporting
+            config.errorTrackingConfig.autoCapture = errorTrackingAutoCapture
+        #endif
 
         let storage = PostHogStorage(config)
         storage.reset()
@@ -86,7 +84,7 @@ class PostHogIntegrationInstallationTest {
         return PostHogSDK.with(config)
     }
 
-    #if os(iOS)
+    #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
         @Test("replay integration installed only once, on first instance")
         func replayIntegrationInstalledOnce() {
             let first = getSut(projectToken: "test_project_token", sessionReplay: true)
@@ -190,7 +188,7 @@ class PostHogIntegrationInstallationTest {
 
     // MARK: - Error tracking integration
 
-    #if os(iOS) || os(macOS) || os(tvOS)
+    #if (os(iOS) || os(macOS) || os(tvOS)) && (!SWIFT_PACKAGE || CrashReporting)
         @Test("error tracking integration installed on first launch before remote config arrives")
         func errorTrackingInstalledBeforeRemoteConfig() {
             // disableRemoteConfig=true means hasFetchedRemoteConfig stays false.
@@ -404,7 +402,6 @@ class PostHogIntegrationInstallationTest {
     #if os(iOS) || os(macOS)
         @Test("push notification opened integration installed only once, on first instance")
         func pushNotificationOpenedIntegrationInstalledOnce() async {
-            guard #available(iOS 14.0, macOS 11.0, *) else { return }
             let first = getSut(projectToken: "test_project_token", capturePushNotificationOpened: true)
             let second = getSut(projectToken: "test_project_token", capturePushNotificationOpened: true)
 
@@ -417,7 +414,6 @@ class PostHogIntegrationInstallationTest {
 
         @Test("push notification opened integration not installed when the flag is disabled")
         func pushNotificationOpenedIntegrationNotInstalledWhenDisabled() async {
-            guard #available(iOS 14.0, macOS 11.0, *) else { return }
             let sut = getSut(projectToken: "test_project_token", capturePushNotificationOpened: false)
 
             #expect(sut.getPushNotificationIntegration() == nil)
@@ -427,7 +423,6 @@ class PostHogIntegrationInstallationTest {
 
         @Test("push notification opened integration skipped when swizzling is disabled")
         func pushNotificationOpenedIntegrationSkippedWithoutSwizzling() async {
-            guard #available(iOS 14.0, macOS 11.0, *) else { return }
             let sut = getSut(projectToken: "test_project_token", enableSwizzling: false, capturePushNotificationOpened: true)
 
             #expect(sut.getPushNotificationIntegration() == nil)
@@ -440,7 +435,6 @@ class PostHogIntegrationInstallationTest {
     #if os(iOS)
         @Test("push notification subscription integration installed only once, on first instance")
         func pushNotificationSubscriptionIntegrationInstalledOnce() async {
-            guard #available(iOS 14.0, *) else { return }
             let first = getSut(projectToken: "test_project_token", capturePushNotificationSubscriptions: true)
             let second = getSut(projectToken: "test_project_token", capturePushNotificationSubscriptions: true)
 
@@ -453,7 +447,6 @@ class PostHogIntegrationInstallationTest {
 
         @Test("push notification subscription integration not installed when the flag is disabled")
         func pushNotificationSubscriptionIntegrationNotInstalledWhenDisabled() async {
-            guard #available(iOS 14.0, *) else { return }
             let sut = getSut(projectToken: "test_project_token", capturePushNotificationSubscriptions: false)
 
             #expect(sut.getPushNotificationSubscriptionIntegration() == nil)
@@ -463,7 +456,6 @@ class PostHogIntegrationInstallationTest {
 
         @Test("push notification subscription integration skipped when swizzling is disabled")
         func pushNotificationSubscriptionIntegrationSkippedWithoutSwizzling() async {
-            guard #available(iOS 14.0, *) else { return }
             let sut = getSut(projectToken: "test_project_token", enableSwizzling: false, capturePushNotificationSubscriptions: true)
 
             #expect(sut.getPushNotificationSubscriptionIntegration() == nil)

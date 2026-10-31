@@ -1,4 +1,4 @@
-.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility checkTestRegistration testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
+.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility checkTestRegistration testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap api apiCheck apiUpdate buildIOS buildSdkSpm buildSdkSpmNoTraits buildTestsSpmTraitsIOS testNoTraits
 
 build: buildSdk buildExamples
 
@@ -7,22 +7,34 @@ buildIOS:
 
 buildSdk:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=ios | xcpretty #ios
-	set -o pipefail && xcrun swift build --arch arm64 #macOS
+	$(MAKE) buildSdkSpm #macOS
+	$(MAKE) buildSdkSpmNoTraits #macOS + iOS, package traits off
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=macos | xcpretty #macOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination 'platform=macOS,variant=Mac Catalyst' | xcpretty #Mac Catalyst
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=tvos | xcpretty #tvOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=watchos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=xros | xcpretty #visionOS
 
+buildSdkSpm:
+	set -o pipefail && xcrun swift build --arch arm64
+
+# Builds with every package trait off, so libwebp and PLCrashReporter are not compiled or linked.
+# The iOS build covers the WebP gate, which macOS compiles out.
+buildSdkSpmNoTraits:
+	set -o pipefail && xcrun swift build --target PostHog --arch arm64 --disable-default-traits #macOS
+	set -o pipefail && xcrun swift build --target PostHog --disable-default-traits --triple arm64-apple-ios15.0 --sdk "$$(xcrun --sdk iphoneos --show-sdk-path)" #iOS
+
+# Compiles the iOS test target with traits off and with each trait on its own, so trait-gated SDK code and
+# the tests that use it stay in sync. `make test` runs on macOS, which compiles out the iOS-only code.
+buildTestsSpmTraitsIOS:
+	set -o pipefail && xcrun swift build --build-tests --disable-default-traits --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
+	set -o pipefail && xcrun swift build --build-tests --traits CrashReporting --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
+	set -o pipefail && xcrun swift build --build-tests --traits SessionReplay --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
+	set -o pipefail && xcrun swift build --build-tests --traits Surveys --triple arm64-apple-ios15.0-simulator --sdk "$$(xcrun --sdk iphonesimulator --show-sdk-path)" -Xswiftc -DTESTING
+
 buildExamples: \
 	buildExamplesPlatforms \
 	buildExampleXCFramework \
-	buildExamplePods \
-
-buildExamplePods: \
-	buildExamplePodsStaticLib \
-	buildExamplePodsStaticFramework \
-	buildExamplePodsDynamicFramework \
 
 buildExamplesPlatforms:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExample -destination generic/platform=ios | xcpretty #ios
@@ -35,30 +47,6 @@ buildExamplesPlatforms:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleAutocapture -destination generic/platform=ios | xcpretty #Autocapture
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleStoryboard -destination generic/platform=ios | xcpretty #Storyboard
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination 'platform=macOS,variant=Mac Catalyst' | xcpretty #Mac Catalyst SPM
-
-buildExamplePodsDynamicFramework:
-	cd PostHogExampleWithPods && \
-	USE_FRAMEWORKS=dynamic pod install && cd .. && \
-	set -o pipefail && xcrun xcodebuild clean build \
-		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
-		-scheme PostHogExampleWithPods \
-		-destination generic/platform=ios | xcpretty
-
-buildExamplePodsStaticFramework:
-	cd PostHogExampleWithPods && \
-	USE_FRAMEWORKS=static pod install && cd .. && \
-	set -o pipefail && xcrun xcodebuild clean build \
-		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
-		-scheme PostHogExampleWithPods \
-		-destination generic/platform=ios | xcpretty
-
-buildExamplePodsStaticLib:
-	cd PostHogExampleWithPods && \
-	pod install && cd .. && \
-	set -o pipefail && xcrun xcodebuild clean archive \
-		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
-		-scheme PostHogExampleWithPods \
-		-destination generic/platform=ios | xcpretty
 
 buildExampleXCFramework:
 	./PostHogExampleExternalSDK/build_xcframework.sh
@@ -122,9 +110,11 @@ testPresentationMasks:
 	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TEST_PRESENTATION_MASKS' \
 	  -only-testing:PostHogTests/PostHogMaskPresentationTest \
 	  -only-testing:PostHogTests/PostHogMaskPresentationPrivacyTest \
+	  -only-testing:PostHogTests/PostHogReplayLayoutCaptureTest \
 	  2>&1 | tee presentation-masks.log | xcpretty
 	@grep -q 'Suite "Replay masking behind a cover" passed' presentation-masks.log
 	@grep -q 'Suite "Replay presentation privacy" passed' presentation-masks.log
+	@grep -q 'Suite "Replay layout-driven capture" passed' presentation-masks.log
 
 .PHONY: testCameraReplay
 
@@ -202,6 +192,9 @@ testIOSResultParser:
 test: testUploadSymbols testIOSResultParser
 	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING $(if $(filter),--filter $(filter))
 
+testNoTraits:
+	set -o pipefail && swift test --no-parallel --disable-default-traits -Xswiftc -DTESTING $(if $(filter),--filter $(filter))
+
 recordEventShapeSnapshots:
 	UPDATE_EVENT_SHAPE_SNAPSHOTS=1 $(MAKE) test filter=PostHogEventSnapshotTests
 
@@ -219,30 +212,22 @@ lint: swiftFormatCheck swiftLintCheck
 api:
 	periphery scan
 
+# Checks both public API snapshots: the default build, and the Swift Package Manager build with every
+# package trait off (api/posthog-ios.public-api.no-traits.txt), where trait-gated public API is removed.
 apiCheck:
 	scripts/check-public-api.sh
+	scripts/check-public-api.sh --no-traits
 
 apiUpdate:
 	scripts/check-public-api.sh --update
+	scripts/check-public-api.sh --update --no-traits
 
 # requires gem and brew
 # xcpretty needs 'export LANG=en_US.UTF-8'
 bootstrap:
-	gem install cocoapods
 	gem install xcpretty
 	brew install swiftlint
 	brew install swiftformat
 	brew install peripheryapp/periphery/periphery
 	brew install prek
 	prek install
-
-# download SDKs and runtimes
-# create Apple Vision Pro simulator if missing
-# release pod
-releaseCocoaPods:
-	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms 
-	@if ! xcrun simctl list devices | grep -q "Apple Vision Pro"; then \
-		LATEST_RUNTIME=$$(xcrun simctl list runtimes | grep "com.apple.CoreSimulator.SimRuntime.xrOS" | sort -r | head -n 1 | awk '{print $$NF}') && \
-		xcrun simctl create "Apple Vision Pro" "Apple Vision Pro" "$$LATEST_RUNTIME"; \
-	fi
-	pod trunk push PostHog.podspec --allow-warnings

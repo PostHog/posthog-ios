@@ -6,16 +6,11 @@
 //
 // Adapted from: https://github.com/SDWebImage/SDWebImageWebPCoder/blob/master/SDWebImageWebPCoder/Classes/SDImageWebPCoder.m
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Accelerate
     import CoreGraphics
     import Foundation
-    #if compiler(>=6.0)
-        internal import phlibwebp
-    #else
-        // swiftlint:disable:next duplicate_imports
-        @_implementationOnly import phlibwebp
-    #endif
+    internal import phlibwebp
     import UIKit
 
     extension UIImage {

@@ -9,12 +9,7 @@
 #if os(iOS)
 
     import Foundation
-    #if compiler(>=6.0)
-        internal import PostHogObjCExceptionSupport
-    #else
-        // swiftlint:disable:next duplicate_imports
-        @_implementationOnly import PostHogObjCExceptionSupport
-    #endif
+    internal import PostHogObjCExceptionSupport
 
     final class URLSessionInstrumentation {
         typealias RequestModifier = (URLRequest) -> URLRequest
@@ -168,7 +163,7 @@
         private let downloadTaskWithURLAndCompletion: DownloadTaskWithURLAndCompletion
         private let downloadTaskWithRequest: DownloadTaskWithRequest
         private let downloadTaskWithURL: DownloadTaskWithURL
-        private let taskResume: TaskResume?
+        private let taskResume: TaskResume
 
         private var hasSwizzled = false
 
@@ -224,13 +219,7 @@
             )
             downloadTaskWithURL = try DownloadTaskWithURL.build(modifyRequest: modifyRequest)
 
-            // Async/await URLSession convenience APIs are iOS 15+, so only install the
-            // task-level resume fallback on those OS versions.
-            if #available(iOS 15, *) {
-                taskResume = try TaskResume.build(modifyRequest: modifyRequest)
-            } else {
-                taskResume = nil
-            }
+            taskResume = try TaskResume.build(modifyRequest: modifyRequest)
         }
 
         func swizzle() {
@@ -249,7 +238,7 @@
             downloadTaskWithURLAndCompletion.swizzle()
             downloadTaskWithRequest.swizzle()
             downloadTaskWithURL.swizzle()
-            taskResume?.swizzle()
+            taskResume.swizzle()
 
             hasSwizzled = true
         }
@@ -274,7 +263,7 @@
             downloadTaskWithURLAndCompletion.unswizzle()
             downloadTaskWithRequest.unswizzle()
             downloadTaskWithURL.unswizzle()
-            taskResume?.unswizzle()
+            taskResume.unswizzle()
 
             hasSwizzled = false
         }

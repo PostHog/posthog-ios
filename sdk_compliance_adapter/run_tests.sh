@@ -10,7 +10,7 @@ echo ""
 
 # Check prerequisites
 if ! command -v swift &> /dev/null; then
-    echo "❌ Error: Swift not found. Please install Swift 5.9+"
+    echo "❌ Error: Swift not found. Please install Swift 6.2+"
     exit 1
 fi
 

@@ -23,6 +23,7 @@
 		BF5E00000000000000000002 /* PHObjCExceptionCatcher.h in Headers */ = {isa = PBXBuildFile; fileRef = BF5E00000000000000000006 /* PHObjCExceptionCatcher.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BF5E00000000000000000003 /* PHObjCExceptionCatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = BF5E00000000000000000007 /* PHObjCExceptionCatcher.m */; };
 		D0E500012FA0000100000002 /* PostHogEventSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E500012FA0000100000001 /* PostHogEventSnapshotTests.swift */; };
+		D0E500022FA0000100000002 /* PostHogEventTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E500022FA0000100000001 /* PostHogEventTest.swift */; };
 		D0E500012FA0000100000021 /* event-shapes-batch.json in Resources */ = {isa = PBXBuildFile; fileRef = D0E500012FA0000100000011 /* event-shapes-batch.json */; };
 		D0E500012FA0000100000022 /* feature-flags-request.json in Resources */ = {isa = PBXBuildFile; fileRef = D0E500012FA0000100000012 /* feature-flags-request.json */; };
 		D0E500012FA0000100000023 /* session-replay-request.json in Resources */ = {isa = PBXBuildFile; fileRef = D0E500012FA0000100000013 /* session-replay-request.json */; };
@@ -43,7 +44,6 @@
 		D3D3D3D3D3D3D3D3D3D30004 /* NetworkSampleTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D3D3D3D3D3D3D3D3D30003 /* NetworkSampleTest.swift */; };
 		C0FFEE002F8000010000C006 /* PostHogMaskPresentationPrivacyTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE002F8000010000C005 /* PostHogMaskPresentationPrivacyTest.swift */; };
 		0A0A0A0A0A0A0A0A0A0A0002 /* PostHogStackFrameTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0A0A0A0A0A0A0A0A0A0001 /* PostHogStackFrameTest.swift */; };
-		E4E4E4E4E4E4E4E4E4E40002 /* RRStyleTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4E4E4E4E4E4E4E4E4E40001 /* RRStyleTest.swift */; };
 		F5F5F5F5F5F5F5F5F5F50002 /* PostHogBinaryImageInfoTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F5F5F5F5F5F5F5F5F50001 /* PostHogBinaryImageInfoTest.swift */; };
 		B2B2B2B2B2B2B2B2B2B20002 /* PostHogReactNativeMaskingTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B2B2B2B2B2B2B2B2B20001 /* PostHogReactNativeMaskingTest.swift */; };
 		B2B2B2B2B2B2B2B2B2B20004 /* PostHogMaskFailClosedTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B2B2B2B2B2B2B2B2B20003 /* PostHogMaskFailClosedTest.swift */; };
@@ -101,8 +101,6 @@
 		6A11C0DE2026092800000011 /* PostHogSurveySheetDetentsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A11C0DE2026092800000012 /* PostHogSurveySheetDetentsTest.swift */; };
 		6A11C0DE2026092800000003 /* PostHogHingeStatusTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A11C0DE2026092800000004 /* PostHogHingeStatusTest.swift */; };
 		690FF0BF2AEFA97F00A0B06B /* FileUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0BE2AEFA97F00A0B06B /* FileUtils.swift */; };
-		690FF0C52AEFAE8200A0B06B /* PostHogLegacyQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0C42AEFAE8200A0B06B /* PostHogLegacyQueue.swift */; };
-		690FF0DF2AEFBC5700A0B06B /* PostHogLegacyQueueTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0DE2AEFBC5700A0B06B /* PostHogLegacyQueueTest.swift */; };
 		690FF0E12AEFC59100A0B06B /* PostHogFileBackedQueueTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0E02AEFC59100A0B06B /* PostHogFileBackedQueueTest.swift */; };
 		690FF0E32AEFD12900A0B06B /* PostHogConfigTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0E22AEFD12900A0B06B /* PostHogConfigTest.swift */; };
 		6A0C1F2E3B4D5A6B7C8D9E02 /* PostHogOptOutPersistenceTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A0C1F2E3B4D5A6B7C8D9E01 /* PostHogOptOutPersistenceTest.swift */; };
@@ -128,8 +126,6 @@
 		69278D412AE6BC7200BB541A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 69278D402AE6BC7200BB541A /* Assets.xcassets */; };
 		69278D442AE6BC7200BB541A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 69278D422AE6BC7200BB541A /* LaunchScreen.storyboard */; };
 		69278D472AE6BC7200BB541A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 69278D462AE6BC7200BB541A /* main.m */; };
-		693E977B2C625208004B1030 /* PostHogPropertiesSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 693E977A2C625208004B1030 /* PostHogPropertiesSanitizer.swift */; };
-		693E977D2C6257F9004B1030 /* ExampleSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 693E977C2C6257F9004B1030 /* ExampleSanitizer.swift */; };
 		6955CB732C517651008EFD8D /* CGSize+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6955CB722C517651008EFD8D /* CGSize+Util.swift */; };
 		69779BEC2AE68E6900D7A48E /* UIViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69779BEB2AE68E6900D7A48E /* UIViewController.swift */; };
 		6992AA832AFE51A000087600 /* PostHogExampleTvOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6992AA822AFE51A000087600 /* PostHogExampleTvOSApp.swift */; };
@@ -157,20 +153,16 @@
 		69F23A782BB30991001194F6 /* NetworkSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F23A772BB30991001194F6 /* NetworkSample.swift */; };
 		69F23A7A2BB309F3001194F6 /* MethodSwizzler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F23A792BB309F3001194F6 /* MethodSwizzler.swift */; };
 		69F517E82BAC675800F52C14 /* RRWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517E72BAC675800F52C14 /* RRWireframe.swift */; };
-		69F517EA2BAC684F00F52C14 /* RRStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517E92BAC684F00F52C14 /* RRStyle.swift */; };
-		69F517F32BAC734300F52C14 /* UIColor+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517F22BAC734300F52C14 /* UIColor+Util.swift */; };
 		69F517FB2BAC768100F52C14 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517FA2BAC768100F52C14 /* AppDelegate.swift */; };
 		69F517FD2BAC768100F52C14 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517FC2BAC768100F52C14 /* SceneDelegate.swift */; };
 		69F517FF2BAC768100F52C14 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517FE2BAC768100F52C14 /* ViewController.swift */; };
 		69F518022BAC768100F52C14 /* Base in Resources */ = {isa = PBXBuildFile; fileRef = 69F518012BAC768100F52C14 /* Base */; };
 		69F518042BAC768300F52C14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 69F518032BAC768300F52C14 /* Assets.xcassets */; };
 		69F518072BAC768300F52C14 /* Base in Resources */ = {isa = PBXBuildFile; fileRef = 69F518062BAC768300F52C14 /* Base */; };
-		69F518122BAC783300F52C14 /* CGColor+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518112BAC783300F52C14 /* CGColor+Util.swift */; };
 		69F518142BAC7F4300F52C14 /* Date+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518132BAC7F4300F52C14 /* Date+Util.swift */; };
 		69F518162BAC7F9200F52C14 /* UIView+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518152BAC7F9200F52C14 /* UIView+Util.swift */; };
 		654EC5A16DFC454F974A30A0 /* PostHogMaskSettleAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = E25D0AE93D314E7FBE8DA8C7 /* PostHogMaskSettleAnalysis.swift */; };
 		C0FFEE002F8000010000C002 /* PostHogPresentationCover.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE002F8000010000C001 /* PostHogPresentationCover.swift */; };
-		69F518182BAC80A300F52C14 /* String+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518172BAC80A300F52C14 /* String+Util.swift */; };
 		69F5181A2BAC81FC00F52C14 /* UITextInputTraits+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */; };
 		69F518382BB2BA0100F52C14 /* PostHogSwizzler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */; };
 		56061CE612D20303BC7F7E0E /* PushNotificationPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 174C3A4BC40DB1C70B84B25E /* PushNotificationPublisher.swift */; };
@@ -338,6 +330,7 @@
 		DA578E982D6768BC00B3A56C /* PostHogScreenViewIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA578E972D6768B400B3A56C /* PostHogScreenViewIntegration.swift */; };
 		DA578E9C2D68578500B3A56C /* MockApplicationLifecyclePublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA578E9B2D68578500B3A56C /* MockApplicationLifecyclePublisher.swift */; };
 		C08700012E00000100000870 /* PostHogReplayCameraTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08700022E00000100000870 /* PostHogReplayCameraTest.swift */; };
+		C0870A012E00000100000A01 /* PostHogReplayLayoutCaptureTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0870A022E00000100000A01 /* PostHogReplayLayoutCaptureTest.swift */; };
 		C08700032E00000100000870 /* PostHogReplayScreenshotSizeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08700042E00000100000870 /* PostHogReplayScreenshotSizeTest.swift */; };
 		C02440012E00000100000244 /* PostHogViewControllerTraversalTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02440022E00000100000244 /* PostHogViewControllerTraversalTest.swift */; };
 		DA578E9E2D6858BA00B3A56C /* PostHogScreenViewIntegrationTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA578E9D2D6858B200B3A56C /* PostHogScreenViewIntegrationTest.swift */; };
@@ -467,8 +460,8 @@
 		DA8C9B982EC633FA00C6EADB /* PostHogErrorTrackingConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA8C9B962EC633FA00C6EADB /* PostHogErrorTrackingConfig.swift */; };
 		DA929C082D0B3A1D0018369C /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		DA929C092D0B3A1D0018369C /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		DA92C6412DCE09C700C02F3E /* PostHogLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6402DCE09C700C02F3E /* PostHogLogEntry.swift */; };
-		DA92C6492DCE09DE00C02F3E /* PostHogLogLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6482DCE09DE00C02F3E /* PostHogLogLevel.swift */; };
+		DA92C6412DCE09C700C02F3E /* PostHogConsoleLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6402DCE09C700C02F3E /* PostHogConsoleLogEntry.swift */; };
+		DA92C6492DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6482DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift */; };
 		DA92C64B2DCE1A2600C02F3E /* PostHogSessionReplayConsoleLogConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C64A2DCE1A2600C02F3E /* PostHogSessionReplayConsoleLogConfig.swift */; };
 		DA92C6632DCE304600C02F3E /* PostHogSessionReplayConsoleLogsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6602DCE304600C02F3E /* PostHogSessionReplayConsoleLogsPlugin.swift */; };
 		DA92C66B2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C66A2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift */; };
@@ -664,13 +657,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		690FF0332AE7C5BB00A0B06B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 690FF01E2AE7C5B900A0B06B;
-			remoteInfo = PostHogExampleWithPods;
-		};
 		690FF0572AE7DB3700A0B06B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */;
@@ -871,6 +857,7 @@
 		BF5E00000000000000000006 /* PHObjCExceptionCatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PHObjCExceptionCatcher.h; sourceTree = "<group>"; };
 		BF5E00000000000000000007 /* PHObjCExceptionCatcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PHObjCExceptionCatcher.m; sourceTree = "<group>"; };
 		D0E500012FA0000100000001 /* PostHogEventSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogEventSnapshotTests.swift; sourceTree = "<group>"; };
+		D0E500022FA0000100000001 /* PostHogEventTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogEventTest.swift; sourceTree = "<group>"; };
 		D0E500012FA0000100000011 /* event-shapes-batch.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; path = "event-shapes-batch.json"; sourceTree = "<group>"; };
 		D0E500012FA0000100000012 /* feature-flags-request.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; path = "feature-flags-request.json"; sourceTree = "<group>"; };
 		D0E500012FA0000100000013 /* session-replay-request.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; path = "session-replay-request.json"; sourceTree = "<group>"; };
@@ -894,7 +881,6 @@
 		D3D3D3D3D3D3D3D3D3D30003 /* NetworkSampleTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkSampleTest.swift; sourceTree = "<group>"; };
 		C0FFEE002F8000010000C005 /* PostHogMaskPresentationPrivacyTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskPresentationPrivacyTest.swift; sourceTree = "<group>"; };
 		0A0A0A0A0A0A0A0A0A0A0001 /* PostHogStackFrameTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStackFrameTest.swift; sourceTree = "<group>"; };
-		E4E4E4E4E4E4E4E4E4E40001 /* RRStyleTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RRStyleTest.swift; sourceTree = "<group>"; };
 		F5F5F5F5F5F5F5F5F5F50001 /* PostHogBinaryImageInfoTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBinaryImageInfoTest.swift; sourceTree = "<group>"; };
 		B2B2B2B2B2B2B2B2B2B20001 /* PostHogReactNativeMaskingTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReactNativeMaskingTest.swift; sourceTree = "<group>"; };
 		B2B2B2B2B2B2B2B2B2B20003 /* PostHogMaskFailClosedTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskFailClosedTest.swift; sourceTree = "<group>"; };
@@ -961,7 +947,6 @@
 		64F80D1792DC64921EF42266 /* PLCrashAsyncDwarfCFAState.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncDwarfCFAState.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncDwarfCFAState.cpp; sourceTree = "<group>"; };
 		68181997A5803BEDE63ABDEA /* PostHogLogRecord.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogRecord.swift; sourceTree = "<group>"; };
 		690B2DF22C205B5600AE3B45 /* TimeBasedEpochGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeBasedEpochGenerator.swift; sourceTree = "<group>"; };
-		690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithPods.xcodeproj; path = PostHogExampleWithPods/PostHogExampleWithPods.xcodeproj; sourceTree = "<group>"; };
 		690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithSPM.xcodeproj; path = PostHogExampleWithSPM/PostHogExampleWithSPM.xcodeproj; sourceTree = "<group>"; };
 		690FF05E2AE7E2D400A0B06B /* Data+Gzip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Gzip.swift"; sourceTree = "<group>"; };
 		690FF0AE2AEB9C1400A0B06B /* DateUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateUtils.swift; sourceTree = "<group>"; };
@@ -971,8 +956,6 @@
 		6A11C0DE2026092800000012 /* PostHogSurveySheetDetentsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveySheetDetentsTest.swift; sourceTree = "<group>"; };
 		6A11C0DE2026092800000004 /* PostHogHingeStatusTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogHingeStatusTest.swift; sourceTree = "<group>"; };
 		690FF0BE2AEFA97F00A0B06B /* FileUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileUtils.swift; sourceTree = "<group>"; };
-		690FF0C42AEFAE8200A0B06B /* PostHogLegacyQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogLegacyQueue.swift; sourceTree = "<group>"; };
-		690FF0DE2AEFBC5700A0B06B /* PostHogLegacyQueueTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogLegacyQueueTest.swift; sourceTree = "<group>"; };
 		690FF0E02AEFC59100A0B06B /* PostHogFileBackedQueueTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFileBackedQueueTest.swift; sourceTree = "<group>"; };
 		690FF0E22AEFD12900A0B06B /* PostHogConfigTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConfigTest.swift; sourceTree = "<group>"; };
 		6A0C1F2E3B4D5A6B7C8D9E01 /* PostHogOptOutPersistenceTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogOptOutPersistenceTest.swift; sourceTree = "<group>"; };
@@ -1001,8 +984,6 @@
 		69278D432AE6BC7200BB541A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		69278D452AE6BC7200BB541A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		69278D462AE6BC7200BB541A /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		693E977A2C625208004B1030 /* PostHogPropertiesSanitizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogPropertiesSanitizer.swift; sourceTree = "<group>"; };
-		693E977C2C6257F9004B1030 /* ExampleSanitizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleSanitizer.swift; sourceTree = "<group>"; };
 		6955CB722C517651008EFD8D /* CGSize+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGSize+Util.swift"; sourceTree = "<group>"; };
 		6957A9B66813CC8C7E9B818C /* PLCrashFrameWalker.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashFrameWalker.c; path = vendor/PHPLCrashReporter/Source/PLCrashFrameWalker.c; sourceTree = "<group>"; };
 		69779BEB2AE68E6900D7A48E /* UIViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIViewController.swift; sourceTree = "<group>"; };
@@ -1036,8 +1017,6 @@
 		69F23A772BB30991001194F6 /* NetworkSample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkSample.swift; sourceTree = "<group>"; };
 		69F23A792BB309F3001194F6 /* MethodSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MethodSwizzler.swift; sourceTree = "<group>"; };
 		69F517E72BAC675800F52C14 /* RRWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RRWireframe.swift; sourceTree = "<group>"; };
-		69F517E92BAC684F00F52C14 /* RRStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RRStyle.swift; sourceTree = "<group>"; };
-		69F517F22BAC734300F52C14 /* UIColor+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIColor+Util.swift"; sourceTree = "<group>"; };
 		69F517F82BAC768100F52C14 /* PostHogExampleStoryboard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PostHogExampleStoryboard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		69F517FA2BAC768100F52C14 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		69F517FC2BAC768100F52C14 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -1046,12 +1025,10 @@
 		69F518032BAC768300F52C14 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		69F518062BAC768300F52C14 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		69F518082BAC768300F52C14 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		69F518112BAC783300F52C14 /* CGColor+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGColor+Util.swift"; sourceTree = "<group>"; };
 		69F518132BAC7F4300F52C14 /* Date+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Util.swift"; sourceTree = "<group>"; };
 		69F518152BAC7F9200F52C14 /* UIView+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+Util.swift"; sourceTree = "<group>"; };
 		E25D0AE93D314E7FBE8DA8C7 /* PostHogMaskSettleAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PostHogMaskSettleAnalysis.swift"; sourceTree = "<group>"; };
 		C0FFEE002F8000010000C001 /* PostHogPresentationCover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogPresentationCover.swift; sourceTree = "<group>"; };
-		69F518172BAC80A300F52C14 /* String+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Util.swift"; sourceTree = "<group>"; };
 		69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UITextInputTraits+Util.swift"; sourceTree = "<group>"; };
 		69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSwizzler.swift; sourceTree = "<group>"; };
 		174C3A4BC40DB1C70B84B25E /* PushNotificationPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationPublisher.swift; sourceTree = "<group>"; };
@@ -1198,6 +1175,7 @@
 		DA578E992D676AE700B3A56C /* ApplicationScreenViewPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationScreenViewPublisher.swift; sourceTree = "<group>"; };
 		DA578E9B2D68578500B3A56C /* MockApplicationLifecyclePublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockApplicationLifecyclePublisher.swift; sourceTree = "<group>"; };
 		C08700022E00000100000870 /* PostHogReplayCameraTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReplayCameraTest.swift; sourceTree = "<group>"; };
+		C0870A022E00000100000A01 /* PostHogReplayLayoutCaptureTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReplayLayoutCaptureTest.swift; sourceTree = "<group>"; };
 		C08700042E00000100000870 /* PostHogReplayScreenshotSizeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReplayScreenshotSizeTest.swift; sourceTree = "<group>"; };
 		C02440022E00000100000244 /* PostHogViewControllerTraversalTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogViewControllerTraversalTest.swift; sourceTree = "<group>"; };
 		DA578E9D2D6858B200B3A56C /* PostHogScreenViewIntegrationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogScreenViewIntegrationTest.swift; sourceTree = "<group>"; };
@@ -1386,8 +1364,8 @@
 		DA879D792F9CC8AD0036A854 /* PostHogGraphicsImageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogGraphicsImageRenderer.swift; sourceTree = "<group>"; };
 		DA8C9B962EC633FA00C6EADB /* PostHogErrorTrackingConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogErrorTrackingConfig.swift; sourceTree = "<group>"; };
 		DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleAutocapture.xcodeproj; path = PostHogExampleAutocapture/PostHogExampleAutocapture.xcodeproj; sourceTree = "<group>"; };
-		DA92C6402DCE09C700C02F3E /* PostHogLogEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogLogEntry.swift; sourceTree = "<group>"; };
-		DA92C6482DCE09DE00C02F3E /* PostHogLogLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogLogLevel.swift; sourceTree = "<group>"; };
+		DA92C6402DCE09C700C02F3E /* PostHogConsoleLogEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConsoleLogEntry.swift; sourceTree = "<group>"; };
+		DA92C6482DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConsoleLogLevel.swift; sourceTree = "<group>"; };
 		DA92C64A2DCE1A2600C02F3E /* PostHogSessionReplayConsoleLogConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayConsoleLogConfig.swift; sourceTree = "<group>"; };
 		DA92C6602DCE304600C02F3E /* PostHogSessionReplayConsoleLogsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayConsoleLogsPlugin.swift; sourceTree = "<group>"; };
 		DA92C66A2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayPlugin.swift; sourceTree = "<group>"; };
@@ -1752,7 +1730,6 @@
 				DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */,
 				690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */,
 				690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */,
-				690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */,
 				3AAFB13129C0C699004F485B /* Package.swift */,
 				3AC745B7296D6FE60025C109 /* PostHog */,
 				3AC745C3296D6FE60025C109 /* PostHogTests */,
@@ -1822,9 +1799,7 @@
 				6926DA8D2ADD2876005760D2 /* PostHogContext.swift */,
 				6A11C0DE2026092800000002 /* PostHogHingeStatusObserver.swift */,
 				69779BEB2AE68E6900D7A48E /* UIViewController.swift */,
-				690FF0C42AEFAE8200A0B06B /* PostHogLegacyQueue.swift */,
 				69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */,
-				693E977A2C625208004B1030 /* PostHogPropertiesSanitizer.swift */,
 				69ED1A5B2C7F15F300FE7A91 /* PostHogSessionManager.swift */,
 				B5EB989F28A201A9F44026EE /* PostHogCompression.swift */,
 				69ED1A9E2C8F451B00FE7A91 /* PostHogPersonProfiles.swift */,
@@ -1862,6 +1837,7 @@
 				B74800000000000000000004 /* PostHogTests-Bridging-Header.h */,
 				B74800000000000000000003 /* PostHogPushNotificationSwizzlingTest.swift */,
 				D0E500012FA0000100000001 /* PostHogEventSnapshotTests.swift */,
+				D0E500022FA0000100000001 /* PostHogEventTest.swift */,
 				DA27AEC82F56B3F3002A59CE /* PostHogSamplingTest.swift */,
 				DA27AEF12F56B3F3002A59CE /* PostHogGeoIpTest.swift */,
 				DB7100052F80000100000001 /* PostHogTracingHeadersTest.swift */,
@@ -1876,7 +1852,6 @@
 				0A0A0A0A0A0A0A0A0A0A0001 /* PostHogStackFrameTest.swift */,
 				D3D3D3D3D3D3D3D3D3D30001 /* RRWireframeTest.swift */,
 				D3D3D3D3D3D3D3D3D3D30003 /* NetworkSampleTest.swift */,
-				E4E4E4E4E4E4E4E4E4E40001 /* RRStyleTest.swift */,
 				F5F5F5F5F5F5F5F5F5F50001 /* PostHogBinaryImageInfoTest.swift */,
 				B2B2B2B2B2B2B2B2B2B20001 /* PostHogReactNativeMaskingTest.swift */,
 				B2B2B2B2B2B2B2B2B2B20003 /* PostHogMaskFailClosedTest.swift */,
@@ -1900,7 +1875,6 @@
 				6A11C0DE2026092300000002 /* PostHogContextScreenSizeTest.swift */,
 				6A11C0DE2026092800000012 /* PostHogSurveySheetDetentsTest.swift */,
 				6A11C0DE2026092800000004 /* PostHogHingeStatusTest.swift */,
-				690FF0DE2AEFBC5700A0B06B /* PostHogLegacyQueueTest.swift */,
 				DA4FFB142DA93C78006BAEEA /* PostHogSessionReplayTest.swift */,
 				DA4FFB182DA93C78006BAEEA /* PostHogReplayScreenshotDedupTest.swift */,
 				EA5700022DA93C78006BAEEA /* PostHogReplayCaptureTouchesTest.swift */,
@@ -1916,6 +1890,7 @@
 				DA6F24812D4A6CA100CA2777 /* PostHogApiTest.swift */,
 				DA578E9D2D6858B200B3A56C /* PostHogScreenViewIntegrationTest.swift */,
 				C08700022E00000100000870 /* PostHogReplayCameraTest.swift */,
+				C0870A022E00000100000A01 /* PostHogReplayLayoutCaptureTest.swift */,
 				C08700042E00000100000870 /* PostHogReplayScreenshotSizeTest.swift */,
 				C02440022E00000100000244 /* PostHogViewControllerTraversalTest.swift */,
 				DACF6D5C2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift */,
@@ -1932,7 +1907,6 @@
 				DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */,
 				699C5FEE2C20242A007DB818 /* UUIDTest.swift */,
 				DAF95F602D077C1C001E82BB /* PostHogWebPTest.swift */,
-				693E977C2C6257F9004B1030 /* ExampleSanitizer.swift */,
 				69ED1AB52C90711D00FE7A91 /* PostHogSDKPersonProfilesTest.swift */,
 				DA52CAD22F2402E000305F3D /* PostHogMulticastCallbackTest.swift */,
 				DA52CAEE2F24319800305F3D /* PostHogSessionReplayPluginTest.swift */,
@@ -1954,14 +1928,6 @@
 				D80D0EFDC8AA37740A78B15E /* PostHogSurveyTranslationsTest.swift */,
 			);
 			path = PostHogTests;
-			sourceTree = "<group>";
-		};
-		690FF0302AE7C5BA00A0B06B /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				690FF0342AE7C5BB00A0B06B /* PostHogExampleWithPods.app */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 		690FF0542AE7DB3700A0B06B /* Products */ = {
@@ -2080,14 +2046,10 @@
 				69EE82BB2BA9C53000EB9542 /* PostHogSessionReplayConfig.swift */,
 				69EE82CD2BAAC76000EB9542 /* ViewTreeSnapshotStatus.swift */,
 				69F517E72BAC675800F52C14 /* RRWireframe.swift */,
-				69F517E92BAC684F00F52C14 /* RRStyle.swift */,
-				69F517F22BAC734300F52C14 /* UIColor+Util.swift */,
-				69F518112BAC783300F52C14 /* CGColor+Util.swift */,
 				69F518132BAC7F4300F52C14 /* Date+Util.swift */,
 				69F518152BAC7F9200F52C14 /* UIView+Util.swift */,
 				E25D0AE93D314E7FBE8DA8C7 /* PostHogMaskSettleAnalysis.swift */,
 				C0FFEE002F8000010000C001 /* PostHogPresentationCover.swift */,
-				69F518172BAC80A300F52C14 /* String+Util.swift */,
 				DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */,
 				69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */,
 				69F23A772BB30991001194F6 /* NetworkSample.swift */,
@@ -2483,8 +2445,8 @@
 			isa = PBXGroup;
 			children = (
 				DA92C6602DCE304600C02F3E /* PostHogSessionReplayConsoleLogsPlugin.swift */,
-				DA92C6482DCE09DE00C02F3E /* PostHogLogLevel.swift */,
-				DA92C6402DCE09C700C02F3E /* PostHogLogEntry.swift */,
+				DA92C6482DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift */,
+				DA92C6402DCE09C700C02F3E /* PostHogConsoleLogEntry.swift */,
 				DA74644E2DC8D58100C7D394 /* PostHogConsoleLogInterceptor.swift */,
 			);
 			path = "Console Logs";
@@ -3225,10 +3187,6 @@
 					ProjectRef = 690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */;
 				},
 				{
-					ProductGroup = 690FF0302AE7C5BA00A0B06B /* Products */;
-					ProjectRef = 690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */;
-				},
-				{
 					ProductGroup = 690FF0542AE7DB3700A0B06B /* Products */;
 					ProjectRef = 690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */;
 				},
@@ -3249,13 +3207,6 @@
 /* End PBXProject section */
 
 /* Begin PBXReferenceProxy section */
-		690FF0342AE7C5BB00A0B06B /* PostHogExampleWithPods.app */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.application;
-			path = PostHogExampleWithPods.app;
-			remoteRef = 690FF0332AE7C5BB00A0B06B /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
 		690FF0582AE7DB3700A0B06B /* PostHogExampleWithSPM.app */ = {
 			isa = PBXReferenceProxy;
 			fileType = wrapper.application;
@@ -3447,7 +3398,6 @@
 				69261D1F2AD9681300232EC7 /* PostHogConsumerPayload.swift in Sources */,
 				DAB565DF2D14C5660088F720 /* PostHogTagViewModifier.swift in Sources */,
 				6955CB732C517651008EFD8D /* CGSize+Util.swift in Sources */,
-				69F517EA2BAC684F00F52C14 /* RRStyle.swift in Sources */,
 				DA0CA6F12CFF6B6300AF9500 /* UIWindow+.swift in Sources */,
 				DAB9E23C2DE8901D00E62DB9 /* PostHogSessionReplayNetworkPlugin.swift in Sources */,
 				DB7100012F80000100000001 /* PostHogTracingHeadersIntegration.swift in Sources */,
@@ -3500,7 +3450,6 @@
 				69ED1A5C2C7F15F300FE7A91 /* PostHogSessionManager.swift in Sources */,
 				69F518142BAC7F4300F52C14 /* Date+Util.swift in Sources */,
 				DA86D0E32E02D78C00CF3065 /* PostHogSurveysDefaultDelegate.swift in Sources */,
-				69F518182BAC80A300F52C14 /* String+Util.swift in Sources */,
 				DA9AE9602D8E9960002F1B44 /* EdgeBorder.swift in Sources */,
 				DA9CE32B2D3108AD00DFE652 /* analysis_enc.c in Sources */,
 				DA9CE32C2D3108AD00DFE652 /* lossless_enc_neon.c in Sources */,
@@ -3533,7 +3482,7 @@
 				DA9CE3422D3108AD00DFE652 /* rescaler_sse2.c in Sources */,
 				DA9CE3432D3108AD00DFE652 /* lossless_enc.c in Sources */,
 				DA9CE3442D3108AD00DFE652 /* alpha_processing_sse2.c in Sources */,
-				DA92C6412DCE09C700C02F3E /* PostHogLogEntry.swift in Sources */,
+				DA92C6412DCE09C700C02F3E /* PostHogConsoleLogEntry.swift in Sources */,
 				DA9CE3452D3108AD00DFE652 /* vp8l_enc.c in Sources */,
 				DA9CE3462D3108AD00DFE652 /* dec_sse2.c in Sources */,
 				DA9CE3472D3108AD00DFE652 /* sharpyuv.c in Sources */,
@@ -3622,15 +3571,13 @@
 				DA9CE3812D3108AD00DFE652 /* sharpyuv_neon.c in Sources */,
 				69ED1A882C89B73100FE7A91 /* PostHogSwiftUIViewModifiers.swift in Sources */,
 				69F5181A2BAC81FC00F52C14 /* UITextInputTraits+Util.swift in Sources */,
-				DA92C6492DCE09DE00C02F3E /* PostHogLogLevel.swift in Sources */,
+				DA92C6492DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift in Sources */,
 				DAF95F512D072F04001E82BB /* UIImage+WebP.swift in Sources */,
 				69F517E82BAC675800F52C14 /* RRWireframe.swift in Sources */,
-				693E977B2C625208004B1030 /* PostHogPropertiesSanitizer.swift in Sources */,
 				DA74644F2DC8D58100C7D394 /* PostHogConsoleLogInterceptor.swift in Sources */,
 				DAFEC4552E03F8EF0064535E /* PostHogNextSurveyQuestion.swift in Sources */,
 				3AE3FB3D29924E8200AFFC18 /* PostHogSDK.swift in Sources */,
 				DA690C6A2DA54BCC0045FF4E /* PostHogSurveyAppearance.swift in Sources */,
-				69F517F32BAC734300F52C14 /* UIColor+Util.swift in Sources */,
 				3AE3FB3F29924F4F00AFFC18 /* PostHogConfig.swift in Sources */,
 				69F518382BB2BA0100F52C14 /* PostHogSwizzler.swift in Sources */,
 				56061CE612D20303BC7F7E0E /* PushNotificationPublisher.swift in Sources */,
@@ -3643,7 +3590,6 @@
 				DA3BB5052EDF15320097A97A /* PostHogStackFrame.swift in Sources */,
 				DACC08BB2D6E3C6D00115E46 /* PostHogIntegration.swift in Sources */,
 				DAD5DD0C2CB6DEF30087387B /* PostHogMaskViewModifier.swift in Sources */,
-				690FF0C52AEFAE8200A0B06B /* PostHogLegacyQueue.swift in Sources */,
 				3AE3FB332991388500AFFC18 /* PostHogQueue.swift in Sources */,
 				DA1044882D0B1D2D00C4ACF3 /* View+PostHogLabel.swift in Sources */,
 				DAA1B2F12F8C100000112233 /* View+PostHogNoRageClick.swift in Sources */,
@@ -3681,7 +3627,6 @@
 				690B2DF32C205B5600AE3B45 /* TimeBasedEpochGenerator.swift in Sources */,
 				69261D1D2AD967CD00232EC7 /* PostHogFileBackedQueue.swift in Sources */,
 				3AE3FB432992985A00AFFC18 /* Reachability.swift in Sources */,
-				69F518122BAC783300F52C14 /* CGColor+Util.swift in Sources */,
 				D44A33B824C72C49F5A38E0E /* PLCrashAsync.c in Sources */,
 				990B703A6620B474798DD770 /* PLCrashAsyncCompactUnwindEncoding.c in Sources */,
 				ABB09493E02B20855285B547 /* PLCrashAsyncMObject.c in Sources */,
@@ -3771,6 +3716,7 @@
 				BF5E00000000000000000001 /* PHBeforeSendExceptionTestFixture.m in Sources */,
 				B74800000000000000000002 /* PHNotificationDelegateTestFixture.m in Sources */,
 				D0E500012FA0000100000002 /* PostHogEventSnapshotTests.swift in Sources */,
+				D0E500022FA0000100000002 /* PostHogEventTest.swift in Sources */,
 				DA979D7B2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift in Sources */,
 				DA0C944B2D54CDD000BFD9FB /* PostHogStorageMigrationTest.swift in Sources */,
 				690FF0F52AF0F06100A0B06B /* PostHogSDKTest.swift in Sources */,
@@ -3798,6 +3744,7 @@
 				69ED1AB62C90711D00FE7A91 /* PostHogSDKPersonProfilesTest.swift in Sources */,
 				DA578E9E2D6858BA00B3A56C /* PostHogScreenViewIntegrationTest.swift in Sources */,
 				C08700012E00000100000870 /* PostHogReplayCameraTest.swift in Sources */,
+				C0870A012E00000100000A01 /* PostHogReplayLayoutCaptureTest.swift in Sources */,
 				C08700032E00000100000870 /* PostHogReplayScreenshotSizeTest.swift in Sources */,
 				C02440012E00000100000244 /* PostHogViewControllerTraversalTest.swift in Sources */,
 				3A62646A29C9E385007E8C07 /* MockPostHogServer.swift in Sources */,
@@ -3817,7 +3764,6 @@
 				AAC0FFEE2E20000100000002 /* PostHogMaskingCharacterizationTest.swift in Sources */,
 				3A62647129CAF67B007E8C07 /* PostHogStorageManagerTest.swift in Sources */,
 				DA5E52EB2E0996C400159D20 /* PostHogSurveyEnumsTest.swift in Sources */,
-				693E977D2C6257F9004B1030 /* ExampleSanitizer.swift in Sources */,
 				1F5558262DFC4802007643C0 /* PostHogStorageMergeTest.swift in Sources */,
 				A1A1A1A1A1A1A1A1A1A10002 /* PostHogMaskScenarioTest.swift in Sources */,
 				A1A1A1A1A1A1A1A1A1A1F002 /* PostHogMaskFlattenedContentTest.swift in Sources */,
@@ -3826,7 +3772,6 @@
 				0A0A0A0A0A0A0A0A0A0A0002 /* PostHogStackFrameTest.swift in Sources */,
 				D3D3D3D3D3D3D3D3D3D30002 /* RRWireframeTest.swift in Sources */,
 				D3D3D3D3D3D3D3D3D3D30004 /* NetworkSampleTest.swift in Sources */,
-				E4E4E4E4E4E4E4E4E4E40002 /* RRStyleTest.swift in Sources */,
 				F5F5F5F5F5F5F5F5F5F50002 /* PostHogBinaryImageInfoTest.swift in Sources */,
 				B2B2B2B2B2B2B2B2B2B20002 /* PostHogReactNativeMaskingTest.swift in Sources */,
 				B2B2B2B2B2B2B2B2B2B20004 /* PostHogMaskFailClosedTest.swift in Sources */,
@@ -3837,7 +3782,6 @@
 				DADE7DFE2F7EA90D00C4650C /* PostHogDeepLinkIntegrationTests.swift in Sources */,
 				DA52CAEF2F24319800305F3D /* PostHogSessionReplayPluginTest.swift in Sources */,
 				DA52CAEF2F2431980030AA01 /* PostHogConsoleLogInterceptorTest.swift in Sources */,
-				690FF0DF2AEFBC5700A0B06B /* PostHogLegacyQueueTest.swift in Sources */,
 				DA6F24822D4A6CA100CA2777 /* PostHogApiTest.swift in Sources */,
 				AE3C6A5B6DAB01EF554A0270 /* PostHogPushNotificationTest.swift in Sources */,
 				D36F92424A13D7CE61B6E348 /* PostHogSwizzlerTest.swift in Sources */,
@@ -4041,7 +3985,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MARKETING_VERSION = 4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4056,7 +4000,7 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TVOS_DEPLOYMENT_TARGET = 13.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Debug;
@@ -4091,7 +4035,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MARKETING_VERSION = 4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4107,7 +4051,7 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "PostHogExample/PostHogExample-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TVOS_DEPLOYMENT_TARGET = 13.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Release;
@@ -4165,18 +4109,18 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				TVOS_DEPLOYMENT_TARGET = 13.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
-				WATCHOS_DEPLOYMENT_TARGET = 6.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Debug;
 		};
@@ -4227,18 +4171,18 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				TVOS_DEPLOYMENT_TARGET = 13.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
-				WATCHOS_DEPLOYMENT_TARGET = 6.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Release;
 		};
@@ -4285,13 +4229,13 @@
 				);
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MARKETING_VERSION = 1.0;
 				MODULEMAP_FILE = PostHog/PostHog.modulemap;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -4308,8 +4252,8 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4,7";
-				TVOS_DEPLOYMENT_TARGET = 13.0;
-				WATCHOS_DEPLOYMENT_TARGET = 6.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Debug;
@@ -4357,13 +4301,13 @@
 				);
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MARKETING_VERSION = 1.0;
 				MODULEMAP_FILE = PostHog/PostHog.modulemap;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -4380,8 +4324,8 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4,7";
-				TVOS_DEPLOYMENT_TARGET = 13.0;
-				WATCHOS_DEPLOYMENT_TARGET = 6.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Release;
@@ -4395,13 +4339,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PNC2XCH2XP;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4415,8 +4359,8 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4,7";
-				TVOS_DEPLOYMENT_TARGET = 13.0;
-				WATCHOS_DEPLOYMENT_TARGET = 6.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Debug;
@@ -4430,13 +4374,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PNC2XCH2XP;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4448,8 +4392,8 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "PostHogTests/PostHogTests-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4,7";
-				TVOS_DEPLOYMENT_TARGET = 13.0;
-				WATCHOS_DEPLOYMENT_TARGET = 6.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Release;
@@ -4679,7 +4623,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4716,7 +4660,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4788,18 +4732,18 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				TVOS_DEPLOYMENT_TARGET = 13.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
-				WATCHOS_DEPLOYMENT_TARGET = 6.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Testing;
 		};
@@ -4846,13 +4790,13 @@
 				);
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MARKETING_VERSION = 1.0;
 				MODULEMAP_FILE = PostHog/PostHog.modulemap;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -4870,8 +4814,8 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4,7";
-				TVOS_DEPLOYMENT_TARGET = 13.0;
-				WATCHOS_DEPLOYMENT_TARGET = 6.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Testing;
@@ -4887,13 +4831,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PNC2XCH2XP;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MARKETING_VERSION = 1.0;
 				OTHER_CFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
@@ -4908,8 +4852,8 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4,7";
-				TVOS_DEPLOYMENT_TARGET = 13.0;
-				WATCHOS_DEPLOYMENT_TARGET = 6.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Testing;
@@ -4942,7 +4886,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4957,7 +4901,7 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TVOS_DEPLOYMENT_TARGET = 13.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Testing;
@@ -5084,7 +5028,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

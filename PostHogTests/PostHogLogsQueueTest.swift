@@ -6,7 +6,7 @@
 import Foundation
 import OHHTTPStubs
 import OHHTTPStubsSwift
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 import XCTest
 
@@ -591,6 +591,27 @@ final class PostHogLogsQueueTests {
         #expect(record.body == "redacted")
     }
 
+    @Test("setBeforeSend accepts an array of non-Sendable closures")
+    func beforeSendAcceptsNonSendableClosureArray() throws {
+        let config = PostHogConfig(projectToken: "test")
+        // An app-side array typed with the plain function type, as written before 4.0.
+        let blocks: [(PostHogLogRecord) -> PostHogLogRecord?] = [
+            { record in
+                record.body += "-first"
+                return record
+            },
+            { record in
+                record.body += "-second"
+                return record
+            },
+        ]
+
+        config.logs.setBeforeSend(blocks)
+
+        let processed = try #require(config.logs.runBeforeSend(makeRecord(body: "original")))
+        #expect(processed.body == "original-first-second")
+    }
+
     // MARK: - Concurrency
 
     @Test("concurrent add() from many threads — all records accounted for, no crash")
@@ -701,12 +722,10 @@ final class PostHogLogsQueueTests {
 
     @Test("flush is suppressed while reachability reports unreachable, resumes on reconnect")
     func reachabilityPauseAndResume() async throws {
-        // `notificationQueue: nil` makes reachability notify synchronously instead of dispatching to
-        // main. Otherwise the initial check inside `startNotifier()` queues an async `onReachable` on
-        // main that lands *after* our manual `onUnreachable` below, wiping the paused flag and flaking
-        // the test. With nil, that initial notification fires during `start()`, before we stop the
-        // notifier — so only the manual `invoke(...)` calls drive state from here on.
-        let reachability = try Reachability(notificationQueue: nil)
+        // No live `NWPathMonitor`: only the `update(_:)` calls below change connectivity, and
+        // `notificationQueue: nil` delivers each one synchronously.
+        let reachability = Reachability(notificationQueue: nil, monitorsPaths: false)
+        reachability.update(.wifi)
         let (queue, _) = makeQueue(
             reachability: reachability,
             disableReachabilityForTesting: false
@@ -715,11 +734,8 @@ final class PostHogLogsQueueTests {
             queue.stop()
         }
 
-        // Stop the live notifier so no further system callbacks can race the manual events below.
-        reachability.stopNotifier()
-
-        // Simulate network going down. Subsequent flushes are paused.
-        reachability.onUnreachable.invoke(reachability)
+        // Network goes down. Subsequent flushes are paused.
+        reachability.update(.unavailable)
 
         queue.add(makeRecord(body: "while-offline"))
         for _ in 0 ..< 3 {
@@ -730,9 +746,9 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 1)
         #expect(queue.currentRetryCountForTesting == 0)
 
-        // Simulate WiFi back. The reachable callback unpauses and proactively
+        // WiFi is back. The reachable callback unpauses and proactively
         // triggers a flush.
-        reachability.onReachable.invoke(reachability)
+        reachability.update(.wifi)
         waitForLogsRequests(count: 1)
         #expect(server.logsRequests.count == 1)
         await waitUntil { queue.depth == 0 }

@@ -7,13 +7,8 @@
 
 import Foundation
 
-#if os(iOS) || os(macOS) || os(tvOS)
-    #if compiler(>=6.0)
-        internal import PHPLCrashReporter
-    #else
-        // swiftlint:disable:next duplicate_imports
-        @_implementationOnly import PHPLCrashReporter
-    #endif
+#if (os(iOS) || os(macOS) || os(tvOS)) && (!SWIFT_PACKAGE || CrashReporting)
+    internal import PHPLCrashReporter
 
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
         private static let integrationInstallState = PostHogIntegrationInstallState()
@@ -302,12 +297,19 @@ import Foundation
     }
 
 #else
-    // watchOS/visionOS stub - crash reporting is not available on these platforms
+    // Stub for watchOS/visionOS, where crash reporting is not available, and for SPM builds
+    // with the `CrashReporting` trait disabled, where PHPLCrashReporter is not linked.
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
+        static func clearInstalls() { /* no-op */ }
+
         var requiresSwizzling: Bool { false }
 
         func install(_: PostHogSDK) -> PostHogIntegrationInstallResult {
-            .skipped(.notAvailableOnPlatform)
+            #if os(iOS) || os(macOS) || os(tvOS)
+                .skipped(.disabledByPackageTrait)
+            #else
+                .skipped(.notAvailableOnPlatform)
+            #endif
         }
 
         func uninstall(_: PostHogSDK) { /* no-op */ }

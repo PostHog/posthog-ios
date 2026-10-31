@@ -96,7 +96,7 @@ struct UtilsTest {
         }
     }
 
-    #if os(iOS)
+    #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
         @Suite("Survey color tests")
         struct SurveyColorTests {
             @Test(

@@ -671,8 +671,8 @@
         ///
         /// Only a portal that shows a view's layer from this window, from that layer's own render context, is drawn
         /// (`PostHogPortalSource.placement`). Its pixels land either where the source sits, where the mask walk
-        /// measures the source's views, or on the portal, where `Frame.portalSources` has the walk move the source's
-        /// masks with the same map. The walk visits each source again without culling, since a source can be clipped
+        /// measures the source's views, or on the portal, where `Frame.portalSources` has the walk mask the whole portal
+        /// unless the source is clean. The walk visits each source again without culling, since a source can be clipped
         /// or culled where it sits yet still show through the portal. Any other portal stays out, as does a portal
         /// inside a source being drawn through another: its masks would only be found where the inner portal sits.
         /// `clips` is true when the portal shows its source on itself, so masks there can only cover the portal's bounds.
@@ -697,7 +697,7 @@
             }
             switch placement {
             case let .inPlace(toPortal):
-                walk.portalSources.append(PostHogPortalSource(view: view, elsewhere: nil))
+                walk.portalSources.append(PostHogPortalSource(view: view, portalRect: nil))
                 // Puts the source's copy, positioned in its superlayer's space, where that space sits in the portal.
                 let space = CALayer()
                 space.anchorPoint = .zero
@@ -705,8 +705,8 @@
                 space.sublayers = [content]
                 return (space, false)
             case .atPortal:
-                let elsewhere = PostHogPortalSource.elsewhere(source: source, portal: portal, root: walk.root)
-                walk.portalSources.append(PostHogPortalSource(view: view, elsewhere: elsewhere))
+                let portalRect = PostHogPortalSource.portalRect(of: portal, root: walk.root)
+                walk.portalSources.append(PostHogPortalSource(view: view, portalRect: portalRect))
                 content.anchorPoint = .zero
                 content.position = presentation.bounds.origin
                 content.transform = CATransform3DIdentity

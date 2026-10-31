@@ -6,19 +6,12 @@
     ///
     /// The mask walk measures views where they sit. A portal that shows its source in place puts its pixels there
     /// too; one that shows it at its own position (SwiftUI's Liquid Glass text) puts them where the portal is, so the
-    /// masks found under the source are moved there with the same map the mirror placed the pixels with.
+    /// whole portal is masked unless the source is shown to be clean.
     struct PostHogPortalSource {
         let view: UIView
-        /// Set when the portal shows the source somewhere other than where it sits.
-        let elsewhere: Elsewhere?
-
-        struct Elsewhere {
-            /// Maps window points where the source sits to where the portal shows them; nil when that couldn't be
-            /// computed, which masks the whole portal instead.
-            let map: CGAffineTransform?
-            /// The portal's bounds in window coordinates.
-            let portalRect: CGRect
-        }
+        /// The portal's bounds in window coordinates, set when the portal shows the source somewhere other than where
+        /// it sits.
+        let portalRect: CGRect?
 
         /// How a portal places its source's subtree, or nil for a portal the mirror leaves out.
         enum Placement {
@@ -54,25 +47,14 @@
             return affineTransform(from: superlayer.presentation() ?? superlayer, to: portal.presentation() ?? portal)
         }
 
-        /// Where an `.atPortal` portal shows `source`, for the mask walk. `root` is the window's layer. Measured on the
-        /// presentation tree, as the mirror draws it and the mask rects are measured (mid-animation the model layers
-        /// already sit at the destination), unless one of the layers can't be asked for its presentation copy.
-        static func elsewhere(source: CALayer, portal: CALayer, root: CALayer) -> Elsewhere {
-            let layers = [source, portal, root]
-            guard layers.allSatisfy({ PostHogGPUMirrorCapture.isPresentationSafe(type(of: $0)) }) else {
-                return measure(source: source, portal: portal, root: root)
-            }
-            let presented = layers.map { $0.presentation() ?? $0 }
-            return measure(source: presented[0], portal: presented[1], root: presented[2])
-        }
-
-        private static func measure(source: CALayer, portal: CALayer, root: CALayer) -> Elsewhere {
-            let offset = CGPoint(x: portal.bounds.minX - source.bounds.minX, y: portal.bounds.minY - source.bounds.minY)
-            func move(_ point: CGPoint) -> CGPoint {
-                let inSource = source.convert(point, from: root)
-                return root.convert(CGPoint(x: inSource.x + offset.x, y: inSource.y + offset.y), from: portal)
-            }
-            return Elsewhere(map: affineTransform { move($0) }, portalRect: root.convert(portal.bounds, from: portal))
+        /// An `.atPortal` portal's bounds in window coordinates, for the mask walk. `root` is the window's layer.
+        /// Measured on the presentation tree, as the mirror draws it and the mask rects are measured (mid-animation the
+        /// model layers already sit at the destination), unless one of the layers can't be asked for its presentation copy.
+        static func portalRect(of portal: CALayer, root: CALayer) -> CGRect {
+            let presented = [portal, root].allSatisfy { PostHogGPUMirrorCapture.isPresentationSafe(type(of: $0)) }
+            let portal = presented ? portal.presentation() ?? portal : portal
+            let root = presented ? root.presentation() ?? root : root
+            return root.convert(portal.bounds, from: portal)
         }
 
         /// UIKit leaves the source context unset (0); SwiftUI sets it to the window's own. Unreadable means skipped.

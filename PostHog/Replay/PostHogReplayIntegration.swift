@@ -1190,7 +1190,7 @@
         /// render after this collection, so any rect source can go stale for content committed in
         /// between.
         /// `portalSources` are views a GPU capture also draws through a portal: they're masked wherever they sit,
-        /// culled or not, outside a cover too, and again where the portal shows them.
+        /// culled or not, outside a cover too, and the whole portal is masked where it shows them unless the source is clean.
         private func collectMaskedRegions(in window: UIWindow, culledLayers: Culled = [], portalSources: [PostHogPortalSource] = []) -> [MaskedRegion]? {
             guard !window.hasCameraForReplay() else {
                 return nil
@@ -1212,18 +1212,18 @@
             // A portal draws its source even where the source's own ancestors hide it, so the reporters under each
             // source are collected again, past those ancestors.
             var reporters = masked.regions
-            var unsettledSources = Set<ObjectIdentifier>()
-            for source in portalSources {
-                let drawn = PostHogSessionReplayMaskRegistry.shared.maskedRects(drawnWith: source.view, in: window)
-                if drawn.hasUnsettledReporters { unsettledSources.insert(ObjectIdentifier(source.view)) }
-                reporters += drawn.regions.filter { region in !reporters.contains { $0.owner == region.owner } }
+            let drawn = portalSources.map { PostHogSessionReplayMaskRegistry.shared.maskedRects(drawnWith: $0.view, in: window) }
+            for region in drawn.flatMap(\.regions) where !reporters.contains(where: { $0.owner == region.owner }) {
+                reporters.append(region)
             }
 
             var maskableWidgets: [MaskedRegion] = []
             findMaskableWidgets(under: cover, in: window, &maskableWidgets, culledLayers)
-            for source in portalSources {
-                maskableWidgets += maskedRegions(shownThrough: source, in: window, reporters: reporters,
-                                                 hasUnsettledReporter: unsettledSources.contains(ObjectIdentifier(source.view)))
+            if !portalSources.isEmpty {
+                let mainWalk = (maskableWidgets + reporters).map(\.rect)
+                for (source, drawn) in zip(portalSources, drawn) {
+                    maskableWidgets += maskedRegions(shownThrough: source, drawing: drawn, in: window, mainWalk: mainWalk)
+                }
             }
             // A reporter inside a `ph-no-capture` view is also reached by the walk. Keep one
             // entry per reporter: a repeated owner reads as motion to the settle check.
@@ -1805,25 +1805,27 @@
     // MARK: - Portals
 
     extension PostHogReplayIntegration {
-        /// The masks under a portal's source where it sits and, for a portal that shows it elsewhere, there too: moved
-        /// with the map its pixels were placed with, or the whole portal when that map is missing or a `postHogMask()`
-        /// reporter sits under the source. A reporter under the source that hasn't been laid out masks all of it
-        /// instead of skipping the frame: under an ancestor that hides it, it may never be laid out.
-        private func maskedRegions(shownThrough source: PostHogPortalSource, in window: UIWindow, reporters: [MaskedRegion],
-                                   hasUnsettledReporter: Bool) -> [MaskedRegion]
+        /// The masks under a portal's source where it sits and, for a portal that shows it elsewhere, the whole portal
+        /// unless the source is clean: no reporter or maskable widget under it, nothing in `mainWalk` over it, and a
+        /// measurable rect. A reporter under the source that hasn't been laid out masks all of it instead of skipping
+        /// the frame: under an ancestor that hides it, it may never be laid out.
+        private func maskedRegions(shownThrough source: PostHogPortalSource, drawing drawn: PostHogSessionReplayMaskRegistry.MaskedRects,
+                                   in window: UIWindow, mainWalk: [CGRect]) -> [MaskedRegion]
         {
             var regions: [MaskedRegion] = []
             findMaskableWidgets(under: source.view, in: window, &regions, [])
-            if hasUnsettledReporter {
+            if drawn.hasUnsettledReporters {
                 regions.append(MaskedRegion(source.view, in: window))
             }
-            guard let elsewhere = source.elsewhere else { return regions }
-            let hasReporter = hasUnsettledReporter || reporters.contains { ($0.object as? UIView)?.isDescendant(of: source.view) == true }
-            if let map = elsewhere.map, !hasReporter {
-                return regions + regions.map { MaskedRegion($0.object, rect: $0.rect.applying(map)) }
+            guard let portalRect = source.portalRect else { return regions }
+            var isClean = !drawn.hasReporters && regions.isEmpty
+            if isClean {
+                let sourceRect = source.view.toPresentationRect(window)
+                isClean = [sourceRect.minX, sourceRect.minY, sourceRect.width, sourceRect.height].allSatisfy(\.isFinite)
+                    && !sourceRect.isEmpty && !mainWalk.contains { $0.intersects(sourceRect) }
             }
-            if hasReporter || !regions.isEmpty {
-                regions.append(MaskedRegion(source.view, rect: elsewhere.portalRect))
+            if !isClean {
+                regions.append(MaskedRegion(source.view, rect: portalRect))
             }
             return regions
         }

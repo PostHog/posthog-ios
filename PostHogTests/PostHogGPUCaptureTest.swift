@@ -966,7 +966,7 @@
 
             let frame = try #require(mirror.build(window: window, scale: 1))
             #expect(frame.culledLayers.contains(ObjectIdentifier(field.layer)))
-            #expect(frame.portalSources.contains { $0.view === field && $0.elsewhere == nil })
+            #expect(frame.portalSources.contains { $0.view === field && $0.portalRect == nil })
             frame.release()
 
             let (image, rects) = try await render(window, with: mirror)
@@ -1051,8 +1051,8 @@
             try Pixels(#require(RRWireframe.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
         }
 
-        @Test("A lens portal draws its source on the portal, and masked text in it is masked there and where it sits")
-        func lensPortalMovesItsMasks() async throws {
+        @Test("A lens portal draws its source on the portal, and masked text in it masks the whole portal and where it sits")
+        func lensPortalWithMaskedTextMasksWholePortal() async throws {
             let mirror = try makeMirror()
             let window = makeWindow()
             await prewarm(mirror, for: window)
@@ -1072,7 +1072,7 @@
             // Hidden where it sits, drawn on the portal at the field's offset in the source.
             #expect(count(pixels, in: CGRect(x: 35, y: 35, width: 90, height: 30), where: Self.isMagenta) == 0)
             #expect(count(pixels, in: CGRect(x: 55, y: 195, width: 90, height: 30), where: Self.isMagenta) > 90 * 30 * 9 / 10)
-            #expect(rects.contains(CGRect(x: 50, y: 190, width: 100, height: 40)))
+            #expect(rects.contains(portalRect))
 
             #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
         }
@@ -1115,8 +1115,56 @@
             #expect(rects.contains(window.layer.convert(portal.bounds, from: portal)))
         }
 
-        @Test("A lens portal whose placement isn't affine masks the whole portal when its source has masks")
-        func lensPortalWithoutExactMapMasksWholePortal() async throws {
+        @Test("A postHogMask reporter under a lens portal's source collapsed to scale 0 still masks the whole portal")
+        func lensPortalOverCollapsedSourceWithReporterMasksWholePortal() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let secret = UIView(frame: CGRect(x: 20, y: 15, width: 60, height: 30))
+            secret.backgroundColor = .magenta
+            let reporter = PostHogMaskReporterUIView(frame: secret.frame.insetBy(dx: -8, dy: -8))
+            source.addSubview(secret)
+            source.addSubview(reporter)
+            window.addSubview(source)
+            defer { reporter.removeFromSuperview() }
+            source.transform = CGAffineTransform(scaleX: 0, y: 0)
+            let portalRect = CGRect(x: 40, y: 180, width: 120, height: 60)
+            window.layer.addSublayer(try makeLensPortal(showing: source, frame: portalRect))
+
+            let (image, rects) = try await render(window, with: mirror)
+            #expect(reporter.hasCompletedFirstLayout)
+            #expect(rects.contains(portalRect))
+            try expectMagentaMasked(image, rects)
+        }
+
+        @Test("A lens portal whose source sits in a masked secure text field masks the whole portal")
+        func lensPortalSourceInSecureFieldMasksWholePortal() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let field = UITextField(frame: CGRect(x: 10, y: 10, width: 180, height: 100))
+            field.isSecureTextEntry = true
+            field.text = "hunter2"
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let secret = UIView(frame: CGRect(x: 20, y: 15, width: 60, height: 30))
+            secret.backgroundColor = .magenta
+            source.addSubview(secret)
+            field.addSubview(source)
+            window.addSubview(field)
+            let portalRect = CGRect(x: 40, y: 180, width: 120, height: 60)
+            window.layer.addSublayer(try makeLensPortal(showing: source, frame: portalRect))
+
+            let (image, rects) = try await render(window, with: mirror)
+            #expect(rects.contains(field.frame))
+            #expect(rects.contains(portalRect))
+            try expectMagentaMasked(image, rects)
+        }
+
+        @Test("A lens portal under a perspective transform masks the whole portal when its source has masks")
+        func lensPortalWithPerspectiveMasksWholePortal() async throws {
             let mirror = try makeMirror()
             let window = makeWindow()
             await prewarm(mirror, for: window)
@@ -1157,12 +1205,6 @@
             window.addSubview(source)
             let portal = try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 180, width: 60, height: 40))
             portal.masksToBounds = false
-            if !reporter {
-                // No exact map for the masks under the source, so the whole portal is masked instead.
-                var perspective = CATransform3DIdentity
-                perspective.m34 = -1 / 200
-                portal.transform = CATransform3DRotate(perspective, 0.4, 0, 1, 0)
-            }
             window.layer.addSublayer(portal)
 
             let (image, rects) = try await render(window, with: mirror)

@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import OHHTTPStubs
+import OHHTTPStubsSwift
 @_spi(PostHogInternal) @testable import PostHog
 #if SWIFT_PACKAGE
     import PostHogTestsObjC
@@ -746,6 +748,93 @@ final class PostHogSDKTests {
 
         waitForFeatureFlagsLoaded(server, sut)
         #expect(sut.isFeatureEnabled("bool-value") == true)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("isFeatureEnabled returns the default for a flag missing from loaded flags", arguments: [true, false])
+    func isFeatureEnabledDefaultForMissingFlag(defaultValue: Bool) {
+        let sut = getSut(preloadFeatureFlags: true)
+
+        waitForFeatureFlagsLoaded(server, sut)
+        #expect(sut.isFeatureEnabled("missing", defaultValue: defaultValue) == defaultValue)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("isFeatureEnabled returns the default before flags load")
+    func isFeatureEnabledDefaultBeforeFlagsLoad() {
+        let sut = getSut()
+
+        #expect(sut.isFeatureEnabled("disabled-flag", defaultValue: true) == true)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("isFeatureEnabled returns the default after a failed flags request")
+    func isFeatureEnabledDefaultAfterFailedFlagsRequest() {
+        server.flagsResponseHandler = { _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+        }
+        let sut = getSut()
+
+        let group = DispatchGroup()
+        group.enter()
+        sut.reloadFeatureFlags { _ in
+            group.leave()
+        }
+        group.wait()
+
+        #expect(sut.isFeatureEnabled("disabled-flag", defaultValue: true) == true)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("isFeatureEnabled prefers a flag value over the default")
+    func isFeatureEnabledPrefersFlagValueOverDefault() {
+        let sut = getSut(preloadFeatureFlags: true)
+
+        waitForFeatureFlagsLoaded(server, sut)
+        #expect(sut.isFeatureEnabled("disabled-flag", defaultValue: true) == false)
+        #expect(sut.isFeatureEnabled("string-value", defaultValue: false) == true)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("isFeatureEnabled does not report the default in the feature flag event")
+    func isFeatureEnabledDoesNotReportDefault() throws {
+        let sut = getSut(preloadFeatureFlags: true)
+
+        waitForFeatureFlagsLoaded(server, sut)
+        #expect(sut.isFeatureEnabled("missing", defaultValue: true, sendFeatureFlagEvent: true) == true)
+
+        let events = getBatchedEvents(server)
+        let event = try #require(events.first)
+        #expect(events.count == 1)
+        #expect(event.event == "$feature_flag_called")
+        #expect(event.properties["$feature_flag"] as? String == "missing")
+        #expect(event.properties["$feature_flag_response"] is NSNull)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("isFeatureEnabled with a default honors a disabled feature flag event")
+    func isFeatureEnabledDefaultHonorsDisabledEvent() {
+        let sut = getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+
+        waitForFeatureFlagsLoaded(server, sut)
+        #expect(sut.isFeatureEnabled("bool-value", defaultValue: false, sendFeatureFlagEvent: false) == true)
+
+        sut.capture("marker")
+
+        let events = getBatchedEvents(server)
+        #expect(events.map(\.event) == ["marker"])
 
         sut.reset()
         sut.close()

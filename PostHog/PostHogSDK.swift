@@ -2578,9 +2578,62 @@ let maxRetryDelay = 30.0
         isFeatureEnabled(key, sendEvent: sendFeatureFlagEvent)
     }
 
-    private func isFeatureEnabled(_ key: String, sendEvent: Bool? = nil) -> Bool {
+    /// Returns whether a feature flag is enabled, or a default you supply when the flag has no value.
+    ///
+    /// `defaultValue` has no implicit value; `isFeatureEnabled(_:)` is the equivalent of passing `false`.
+    ///
+    /// The default is returned when flags have not loaded yet, the flags request failed with nothing
+    /// cached, the loaded flags have no flag with this key, or the SDK is not set up. A flag that has a
+    /// value always wins, including `false` and variant strings. `$feature_flag_called` follows
+    /// `PostHogConfig.sendFeatureFlagEvent` and never reports the default as the flag's value.
+    ///
+    /// - Parameters:
+    ///   - key: The feature flag key.
+    ///   - defaultValue: The value to return when the flag has no value.
+    /// - Returns: `true` when the flag is enabled, `false` when it is disabled, otherwise `defaultValue`.
+    ///
+    /// ```swift
+    /// if PostHogSDK.shared.isFeatureEnabled("new-checkout", defaultValue: true) {
+    ///     showNewCheckout()
+    /// }
+    /// ```
+    @objc(isFeatureEnabledWithKey:defaultValue:)
+    public func isFeatureEnabled(_ key: String, defaultValue: Bool) -> Bool {
+        isFeatureEnabled(key, defaultValue: defaultValue, sendEvent: nil)
+    }
+
+    /// Returns whether a feature flag is enabled, or a default you supply when the flag has no value,
+    /// and optionally captures a usage event.
+    ///
+    /// `defaultValue` has no implicit value, and `sendFeatureFlagEvent` overrides
+    /// `PostHogConfig.sendFeatureFlagEvent` for this call.
+    ///
+    /// The default is returned when flags have not loaded yet, the flags request failed with nothing
+    /// cached, the loaded flags have no flag with this key, or the SDK is not set up. A flag that has a
+    /// value always wins, including `false` and variant strings. `$feature_flag_called` never reports
+    /// the default as the flag's value.
+    ///
+    /// - Parameters:
+    ///   - key: The feature flag key.
+    ///   - defaultValue: The value to return when the flag has no value.
+    ///   - sendFeatureFlagEvent: Whether to capture `$feature_flag_called` for this lookup.
+    /// - Returns: `true` when the flag is enabled, `false` when it is disabled, otherwise `defaultValue`.
+    ///
+    /// ```swift
+    /// let enabled = PostHogSDK.shared.isFeatureEnabled(
+    ///     "new-checkout",
+    ///     defaultValue: true,
+    ///     sendFeatureFlagEvent: false
+    /// )
+    /// ```
+    @objc(isFeatureEnabledWithKey:defaultValue:sendFeatureFlagEvent:)
+    public func isFeatureEnabled(_ key: String, defaultValue: Bool, sendFeatureFlagEvent: Bool) -> Bool {
+        isFeatureEnabled(key, defaultValue: defaultValue, sendEvent: sendFeatureFlagEvent)
+    }
+
+    private func isFeatureEnabled(_ key: String, defaultValue: Bool = false, sendEvent: Bool? = nil) -> Bool {
         let result = getFeatureFlag(key, sendEvent: sendEvent)
-        return result is String ? true : (result as? Bool) ?? false
+        return result is String ? true : (result as? Bool) ?? defaultValue
     }
 
     /// Returns all currently loaded feature flags as structured results.

@@ -26,6 +26,7 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - **Breaking:** move `postHogSdkName`, `postHogVersion`, `PostHogConfig.snapshotEndpoint`, `PostHogSessionManager`, `PostHogStorageManager` and `PostHogConfig.storageManager` behind `@_spi(PostHogInternal)` — use `PostHogSDK` session and identity methods
 - **Breaking:** remove `dateToMillis(_:)`, `imageToBase64(_:_:)`, `toISO8601String(_:)`, `toISO8601Date(_:)`, `sanitizeDictionary(_:)`, `deleteSafely(_:)`, `postHogiOSSdkName`, `Gzip`, `GzipError`, `CompressionLevel`, `ReachabilityError`, `ReachabilityChangedNotification`, `UIColor.init(hex:)` and `UIColor.hexDescription(_:)` from the public API
 - Add `SessionReplay`, `CrashReporting` and `Surveys` Swift package traits (on by default) that remove the feature and its public API when turned off
+- Add `isFeatureEnabled(_:defaultValue:)` and `isFeatureEnabled(_:defaultValue:sendFeatureFlagEvent:)` to return a default you choose when a flag has no value
 - Change network reachability detection to `NWPathMonitor`, so a path needing user action counts as reachable, queues pause while cellular data is off for the app, and early events may omit `$network_wifi` and `$network_cellular`
 - Change the replay screen name to the visible screen, reporting the view name for SwiftUI screens and no longer using a plain `UIViewController`'s `title`
 - Fix session replay recording nothing for apps whose window root is a SwiftUI view

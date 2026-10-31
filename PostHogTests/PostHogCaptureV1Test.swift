@@ -124,19 +124,50 @@ final class PostHogCaptureV1Test {
         #expect(result.retryAfter == 2)
     }
 
-    @Test("treats a 200 without a results map as delivered")
-    func malformedSuccessIsDelivered() async {
-        server.captureV1ResponseHandler = { _, _ in
-            HTTPStubsResponse(data: Data("not json".utf8), statusCode: 200, headers: nil)
+    @Test("drops the whole batch on a 200 without a results map, without retrying it")
+    func malformedSuccessDropsBatch() throws {
+        let wasLogging = hedgeLogEnabled
+        hedgeLogEnabled = true
+        defer { hedgeLogEnabled = wasLogging }
+        let uuids = [UUID().postHogUuidString, UUID().postHogUuidString]
+        let identity = CaptureV1RequestIdentity(uuids: Set(uuids), requestId: "request", attempt: 1, createdAt: "now")
+
+        var result: PostHogUploadInfo?
+        let output = try captureStdout {
+            result = makeApi().captureV1Result(
+                PostHogUploadInfo(statusCode: 200, error: nil), path: PostHogApi.captureV1AnalyticsPath,
+                data: Data("not json".utf8), uuids: uuids, identity: identity
+            )
         }
 
-        let result = await send(makeApi(), [PostHogEvent(event: "test", distinctId: "user")])
-
-        #expect(result.statusCode == 200)
-        #expect(result.retryRecordIds?.isEmpty ?? true)
+        #expect(output.contains("Capture \(PostHogApi.captureV1AnalyticsPath) (status 200): 2 dropped, 0 duplicates dropped, 0 to retry."))
+        #expect(!output.contains("not json"))
+        #expect(result?.statusCode == 200)
+        #expect(result?.retryRecordIds?.isEmpty ?? true)
     }
 
-    @Test("logs each dropped event's name, UUID and reason, without its properties")
+    @Test("counts a terminal status as the whole batch dropped, except a multi-event 413", arguments: [
+        (400, 2, 2), (401, 2, 2), (402, 2, 2), (415, 2, 2), (413, 1, 1), (413, 2, 0),
+    ])
+    func terminalStatusCounts(status: Int, count: Int, dropped: Int) throws {
+        let wasLogging = hedgeLogEnabled
+        hedgeLogEnabled = true
+        defer { hedgeLogEnabled = wasLogging }
+        let uuids = (0 ..< count).map { _ in UUID().postHogUuidString }
+        let identity = CaptureV1RequestIdentity(uuids: Set(uuids), requestId: "request", attempt: 1, createdAt: "now")
+
+        let output = try captureStdout {
+            _ = makeApi().captureV1Result(
+                PostHogUploadInfo(statusCode: status, error: nil), path: PostHogApi.captureV1AiPath,
+                data: nil, uuids: uuids, identity: identity
+            )
+        }
+
+        let line = "Capture \(PostHogApi.captureV1AiPath) (status \(status)): \(dropped) dropped"
+        #expect(output.contains(line) == (dropped > 0))
+    }
+
+    @Test("logs one line per batch with the drop reasons, without event names or UUIDs")
     func logsDropReasons() throws {
         let wasLogging = hedgeLogEnabled
         hedgeLogEnabled = true
@@ -152,17 +183,66 @@ final class PostHogCaptureV1Test {
         let output = try captureStdout {
             _ = makeApi().captureV1Result(
                 PostHogUploadInfo(statusCode: 200, error: nil), path: PostHogApi.captureV1AiPath, data: body,
-                uuids: uuids, identity: identity, eventNames: [uuids[0]: "$ai_generation", uuids[1]: "signup"]
+                uuids: uuids, identity: identity
             )
         }
 
-        #expect(output.contains("Capture dropped '$ai_generation' (\(uuids[0])): ai_event_too_big."))
-        #expect(output.contains("Capture dropped 'signup' (\(uuids[1])): misrouted_event."))
-        #expect(!output.contains(uuids[2]))
+        #expect(output.contains("Capture \(PostHogApi.captureV1AiPath) (status 200): 2 dropped (ai_event_too_big: 1, misrouted_event: 1), 0 duplicates dropped, 0 to retry."))
+        for uuid in uuids {
+            #expect(!output.contains(uuid))
+        }
     }
 
-    @Test("treats a 2xx whose transfer then failed as delivered, so its ok events aren't stored twice")
-    func failedTransferAfterSuccessIsDelivered() {
+    @Test("counts duplicate copies capture dropped once per UUID")
+    func countsDuplicatesDropped() throws {
+        let wasLogging = hedgeLogEnabled
+        hedgeLogEnabled = true
+        defer { hedgeLogEnabled = wasLogging }
+        let kept = UUID().postHogUuidString
+        let other = UUID().postHogUuidString
+        let uuids = [kept, kept, kept, other]
+        let identity = CaptureV1RequestIdentity(uuids: Set(uuids), requestId: "request", attempt: 1, createdAt: "now")
+        let body = try JSONSerialization.data(withJSONObject: ["results": [
+            kept: ["result": "ok", "duplicates_dropped": 2],
+            other: ["result": "ok"],
+        ]])
+
+        var result: PostHogUploadInfo?
+        let output = try captureStdout {
+            result = makeApi().captureV1Result(
+                PostHogUploadInfo(statusCode: 200, error: nil), path: PostHogApi.captureV1AnalyticsPath, data: body,
+                uuids: uuids, identity: identity
+            )
+        }
+
+        #expect(output.contains("Capture \(PostHogApi.captureV1AnalyticsPath) (status 200): 0 dropped, 2 duplicates dropped, 0 to retry."))
+        #expect(result?.retryRecordIds?.isEmpty ?? true)
+    }
+
+    @Test("clamps a malformed duplicates_dropped count instead of overflowing")
+    func clampsMalformedDuplicatesDropped() throws {
+        let wasLogging = hedgeLogEnabled
+        hedgeLogEnabled = true
+        defer { hedgeLogEnabled = wasLogging }
+        let uuids = [UUID().postHogUuidString, UUID().postHogUuidString]
+        let identity = CaptureV1RequestIdentity(uuids: Set(uuids), requestId: "request", attempt: 1, createdAt: "now")
+        let body = try JSONSerialization.data(withJSONObject: ["results": [
+            uuids[0]: ["result": "ok", "duplicates_dropped": Int.max],
+            uuids[1]: ["result": "ok", "duplicates_dropped": -5],
+        ]])
+
+        let output = try captureStdout {
+            _ = makeApi().captureV1Result(
+                PostHogUploadInfo(statusCode: 200, error: nil), path: PostHogApi.captureV1AnalyticsPath, data: body,
+                uuids: uuids, identity: identity
+            )
+        }
+
+        #expect(output.contains("Capture \(PostHogApi.captureV1AnalyticsPath) (status 200): 0 dropped, 2 duplicates dropped, 0 to retry."))
+    }
+
+    @Test("doesn't retry a 2xx whose transfer then failed, so its ok events aren't stored twice")
+    func failedTransferAfterSuccessIsNotRetried() {
         let uuids = [UUID().postHogUuidString, UUID().postHogUuidString]
         let identity = CaptureV1RequestIdentity(uuids: Set(uuids), requestId: "request", attempt: 1, createdAt: "now")
         let info = PostHogUploadInfo(statusCode: 200, error: URLError(.networkConnectionLost))
@@ -563,6 +643,25 @@ final class PostHogCaptureV1OptionsTest {
         #expect(sent["options"] as? [String: Bool] == ["process_person_profile": true, "cookieless_mode": true])
     }
 
+    @Test("a nil boxed in Any counts as unset for process_person_profile")
+    func boxedNilProcessPersonProfile() async throws {
+        let sut = makeSDK(personProfiles: .never)
+        defer { sut.close() }
+        let unset: Bool? = nil
+
+        var sent = try await captureAndSend(sut) { $0.capture("test", options: ["process_person_profile": unset as Any]) }
+        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
+
+        sent = try await captureAndSend(sut) { $0.capture("test", properties: ["$process_person_profile": unset as Any]) }
+        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
+
+        // The legacy property still fills an option that is only a boxed nil.
+        sent = try await captureAndSend(sut) {
+            $0.capture("test", properties: ["$process_person_profile": true], options: ["process_person_profile": unset as Any])
+        }
+        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": true])
+    }
+
     @Test("the SDK sends process_person_profile only as a false option when person processing is off")
     func processPersonProfileOnlyWhenOff() async throws {
         let personless = makeSDK(personProfiles: .never)
@@ -583,17 +682,33 @@ final class PostHogCaptureV1OptionsTest {
         #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
     }
 
-    @Test("the crash context keeps $process_person_profile false only when person processing is off")
-    func crashContextKeepsPersonlessProperty() {
-        for (personProfiles, expected) in [(PostHogPersonProfiles.never, false as Bool?), (.always, nil)] {
+    @Test("the crash context saves process_person_profile false as an option only when person processing is off")
+    func crashContextSavesPersonlessOption() {
+        for (personProfiles, expected) in [(PostHogPersonProfiles.never, ["process_person_profile": false] as [String: Bool]?), (.always, nil)] {
             let sut = makeSDK(personProfiles: personProfiles)
-            var eventProperties: [String: Any]?
-            let token = sut.onEventContextChanged.subscribe { eventProperties = $0["event_properties"] as? [String: Any] }
+            var context: [String: Any]?
+            let token = sut.onEventContextChanged.subscribe { context = $0 }
             sut.notifyContextDidChange()
             withExtendedLifetime(token) {}
             sut.close()
-            #expect(eventProperties?["$process_person_profile"] as? Bool == expected)
+            #expect(context?["options"] as? [String: Bool] == expected)
+            #expect((context?["event_properties"] as? [String: Any])?["$process_person_profile"] == nil)
         }
+    }
+
+    @Test("the crash context fallback carries the current person-processing option and $geoip_disable")
+    func crashContextFallback() {
+        let personless = makeSDK(personProfiles: .never)
+        personless.config.disableGeoIp = true
+        let fallback = personless.crashContextFallback()
+        personless.close()
+        #expect(fallback["options"] as? [String: Bool] == ["process_person_profile": false])
+        #expect(fallback["event_properties"] as? [String: Bool] == ["$geoip_disable": true])
+
+        let processed = makeSDK(personProfiles: .always)
+        processed.config.disableGeoIp = false
+        defer { processed.close() }
+        #expect(processed.crashContextFallback().isEmpty)
     }
 
     @Test("beforeSend has the final say over options")
@@ -933,6 +1048,31 @@ final class PostHogCaptureAiTest {
         #expect(sut.captureAi("$ai_generation", properties: ["$ai_input": String(repeating: "a", count: aiMaxEventBytes)]) == nil)
         sut.optOut()
         #expect(sut.captureAi("$ai_generation") == nil)
+    }
+
+    @Test("drops an event with an empty name, including one beforeSend renames to empty on any path")
+    func dropsEmptyEventName() async throws {
+        let sut = makeSDK { event in
+            if ["renamed", "$screen", "$create_alias", "$groupidentify"].contains(event.event) { event.event = "" }
+            return event
+        }
+        defer { sut.close() }
+
+        #expect(sut.captureAi("") == nil)
+        #expect(sut.captureAi("renamed") == nil)
+        server.reset(batchCount: 1)
+        sut.capture("")
+        sut.capture("renamed")
+        sut.screen("Home")
+        sut.alias("alias")
+        sut.group(type: "company", key: "acme", groupProperties: ["name": "Acme"])
+        let distinctId = sut.getDistinctId()
+        sut.identify("   ")
+        #expect(sut.getDistinctId() == distinctId)
+        sut.capture("kept")
+        let events = try await getServerEvents(server)
+
+        #expect(events.map(\.event) == ["kept"])
     }
 
     @Test("AI requests use captureAiTimeout and captureAiCompression, and analytics requests don't")

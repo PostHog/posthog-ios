@@ -173,10 +173,13 @@ If a proxy redirects capture requests to another host, point `host` at the final
 ### Event validation
 
 Capture v1 checks each event on its own and drops only the invalid ones, so the rest of the batch is delivered.
-The SDK doesn't check these before sending. PostHog drops the event, and the SDK removes it from the queue.
-With `debug` on, the SDK logs how many events were dropped.
 
-- An event with an empty event name is dropped, for example `capture("")`.
+The SDK drops an event with an empty event name before sending it, for example `capture("")` or a name `beforeSend` sets to `""`.
+`captureAi` then returns `nil`, and with `debug` on the SDK logs the first one.
+
+The SDK doesn't check these before sending. PostHog drops the event, and the SDK removes it from the queue.
+With `debug` on, the SDK logs how many events were dropped and why.
+
 - An event with an empty or whitespace-only distinct ID is dropped, for example one `beforeSend` sets to `""`.
   An empty or whitespace-only `distinctId` argument isn't dropped: like `nil`, it uses the current distinct ID.
 - An event whose name is over 200 UTF-8 bytes is dropped. Legacy capture had no limit on event name length.
@@ -207,6 +210,7 @@ An event's properties are merged in this order, and later values win:
 
 Per-call `userProperties` and `userPropertiesSetOnce` are applied between steps 2 and 3, so they win over a registered `$set` or `$set_once`, as in 3.x.
 Groups set with `group()` and per-call `groups` are applied there too, and replace a registered `$groups`.
+If you also pass `$set`, `$set_once` or `$groups` in the properties, the per-call `userProperties`, `userPropertiesSetOnce` and `groups` win key by key over them. In 3.x, `$set` and `$set_once` in the properties replaced the per-call values, and `$groups` in the properties won per key.
 
 In 3.x, the SDK's own values won over super properties, and `$is_identified`, `$process_person_profile`, `$geoip_disable` and the session replay debug properties also won over the properties you pass.
 In 4.0 a value you register or pass wins, for example `capture("signed_up", properties: ["$geoip_disable": false])` sends that event with GeoIP enabled even when `disableGeoIp` is on.

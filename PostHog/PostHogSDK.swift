@@ -52,6 +52,8 @@ let maxRetryDelay = 30.0
     private let personPropsLock = NSLock()
     private let cachedPersonPropertiesLock = NSLock()
     private let identifyLock = NSLock()
+    private let emptyEventNameLock = NSLock()
+    private var warnedEmptyEventName = false
 
     private let lastScreenLock = NSLock()
     private let replayDebugPropertiesLock = NSLock()
@@ -631,11 +633,11 @@ let maxRetryDelay = 30.0
     /// counts a person-processing change a wrapper build defers to its send.
     private func personProcessingOptions(_ options: [String: Any]?, properties: [String: Any], personProcessingPending: Bool = false) -> [String: Any]? {
         guard !hasPersonProcessing(), !(personProcessingPending && config.personProfiles != .never) else { return options }
-        if let legacy = properties["$process_person_profile"], !(legacy is NSNull) {
+        if !isNullValue(properties["$process_person_profile"]) {
             return options
         }
         var options = options ?? [:]
-        if options["process_person_profile"] == nil || options["process_person_profile"] is NSNull {
+        if isNullValue(options["process_person_profile"]) {
             options["process_person_profile"] = false
         }
         return options
@@ -810,14 +812,6 @@ let maxRetryDelay = 30.0
                 props["$is_identified"] = isIdentified
             }
 
-            // Person processing is sent as the `process_person_profile` option, only when it's off
-            // (see `personProcessingOptions`). A registered or caller `$process_person_profile` wins
-            // over it when the send hoists the property. The crash-context snapshot stores only
-            // properties, so it keeps the property, which the send hoists.
-            if readOnlySession, !hasPersonProcessing() {
-                props["$process_person_profile"] = false
-            }
-
             if config.disableGeoIp {
                 props["$geoip_disable"] = true
             }
@@ -874,8 +868,14 @@ let maxRetryDelay = 30.0
             callerProps.removeValue(forKey: key)
         }
         // A caller-supplied $groups adds to the registered and per-call groups instead of replacing them.
-        if let callerGroups = callerProps["$groups"] as? [String: String], let currentGroups = props["$groups"] as? [String: String] {
-            callerProps["$groups"] = currentGroups.merging(callerGroups) { _, new in new }
+        if let callerGroups = callerProps["$groups"] as? [String: Any], let currentGroups = props["$groups"] as? [String: Any] {
+            callerProps["$groups"] = currentGroups.merging(callerGroups) { _, new in new }.merging((groups ?? [:]) as [String: Any]) { _, new in new }
+        }
+        // A typed per-call value wins key by key over the same map in the caller's properties.
+        for (key, typed) in [("$set", userProperties), ("$set_once", userPropertiesSetOnce)] where appendSharedProps {
+            if let typed, let callerMap = callerProps[key] as? [String: Any] {
+                callerProps[key] = callerMap.merging(typed) { _, new in new }
+            }
         }
         props.merge(callerProps) { _, new in new }
 
@@ -1080,8 +1080,8 @@ let maxRetryDelay = 30.0
             return
         }
 
-        if distinctId.isEmpty {
-            hedgeLog("identify call not allowed, distinctId is invalid: \(distinctId)")
+        if Self.isBlank(distinctId) {
+            hedgeLog("identify call not allowed, distinctId is empty or whitespace-only.")
             return
         }
 
@@ -1579,7 +1579,7 @@ let maxRetryDelay = 30.0
     ///     `capture`'s `options`.
     ///
     /// - Returns: The event's UUID, or `nil` if the event wasn't queued: for example, the SDK is
-    ///   opted out or disabled, `beforeSend` dropped it, or it's over `captureAiMaxEventBytes`.
+    ///   opted out or disabled, its name is empty, `beforeSend` dropped it, or it's over `captureAiMaxEventBytes`.
     @discardableResult
     @objc(captureAiWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)
     public func captureAi(_ event: String,
@@ -1910,7 +1910,8 @@ let maxRetryDelay = 30.0
             finalProperties[PostHogExceptionStepFields.stepsKey] = steps
         }
 
-        // Snapshots and pre-built crash events don't carry the SDK's person-processing option.
+        // Snapshots don't carry the SDK's person-processing option; pre-built crash events carry the
+        // one saved with their crash context.
         let eventOptions = skipBuildProperties || isSnapshotEvent
             ? sanitizeDictionary(options)
             : personProcessingOptions(sanitizeDictionary(options), properties: finalProperties, personProcessingPending: forWrapper && hasPersonData)
@@ -1941,6 +1942,14 @@ let maxRetryDelay = 30.0
         }
 
         guard let posthogEvent = applyBeforeSend(prepared) else {
+            return nil
+        }
+
+        // PostHog drops an event with an empty name, so it's dropped here instead. Checked after
+        // beforeSend, which can rename the event.
+        if posthogEvent.event.isEmpty {
+            warnEmptyEventNameOnce()
+            releaseClaimIfCarried(posthogEvent)
             return nil
         }
 
@@ -2483,6 +2492,16 @@ let maxRetryDelay = 30.0
         queueEvent(event, queue: queue)
     }
 
+    private func warnEmptyEventNameOnce() {
+        let shouldWarn = emptyEventNameLock.withLock {
+            defer { warnedEmptyEventName = true }
+            return !warnedEmptyEventName
+        }
+        if shouldWarn {
+            hedgeLog("Dropping an event with an empty name. Further empty names are dropped without a log.")
+        }
+    }
+
     private func releaseClaimIfCarried(_ event: PostHogEvent) {
         if event.carriesReplayDebugBundle {
             releaseReplayDebugPropertiesClaim()
@@ -2554,6 +2573,13 @@ let maxRetryDelay = 30.0
     /// Returns whether the event was stored in `queue`.
     @discardableResult
     private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>, deduplicatePersonProperties: Bool = false) -> Bool {
+        // PostHog drops an event with an empty name. Checked here so every path is covered after
+        // beforeSend, which can rename the event.
+        if event.event.isEmpty {
+            warnEmptyEventNameOnce()
+            releaseClaimIfCarried(event)
+            return false
+        }
         let storedInQueue: Bool
         let userProperties = event.properties["$set"] as? [String: Any]
         let userPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]
@@ -4112,6 +4138,19 @@ let maxRetryDelay = 30.0
         #endif
     }
 
+    /// What a crash event needs from the current state when its report has no saved context, in the
+    /// shape of the saved context: its person-processing option and `$geoip_disable`.
+    func crashContextFallback() -> [String: Any] {
+        var context: [String: Any] = [:]
+        if config.disableGeoIp {
+            context["event_properties"] = ["$geoip_disable": true]
+        }
+        if let options = personProcessingOptions(nil, properties: [:]) {
+            context["options"] = options
+        }
+        return context
+    }
+
     /// Point-in-time counters: the crash path replays the context snapshot verbatim on the next
     /// launch, so these would be stale by definition. Status/config keys stay because the replay
     /// integration re-notifies on every recording transition.
@@ -4148,10 +4187,14 @@ let maxRetryDelay = 30.0
 
         // Build crash context with identity info + event properties
         // This structure allows crash reporting to reconstruct events with crash-time data
-        let context: [String: Any] = [
+        var context: [String: Any] = [
             "distinct_id": distinctId,
             "event_properties": eventProperties,
         ]
+        // Person processing is an option, not a property (see `personProcessingOptions`).
+        if let options = personProcessingOptions(nil, properties: eventProperties) {
+            context["options"] = options
+        }
 
         onEventContextChanged.invoke(context)
     }

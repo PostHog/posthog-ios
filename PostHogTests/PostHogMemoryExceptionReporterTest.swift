@@ -98,6 +98,7 @@ import Testing
             store.write(try JSONSerialization.data(withJSONObject: [
                 "distinct_id": "killed-user",
                 "event_properties": ["$session_id": "killed-session", "$app_version": "9.9"],
+                "options": ["process_person_profile": false],
                 PostHogExceptionStepFields.stepsKey: [[PostHogExceptionStepFields.message: "opened gallery"]],
             ]))
 
@@ -112,6 +113,7 @@ import Testing
             #expect(event.distinctId == "killed-user")
             #expect(event.properties["$session_id"] as? String == "killed-session")
             #expect(event.properties["$exception_level"] as? String == "fatal")
+            #expect(event.options["process_person_profile"] as? Bool == false)
 
             let steps = event.properties[PostHogExceptionStepFields.stepsKey] as? [[String: Any]]
             #expect(steps?.first?[PostHogExceptionStepFields.message] as? String == "opened gallery")

@@ -32,12 +32,14 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - **Breaking:** pause sending for at most 30 seconds on `Retry-After`, including session replay and logs
 - **Breaking:** send `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` as capture options, so PostHog drops an event whose option value it can't read
 - **Breaking:** let registered super properties override SDK properties such as `$os`, and let super and event properties override `$is_identified`, `$process_person_profile`, `$geoip_disable` and the session replay debug values
+- **Breaking:** let `userProperties`, `userPropertiesSetOnce` and `groups` win key by key over `$set`, `$set_once` and `$groups` passed in the same call's properties
 - **Breaking:** rename `maxRetries` to `pushNotificationSubscriptionMaxRetries`
 - Add per-event capture options with `capture(..., timestamp:options:)` and `PostHogEvent.options`, also accepted by `screen`, `identify`, `setPersonProperties`, `alias`, `group` and `captureException`
 - Add `captureAi(...)` to send AI events such as `$ai_generation` to `/i/v1/ai/events`, tuned with `captureAiCompression`, `captureAiMaxQueueSize`, `captureAiTimeout` and `captureAiMaxEventBytes`
 - Change the wait after a failed send to double from 1 second up to 30 seconds with jitter, for events, session replay and logs
 - Cap analytics batches at 5 MiB per request and send a larger event on its own
-- Log the name, UUID and reason of each event PostHog drops when `debug` is on
+- Drop an event with an empty name before sending it, including one `beforeSend` renames to `""`
+- Ignore `identify` with a whitespace-only distinct ID
 - Add `SessionReplay`, `CrashReporting` and `Surveys` Swift package traits (on by default) that remove the feature and its public API when turned off
 - Change network reachability detection to `NWPathMonitor`, so a path needing user action counts as reachable, queues pause while cellular data is off for the app, and early events may omit `$network_wifi` and `$network_cellular`
 - Change the replay screen name to the visible screen, reporting the view name for SwiftUI screens and no longer using a plain `UIViewController`'s `title`

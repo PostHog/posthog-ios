@@ -10,7 +10,7 @@ This repo requires all commits to be signed. To configure commit signing, see th
 
 Use the repository's `make` wrappers rather than invoking `swift` or `xcodebuild` directly; [Makefile](Makefile) owns the commands and options.
 
-For initial setup, install Xcode 26 or later and, if needed, use `make bootstrap` to install CocoaPods, xcpretty, SwiftLint, SwiftFormat and Periphery. Agents should report missing prerequisites rather than install tools without authorization. The package uses swift-tools-version 6.2 and compiles in Swift 5 language mode; use current stable Xcode as CI does.
+For initial setup, install Xcode 26 or later and, if needed, use `make bootstrap` to install xcpretty, SwiftLint, SwiftFormat, Periphery and [prek](https://github.com/j178/prek). Agents should report missing prerequisites rather than install tools without authorization. The package uses swift-tools-version 6.2 and compiles in Swift 5 language mode; use current stable Xcode as CI does.
 
 Iterate with focused checks, then run the core CI-aligned checks before submitting **SDK changes**:
 
@@ -43,10 +43,9 @@ Markdown-only changes need documentation/link checks and `git diff --check`, not
 | SDK across supported platforms, including Mac Catalyst | `make buildSdk` |
 | Code gated by the `SessionReplay`, `CrashReporting` or `Surveys` package traits | `make buildSdkSpmNoTraits`, `make testNoTraits`, `make buildTestsSpmTraitsIOS` |
 | Example/platform integrations | `make buildExamplesPlatforms` |
-| CocoaPods integration modes | `make buildExamplePodsStaticLib`, `make buildExamplePodsStaticFramework`, `make buildExamplePodsDynamicFramework` |
 | XCFramework integration | `make buildExampleXCFramework` |
 
-Use relevant example/package checks for integration or packaging changes, and smoke test changed behavior in an example where applicable. `make buildExamples` runs all example builds; `make build` combines that with `make buildSdk`. These broad targets include CocoaPods installation and XCFramework generation, so they are not the default iteration loop. For package/support changes, also consult the package lint and minimum-toolchain lanes in [build CI](.github/workflows/build.yml) and [example CI](.github/workflows/build-examples.yml).
+Use relevant example/package checks for integration or packaging changes, and smoke test changed behavior in an example where applicable. `make buildExamples` runs all example builds; `make build` combines that with `make buildSdk`. These broad targets include XCFramework generation, so they are not the default iteration loop. For package/support changes, also consult the public API and minimum-toolchain lanes in [build CI](.github/workflows/build.yml) and [example CI](.github/workflows/build-examples.yml).
 
 ### Simulator, UI and masking prerequisites
 
@@ -78,6 +77,8 @@ This section is for external contributors. PostHog maintainers (members of the P
 
 When reviewing or fixing someone else's PR, don't ask for or open an issue. Note an external contributor's public API change when it has neither an agreed issue nor an API-defining published spec; the pre-implementation issue policy above is not a gate on that review work.
 
-`make apiCheck` checks [api/posthog-ios.public-api.txt](api/posthog-ios.public-api.txt), as CI does. `make apiUpdate` regenerates it only after intentional public API changes; review the snapshot diff. Both commands build the SDK and extract its public symbol graph, requiring Xcode with the iOS SDK, xcpretty and Python 3. A diff in that file means your change touches public API.
+`make apiCheck` checks [api/posthog-ios.public-api.txt](api/posthog-ios.public-api.txt) and [api/posthog-ios.public-api.no-traits.txt](api/posthog-ios.public-api.no-traits.txt), as CI does. `make apiUpdate` regenerates them only after intentional public API changes; review the snapshot diff. Both commands build the SDK and extract its public symbol graph, requiring Xcode with the iOS SDK, xcpretty and Python 3. A diff in either file means your change touches public API.
+
+Public API that only works with a package trait (`SessionReplay`, `CrashReporting` or `Surveys`) is gated with the same `#if !SWIFT_PACKAGE || <Trait>` condition as its implementation, so it is removed when the trait is off. The `no-traits` snapshot is the Swift Package Manager build with every trait off; a trait-specific symbol showing up there means its gate is missing.
 
 Above all, thank you for contributing!

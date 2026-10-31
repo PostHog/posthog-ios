@@ -7,11 +7,11 @@
 
 import Foundation
 
-// if you change this, make sure to also change it in the podspec and check if the script scripts/bump-version.sh still works
+// if you change this, check if the script scripts/bump-version.sh still works
 /// Current SDK version string.
 ///
 /// - Warning: This is intended for SDK internals and integrations. Application code should not mutate it.
-@_spi(PostHogInternal) public var postHogVersion = "3.92.5"
+@_spi(PostHogInternal) public var postHogVersion = "3.93.1"
 
 /// Default SDK name reported by the native iOS SDK.
 let postHogiOSSdkName = "posthog-ios"

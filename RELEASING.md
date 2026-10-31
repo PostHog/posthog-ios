@@ -30,12 +30,12 @@ When the PR is merged to `main`, the release workflow will automatically:
 2. Notify the client libraries team in Slack for approval
 3. Wait for approval from a maintainer (via GitHub environment protection)
 4. Once approved:
-   - Apply changesets and bump the version (in `package.json`, `PostHogVersion.swift`, and `PostHog.podspec`)
+   - Apply changesets and bump the version (in `package.json` and `PostHogVersion.swift`)
    - Update the `CHANGELOG.md`
    - Commit the version bump to `main`
    - Create a git tag and GitHub release
-   - Publish the pod to CocoaPods
-   - SPM uses the tag name to determine the version, directly from the repo
+
+Swift Package Manager reads the version from the git tag, so the tag is the release. 4.x is distributed only through Swift Package Manager; see [CocoaPods](#cocoapods).
 
 ### Manual Trigger
 
@@ -74,134 +74,12 @@ If the release workflow fails with "No changesets found", ensure your PR include
 
 Make sure the PR includes a changeset file and was merged to `main`, or trigger the workflow manually from the Actions tab.
 
-### Manual CocoaPods publish (emergency only)
+## CocoaPods
 
-In case of automation failure, you can manually publish:
+PostHog 4.0 and later is not published to CocoaPods. The release workflow has no CocoaPods step, and the repository no longer has a podspec or a `make releaseCocoaPods` target.
 
-```bash
-make releaseCocoaPods
-```
+[CocoaPods trunk becomes read-only on December 2, 2026](https://blog.cocoapods.org/CocoaPods-Specs-Repo/). After that date nobody can push a new version of the `PostHog` pod:
 
-You'll need to be authenticated with CocoaPods trunk and have push access to the `PostHog` pod.
-
-# CocoaPods Management
-
-The PostHog iOS SDK is published to CocoaPods automatically via GitHub Actions when a release is created. This section covers the management of CocoaPods permissions and tokens.
-
-### Check Your Current Session
-
-```bash
-# Check if you're logged in and your permissions
-pod trunk me
-```
-
-Expected output should show:
-
-```text
-- Name:     Your Name
-- Email:    your.email@posthog.com
-- Since:    Date
-- Pods:
-  - PostHog
-- Sessions:
-  - Session details...
-```
-
-### Check Pod Ownership
-
-```bash
-# Check who owns the PostHog pod
-pod trunk info PostHog
-```
-
-This will show:
-
-- Current version
-- All owners with push permissions
-
-### Adding a co-owner
-
-1. **With an existing owner**:
-
-   ```bash
-   # Run this as an existing owner
-   pod trunk add-owner PostHog dev.email@posthog.com
-   ```
-
-2. **Verify**:
-   ```bash
-   # Check that the new owner was added
-   pod trunk info PostHog
-   ```
-
-### Removing a co-owner
-
-1. **With an existing owner**:
-
-   ```bash
-   # Run this as an existing owner
-   pod trunk remove-owner PostHog dev.email@posthog.com
-   ```
-
-2. **Verify**:
-   ```bash
-   # Check that the new owner was removed
-   pod trunk info PostHog
-   ```
-
-### Rotating COCOAPODS_TRUNK_TOKEN
-
-The `COCOAPODS_TRUNK_TOKEN` is used in GitHub Actions for automated releases. Here's how to rotate it:
-
-The token is stored as a GitHub secret and used in `.github/workflows/release.yml`:
-
-```yaml
-env:
-  COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
-```
-
-#### Step 1: Create a new session
-
-1. **Login to CocoaPods Trunk**
-   As the account that will own the token, create a new session with:
-   ```bash
-   pod trunk register your.email@posthog.com 'Your Name'
-   # Verify email if needed
-   ```
-
-2. **Extract the token**:
-   The token is stored in `~/.netrc` file:
-   ```bash
-   # View your .netrc file
-   grep -A2 'trunk.cocoapods.org' ~/.netrc
-   # or look for the line with `trunk.cocoapods.org` in ~/.netrc
-   cat ~/.netrc
-   ```
-
-#### Step 2: Update GitHub Secret
-
-1. **Go to GitHub repository settings**:
-   - Request temp access if needed
-   - Navigate to `https://github.com/organizations/PostHog/settings/secrets/actions`
-   - Or: Org → Settings → Secrets and variables → Actions
-
-2. **Update the secret**:
-   - Find `COCOAPODS_TRUNK_TOKEN` in the list
-   - Update the secret
-
-#### Step 3: Revoking Old Sessions
-
-1. **Revoke old sessions**:
-   ```bash
-   # Clear current sessions (from the user that owned the previous token)
-   pod trunk me clean-sessions
-   ```
-
-#### Step 4: Update workflow docs
-
-Update `./.github/workflows/release.yml` with a comment on the new token owner.
-
-```yaml
-env:
-  COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }} # Using @username token
-```
+- 3.x versions already on trunk stay installable with `pod 'PostHog', '~> 3.0'`, but they are frozen. No new 3.x pod can be published after the lock.
+- Before the lock, a 3.x fix can only reach CocoaPods from a branch cut from the latest 3.x tag, because the release workflow runs on `main`, which is 4.x. That branch still has `PostHog.podspec`, `make releaseCocoaPods` and the pod-ownership and `COCOAPODS_TRUNK_TOKEN` docs (see [RELEASING.md at 3.92.5](https://github.com/PostHog/posthog-ios/blob/3.92.5/RELEASING.md#cocoapods-management)). Get maintainer approval before publishing from it.
+- Once no further 3.x pod is planned, and at the latest after the lock, delete the `COCOAPODS_TRUNK_TOKEN` secret and revoke its trunk session with `pod trunk me clean-sessions`.

@@ -4,7 +4,7 @@
 //
 //  Created by Manoel Aranda Neto on 19.03.24.
 //
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
 
     /// Configuration for iOS session replay capture.
@@ -35,14 +35,27 @@
         /// Note: When enabled, can be disabled remotely via project settings
         @objc public var captureNetworkTelemetry: Bool = true
 
-        /// Deprecated. Session replay always captures screenshots of the screen, with sensitive
-        /// content masked according to the masking options above.
+        /// Resolution of screenshots, as a multiplier of the screen's native resolution.
         ///
-        /// This property has no effect: it always reads `true` and ignores writes.
-        @available(*, deprecated, message: "Wireframe capture was removed and session replay always records masked screenshots. This property has no effect and will be removed in a future major release. Use the masking options or postHogMask() to hide sensitive content.")
-        @objc public var screenshotMode: Bool {
-            get { true }
-            set {} // swiftlint:disable:this unused_setter_value
+        /// - `nil`: one pixel per point on every device, so a 402×874 pt screen uploads 402×874 pixels.
+        /// - A value: that fraction of native resolution. On a 3x device, `1.0` uploads 1206×2622 pixels
+        ///   (native) and `0.5` uploads 603×1311 (1.5 pixels per point).
+        ///
+        /// Values are clamped to 0.1...1.0, and NaN or infinite values reset it to `nil`. The replay's viewport in
+        /// points is unchanged. Does not affect compression quality. Exposed as `NSNumber` so
+        /// Objective-C can leave it unset.
+        ///
+        /// Experimental.
+        /// Default: nil (one pixel per point)
+        @objc public var screenshotScale: NSNumber? {
+            didSet {
+                guard let value = screenshotScale?.doubleValue else { return }
+                screenshotScale = value.isFinite ? NSNumber(value: min(max(value, 0.1), 1)) : nil
+            }
+        }
+
+        func screenshotPixelScale(nativeScale: CGFloat) -> CGFloat {
+            screenshotScale.map { nativeScale * CGFloat($0.doubleValue) } ?? 1
         }
 
         /// Throttle delay used to reduce the number of snapshots captured and reduce performance impact

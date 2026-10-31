@@ -399,10 +399,12 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
         /// - iOS does not send `X-POSTHOG-WINDOW-ID` because mobile apps do not have a per-window/tab concept
         /// - Existing values for these headers will be overwritten
         @objc public var tracingHeaders: [String]?
+    #endif
 
+    #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
         /// Enable Recording of Session Replays for iOS
         ///
-        /// With Swift Package Manager, this requires the `SessionReplay` package trait, which is enabled by default.
+        /// With Swift Package Manager, this is only available with the `SessionReplay` package trait, which is enabled by default.
         ///
         /// Note: Ingestion controls (sampling, feature flags, and event triggers) are currently applied using AND logic.
         /// All configured conditions must be satisfied for recording to start.
@@ -411,7 +413,7 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
         @objc public var sessionReplay: Bool = false
         /// Session Replay configuration
         ///
-        /// With Swift Package Manager, this requires the `SessionReplay` package trait, which is enabled by default.
+        /// With Swift Package Manager, this is only available with the `SessionReplay` package trait, which is enabled by default.
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 
@@ -424,35 +426,37 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     /// Mutate fields on `config.logs` before calling `PostHogSDK.setup(_:)`.
     @objc public let logs: PostHogLogsConfig = .init()
 
-    /// Enable mobile surveys
-    ///
-    /// With Swift Package Manager, this requires the `Surveys` package trait, which is enabled by default.
-    ///
-    /// Default: true
-    ///
-    /// Note: Event triggers will only work with the instance that first enables surveys.
-    /// In case of multiple instances, please make sure you are capturing events on the instance that has config.surveys = true
-    @available(watchOS, unavailable, message: "Surveys are only available on iOS")
-    @available(macOS, unavailable, message: "Surveys are only available on iOS")
-    @available(tvOS, unavailable, message: "Surveys are only available on iOS")
-    @available(visionOS, unavailable, message: "Surveys are only available on iOS")
-    @objc public var surveys: Bool {
-        get { _surveys }
-        set { _surveys = newValue }
-    }
+    #if !SWIFT_PACKAGE || Surveys
+        /// Enable mobile surveys
+        ///
+        /// With Swift Package Manager, this is only available with the `Surveys` package trait, which is enabled by default.
+        ///
+        /// Default: true
+        ///
+        /// Note: Event triggers will only work with the instance that first enables surveys.
+        /// In case of multiple instances, please make sure you are capturing events on the instance that has config.surveys = true
+        @available(watchOS, unavailable, message: "Surveys are only available on iOS")
+        @available(macOS, unavailable, message: "Surveys are only available on iOS")
+        @available(tvOS, unavailable, message: "Surveys are only available on iOS")
+        @available(visionOS, unavailable, message: "Surveys are only available on iOS")
+        @objc public var surveys: Bool {
+            get { _surveys }
+            set { _surveys = newValue }
+        }
 
-    /// Configuration for mobile survey presentation and localization.
-    ///
-    /// Mutate fields on `config.surveysConfig` or replace this object before calling setup.
-    /// With Swift Package Manager, this requires the `Surveys` package trait, which is enabled by default.
-    @available(watchOS, unavailable, message: "Surveys are only available on iOS")
-    @available(macOS, unavailable, message: "Surveys are only available on iOS")
-    @available(tvOS, unavailable, message: "Surveys are only available on iOS")
-    @available(visionOS, unavailable, message: "Surveys are only available on iOS")
-    @objc public var surveysConfig: PostHogSurveysConfig {
-        get { _surveysConfig }
-        set { _surveysConfig = newValue }
-    }
+        /// Configuration for mobile survey presentation and localization.
+        ///
+        /// Mutate fields on `config.surveysConfig` or replace this object before calling setup.
+        /// With Swift Package Manager, this is only available with the `Surveys` package trait, which is enabled by default.
+        @available(watchOS, unavailable, message: "Surveys are only available on iOS")
+        @available(macOS, unavailable, message: "Surveys are only available on iOS")
+        @available(tvOS, unavailable, message: "Surveys are only available on iOS")
+        @available(visionOS, unavailable, message: "Surveys are only available on iOS")
+        @objc public var surveysConfig: PostHogSurveysConfig {
+            get { _surveysConfig }
+            set { _surveysConfig = newValue }
+        }
+    #endif
 
     /// Optional custom URLSessionConfiguration for network requests
     /// If not set, uses URLSessionConfiguration.default
@@ -519,7 +523,7 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     func getIntegrations() -> [PostHogIntegration] {
         var integrations: [PostHogIntegration] = []
 
-        #if os(iOS) || os(macOS) || os(tvOS)
+        #if (os(iOS) || os(macOS) || os(tvOS)) && (!SWIFT_PACKAGE || CrashReporting)
             if errorTrackingConfig.autoCapture {
                 integrations.append(PostHogErrorTrackingAutoCaptureIntegration())
             }
@@ -535,15 +539,18 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
             if tracingHeaders?.isEmpty == false {
                 integrations.append(PostHogTracingHeadersIntegration())
             }
+        #endif
 
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
             if sessionReplay {
                 integrations.append(PostHogReplayIntegration())
             }
+        #endif
 
+        #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
             if _surveys {
                 integrations.append(PostHogSurveyIntegration())
             }
-
         #endif
 
         #if os(iOS) || targetEnvironment(macCatalyst)
@@ -581,9 +588,11 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
         }
     #endif
 
-    var _surveys: Bool = true // swiftlint:disable:this identifier_name
+    #if !SWIFT_PACKAGE || Surveys
+        var _surveys: Bool = true // swiftlint:disable:this identifier_name
 
-    var _surveysConfig: PostHogSurveysConfig = .init() // swiftlint:disable:this identifier_name
+        var _surveysConfig: PostHogSurveysConfig = .init() // swiftlint:disable:this identifier_name
+    #endif
 
     /// Hook that allows to sanitize the event
     /// The hook is called before the event is cached or sent over the wire
@@ -604,6 +613,17 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     /// - Parameter blocks: Ordered callbacks that can mutate or drop events.
     public func setBeforeSend(_ blocks: BeforeSendBlock...) {
         setBeforeSend(blocks)
+    }
+
+    /// Replaces the event `beforeSend` chain with blocks from an array typed
+    /// `[(PostHogEvent) -> PostHogEvent?]`.
+    ///
+    /// The blocks can run on any thread, so they must be safe to call from any thread.
+    ///
+    /// - Parameter blocks: Ordered callbacks that can mutate or drop events.
+    @_disfavoredOverload
+    public func setBeforeSend(_ blocks: [(PostHogEvent) -> PostHogEvent?]) {
+        setBeforeSend(BeforeSendChain<PostHogEvent>.wrapping(blocks))
     }
 
     /// Replaces the event `beforeSend` chain from Objective-C boxed callbacks.

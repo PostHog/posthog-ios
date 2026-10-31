@@ -68,6 +68,27 @@ struct PostHogConfigTest {
         #expect(config.host == (try #require(URL(string: "localhost:9000"))))
     }
 
+    @Test("setBeforeSend accepts an array of non-Sendable closures")
+    func setBeforeSendAcceptsNonSendableClosureArray() throws {
+        let config = PostHogConfig(projectToken: testProjectToken)
+        // An app-side array typed with the plain function type, as written before 4.0.
+        let blocks: [(PostHogEvent) -> PostHogEvent?] = [
+            { event in
+                event.event += "-first"
+                return event
+            },
+            { event in
+                event.event += "-second"
+                return event
+            },
+        ]
+
+        config.setBeforeSend(blocks)
+
+        let event = try #require(config.runBeforeSend(PostHogEvent(event: "original", distinctId: "id")))
+        #expect(event.event == "original-first-second")
+    }
+
     #if os(iOS)
         @Suite("when initialized with default values for captureElementInteractions")
         struct DefaultCaptureElementInteractions {

@@ -1,4 +1,4 @@
-.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility checkTestRegistration testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS buildSdkSpm buildSdkSpmNoTraits buildTestsSpmTraitsIOS testNoTraits
+.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility checkTestRegistration testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap api apiCheck apiUpdate buildIOS buildSdkSpm buildSdkSpmNoTraits buildTestsSpmTraitsIOS testNoTraits
 
 build: buildSdk buildExamples
 
@@ -35,12 +35,6 @@ buildTestsSpmTraitsIOS:
 buildExamples: \
 	buildExamplesPlatforms \
 	buildExampleXCFramework \
-	buildExamplePods \
-
-buildExamplePods: \
-	buildExamplePodsStaticLib \
-	buildExamplePodsStaticFramework \
-	buildExamplePodsDynamicFramework \
 
 buildExamplesPlatforms:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExample -destination generic/platform=ios | xcpretty #ios
@@ -53,30 +47,6 @@ buildExamplesPlatforms:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleAutocapture -destination generic/platform=ios | xcpretty #Autocapture
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleStoryboard -destination generic/platform=ios | xcpretty #Storyboard
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination 'platform=macOS,variant=Mac Catalyst' | xcpretty #Mac Catalyst SPM
-
-buildExamplePodsDynamicFramework:
-	cd PostHogExampleWithPods && \
-	USE_FRAMEWORKS=dynamic pod install && cd .. && \
-	set -o pipefail && xcrun xcodebuild clean build \
-		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
-		-scheme PostHogExampleWithPods \
-		-destination generic/platform=ios | xcpretty
-
-buildExamplePodsStaticFramework:
-	cd PostHogExampleWithPods && \
-	USE_FRAMEWORKS=static pod install && cd .. && \
-	set -o pipefail && xcrun xcodebuild clean build \
-		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
-		-scheme PostHogExampleWithPods \
-		-destination generic/platform=ios | xcpretty
-
-buildExamplePodsStaticLib:
-	cd PostHogExampleWithPods && \
-	pod install && cd .. && \
-	set -o pipefail && xcrun xcodebuild clean archive \
-		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
-		-scheme PostHogExampleWithPods \
-		-destination generic/platform=ios | xcpretty
 
 buildExampleXCFramework:
 	./PostHogExampleExternalSDK/build_xcframework.sh
@@ -242,28 +212,22 @@ lint: swiftFormatCheck swiftLintCheck
 api:
 	periphery scan
 
+# Checks both public API snapshots: the default build, and the Swift Package Manager build with every
+# package trait off (api/posthog-ios.public-api.no-traits.txt), where trait-gated public API is removed.
 apiCheck:
 	scripts/check-public-api.sh
+	scripts/check-public-api.sh --no-traits
 
 apiUpdate:
 	scripts/check-public-api.sh --update
+	scripts/check-public-api.sh --update --no-traits
 
 # requires gem and brew
 # xcpretty needs 'export LANG=en_US.UTF-8'
 bootstrap:
-	gem install cocoapods
 	gem install xcpretty
 	brew install swiftlint
 	brew install swiftformat
 	brew install peripheryapp/periphery/periphery
-
-# download SDKs and runtimes
-# create Apple Vision Pro simulator if missing
-# release pod
-releaseCocoaPods:
-	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms 
-	@if ! xcrun simctl list devices | grep -q "Apple Vision Pro"; then \
-		LATEST_RUNTIME=$$(xcrun simctl list runtimes | grep "com.apple.CoreSimulator.SimRuntime.xrOS" | sort -r | head -n 1 | awk '{print $$NF}') && \
-		xcrun simctl create "Apple Vision Pro" "Apple Vision Pro" "$$LATEST_RUNTIME"; \
-	fi
-	pod trunk push PostHog.podspec --allow-warnings
+	brew install prek
+	prek install

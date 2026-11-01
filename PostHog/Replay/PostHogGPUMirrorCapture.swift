@@ -790,7 +790,8 @@
                 // Far cull: a non-clipping layer more than a visible-area's size outside it is left out with its whole
                 // subtree, unvisited (off-screen pages and cells; on device it halved the build on large trees). A
                 // sublayer positioned back on screen from there is dropped from the pixels, and from the mask walk
-                // with it, so a wrong guess costs fidelity, never an unmasked pixel.
+                // with it, so a wrong guess costs fidelity, never an unmasked pixel. A culled full-window cover is the
+                // exception: what it hides goes unmasked, so the mask walk skips that frame.
                 if !frame.intersects(visible.insetBy(dx: -visible.width, dy: -visible.height)) { return nil }
                 reaches = ownExtent(layer, info: info).map { $0 != bounds && $0.applying(toWindow).intersects(visible) } ?? true
             }

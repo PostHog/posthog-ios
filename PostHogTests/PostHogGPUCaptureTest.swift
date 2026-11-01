@@ -500,6 +500,35 @@
             #expect(PostHogReplayIntegration().maskableRects(for: frame, in: window) == nil)
         }
 
+        @Test("A full-window cover under a far-culled container skips the frame instead of exposing the presenter")
+        func farCulledCoverSkipsFrame() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let presenter = CoveredController()
+            window.rootViewController = presenter
+            defer { window.rootViewController = nil }
+            presenter.view.frame = window.bounds
+            presenter.view.addSubview(secretField(CGRect(x: 20, y: 200, width: 120, height: 60)))
+            let offset = window.bounds.height * 10
+            let container = UIView(frame: window.bounds.offsetBy(dx: 0, dy: offset))
+            let cover = UIViewController()
+            cover.view.frame = window.bounds.offsetBy(dx: 0, dy: -offset)
+            cover.view.backgroundColor = .white
+            cover.view.addSubview(secretField(CGRect(x: 20, y: 40, width: 120, height: 60)))
+            container.addSubview(cover.view)
+            presenter.cover = cover
+            window.addSubview(container)
+            window.layoutIfNeeded()
+            try #require(PostHogPresentationCover.frontmostFullWindowCover(in: window) === cover.view)
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            defer { frame.release() }
+            try #require(frame.culledLayers.contains(ObjectIdentifier(container.layer)))
+            #expect(PostHogReplayIntegration().maskableRects(for: frame, in: window) == nil)
+        }
+
         @available(iOS 26.0, *)
         @Test("Corners UIKit rounds per corner, leaving cornerRadius at 0, are rounded in the copy")
         func perCornerRadiiAreCopied() async throws {

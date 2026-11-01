@@ -2109,6 +2109,15 @@
         fileprivate func isCulled(_ layer: CALayer, _ culled: Culled) -> Bool {
             culled.contains(ObjectIdentifier(layer))
         }
+
+        fileprivate func isCulledWithAncestors(_ layer: CALayer, _ culled: Culled) -> Bool {
+            var current: CALayer? = layer
+            while let layer = current {
+                if isCulled(layer, culled) { return true }
+                current = layer.superlayer
+            }
+            return false
+        }
     }
 
     extension PostHogReplayIntegration {
@@ -2311,10 +2320,13 @@
                 guard let regions = collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources) else {
                     return nil
                 }
+                let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer
+                // The mask walk left out the masks of what the cover hides, so a cover the mirror culled would expose them.
+                if let cover, isCulledWithAncestors(cover, frame.culledLayers) {
+                    return nil
+                }
                 let maskedLayers = regions.compactMap { ($0.object as? UIView)?.layer ?? $0.object as? CALayer }
-                guard frame.omitModelGeometrySubtrees(holding: maskedLayers,
-                                                      cover: PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer)
-                else {
+                guard frame.omitModelGeometrySubtrees(holding: maskedLayers, cover: cover) else {
                     return nil
                 }
                 return regions.map(\.rect)

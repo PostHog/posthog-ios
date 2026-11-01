@@ -35,6 +35,8 @@ let maxRetryDelay = 30.0
     /// `config`/`remoteConfig`/`queue`/`replayQueue` are written under `setupLock` (setup/close) and
     /// read from arbitrary caller threads (capture(), debugProperties()) — guard the references
     /// themselves with the same (recursive) lock so a reader never races `close()`'s teardown.
+    private let appLanguageLock = NSLock()
+    private var appLanguageOverride: String?
     private(set) var config: PostHogConfig {
         get { setupLock.withLock { _config } }
         set { setupLock.withLock { _config = newValue } }
@@ -586,6 +588,13 @@ let maxRetryDelay = 30.0
 
     // EVENT CAPTURE
 
+    private func currentAppLanguage() -> String? {
+        if let override = appLanguageLock.withLock({ appLanguageOverride }) {
+            return override
+        }
+        return config.detectAppLanguage ? PostHogContext.detectedAppLanguage : nil
+    }
+
     private func dynamicContext() -> [String: Any] {
         var properties: [String: Any] = [:]
 
@@ -771,6 +780,9 @@ let maxRetryDelay = 30.0
                 props = props.merging(dynamicCtx ?? [:]) { current, _ in current }
             }
             props = props.merging(localDynamicCtx) { current, _ in current }
+            if let appLanguage = currentAppLanguage() {
+                props["$app_language"] = appLanguage
+            }
 
             // Only stamp if the caller didn't supply a non-empty value. Whitespace-only
             // caller values are treated as absent (almost always accidental).
@@ -1031,6 +1043,33 @@ let maxRetryDelay = 30.0
         }
 
         // Notify integrations of context change (e.g., for crash reporting)
+        notifyContextDidChange()
+    }
+
+    /// Sets the `$app_language` property: the language your app displays, sent with every event.
+    ///
+    /// Call it at startup and whenever the language changes, because the value is kept in memory only.
+    /// It overrides the language the SDK detects, and survives `reset()`.
+    ///
+    /// By default the SDK sends the localization your app bundle resolved, from
+    /// `Bundle.main.preferredLocalizations`. Use this if you translate your app some other way, such as
+    /// with an in-app language setting. Compare `$locale`, which is the device's preferred language.
+    ///
+    /// ```swift
+    /// PostHogSDK.shared.setAppLanguage("de")
+    /// ```
+    ///
+    /// - Parameter language: A BCP 47 language tag, such as `de` or `pt-BR`. Pass `nil` to go back to
+    ///   the detected language.
+    @objc(setAppLanguage:)
+    public func setAppLanguage(_ language: String?) {
+        let normalized = language?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "_", with: "-")
+        appLanguageLock.withLock {
+            appLanguageOverride = normalized.isNilOrEmpty ? nil : normalized
+        }
+
         notifyContextDidChange()
     }
 

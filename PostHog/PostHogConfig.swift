@@ -283,6 +283,12 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     /// SPI, not public API: no stability guarantees.
     @_spi(PostHogInternal) public var persistOptOut: Bool = true
 
+    /// Whether the SDK detects `$app_language` from the app bundle. Wrappers that translate outside of
+    /// native resources, such as Flutter, turn this off and report the language they resolved.
+    ///
+    /// SPI, not public API: no stability guarantees.
+    @_spi(PostHogInternal) public var detectAppLanguage: Bool = true
+
     /// Hook used to customize newly generated anonymous IDs.
     ///
     /// The SDK passes its generated UUID v7 and stores the UUID returned by this closure.

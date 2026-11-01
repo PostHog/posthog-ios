@@ -48,6 +48,19 @@ struct PostHogContextTest {
         #endif
     }
 
+    @Test("locale is the first preferred language, with its region")
+    func localeIsFirstPreferredLanguage() {
+        #expect(getSut().dynamicContext()["$locale"] as? String == Locale.preferredLanguages.first)
+    }
+
+    @Test("app language skips Base and normalizes the tag")
+    func appLanguageFromLocalizations() {
+        #expect(PostHogContext.appLanguage(from: ["Base", "de"]) == "de")
+        #expect(PostHogContext.appLanguage(from: ["pt_BR"]) == "pt-BR")
+        #expect(PostHogContext.appLanguage(from: ["Base"]) == nil)
+        #expect(PostHogContext.appLanguage(from: []) == nil)
+    }
+
     @Test("returns dynamic context")
     func returnsDynamicContext() {
         let sut = getSut()

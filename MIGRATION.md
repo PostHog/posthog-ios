@@ -100,6 +100,14 @@ If an app's last 3.x launch cached a bootstrapped string payload, got no `/flags
 
 If an app updates from a 2.x SDK straight to 4.0, events still queued on disk by 2.x are deleted instead of sent. Distinct ID, anonymous ID, groups and cached feature flags still carry over. Updates from 3.x aren't affected.
 
+### `$locale` and `$app_language`
+
+`$locale` now means the device's preferred language, with its region: `de-CH` instead of `de`, and `fr-FR` when your app only supports English. This matches Android and the property's definition. If a user picks a language for your app in iOS Settings, iOS reports that language as the first preferred language, so `$locale` follows it.
+
+The value `$locale` used to send is now the new `$app_language` property: the language your app shows, such as `de`. If you use your own language setting instead of iOS localizations, call `PostHogSDK.shared.setAppLanguage("de")` at startup and whenever it changes.
+
+Update feature flags, cohorts, insights and actions that match `$locale`: a filter on `$locale = de` stops matching `de-CH`. Filter on `$app_language` to keep the old meaning, or use `$locale` "contains" or a regex for device language. Events already stored keep the old values.
+
 ### Network reachability
 
 4.0 detects connectivity with `NWPathMonitor`:
@@ -436,6 +444,7 @@ SwiftPM turns a trait on if any package in your dependency graph depends on post
 - [ ] If you use session replay, review recordings on a test build: custom-drawn content, maps, video and web views can now appear. Add masks where needed.
 - [ ] If your app is SwiftUI-rooted and has replay on, expect recordings to start, and check quota and consent.
 - [ ] Update insights, cohorts and actions that use `version` or `build` on lifecycle events, or `wireframe` in `$sdk_debug_replay_capture_mode`.
+- [ ] Update feature flags, cohorts, insights and actions that match `$locale`, which now includes the region. Use `$app_language` for the language your app shows.
 - [ ] Check code that reads feature flag payloads and could get `nil` for a malformed one.
 - [ ] Work through the [capture v1 checklist](#do-you-need-to-change-anything), especially reverse proxies, self-hosted instances and long distinct IDs.
 - [ ] Fix the compile errors using the tables above, including `reloadFeatureFlags` closures.

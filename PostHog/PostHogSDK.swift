@@ -35,12 +35,13 @@ let maxRetryDelay = 30.0
     /// `config`/`remoteConfig`/`queue`/`replayQueue` are written under `setupLock` (setup/close) and
     /// read from arbitrary caller threads (capture(), debugProperties()) — guard the references
     /// themselves with the same (recursive) lock so a reader never races `close()`'s teardown.
-    private let appLanguageLock = NSLock()
-    private var appLanguageOverride: String?
     private(set) var config: PostHogConfig {
         get { setupLock.withLock { _config } }
         set { setupLock.withLock { _config = newValue } }
     }
+
+    private let appLanguageLock = NSLock()
+    private var appLanguageOverride: String?
 
     private init(_ config: PostHogConfig) {
         _config = config

@@ -1170,6 +1170,21 @@ final class PostHogSDKTests {
         #expect(events[2].properties["$app_language"] as? String == PostHogContext.detectedAppLanguage)
     }
 
+    @Test("blank setAppLanguage clears, and a registered value wins")
+    func setAppLanguageBlankAndRegistered() async throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.setAppLanguage("   ")
+        sut.capture("blank")
+        sut.setAppLanguage("de")
+        sut.register(["$app_language": "fr"])
+        sut.capture("registered")
+
+        let events = try await getServerEvents(fixture.server)
+        #expect(events[0].properties["$app_language"] as? String == PostHogContext.detectedAppLanguage)
+        #expect(events[1].properties["$app_language"] as? String == "fr")
+    }
+
     @Test("detectAppLanguage off sends no language until the wrapper sets one")
     func detectAppLanguageOff() async throws {
         let sut = getSut(flushAt: 2)

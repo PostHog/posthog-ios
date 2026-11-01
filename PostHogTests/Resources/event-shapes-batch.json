@@ -12,6 +12,7 @@
             "beta",
             "checkout-redesign"
           ],
+          "$app_language" : "<environment-string>",
           "$app_namespace" : "<environment-string>",
           "$device_manufacturer" : "Apple",
           "$device_model" : "<environment-string>",
@@ -68,6 +69,7 @@
             "checkout-redesign"
           ],
           "$anon_distinct_id" : "anonymous-123",
+          "$app_language" : "<environment-string>",
           "$app_namespace" : "<environment-string>",
           "$device_manufacturer" : "Apple",
           "$device_model" : "<environment-string>",
@@ -114,6 +116,7 @@
             "beta",
             "checkout-redesign"
           ],
+          "$app_language" : "<environment-string>",
           "$app_namespace" : "<environment-string>",
           "$device_manufacturer" : "Apple",
           "$device_model" : "<environment-string>",
@@ -161,6 +164,7 @@
             "beta",
             "checkout-redesign"
           ],
+          "$app_language" : "<environment-string>",
           "$app_namespace" : "<environment-string>",
           "$device_manufacturer" : "Apple",
           "$device_model" : "<environment-string>",
@@ -207,6 +211,7 @@
             "beta",
             "checkout-redesign"
           ],
+          "$app_language" : "<environment-string>",
           "$app_namespace" : "<environment-string>",
           "$debug_images" : [
             "<debug-image>"

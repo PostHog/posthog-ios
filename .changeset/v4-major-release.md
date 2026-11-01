@@ -41,7 +41,7 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - Drop an event with an empty name before sending it, including one `beforeSend` renames to `""`
 - Ignore `identify` with a whitespace-only distinct ID
 - Print a warning, also without `debug`, when `setup` leaves the SDK disabled because `projectToken` is empty or a personal API key
-- **Breaking:** change `$locale` to the device's preferred language with its region, such as `de-CH` instead of `de` — filter on `$app_language` for the old meaning
+- **Breaking:** change `$locale` to the device's preferred language with its region, such as `de-CH` instead of `de` — filter on `$app_language` for the language the app shows
 - Add the `$app_language` property with the language the app displays, and `setAppLanguage(_:)` to set it when the app translates some other way
 - Add `SessionReplay`, `CrashReporting` and `Surveys` Swift package traits (on by default) that remove the feature and its public API when turned off
 - Change network reachability detection to `NWPathMonitor`, so a path needing user action counts as reachable, queues pause while cellular data is off for the app, and early events may omit `$network_wifi` and `$network_cellular`

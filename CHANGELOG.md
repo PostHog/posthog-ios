@@ -1,5 +1,11 @@
 ## Next
 
+## 3.93.1
+
+### Patch Changes
+
+- 9b7e911: Fix `screenshotMode` session replay leaving masked content visible where it is drawn outside its view (unclipped images, layer shadows, button titles) and image attachments in text unmasked when `maskAllImages` is on.
+
 ## 3.93.0
 
 ### Minor Changes

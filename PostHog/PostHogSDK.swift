@@ -1813,7 +1813,7 @@ let maxRetryDelay = 30.0
         ) else {
             return nil
         }
-        return finishCaptureEvent(prepared, aiLane: aiLane, deduplicatePersonProperties: deduplicatePersonProperties)?
+        return finishCaptureEvent(prepared, aiLane: aiLane, queues: captureQueues(aiLane: aiLane), deduplicatePersonProperties: deduplicatePersonProperties)?
             .uuid.postHogUuidString
     }
 
@@ -1932,10 +1932,25 @@ let maxRetryDelay = 30.0
         return posthogEvent
     }
 
-    /// Runs `beforeSend` on an event from `prepareCaptureEvent` and queues the result.
+    /// The queues of one setup, read together so a concurrent `close()`/`setup()` can't mix setups.
+    private struct CaptureQueues {
+        let lane: PostHogQueue<PostHogEvent>?
+        let replay: PostHogReplayQueue?
+    }
+
+    private func captureQueues(aiLane: Bool) -> CaptureQueues {
+        setupLock.withLock { CaptureQueues(lane: aiLane ? _aiQueue : _queue, replay: _replayQueue) }
+    }
+
+    /// Runs `beforeSend` on an event from `prepareCaptureEvent` and queues the result in `queues`.
     /// - Returns: The queued event, as `beforeSend` returned it, or `nil` when the event isn't queued.
-    private func finishCaptureEvent(_ prepared: PostHogEvent, aiLane: Bool, deduplicatePersonProperties: Bool = false) -> PostHogEvent? {
-        guard let queue = aiLane ? aiQueue : queue else {
+    private func finishCaptureEvent(
+        _ prepared: PostHogEvent,
+        aiLane: Bool,
+        queues: CaptureQueues,
+        deduplicatePersonProperties: Bool = false
+    ) -> PostHogEvent? {
+        guard let queue = queues.lane else {
             releaseClaimIfCarried(prepared)
             return nil
         }
@@ -1960,9 +1975,9 @@ let maxRetryDelay = 30.0
         // Session Replay has its own queue
         if isSnapshotEvent {
             releaseClaimIfCarried(posthogEvent)
-            replayQueue?.add(posthogEvent)
+            queues.replay?.add(posthogEvent)
             onEventCaptured.invoke(posthogEvent)
-            return replayQueue == nil ? nil : posthogEvent
+            return queues.replay == nil ? nil : posthogEvent
         }
         let stored = queueEvent(posthogEvent, queue: queue, deduplicatePersonProperties: deduplicatePersonProperties)
         return stored ? posthogEvent : nil
@@ -2102,8 +2117,16 @@ let maxRetryDelay = 30.0
             hedgeLog("PostHog event \(event.event) wasn't built by buildEventForWrapper, or was already sent, so it was dropped")
             return nil
         }
-        let currentSetup = wrapperSendLock.withLock { wrapperSetupGeneration }
-        guard event.wrapperBuildSDK == ObjectIdentifier(self), event.wrapperBuildSetupGeneration == currentSetup else {
+        // Under `setupLock`, which `setup()` and `close()` hold to change the generation and the queues,
+        // so an event that passes this check goes to the queues of the setup it was built for.
+        let queues: CaptureQueues? = setupLock.withLock {
+            let currentSetup = wrapperSendLock.withLock { wrapperSetupGeneration }
+            guard event.wrapperBuildSDK == ObjectIdentifier(self), event.wrapperBuildSetupGeneration == currentSetup else {
+                return nil
+            }
+            return captureQueues(aiLane: ai)
+        }
+        guard let queues else {
             hedgeLog("PostHog event \(event.event) was built before the SDK was closed or set up again, so it was dropped")
             return nil
         }
@@ -2135,7 +2158,7 @@ let maxRetryDelay = 30.0
             event.flagUserProperties = nil
             event.flagUserPropertiesSetOnce = nil
         }
-        guard let sent = finishCaptureEvent(event, aiLane: ai) else {
+        guard let sent = finishCaptureEvent(event, aiLane: ai, queues: queues) else {
             return nil
         }
         // A `reset()` since the build cleared the screen name, so the old one isn't restored.

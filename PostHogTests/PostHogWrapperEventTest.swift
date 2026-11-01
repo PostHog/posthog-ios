@@ -264,6 +264,27 @@ final class PostHogWrapperEventTest {
         #expect(sut.sendBuiltEventForWrapper(built, ai: false) == nil)
     }
 
+    @Test("a setup replaced during send doesn't receive the event")
+    func reconfigureDuringSendKeepsBuildSetupQueue() throws {
+        let replacement = PostHogConfig(projectToken: "phc_wrapper_\(UUID().uuidString)", host: "http://localhost:9001")
+        replacement.disableReachabilityForTesting = true
+        replacement.disableQueueTimerForTesting = true
+        var sut: PostHogSDK!
+        sut = makeSDK { event in
+            sut.close()
+            sut.setup(replacement)
+            event.event = "$snapshot"
+            event.properties["$session_id"] = "session"
+            return event
+        }
+        defer { sut.close() }
+        let built = try #require(build(sut))
+
+        sut.sendBuiltEventForWrapper(built, ai: false)
+
+        #expect(try #require(sut.replayQueue).depth == 0)
+    }
+
     @Test("an event built on one SDK instance isn't sent through another")
     func sendOnOtherInstanceDrops() throws {
         let sut = makeSDK()

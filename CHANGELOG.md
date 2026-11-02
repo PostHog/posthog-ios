@@ -1,5 +1,11 @@
 ## Next
 
+## 3.93.2
+
+### Patch Changes
+
+- c6057bc: Fix missing background events and incorrect cold opens after late setup or opt-in.
+
 ## 3.93.1
 
 ### Patch Changes

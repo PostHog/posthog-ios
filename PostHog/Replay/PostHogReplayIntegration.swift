@@ -1686,13 +1686,13 @@
                 // Banded on mask geometry alone, not on layout-event counts: layout events arrive in
                 // bursts, so a count false-positives on the very burst that triggered the capture.
                 let verdict = Self.settleVerdict(before: sentinelRegions, after: regionsNow)
-                self.performScreenshotCapture(
-                    window: window,
-                    screenName: screenName,
-                    postHog: postHog,
-                    preferFidelityRenderer: verdict.band.usesFidelity,
-                    overrideMaskRects: verdict.inflatedRects ?? regionsNow?.map(\.rect)
-                )
+                guard let rendering = Self.settledRendering(of: window, band: verdict.band, inflatedRects: verdict.inflatedRects, regions: regionsNow) else {
+                    hedgeLog("[Session Replay] Skipping snapshot: the window holds a layer the motion renderer can't draw")
+                    self.finishScreenshotRender()
+                    return
+                }
+                self.performScreenshotCapture(window: window, screenName: screenName, postHog: postHog,
+                                              preferFidelityRenderer: rendering.preferFidelityRenderer, overrideMaskRects: rendering.rects)
             }
         }
 

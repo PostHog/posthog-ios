@@ -113,7 +113,7 @@
 
         @Test("a screenshot whose masked render fails carries no image and is marked for dropping")
         func maskRenderFailureDropsTheFrame() {
-            let wireframe = RRWireframe()
+            let wireframe = RRScreenshotFrame()
             wireframe.type = "screenshot"
             wireframe.image = makeUnrenderableImage()
             wireframe.maskableWidgets = [CGRect(x: 0, y: 0, width: 10, height: 10)]
@@ -126,7 +126,7 @@
 
         @Test("a screenshot with nothing to mask still sends the image")
         func unmaskedScreenshotStillSends() {
-            let wireframe = RRWireframe()
+            let wireframe = RRScreenshotFrame()
             wireframe.type = "screenshot"
             wireframe.image = makeRenderableImage()
 
@@ -138,7 +138,7 @@
 
         @Test("a successful masked render sends the redacted image")
         func maskedScreenshotSends() {
-            let wireframe = RRWireframe()
+            let wireframe = RRScreenshotFrame()
             wireframe.type = "screenshot"
             wireframe.image = makeRenderableImage()
             wireframe.maskableWidgets = [CGRect(x: 0, y: 0, width: 10, height: 10)]
@@ -190,7 +190,7 @@
                 queue.suspend()
             }
             for (index, fails) in failures.enumerated() {
-                let wireframe = RRWireframe()
+                let wireframe = RRScreenshotFrame()
                 wireframe.type = "screenshot"
                 wireframe.image = fails ? makeUnrenderableImage() : makeRenderableImage()
                 wireframe.maskableWidgets = [CGRect(x: index * 5, y: 0, width: 10, height: 10)]

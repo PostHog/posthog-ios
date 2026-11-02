@@ -25,6 +25,11 @@ protocol AppLifecyclePublishing: AnyObject {
     /// at subscription time should seed from this rather than waiting for
     /// the next state-change callback.
     var isInBackground: Bool { get }
+    /// Current native activity, sampled on main; returns false off-main.
+    var isActive: Bool { get }
+    /// Whether the app has already been active, including before a consumer subscribes.
+    /// Off-main reads use observed activations without synchronously querying the UI.
+    var hasBecomeActive: Bool { get }
 }
 
 /**
@@ -51,23 +56,47 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
     let onDidEnterBackground = PostHogMulticastCallback<Void>()
     let onDidFinishLaunching = PostHogMulticastCallback<Void>()
 
-    /// `UIApplication.applicationState` requires main-thread access. From any
-    /// other thread we return the optimistic `false` rather than risk a
-    /// `DispatchQueue.main.sync` deadlock if the caller already holds a lock
-    /// the main thread is waiting on. macOS / watchOS have no equivalent
-    /// foreground-vs-background concept, so they also report `false`.
+    /// UIKit's live state is only queried on main. Elsewhere, use observed
+    /// transitions without blocking callers that may hold SDK locks needed by main.
     var isInBackground: Bool {
         #if os(iOS) || os(tvOS) || os(visionOS)
-            guard Thread.isMainThread else { return false }
-            return UIApplication.shared.applicationState == .background
+            if Thread.isMainThread {
+                return UIApplication.shared.applicationState == .background
+            }
+        #endif
+        return stateLock.withLock { isBackgrounded }
+    }
+
+    private let stateLock = NSLock()
+    private var hasObservedActivation = false
+    private var isBackgrounded = false
+
+    var isActive: Bool {
+        guard Thread.isMainThread else { return false }
+        #if os(iOS) || os(tvOS) || os(visionOS)
+            return UIApplication.shared.applicationState == .active
+        #elseif os(macOS)
+            return NSApplication.shared.isActive
+        #elseif os(watchOS)
+            return WKApplication.shared().applicationState == .active
         #else
             return false
         #endif
     }
 
-    private init() {
-        let defaultCenter = NotificationCenter.default
+    var hasBecomeActive: Bool {
+        if stateLock.withLock({ hasObservedActivation }) {
+            return true
+        }
+        let isActive = self.isActive
 
+        return stateLock.withLock {
+            hasObservedActivation = hasObservedActivation || isActive
+            return hasObservedActivation
+        }
+    }
+
+    init(notificationCenter defaultCenter: NotificationCenter = .default) {
         #if os(iOS) || os(tvOS)
             defaultCenter.addObserver(self,
                                       selector: #selector(appDidFinishLaunching),
@@ -109,18 +138,23 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
                                       name: NSApplication.didBecomeActiveNotification,
                                       object: nil)
         #elseif os(watchOS)
-            NotificationCenter.default.addObserver(self,
-                                                   selector: #selector(appDidBecomeActive),
-                                                   name: WKApplication.didBecomeActiveNotification,
-                                                   object: nil)
+            defaultCenter.addObserver(self,
+                                      selector: #selector(appDidBecomeActive),
+                                      name: WKApplication.didBecomeActiveNotification,
+                                      object: nil)
         #endif
     }
 
     @objc private func appDidEnterBackground() {
+        stateLock.withLock { isBackgrounded = true }
         onDidEnterBackground.invoke(())
     }
 
     @objc private func appDidBecomeActive() {
+        stateLock.withLock {
+            hasObservedActivation = true
+            isBackgrounded = false
+        }
         onDidBecomeActive.invoke(())
     }
 

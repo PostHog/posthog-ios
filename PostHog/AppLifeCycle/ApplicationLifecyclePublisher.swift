@@ -54,25 +54,23 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
     let onDidEnterBackground = PostHogMulticastCallback<Void>()
     let onDidFinishLaunching = PostHogMulticastCallback<Void>()
 
-    /// `UIApplication.applicationState` requires main-thread access. From any
-    /// other thread we return the optimistic `false` rather than risk a
-    /// `DispatchQueue.main.sync` deadlock if the caller already holds a lock
-    /// the main thread is waiting on. macOS / watchOS have no equivalent
-    /// foreground-vs-background concept, so they also report `false`.
+    /// UIKit's live state is only queried on main. Elsewhere, use observed
+    /// transitions without blocking callers that may hold SDK locks needed by main.
     var isInBackground: Bool {
         #if os(iOS) || os(tvOS) || os(visionOS)
-            guard Thread.isMainThread else { return false }
-            return UIApplication.shared.applicationState == .background
-        #else
-            return false
+            if Thread.isMainThread {
+                return UIApplication.shared.applicationState == .background
+            }
         #endif
+        return stateLock.withLock { isBackgrounded }
     }
 
-    private let activationLock = NSLock()
+    private let stateLock = NSLock()
     private var hasObservedActivation = false
+    private var isBackgrounded = false
 
     var hasBecomeActive: Bool {
-        if activationLock.withLock({ hasObservedActivation }) {
+        if stateLock.withLock({ hasObservedActivation }) {
             return true
         }
         // Do not block on main while a caller may hold SDK locks needed by lifecycle callbacks.
@@ -93,7 +91,7 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
             isActive = false
         #endif
 
-        return activationLock.withLock {
+        return stateLock.withLock {
             hasObservedActivation = hasObservedActivation || isActive
             return hasObservedActivation
         }
@@ -156,11 +154,15 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
     }
 
     @objc private func appDidEnterBackground() {
+        stateLock.withLock { isBackgrounded = true }
         onDidEnterBackground.invoke(())
     }
 
     @objc private func appDidBecomeActive() {
-        activationLock.withLock { hasObservedActivation = true }
+        stateLock.withLock {
+            hasObservedActivation = true
+            isBackgrounded = false
+        }
         onDidBecomeActive.invoke(())
     }
 

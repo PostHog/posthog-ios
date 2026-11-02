@@ -169,30 +169,83 @@ final class PostHogAppLifeCycleIntegrationTest {
     }
 
     #if os(iOS) || os(tvOS) || os(visionOS) || os(macOS)
-        @Test("publisher remembers activation before notifying subscribers and across threads")
-        func publisherRemembersActivation() async {
+        private var lifecycleNotifications: (active: Notification.Name, background: Notification.Name) {
+            #if os(macOS)
+                return (NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification)
+            #elseif os(visionOS)
+                return (UIScene.didActivateNotification, UIScene.willDeactivateNotification)
+            #else
+                return (UIApplication.didBecomeActiveNotification, UIApplication.didEnterBackgroundNotification)
+            #endif
+        }
+
+        // Synthetic UIKit notifications do not change its live main-thread application state.
+        #if os(macOS)
+            private static let backgroundOptInThreads = [false, true]
+        #else
+            private static let backgroundOptInThreads = [true]
+        #endif
+
+        @Test("captures warm foreground after opting in while backgrounded", arguments: Self.backgroundOptInThreads)
+        func capturesForegroundAfterBackgroundOptIn(optInOffMain: Bool) async throws {
+            setVersionDefaults()
             let center = NotificationCenter()
             let publisher = ApplicationLifecyclePublisher(notificationCenter: center)
-            let initial = await Task.detached { publisher.hasBecomeActive }.value
-            #expect(!initial)
+            DI.main.appLifecyclePublisher = publisher
+            let sut = getSut(flushAt: 100, optOut: true)
+            defer { sut.close() }
 
-            let token = publisher.onDidBecomeActive.subscribe {
-                #expect(publisher.hasBecomeActive)
+            center.post(name: lifecycleNotifications.active, object: nil)
+            center.post(name: lifecycleNotifications.background, object: nil)
+            if optInOffMain {
+                await Task.detached { sut.optIn() }.value
+            } else {
+                await MainActor.run { sut.optIn() }
             }
-            #if os(macOS)
-                center.post(name: NSApplication.didBecomeActiveNotification, object: nil)
-                center.post(name: NSApplication.didResignActiveNotification, object: nil)
-            #elseif os(visionOS)
-                center.post(name: UIScene.didActivateNotification, object: nil)
-                center.post(name: UIScene.willDeactivateNotification, object: nil)
-            #else
-                center.post(name: UIApplication.didBecomeActiveNotification, object: nil)
-                center.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
-            #endif
 
-            let afterBackgrounding = await Task.detached { publisher.hasBecomeActive }.value
-            #expect(afterBackgrounding)
-            withExtendedLifetime(token) {}
+            center.post(name: lifecycleNotifications.active, object: nil)
+            center.post(name: lifecycleNotifications.active, object: nil)
+            sut.capture("After foreground")
+            sut.flush()
+
+            let events = try await getServerEvents(server)
+            #expect(events.map(\.event) == ["Application Installed", "Application Opened", "After foreground"])
+            #expect(events.first { $0.event == "Application Opened" }?.properties["from_background"] as? Bool == true)
+        }
+
+        @Test("publisher remembers lifecycle state before notifying subscribers and across threads")
+        func publisherRemembersLifecycleState() async {
+            let center = NotificationCenter()
+            let publisher = ApplicationLifecyclePublisher(notificationCenter: center)
+            let initial = await Task.detached {
+                (active: publisher.hasBecomeActive, background: publisher.isInBackground)
+            }.value
+            #expect(!initial.active)
+            #expect(!initial.background)
+
+            let activeToken = publisher.onDidBecomeActive.subscribe {
+                #expect(publisher.hasBecomeActive)
+                #expect(!publisher.isInBackground)
+            }
+            let backgroundToken = publisher.onDidEnterBackground.subscribe {
+                #expect(publisher.hasBecomeActive)
+                #expect(publisher.isInBackground)
+            }
+            let notifications = lifecycleNotifications
+            let afterBackgrounding = await Task.detached {
+                center.post(name: notifications.active, object: nil)
+                center.post(name: notifications.background, object: nil)
+                return (active: publisher.hasBecomeActive, background: publisher.isInBackground)
+            }.value
+            #expect(afterBackgrounding.active)
+            #expect(afterBackgrounding.background)
+
+            let afterForegrounding = await Task.detached {
+                center.post(name: notifications.active, object: nil)
+                return publisher.isInBackground
+            }.value
+            #expect(!afterForegrounding)
+            withExtendedLifetime((activeToken, backgroundToken)) {}
         }
     #endif
 

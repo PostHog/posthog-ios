@@ -2098,6 +2098,10 @@
                 return nil
             }
             let location = touch.location(in: window)
+            // Presentation layers can trap on camera windows, and the camera covers the window anyway.
+            if window.hasCameraForReplay() {
+                return (phase: touch.phase, location: location)
+            }
             return isInsideExplicitMask(location, in: window) ? nil : (phase: touch.phase, location: location)
         }
 
@@ -2112,27 +2116,38 @@
             }
 
             guard let cover else {
-                return noCaptureViewExists(in: window, at: point)
+                return noCaptureViewExists(in: window, at: point, of: window, ancestorAnimating: false)
             }
-            return isNoCaptureSubtree(cover, in: window)
-                || noCaptureViewExists(in: cover, at: window.convert(point, to: cover))
+            let ancestors = ancestorsTopDown(of: cover, in: window)
+            if let decision = coverAncestorMaskDecision(ancestors) {
+                return decision
+            }
+            return noCaptureViewExists(in: cover, at: point, of: window, ancestorAnimating: ancestors.contains(where: \.hasRunningAnimation))
         }
 
-        func noCaptureViewExists(in view: UIView, at point: CGPoint) -> Bool {
-            guard view.bounds.contains(point), !view.isNoMask() else {
+        /// The frame masker draws masks at the presentation rect, so an animating view also
+        /// matches where it is drawn.
+        func noCaptureViewExists(in view: UIView, at windowPoint: CGPoint, of window: UIWindow, ancestorAnimating: Bool) -> Bool {
+            let animating = ancestorAnimating || view.hasRunningAnimation
+            let point = window.convert(windowPoint, to: view)
+            guard view.bounds.contains(point) || (animating && view.toPresentationRect(window).contains(windowPoint)),
+                  !view.isNoMask()
+            else {
                 return false
             }
             if view.isNoCapture() {
                 return true
             }
             return view.subviews.contains { subview in
-                subview.isVisibleForMasking() && noCaptureViewExists(in: subview, at: view.convert(point, to: subview))
+                subview.isVisibleForMasking()
+                    && noCaptureViewExists(in: subview, at: windowPoint, of: window, ancestorAnimating: animating)
             }
         }
 
-        /// Read top down so a `ph-no-mask` above a `ph-no-capture` ancestor wins.
-        func isNoCaptureSubtree(_ cover: UIView, in window: UIWindow) -> Bool {
-            for ancestor in ancestorsTopDown(of: cover, in: window) {
+        /// The frame masker's subtree rules for the views above the cover, read top down so a
+        /// `ph-no-mask` above a `ph-no-capture` ancestor wins. Nil when neither decides.
+        func coverAncestorMaskDecision(_ ancestors: [UIView]) -> Bool? {
+            for ancestor in ancestors {
                 if ancestor.isNoMask() {
                     return false
                 }
@@ -2140,7 +2155,7 @@
                     return true
                 }
             }
-            return false
+            return nil
         }
     }
 

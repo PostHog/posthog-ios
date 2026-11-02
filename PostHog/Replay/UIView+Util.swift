@@ -69,6 +69,10 @@
             return presentationOpacity > 0
         }
 
+        var hasRunningAnimation: Bool {
+            !(layer.animationKeys()?.isEmpty ?? true)
+        }
+
         func isNoCapture() -> Bool {
             containsAccessibilityToken("ph-no-capture")
         }

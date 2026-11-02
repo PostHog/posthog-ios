@@ -68,10 +68,28 @@
             }
         }
 
-        private func makeWindow() -> UIWindow {
+        // Reports `presented` as its presentation without running a UIKit transition.
+        private final class PresentingController: UIViewController {
+            private let presented: UIViewController
+
+            init(presenting presented: UIViewController) {
+                self.presented = presented
+                super.init(nibName: nil, bundle: nil)
+            }
+
+            @available(*, unavailable)
+            required init?(coder _: NSCoder) {
+                fatalError("init(coder:) has not been implemented")
+            }
+
+            override var presentedViewController: UIViewController? { presented }
+        }
+
+        private func makeWindow(root: UIViewController = UIViewController()) -> UIWindow {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
-            window.rootViewController = UIViewController()
+            window.rootViewController = root
             window.makeKeyAndVisible()
+            root.view.frame = window.bounds
             return window
         }
 
@@ -179,6 +197,73 @@
             await drainReplayQueue()
             #expect(snapshots.touches.count == 2)
             #expect(snapshots.touches.allSatisfy { $0["x"] as? Int == 150 && $0["y"] as? Int == 500 })
+        }
+
+        @Test("Touches on a camera window are kept without the mask check")
+        func cameraWindowKept() async throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let picker = PostHogReplayCameraTest.CameraPicker()
+            let window = makeWindow(root: picker)
+            defer { window.isHidden = true }
+            let masked = UIView(frame: CGRect(x: 20, y: 100, width: 200, height: 200))
+            masked.accessibilityIdentifier = "ph-no-capture"
+            picker.view.addSubview(masked)
+            #expect(window.hasCameraForReplay())
+
+            integration.handleApplicationEvent(event: TouchEvent(location: CGPoint(x: 100, y: 150)), date: Date(), window: window)
+            await drainReplayQueue()
+            #expect(snapshots.touches.count == 2)
+        }
+
+        @Test("Touches on a ph-no-capture view inside a cover under a ph-no-mask ancestor are kept")
+        func noMaskCoverAncestorKept() async throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let cover = UIViewController()
+            let root = PresentingController(presenting: cover)
+            let window = makeWindow(root: root)
+            defer { window.isHidden = true }
+            let unmasked = UIView(frame: window.bounds)
+            unmasked.accessibilityIdentifier = "ph-no-mask"
+            window.addSubview(unmasked)
+            cover.view.frame = unmasked.bounds
+            cover.view.backgroundColor = .white
+            unmasked.addSubview(cover.view)
+            let masked = UIView(frame: CGRect(x: 20, y: 100, width: 200, height: 200))
+            masked.accessibilityIdentifier = "ph-no-capture"
+            cover.view.addSubview(masked)
+            #expect(PostHogPresentationCover.frontmostFullWindowCover(in: window) === cover.view)
+
+            integration.handleApplicationEvent(event: TouchEvent(location: CGPoint(x: 100, y: 150)), date: Date(), window: window)
+            await drainReplayQueue()
+            #expect(snapshots.touches.count == 2)
+        }
+
+        @Test("Touches on a ph-no-capture view at its in-flight animated position are dropped")
+        func animatingNoCaptureViewDropped() async throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let window = makeWindow()
+            defer { window.isHidden = true }
+            let masked = UIView(frame: CGRect(x: 20, y: 100, width: 100, height: 100))
+            masked.accessibilityIdentifier = "ph-no-capture"
+            window.rootViewController?.view.addSubview(masked)
+            let drawnCenter = CGPoint(x: 270, y: 600)
+            let animation = CABasicAnimation(keyPath: "position")
+            animation.fromValue = NSValue(cgPoint: drawnCenter)
+            animation.toValue = NSValue(cgPoint: drawnCenter)
+            animation.duration = 1000
+            masked.layer.add(animation, forKey: "move")
+            CATransaction.flush()
+            defer { masked.layer.removeAllAnimations() }
+            let presented = try #require(masked.layer.presentation())
+            #expect(presented.position == drawnCenter)
+            #expect(!masked.frame.contains(drawnCenter))
+
+            integration.handleApplicationEvent(event: TouchEvent(location: drawnCenter), date: Date(), window: window)
+            await drainReplayQueue()
+            #expect(snapshots.touches.isEmpty)
         }
 
         @Test("Touches on a text field masked by maskAllTextInputs are kept")

@@ -34,11 +34,4 @@
             super.init()
         }
     }
-
-    // Gated on the SessionReplay trait, like `PostHogConsoleLogEntry`.
-    #if !SWIFT_PACKAGE || SessionReplay
-        /// Renamed to `PostHogConsoleLogEntry` in PostHog 4.0.
-        @available(*, unavailable, renamed: "PostHogConsoleLogEntry", message: "Renamed in PostHog 4.0.")
-        public typealias PostHogLogEntry = PostHogConsoleLogEntry
-    #endif
 #endif

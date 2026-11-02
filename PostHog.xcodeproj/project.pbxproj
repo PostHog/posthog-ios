@@ -75,6 +75,7 @@
 		3AE3FB332991388500AFFC18 /* PostHogQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB322991388500AFFC18 /* PostHogQueue.swift */; };
 		3AE3FB37299162EA00AFFC18 /* PostHogApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB36299162EA00AFFC18 /* PostHogApi.swift */; };
 		3AE3FB3D29924E8200AFFC18 /* PostHogSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB3C29924E8200AFFC18 /* PostHogSDK.swift */; };
+		A1E7C0D94F3B2A6E01D5B7C1 /* PostHogRemovedAPIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E7C0D94F3B2A6E01D5B7C2 /* PostHogRemovedAPIs.swift */; };
 		3AE3FB3F29924F4F00AFFC18 /* PostHogConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB3E29924F4F00AFFC18 /* PostHogConfig.swift */; };
 		3AE3FB432992985A00AFFC18 /* Reachability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB422992985A00AFFC18 /* Reachability.swift */; };
 		3AE3FB472992AB0000AFFC18 /* Hedgelog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB462992AB0000AFFC18 /* Hedgelog.swift */; };
@@ -916,6 +917,7 @@
 		3AE3FB322991388500AFFC18 /* PostHogQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogQueue.swift; sourceTree = "<group>"; };
 		3AE3FB36299162EA00AFFC18 /* PostHogApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogApi.swift; sourceTree = "<group>"; };
 		3AE3FB3C29924E8200AFFC18 /* PostHogSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSDK.swift; sourceTree = "<group>"; };
+		A1E7C0D94F3B2A6E01D5B7C2 /* PostHogRemovedAPIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogRemovedAPIs.swift; sourceTree = "<group>"; };
 		3AE3FB3E29924F4F00AFFC18 /* PostHogConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConfig.swift; sourceTree = "<group>"; };
 		3AE3FB422992985A00AFFC18 /* Reachability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reachability.swift; sourceTree = "<group>"; };
 		3AE3FB462992AB0000AFFC18 /* Hedgelog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hedgelog.swift; sourceTree = "<group>"; };
@@ -1785,6 +1787,7 @@
 				DA0F989A2D94081A009AB6F5 /* ApplicationViewLayoutPublisher.swift */,
 				3AE3FB322991388500AFFC18 /* PostHogQueue.swift */,
 				3AE3FB3C29924E8200AFFC18 /* PostHogSDK.swift */,
+				A1E7C0D94F3B2A6E01D5B7C2 /* PostHogRemovedAPIs.swift */,
 				3AE3FB3E29924F4F00AFFC18 /* PostHogConfig.swift */,
 				3AE3FB4D2993D1D600AFFC18 /* PostHogStorageManager.swift */,
 				3AE3FB48299391DF00AFFC18 /* PostHogStorage.swift */,
@@ -3578,6 +3581,7 @@
 				DAFEC4552E03F8EF0064535E /* PostHogNextSurveyQuestion.swift in Sources */,
 				3AE3FB3D29924E8200AFFC18 /* PostHogSDK.swift in Sources */,
 				DA690C6A2DA54BCC0045FF4E /* PostHogSurveyAppearance.swift in Sources */,
+				A1E7C0D94F3B2A6E01D5B7C1 /* PostHogRemovedAPIs.swift in Sources */,
 				3AE3FB3F29924F4F00AFFC18 /* PostHogConfig.swift in Sources */,
 				69F518382BB2BA0100F52C14 /* PostHogSwizzler.swift in Sources */,
 				56061CE612D20303BC7F7E0E /* PushNotificationPublisher.swift in Sources */,

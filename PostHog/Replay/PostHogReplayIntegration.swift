@@ -1442,7 +1442,7 @@
                 + (view.animationImages ?? []) + (view.highlightedAnimationImages ?? [])
 
             if sources.isEmpty {
-                return showsReplacedImage(view)
+                return showsReplacedImage(view, sources: sources)
             }
 
             // sensitive, regardless
@@ -1452,7 +1452,7 @@
 
             // asset images and symbols are probably not sensitive
             return config?.sessionReplayConfig.maskAllImages == true
-                && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) } || showsReplacedImage(view)
+                && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) } || showsReplacedImage(view, sources: sources)
         }
 
         private func toWireframe(_ view: UIView) -> RRWireframe? {
@@ -1843,11 +1843,16 @@
     private extension PostHogReplayIntegration {
         /// An image replaced since the last commit stays on screen until then: the presentation layer still holds it.
         /// A layer whose presentation can't be copied counts as replaced, since that can't be read.
-        func showsReplacedImage(_ view: UIImageView) -> Bool {
+        /// An animating view presents its current frames, which aren't replaced images.
+        func showsReplacedImage(_ view: UIImageView, sources: [UIImage]) -> Bool {
             guard view.isNoCapture() || config?.sessionReplayConfig.maskAllImages == true else { return false }
             guard CALayer.canCopyPresentation(of: view.layer) else { return true }
             guard let presented = view.layer.presentation()?.contents else { return false }
-            return view.layer.contents.map { $0 as AnyObject !== presented as AnyObject } ?? true
+            let shown = presented as AnyObject
+            if view.layer.contents as AnyObject? === shown {
+                return false
+            }
+            return !sources.contains { $0.cgImage === shown }
         }
 
         /// Image attachments in text are drawn by the label or text view itself, with no image view to

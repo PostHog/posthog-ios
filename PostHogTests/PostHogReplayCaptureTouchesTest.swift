@@ -9,24 +9,33 @@
     struct PostHogReplayCaptureTouchesTests {
         private final class Touch: UITouch {
             private let recordedPhase: UITouch.Phase
+            private let recordedLocation: CGPoint
 
-            init(phase: UITouch.Phase) {
+            init(phase: UITouch.Phase, location: CGPoint) {
                 recordedPhase = phase
+                recordedLocation = location
                 super.init()
             }
 
             override var phase: UITouch.Phase { recordedPhase }
             override func location(in _: UIView?) -> CGPoint {
-                CGPoint(x: 123, y: 456)
+                recordedLocation
             }
         }
 
         private final class TouchEvent: UIEvent {
+            private let location: CGPoint
             var touchesRead = false
+
+            init(location: CGPoint = CGPoint(x: 123, y: 456)) {
+                self.location = location
+                super.init()
+            }
+
             override var type: UIEvent.EventType { .touches }
             override func touches(for _: UIWindow) -> Set<UITouch>? {
                 touchesRead = true
-                return [Touch(phase: .began), Touch(phase: .ended)]
+                return [Touch(phase: .began, location: location), Touch(phase: .ended, location: location)]
             }
         }
 
@@ -59,7 +68,14 @@
             }
         }
 
-        private func makeSut(captureTouches: Bool? = nil) throws -> (PostHogSDK, PostHogReplayIntegration, Snapshots) {
+        private func makeWindow() -> UIWindow {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+            window.rootViewController = UIViewController()
+            window.makeKeyAndVisible()
+            return window
+        }
+
+        private func makeSut(captureTouches: Bool? = nil, maskAllTextInputs: Bool = true) throws -> (PostHogSDK, PostHogReplayIntegration, Snapshots) {
             let config = PostHogConfig(projectToken: UUID().uuidString)
             config.sessionReplay = true
             config.sessionReplayConfig.screenshotMode = true
@@ -67,6 +83,7 @@
             if let captureTouches {
                 config.sessionReplayConfig.captureTouches = captureTouches
             }
+            config.sessionReplayConfig.maskAllTextInputs = maskAllTextInputs
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
             config.disableFlushOnBackgroundForTesting = true
@@ -105,6 +122,79 @@
             #expect(snapshots.touches.count == 2)
             #expect(Set(snapshots.touches.compactMap { $0["type"] as? Int }) == [7, 9])
             #expect(snapshots.touches.allSatisfy { $0["x"] as? Int == 123 && $0["y"] as? Int == 456 })
+        }
+
+        @Test("Touches inside a ph-no-capture view are dropped", arguments: [true, false])
+        func noCaptureViewDropped(markWithIdentifier: Bool) async throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let window = makeWindow()
+            defer { window.isHidden = true }
+            let container = UIView(frame: CGRect(x: 20, y: 100, width: 300, height: 300))
+            if markWithIdentifier {
+                container.accessibilityIdentifier = "ph-no-capture"
+            } else {
+                container.accessibilityLabel = "ph-no-capture"
+            }
+            let button = UIButton(frame: CGRect(x: 50, y: 50, width: 100, height: 44))
+            container.addSubview(button)
+            window.rootViewController?.view.addSubview(container)
+
+            integration.handleApplicationEvent(event: TouchEvent(location: CGPoint(x: 120, y: 170)), date: Date(), window: window)
+            await drainReplayQueue()
+            #expect(snapshots.touches.isEmpty)
+        }
+
+        @Test("Touches inside a postHogMask() region are dropped")
+        func maskRegionDropped() async throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let window = makeWindow()
+            defer { window.isHidden = true }
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 20, y: 100, width: 200, height: 200))
+            window.rootViewController?.view.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            window.layoutIfNeeded()
+
+            integration.handleApplicationEvent(event: TouchEvent(location: CGPoint(x: 100, y: 150)), date: Date(), window: window)
+            await drainReplayQueue()
+            #expect(snapshots.touches.isEmpty)
+        }
+
+        @Test("Touches outside explicit masks are kept")
+        func outsideMaskKept() async throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let window = makeWindow()
+            defer { window.isHidden = true }
+            let masked = UIView(frame: CGRect(x: 20, y: 100, width: 100, height: 100))
+            masked.accessibilityIdentifier = "ph-no-capture"
+            window.rootViewController?.view.addSubview(masked)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 200, y: 100, width: 100, height: 100))
+            window.rootViewController?.view.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            window.layoutIfNeeded()
+
+            integration.handleApplicationEvent(event: TouchEvent(location: CGPoint(x: 150, y: 500)), date: Date(), window: window)
+            await drainReplayQueue()
+            #expect(snapshots.touches.count == 2)
+            #expect(snapshots.touches.allSatisfy { $0["x"] as? Int == 150 && $0["y"] as? Int == 500 })
+        }
+
+        @Test("Touches on a text field masked by maskAllTextInputs are kept")
+        func maskAllTextInputsKept() async throws {
+            let (sut, integration, snapshots) = try makeSut(maskAllTextInputs: true)
+            defer { sut.close() }
+            let window = makeWindow()
+            defer { window.isHidden = true }
+            let textField = UITextField(frame: CGRect(x: 20, y: 100, width: 300, height: 44))
+            textField.text = "secret"
+            window.rootViewController?.view.addSubview(textField)
+            #expect(integration.collectMaskableRects(in: window)?.isEmpty == false)
+
+            integration.handleApplicationEvent(event: TouchEvent(location: CGPoint(x: 100, y: 120)), date: Date(), window: window)
+            await drainReplayQueue()
+            #expect(snapshots.touches.count == 2)
         }
 
         @Test("Initially disabled touch capture does not even read coordinates")

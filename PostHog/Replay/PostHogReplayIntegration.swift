@@ -711,9 +711,7 @@
             // capture necessary touch information on the main thread before performing any asynchronous operations
             // - this ensures that UITouch associated objects like UIView, UIWindow, or [UIGestureRecognizer] are still valid.
             // - these objects may be released or erased by the system if accessed asynchronously, resulting in invalid/zeroed-out touch coordinates
-            let touchInfo = touches.map {
-                (phase: $0.phase, location: $0.location(in: window))
-            }
+            let touchInfo = touches.compactMap { recordableTouch($0, in: window) }
 
             PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
                 // always make sure we have a fresh session id as early as possible
@@ -726,16 +724,7 @@
 
                 var snapshotsData: [Any] = []
                 for touch in touchInfo {
-                    let phase = touch.phase
-
-                    let type: Int
-                    if phase == .began {
-                        type = 7
-                    } else if phase == .ended {
-                        type = 9
-                    } else {
-                        continue
-                    }
+                    let type = touch.phase == .began ? 7 : 9
 
                     // we keep a failsafe here just in case, but this will likely never be triggered
                     guard touch.location != .zero else {
@@ -2031,21 +2020,11 @@
                 return
             }
 
-            var ancestors: [UIView] = []
-            var view = cover.superview
-            while let current = view {
-                ancestors.append(current)
-                if current === window {
-                    break
-                }
-                view = current.superview
-            }
-
             // Top down, the order the walk would have met them in. Only the two rules that reach
             // a whole subtree are replayed: the sensitive-type checks describe an ancestor's own
             // pixels, and the cover hides those.
             var maskChildren = false
-            for ancestor in ancestors.reversed() {
+            for ancestor in ancestorsTopDown(of: cover, in: window) {
                 // `ph-no-mask` drops every heuristic mask below it, the cover included.
                 if ancestor.isNoMask() {
                     return
@@ -2059,6 +2038,20 @@
             }
 
             findMaskableWidgets(cover, window, &maskableWidgets, maskChildren)
+        }
+
+        /// The views from the window down to `cover`'s superview.
+        func ancestorsTopDown(of cover: UIView, in window: UIWindow) -> [UIView] {
+            var ancestors: [UIView] = []
+            var view = cover.superview
+            while let current = view {
+                ancestors.append(current)
+                if current === window {
+                    break
+                }
+                view = current.superview
+            }
+            return ancestors.reversed()
         }
     }
 
@@ -2093,6 +2086,61 @@
                 maskableWidgets.append(.init(contentView, in: window))
             }
             return true
+        }
+    }
+
+    // MARK: - Explicitly masked touches
+
+    private extension PostHogReplayIntegration {
+        /// Nil for touches that aren't began or ended, or that land in an explicitly masked region.
+        func recordableTouch(_ touch: UITouch, in window: UIWindow) -> (phase: UITouch.Phase, location: CGPoint)? {
+            guard touch.phase == .began || touch.phase == .ended else {
+                return nil
+            }
+            let location = touch.location(in: window)
+            return isInsideExplicitMask(location, in: window) ? nil : (phase: touch.phase, location: location)
+        }
+
+        /// Whether `point` lands on a `ph-no-capture` view or a `postHogMask()` region. Masking
+        /// heuristics such as `maskAllTextInputs` don't count, so taps on text fields are still recorded.
+        func isInsideExplicitMask(_ point: CGPoint, in window: UIWindow) -> Bool {
+            let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)
+            let masked = PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window, insideCover: cover)
+            // An unsettled reporter's region is unknown yet, so fail closed like the frame masker.
+            if masked.hasUnsettledReporters || masked.rects.contains(where: { $0.contains(point) }) {
+                return true
+            }
+
+            guard let cover else {
+                return noCaptureViewExists(in: window, at: point)
+            }
+            return isNoCaptureSubtree(cover, in: window)
+                || noCaptureViewExists(in: cover, at: window.convert(point, to: cover))
+        }
+
+        func noCaptureViewExists(in view: UIView, at point: CGPoint) -> Bool {
+            guard view.bounds.contains(point), !view.isNoMask() else {
+                return false
+            }
+            if view.isNoCapture() {
+                return true
+            }
+            return view.subviews.contains { subview in
+                subview.isVisibleForMasking() && noCaptureViewExists(in: subview, at: view.convert(point, to: subview))
+            }
+        }
+
+        /// Read top down so a `ph-no-mask` above a `ph-no-capture` ancestor wins.
+        func isNoCaptureSubtree(_ cover: UIView, in window: UIWindow) -> Bool {
+            for ancestor in ancestorsTopDown(of: cover, in: window) {
+                if ancestor.isNoMask() {
+                    return false
+                }
+                if ancestor.isNoCapture() {
+                    return true
+                }
+            }
+            return false
         }
     }
 

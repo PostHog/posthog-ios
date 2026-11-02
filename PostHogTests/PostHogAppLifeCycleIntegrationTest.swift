@@ -168,6 +168,47 @@ final class PostHogAppLifeCycleIntegrationTest {
         #expect(opens.map { $0.properties["from_background"] as? Bool } == [false, true])
     }
 
+    @Test("worker startup samples current activity without losing a genuine cold open", arguments: [false, true], [false, true])
+    @MainActor
+    func capturesLifecycleAfterUnobservedWorkerStart(alreadyActive: Bool, optInAfterSetup: Bool) async throws {
+        setVersionDefaults()
+        mockAppLifecycle.isActive = alreadyActive
+        let sut: PostHogSDK
+        if optInAfterSetup {
+            sut = getSut(flushAt: 100, optOut: true)
+            let completed = DispatchSemaphore(value: 0)
+            DispatchQueue.global().async {
+                sut.optIn()
+                completed.signal()
+            }
+            // The worker must finish even while main cannot service its queued state check.
+            #expect(completed.wait(timeout: .now() + 5) == .success)
+        } else {
+            sut = await Task.detached { self.getSut(flushAt: 100) }.value
+        }
+        defer { sut.close() }
+
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+        mockAppLifecycle.isActive = true
+        mockAppLifecycle.simulateAppDidBecomeActive()
+        mockAppLifecycle.isActive = false
+        mockAppLifecycle.isInBackground = true
+        mockAppLifecycle.simulateAppDidEnterBackground()
+        mockAppLifecycle.isInBackground = false
+        mockAppLifecycle.isActive = true
+        mockAppLifecycle.simulateAppDidBecomeActive()
+        sut.flush()
+
+        let events = try await getServerEvents(server)
+        let coldOpen = alreadyActive ? [] : ["Application Opened"]
+        #expect(events.map(\.event) == ["Application Installed"] + coldOpen + ["Application Backgrounded", "Application Opened"])
+        let opens = events.filter { $0.event == "Application Opened" }
+        let expectedFromBackground = alreadyActive ? [true] : [false, true]
+        #expect(opens.map { $0.properties["from_background"] as? Bool } == expectedFromBackground)
+    }
+
     #if os(iOS) || os(tvOS) || os(visionOS) || os(macOS)
         private var lifecycleNotifications: (active: Notification.Name, background: Notification.Name) {
             #if os(macOS)

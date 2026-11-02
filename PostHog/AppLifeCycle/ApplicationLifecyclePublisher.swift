@@ -25,6 +25,8 @@ protocol AppLifecyclePublishing: AnyObject {
     /// at subscription time should seed from this rather than waiting for
     /// the next state-change callback.
     var isInBackground: Bool { get }
+    /// Current native activity, sampled on main; returns false off-main.
+    var isActive: Bool { get }
     /// Whether the app has already been active, including before a consumer subscribes.
     /// Off-main reads use observed activations without synchronously querying the UI.
     var hasBecomeActive: Bool { get }
@@ -69,27 +71,28 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
     private var hasObservedActivation = false
     private var isBackgrounded = false
 
+    var isActive: Bool {
+        guard Thread.isMainThread else { return false }
+        #if os(iOS) || os(tvOS) || os(visionOS)
+            return UIApplication.shared.applicationState == .active
+        #elseif os(macOS)
+            return NSApplication.shared.isActive
+        #elseif os(watchOS)
+            if #available(watchOS 7.0, *) {
+                return WKApplication.shared().applicationState == .active
+            } else {
+                return WKExtension.shared().applicationState == .active
+            }
+        #else
+            return false
+        #endif
+    }
+
     var hasBecomeActive: Bool {
         if stateLock.withLock({ hasObservedActivation }) {
             return true
         }
-        // Do not block on main while a caller may hold SDK locks needed by lifecycle callbacks.
-        guard Thread.isMainThread else { return false }
-
-        let isActive: Bool
-        #if os(iOS) || os(tvOS) || os(visionOS)
-            isActive = UIApplication.shared.applicationState == .active
-        #elseif os(macOS)
-            isActive = NSApplication.shared.isActive
-        #elseif os(watchOS)
-            if #available(watchOS 7.0, *) {
-                isActive = WKApplication.shared().applicationState == .active
-            } else {
-                isActive = WKExtension.shared().applicationState == .active
-            }
-        #else
-            isActive = false
-        #endif
+        let isActive = self.isActive
 
         return stateLock.withLock {
             hasObservedActivation = hasObservedActivation || isActive

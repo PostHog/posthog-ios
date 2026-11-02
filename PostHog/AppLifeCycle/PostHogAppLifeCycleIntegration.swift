@@ -71,7 +71,8 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     func start() {
         let publisher = DI.main.appLifecyclePublisher
         isAppBackgrounded = publisher.isInBackground
-        isFreshAppLaunch = !publisher.hasBecomeActive
+        let hasBecomeActive = publisher.hasBecomeActive
+        isFreshAppLaunch = !hasBecomeActive
         didFinishLaunchingToken = publisher.onDidFinishLaunching.subscribe { [weak self] in
             self?.captureAppInstallOrUpdated()
         }
@@ -80,6 +81,15 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
         }
         didEnterBackgroundToken = publisher.onDidEnterBackground.subscribe { [weak self] in
             self?.captureAppBackgrounded()
+        }
+
+        // A first off-main subscription can miss earlier activations. Sample on main
+        // without making setup/opt-in wait while holding SDK locks.
+        if !hasBecomeActive, !Thread.isMainThread {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.postHog != nil, publisher.isActive, self.isFreshAppLaunch else { return }
+                self.isFreshAppLaunch = !publisher.hasBecomeActive
+            }
         }
     }
 

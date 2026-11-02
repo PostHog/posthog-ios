@@ -44,7 +44,8 @@
             }
 
             let bufferSize = pixelsPerColumn * bytesPerRow
-            guard let rawData = malloc(bufferSize) else {
+            // calloc, not malloc: pixels the draw leaves uncovered must be transparent, not stale heap bytes.
+            guard let rawData = calloc(bufferSize, 1) else {
                 return nil
             }
             defer { free(rawData) }

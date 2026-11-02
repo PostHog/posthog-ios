@@ -7,6 +7,7 @@
 
 #if os(iOS)
     import Foundation
+    import IOSurface
     import UIKit
 
     extension UIView {
@@ -176,7 +177,7 @@
         var drawnOutsets: UIEdgeInsets {
             var content = bounds
             if !clipsToBounds, let imageView = self as? UIImageView {
-                content = imageView.drawnImageExtent
+                content = imageView.drawnImageExtent.union(imageView.replacedImageExtent ?? .null)
             }
             return layer.drawnOutsets(of: content)
         }
@@ -186,15 +187,43 @@
         /// The union of the bounds and where each image the view can draw lands, in bounds
         /// coordinates. Only fill-to-bounds content modes keep the image inside the bounds.
         var drawnImageExtent: CGRect {
-            switch contentMode {
-            case .scaleToFill, .scaleAspectFit, .redraw:
-                return bounds
-            default:
-                let sources = [image, highlightedImage].compactMap { $0 }
-                    + (animationImages ?? []) + (highlightedAnimationImages ?? [])
-                return sources.reduce(bounds) { $0.union(drawnRect(ofImageSized: $1.size)) }
-            }
+            guard !keepsImageInBounds else { return bounds }
+            let sources = [image, highlightedImage].compactMap { $0 } + (animationImages ?? []) + (highlightedAnimationImages ?? [])
+            return sources.reduce(bounds) { $0.union(drawnRect(ofImageSized: $1.size)) }
         }
+
+        private var keepsImageInBounds: Bool {
+            [.scaleToFill, .scaleAspectFit, .redraw].contains(contentMode)
+        }
+
+        /// Where an image replaced since the last commit lands, in bounds coordinates: the presentation layer still
+        /// holds it, and the default capture draws it. Measured on the presented layer, whose bounds, gravity and
+        /// contents rect place it; one it draws rotated or flipped reaches arbitrarily far. Nil when nothing was
+        /// replaced; contents whose size can't be read reach arbitrarily far too, and so does what a layer whose
+        /// presentation can't be copied may still show, unless the content mode keeps it in bounds.
+        var replacedImageExtent: CGRect? {
+            guard CALayer.canCopyPresentation(of: layer) else {
+                return keepsImageInBounds ? nil : bounds.insetBy(dx: -Self.unmeasuredImageReach, dy: -Self.unmeasuredImageReach)
+            }
+            guard let presented = layer.presentation(), let contents = presented.contents,
+                  layer.contents.map({ $0 as AnyObject !== contents as AnyObject }) ?? true
+            else { return nil }
+            let gravity = presented.contentsGravity
+            let typeID = CFGetTypeID(contents as AnyObject)
+            let extent: CGRect
+            if CALayer.contentsTransformKey?.changedValue(in: presented) != nil
+                || typeID != CGImage.typeID && typeID != IOSurfaceGetTypeID()
+            {
+                extent = presented.bounds.insetBy(dx: -Self.unmeasuredImageReach, dy: -Self.unmeasuredImageReach)
+            } else if gravity == .resize || gravity == .resizeAspect {
+                return nil
+            } else {
+                extent = CALayer.contentsExtent(presented, contents: contents, gravity: gravity, bounds: presented.bounds)
+            }
+            return bounds.outset(by: CALayer.outsets(of: extent, past: presented.bounds))
+        }
+
+        private static let unmeasuredImageReach: CGFloat = 100_000
 
         private func drawnRect(ofImageSized imageSize: CGSize) -> CGRect {
             var size = imageSize
@@ -253,6 +282,25 @@
         let presented: CALayer
         /// Whether a layer above the measured one can't have its presentation copied.
         let hasUncopyableAncestor: Bool
+    }
+
+    /// A private CALayer property newer OSes draw with. Read through KVC, which CALayer answers for any key; nil where
+    /// CALayer doesn't declare it, so older OSes skip it.
+    struct PostHogPrivateLayerKey {
+        let name: String
+        private let defaultValue: NSObject?
+
+        init?(_ name: String) {
+            guard CALayer.instancesRespond(to: NSSelectorFromString(name)) else { return nil }
+            self.name = name
+            defaultValue = CALayer().value(forKey: name) as? NSObject
+        }
+
+        /// The layer's value when it differs from a fresh layer's.
+        func changedValue(in layer: CALayer) -> NSObject? {
+            guard let value = layer.value(forKey: name) as? NSObject, !value.isEqual(defaultValue) else { return nil }
+            return value
+        }
     }
 
     extension CALayer {
@@ -362,6 +410,33 @@
             guard dladdr(unsafeBitCast(implementation, to: UnsafeRawPointer.self), &info) != 0, let name = info.dli_fname else { return false }
             let path = String(cString: name)
             return path.contains("/System/Library/") || path.contains("/usr/lib/")
+        }
+
+        /// Set on an image view's layer that draws its image rotated or flipped (an EXIF orientation), stored unrotated.
+        static let contentsTransformKey = PostHogPrivateLayerKey("contentsTransform")
+
+        /// Where `contents` drawn with a `gravity` that doesn't scale them to `bounds` lands, in `bounds`' space.
+        static func contentsExtent(_ layer: CALayer, contents: Any, gravity: CALayerContentsGravity, bounds: CGRect) -> CGRect {
+            let object = contents as AnyObject
+            let typeID = CFGetTypeID(object)
+            var size: CGSize
+            if typeID == CGImage.typeID {
+                let image = object as! CGImage
+                size = CGSize(width: image.width, height: image.height)
+            } else if typeID == IOSurfaceGetTypeID() {
+                let surface = object as! IOSurfaceRef
+                size = CGSize(width: IOSurfaceGetWidth(surface), height: IOSurfaceGetHeight(surface))
+            } else {
+                // Backing stores are drawn by the layer itself at its own size.
+                return bounds
+            }
+            let scale = layer.contentsScale > 0 ? layer.contentsScale : 1
+            size = CGSize(width: size.width / scale * layer.contentsRect.width, height: size.height / scale * layer.contentsRect.height)
+            if gravity == .resizeAspectFill, size.width > 0, size.height > 0 {
+                let fill = max(bounds.width / size.width, bounds.height / size.height)
+                size = CGSize(width: size.width * fill, height: size.height * fill)
+            }
+            return bounds.insetBy(dx: -max(0, size.width - bounds.width), dy: -max(0, size.height - bounds.height))
         }
 
         /// How far past `bounds` the layer draws, given `content`, the extent of its own drawing

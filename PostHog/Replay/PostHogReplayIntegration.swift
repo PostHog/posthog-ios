@@ -1203,7 +1203,7 @@
         /// Pre-existing limitation with `screenshotModeBackgroundCapture` (off by default): pixels
         /// render after this collection, so any rect source can go stale for content committed in
         /// between.
-        private func collectMaskedRegions(in window: UIWindow) -> [MaskedRegion]? {
+        func collectMaskedRegions(in window: UIWindow) -> [MaskedRegion]? {
             guard !window.hasCameraForReplay() else {
                 return nil
             }

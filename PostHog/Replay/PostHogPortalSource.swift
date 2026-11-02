@@ -9,6 +9,7 @@
     /// whole portal is masked unless the source is shown to be clean.
     struct PostHogPortalSource {
         let view: UIView
+        let portal: CALayer
         /// The portal's bounds in window coordinates, set when the portal shows the source somewhere other than where
         /// it sits.
         let portalRect: CGRect?
@@ -22,12 +23,16 @@
         }
 
         /// Only portals from the capturing window's render context, which are both matched or both unmatched in
-        /// position and transform, are drawn: what the others show can't be placed with certainty. `root` is the
-        /// window's layer.
+        /// position and transform, are drawn: what the others show can't be placed with certainty. A matched portal is
+        /// also left out when its own or the source's superlayer transforms or flips its sublayers, when either's place
+        /// can only be read from a moving model, or when the placement isn't affine. `root` is the window's layer.
         static func placement(of portal: CALayer, source: CALayer, root: CALayer) -> Placement? {
             guard isWindowContext(portal, root: root), let superlayer = source.superlayer else { return nil }
             switch (portal.value(forKey: "matchesPosition") as? Bool, portal.value(forKey: "matchesTransform") as? Bool) {
             case (true, true):
+                // `convert` leaves out what the superlayer applies to its sublayers, which the mask rects include, and
+                // what the portal applies to its own, which the portal's copy applies again.
+                guard !transformsSublayers(superlayer), !transformsSublayers(portal) else { return nil }
                 return inPlaceTransform(from: superlayer, to: portal).map(Placement.inPlace)
             case (false, false):
                 return .atPortal
@@ -36,25 +41,25 @@
             }
         }
 
-        /// Measured on the presentation tree, as the mirror draws the source's subtree and the mask rects are measured.
-        /// When one of the layers can't be asked for its presentation copy, the model layers are used unless one is
-        /// animating: then where the source is drawn isn't known and the portal is left out.
+        private static func transformsSublayers(_ layer: CALayer) -> Bool {
+            let presented = PostHogGPUMirrorCapture.isPresentationSafe(type(of: layer)) ? layer.presentation() : nil
+            return [layer, presented].compactMap { $0 }.contains { !CATransform3DIsIdentity($0.sublayerTransform) || $0.isGeometryFlipped }
+        }
+
+        /// Measured where each layer is presented, as the mirror draws the source's subtree and the mask rects are
+        /// measured. Nil when that place is read from a moving model (see `CALayer.presentationAnchor`).
         private static func inPlaceTransform(from superlayer: CALayer, to portal: CALayer) -> CGAffineTransform? {
-            let layers = [superlayer, portal]
-            guard layers.allSatisfy({ PostHogGPUMirrorCapture.isPresentationSafe(type(of: $0)) }) else {
-                return layers.contains { $0.animationKeys() != nil } ? nil : affineTransform(from: superlayer, to: portal)
+            guard let from = superlayer.presentationAnchor(), !from.isMoving, let to = portal.presentationAnchor(), !to.isMoving else { return nil }
+            return affineTransform { point in
+                portal.convert(to.presented.convert(superlayer.convert(point, to: from.layer), from: from.presented), from: to.layer)
             }
-            return affineTransform(from: superlayer.presentation() ?? superlayer, to: portal.presentation() ?? portal)
         }
 
         /// An `.atPortal` portal's bounds in window coordinates, for the mask walk. `root` is the window's layer.
         /// Measured on the presentation tree, as the mirror draws it and the mask rects are measured (mid-animation the
-        /// model layers already sit at the destination), unless one of the layers can't be asked for its presentation copy.
+        /// model layers already sit at the destination).
         static func portalRect(of portal: CALayer, root: CALayer) -> CGRect {
-            let presented = [portal, root].allSatisfy { PostHogGPUMirrorCapture.isPresentationSafe(type(of: $0)) }
-            let portal = presented ? portal.presentation() ?? portal : portal
-            let root = presented ? root.presentation() ?? root : root
-            return root.convert(portal.bounds, from: portal)
+            portal.presentedRect(in: root).rect
         }
 
         /// UIKit leaves the source context unset (0); SwiftUI sets it to the window's own. Unreadable means skipped.
@@ -66,11 +71,6 @@
                   let windowContextID = (context.value(forKey: "contextId") as? NSNumber)?.uint32Value
             else { return false }
             return contextID == windowContextID
-        }
-
-        /// Maps `source`'s bounds coordinates to `target`'s; nil when that isn't finite.
-        static func affineTransform(from source: CALayer, to target: CALayer) -> CGAffineTransform? {
-            affineTransform { target.convert($0, from: source) }
         }
 
         /// The affine transform `apply` performs, sampled at three points; nil when it isn't finite or a fourth point

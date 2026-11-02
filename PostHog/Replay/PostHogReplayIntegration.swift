@@ -1198,7 +1198,7 @@
         /// between.
         /// `portalSources` are views a GPU capture also draws through a portal: they're masked wherever they sit,
         /// culled or not, outside a cover too, and the whole portal is masked where it shows them unless the source is clean.
-        private func collectMaskedRegions(in window: UIWindow, culledLayers: Culled = [], portalSources: [PostHogPortalSource] = []) -> [MaskedRegion]? {
+        func collectMaskedRegions(in window: UIWindow, culledLayers: Culled = [], portalSources: [PostHogPortalSource] = []) -> [MaskedRegion]? {
             guard !window.hasCameraForReplay() else {
                 return nil
             }
@@ -1254,7 +1254,7 @@
         // To be called from main thread
         private func collectScreenshotMetadata(
             _ window: UIWindow,
-            preferFidelityRenderer: Bool = true,
+            renderer: PostHogScreenshotRenderer = .fidelity,
             overrideMaskRects: [CGRect]? = nil,
             renderImage: Bool = true
         ) -> ScreenshotCapture? {
@@ -1265,7 +1265,7 @@
             // The settled path renders here so the pixels come from the same main-thread tick that
             // measured the mask rects — any later and the presentation tree has moved on. Callers
             // that render themselves (background capture, the bridge's first frame) pass false.
-            let image = renderImage ? window.toImage(preferFidelityRenderer: preferFidelityRenderer) : nil
+            let image = renderImage ? window.toImage(renderer: renderer) : nil
 
             return ScreenshotCapture(wireframe: wireframe, windowSize: window.bounds.size, timestampDate: Date(), image: image)
         }
@@ -1285,7 +1285,7 @@
                 // Only the settle-checked path picks a renderer by band; every other path keeps
                 // drawHierarchy. The bridge's first frame needs afterScreenUpdates: true on top —
                 // a freshly-presented native VC renders black otherwise.
-                let image = collectedImage ?? window.toImage(afterScreenUpdates: episodeFirstFrame, preferFidelityRenderer: true)
+                let image = collectedImage ?? window.toImage(afterScreenUpdates: episodeFirstFrame)
                 guard let image, image.size.hasSize() else {
                     return false
                 }
@@ -1309,7 +1309,7 @@
             screenName: String?,
             postHog: PostHogSDK,
             episodeFirstFrame: Bool = false,
-            preferFidelityRenderer: Bool = true,
+            renderer: PostHogScreenshotRenderer = .fidelity,
             overrideMaskRects: [CGRect]? = nil
         ) -> Bool {
             defer { finishScreenshotRender() }
@@ -1328,7 +1328,7 @@
             func collect() -> ScreenshotCapture? {
                 collectScreenshotMetadata(
                     window,
-                    preferFidelityRenderer: preferFidelityRenderer,
+                    renderer: renderer,
                     overrideMaskRects: overrideMaskRects,
                     renderImage: rendersInMeasuringTick
                 )
@@ -1442,7 +1442,7 @@
                 + (view.animationImages ?? []) + (view.highlightedAnimationImages ?? [])
 
             if sources.isEmpty {
-                return false
+                return showsReplacedImage(view)
             }
 
             // sensitive, regardless
@@ -1452,7 +1452,7 @@
 
             // asset images and symbols are probably not sensitive
             return config?.sessionReplayConfig.maskAllImages == true
-                && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) }
+                && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) } || showsReplacedImage(view)
         }
 
         private func toWireframe(_ view: UIView) -> RRWireframe? {
@@ -1649,7 +1649,7 @@
             // slow to keep up. UIKit documents it as main-thread-only, so it stays experimental
             // behind `screenshotModeBackgroundCapture` — the bracketing above is what keeps masks
             // aligned with pixels despite the render happening on this thread.
-            let image = window.toImage(preferFidelityRenderer: true)
+            let image = window.toImage()
             let capture = DispatchQueue.main.sync { () -> ScreenshotCapture? in
                 let after = self.collectMaskedRegions(in: window)
                 guard let rects = Self.sweptRects(before: before, after: after) else {
@@ -1696,12 +1696,14 @@
                 // Banded on mask geometry alone, not on layout-event counts: layout events arrive in
                 // bursts, so a count false-positives on the very burst that triggered the capture.
                 let verdict = Self.settleVerdict(before: sentinelRegions, after: regionsNow)
+                let rendering = Self.settledRendering(of: window, band: verdict.band, inflatedRects: verdict.inflatedRects,
+                                                      regions: regionsNow) { self.collectMaskedRegions(in: window) }
                 self.performScreenshotCapture(
                     window: window,
                     screenName: screenName,
                     postHog: postHog,
-                    preferFidelityRenderer: verdict.band.usesFidelity,
-                    overrideMaskRects: verdict.inflatedRects ?? regionsNow?.map(\.rect)
+                    renderer: rendering.renderer,
+                    overrideMaskRects: rendering.rects
                 )
             }
         }
@@ -1839,6 +1841,15 @@
     }
 
     private extension PostHogReplayIntegration {
+        /// An image replaced since the last commit stays on screen until then: the presentation layer still holds it.
+        /// A layer whose presentation can't be copied counts as replaced, since that can't be read.
+        func showsReplacedImage(_ view: UIImageView) -> Bool {
+            guard view.isNoCapture() || config?.sessionReplayConfig.maskAllImages == true else { return false }
+            guard CALayer.canCopyPresentation(of: view.layer) else { return true }
+            guard let presented = view.layer.presentation()?.contents else { return false }
+            return view.layer.contents.map { $0 as AnyObject !== presented as AnyObject } ?? true
+        }
+
         /// Image attachments in text are drawn by the label or text view itself, with no image view to
         /// mask, so masking images masks text that holds one. Like image views, symbols and
         /// asset-catalog images stay visible; an attachment whose image can't be read is masked.
@@ -2323,9 +2334,16 @@
                     endGPUCapture(nil, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
                     return
                 }
-                guard let rects = maskableRects(for: frame, in: window) else {
+                let rects: [CGRect]
+                switch maskableRects(for: frame, in: window) {
+                case let .rects(walked):
+                    rects = walked
+                case .skip:
                     hedgeLog("[Session Replay] Skipping snapshot: a masked view hasn't been laid out yet")
                     endGPUCapture(frame)
+                    return
+                case .fallback:
+                    endGPUCapture(frame, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
                     return
                 }
                 frame.freeze()
@@ -2345,21 +2363,28 @@
                 }
             }
 
-            /// The mask walk of a GPU capture, between `build` and `freeze`; nil when the frame must be skipped.
-            func maskableRects(for frame: PostHogGPUMirrorCapture.Frame, in window: UIWindow) -> [CGRect]? {
+            /// What the mask walk of a GPU capture leaves its frame with.
+            enum GPUMaskWalk: Equatable {
+                case rects([CGRect])
+                /// A masked view hasn't been laid out yet.
+                case skip
+                /// The mirror left out the full-window cover, so the frame would show what it hides: the default
+                /// capture path takes it instead.
+                case fallback
+            }
+
+            /// The mask walk of a GPU capture, between `build` and `freeze`.
+            func maskableRects(for frame: PostHogGPUMirrorCapture.Frame, in window: UIWindow) -> GPUMaskWalk {
                 guard let regions = collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources) else {
-                    return nil
+                    return .skip
                 }
-                let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer
-                // The mask walk left out the masks of what the cover hides, so a cover the mirror culled would expose them.
+                // Also a cover the mask walk didn't trust, which left the masks of what it hides in: the frame would
+                // still show the wrong screen.
+                let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window, trustingModels: true)?.layer
                 if let cover, isCulledWithAncestors(cover, frame.culledLayers) {
-                    return nil
+                    return .fallback
                 }
-                let maskedLayers = regions.compactMap { ($0.object as? UIView)?.layer ?? $0.object as? CALayer }
-                guard frame.omitModelGeometrySubtrees(holding: maskedLayers, cover: cover) else {
-                    return nil
-                }
-                return regions.map(\.rect)
+                return .rects(regions.map(\.rect))
             }
 
             private struct MirroredCapture {

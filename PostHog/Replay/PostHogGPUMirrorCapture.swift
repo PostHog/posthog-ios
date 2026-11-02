@@ -19,56 +19,22 @@
             var scale: CGFloat { target.scale }
             /// The cached wrapper keeps the mirror alive until `release`; this only identifies it.
             private weak var root: CALayer?
-            /// Source layers whose whole subtree the mirror left out (hidden, transparent, clipped away or far
-            /// off screen). Nothing under them reaches this frame's pixels, so the mask walk can skip them.
+            /// Source layers whose whole subtree the mirror left out (hidden, transparent, clipped away, far off
+            /// screen, or an app class an animation moves). Nothing under them reaches this frame's pixels, so the
+            /// mask walk can skip them.
             /// Emptied by `freeze`, since the walk runs before it.
             private(set) var culledLayers: Set<ObjectIdentifier>
             /// Views whose layers this frame also draws through a portal. The mask walk visits each again, ignoring
             /// `culledLayers`: culling describes where the source sits, not where the portal shows it.
             /// Emptied by `freeze`.
             private(set) var portalSources: [PostHogPortalSource]
-            /// Copies drawn at model geometry (animating, class not presentation-safe), by source layer. Emptied by `freeze`.
-            private var modelGeometryCopies: [ObjectIdentifier: [CALayer]]
             private var stage = FrameStage.built
 
-            fileprivate init(target: Target, root: CALayer, culledLayers: Set<ObjectIdentifier>, portalSources: [PostHogPortalSource],
-                             modelGeometryCopies: [ObjectIdentifier: [CALayer]])
-            {
+            fileprivate init(target: Target, root: CALayer, culledLayers: Set<ObjectIdentifier>, portalSources: [PostHogPortalSource]) {
                 self.target = target
                 self.root = root
                 self.culledLayers = culledLayers
                 self.portalSources = portalSources
-                self.modelGeometryCopies = modelGeometryCopies
-            }
-
-            /// Main thread, between the mask walk and `freeze`. Hides each model-geometry copy whose source holds one of
-            /// `maskedLayers`: their masks are measured at presentation geometry and wouldn't land on those pixels.
-            /// Returns false, hiding nothing, when that would hide `cover` or one of its ancestors: the mask walk left
-            /// out the masks of what the cover hides, which would then show.
-            func omitModelGeometrySubtrees(holding maskedLayers: [CALayer], cover: @autoclosure () -> CALayer?) -> Bool {
-                guard stage == .built, !modelGeometryCopies.isEmpty else { return true }
-                var omitted = Set<ObjectIdentifier>()
-                for masked in maskedLayers {
-                    var current: CALayer? = masked
-                    while let layer = current {
-                        let id = ObjectIdentifier(layer)
-                        if modelGeometryCopies[id] != nil { omitted.insert(id) }
-                        current = layer.superlayer
-                    }
-                }
-                guard !omitted.isEmpty else { return true }
-                var coverAncestor = cover()
-                while let layer = coverAncestor {
-                    if omitted.contains(ObjectIdentifier(layer)) { return false }
-                    coverAncestor = layer.superlayer
-                }
-                CATransaction.begin()
-                CATransaction.setDisableActions(true)
-                for id in omitted {
-                    modelGeometryCopies.removeValue(forKey: id)?.forEach { $0.isHidden = true }
-                }
-                CATransaction.commit()
-                return true
             }
 
             /// Main thread. Commits the mirror so CARenderer sees it; host redraws after this, even in place into shared
@@ -79,7 +45,6 @@
                 CATransaction.flush()
                 culledLayers = []
                 portalSources = []
-                modelGeometryCopies = [:]
                 stage = .frozen
             }
 
@@ -383,7 +348,6 @@
             var portalsInProgress: Set<ObjectIdentifier> = []
             /// The Liquid Glass background the walk is inside, if any.
             var glass: PostHogGlassStandIn.Kind?
-            var modelGeometryCopies: [ObjectIdentifier: [CALayer]] = [:]
         }
 
         /// Where a layer's sublayers land in the window.
@@ -432,7 +396,9 @@
         static let cornerRadiiKey = PrivateLayerKey("cornerRadii")
         /// iOS 26 image views place, tint and recolour their image through these rather than through gravity and a
         /// pre-tinted bitmap: without them a template symbol draws black and at the wrong size.
-        private static let contentsKeys = ["contentsTransform", "contentsMultiplyColor", "contentsSwizzle"].compactMap(PrivateLayerKey.init)
+        private static let contentsKeys = ([contentsTransformKey] + ["contentsMultiplyColor", "contentsSwizzle"].map(PrivateLayerKey.init)).compactMap { $0 }
+        /// Set on an image view's layer that draws its image rotated or flipped (an EXIF orientation), stored unrotated.
+        static let contentsTransformKey = PrivateLayerKey("contentsTransform")
 
         private let queue: MTLCommandQueue
         private let device: MTLDevice
@@ -519,14 +485,18 @@
             }
         }
 
-        /// Main thread. Mirrors the window's presentation tree and commits it to the renderer's wrapper,
-        /// without rendering. The mask walk runs between this and `freeze`, against the same presentation state.
+        /// Main thread. Commits the host's pending changes, then mirrors the window's presentation tree and commits it
+        /// to the renderer's wrapper, without rendering. The mask walk runs between this and `freeze`, against the
+        /// same presentation state.
         /// nil when no renderer could be created or nothing of the window renders.
         /// `scale` is the output's pixels per point.
         func build(window: UIWindow, scale: CGFloat) -> Frame? {
             let key = TargetKey(size: window.bounds.size, scale: scale)
             guard key.width > 0, key.height > 0, let target = targets[key] ?? makeAndInstallTarget(key) else { return nil }
 
+            // Commits this turn's changes first, as `freeze` would anyway: a layer that isn't animating is then
+            // presented where its model is, so the mirror and the mask walk can read either.
+            CATransaction.flush()
             var walk = Walk(scale: scale, root: window.layer)
             CATransaction.begin()
             CATransaction.setDisableActions(true)
@@ -534,8 +504,7 @@
             if target.wrapper.sublayers?.first !== root { target.wrapper.sublayers = root.map { [$0] } }
             CATransaction.commit()
             guard let root else { return nil }
-            return Frame(target: target, root: root, culledLayers: walk.culled, portalSources: walk.portalSources,
-                         modelGeometryCopies: walk.modelGeometryCopies)
+            return Frame(target: target, root: root, culledLayers: walk.culled, portalSources: walk.portalSources)
         }
 
         #if TESTING
@@ -588,7 +557,7 @@
         // MARK: - Mirror
 
         private func mirrorRoot(_ root: CALayer, walk: inout Walk) -> CALayer? {
-            let presentation = root.presentation() ?? root
+            let presentation = Self.presented(root)
             let isPlain = CATransform3DIsIdentity(presentation.sublayerTransform) && !presentation.isGeometryFlipped
             // Window coordinates are the root's bounds coordinates, the space mask rects are measured in.
             let space: Space = isPlain ? .known(toWindow: .identity, visible: presentation.bounds) : .unknown
@@ -608,9 +577,15 @@
             let info = classInfo(type(of: source))
             if info.unmirrorable { return nil }
             if !throughPortal, walk.hiddenSources.contains(ObjectIdentifier(source)) { return nil }
-            // Culling reads the model layer unless it's animating: a stale model only costs fidelity (the mask walk
-            // skips exactly what the mirror culled), and presentation() allocates a copy per layer. Layers that
-            // render are copied from their presentation state, the state the mask rects are measured from.
+            // `build`'s commit puts a layer that isn't animating where its model is, so culling reads the model
+            // unless it animates: presentation() allocates a copy per layer. Layers that render are copied from their
+            // presentation state, the state the mask rects are measured from. A class whose presentation can't be
+            // copied is drawn from its model, so while an animation moves it, it's left out with its subtree, as
+            // culled: everything drawn then sits where the mask walk measures it.
+            if !info.presentationSafe, source.hasGeometricAnimation {
+                walk.culled.insert(ObjectIdentifier(source))
+                return nil
+            }
             let animating = info.presentationSafe && source.animationKeys() != nil
             let geometry = animating ? (source.presentation() ?? source) : source
             if source.isHidden || geometry.isHidden || geometry.opacity == 0 {
@@ -697,7 +672,7 @@
             }
             switch placement {
             case let .inPlace(toPortal):
-                walk.portalSources.append(PostHogPortalSource(view: view, portalRect: nil))
+                walk.portalSources.append(PostHogPortalSource(view: view, portal: portal, portalRect: nil))
                 // Puts the source's copy, positioned in its superlayer's space, where that space sits in the portal.
                 let space = CALayer()
                 space.anchorPoint = .zero
@@ -706,7 +681,7 @@
                 return (space, false)
             case .atPortal:
                 let portalRect = PostHogPortalSource.portalRect(of: portal, root: walk.root)
-                walk.portalSources.append(PostHogPortalSource(view: view, portalRect: portalRect))
+                walk.portalSources.append(PostHogPortalSource(view: view, portal: portal, portalRect: portalRect))
                 content.anchorPoint = .zero
                 content.position = presentation.bounds.origin
                 content.transform = CATransform3DIdentity
@@ -732,7 +707,6 @@
                 copiesMadeForTesting += 1
             #endif
             if walk.portalsInProgress.isEmpty, source.delegate is UIView { walk.viewCopies[ObjectIdentifier(source)] = copy }
-            if !info.presentationSafe, source.animationKeys() != nil { walk.modelGeometryCopies[ObjectIdentifier(source), default: []].append(copy) }
             copyGeometry(from: presentation, source: source, to: copy)
             // A transform layer renders none of its own style, contents, effects or mask, and warns when they're set.
             if info.kind == .transform {
@@ -813,11 +787,11 @@
             let bounds = layer.bounds
             let gravity = layer.contentsGravity
             guard !info.metal, let contents = layer.contents, gravity != .resize, gravity != .resizeAspect else { return bounds }
-            return contentsExtent(layer, contents: contents, gravity: gravity, bounds: bounds)
+            return Self.contentsExtent(layer, contents: contents, gravity: gravity, bounds: bounds)
         }
 
         /// `ownExtent` for contents drawn with a gravity that doesn't scale them to the bounds.
-        private func contentsExtent(_ layer: CALayer, contents: Any, gravity: CALayerContentsGravity, bounds: CGRect) -> CGRect {
+        static func contentsExtent(_ layer: CALayer, contents: Any, gravity: CALayerContentsGravity, bounds: CGRect) -> CGRect {
             let object = contents as AnyObject
             let typeID = CFGetTypeID(object)
             var size: CGSize
@@ -1009,10 +983,28 @@
             return info
         }
 
+        /// The presentation copy when `isPresentationSafe` allows one, else the model layer.
+        private static func presented(_ layer: CALayer) -> CALayer {
+            (isPresentationSafe(type(of: layer)) ? layer.presentation() : nil) ?? layer
+        }
+
         /// `presentation()` instantiates the layer's class through `initWithLayer:`; a Swift subclass that doesn't
         /// override `init(layer:)` traps there. CALayer's own implementation, and any that lives in a system image
         /// (found with `dladdr`, since the app's own subclasses are the ones that can trap), are trusted.
         static func isPresentationSafe(_ cls: AnyClass) -> Bool {
+            let key = ObjectIdentifier(cls)
+            presentationSafetyLock.lock()
+            defer { presentationSafetyLock.unlock() }
+            if let cached = presentationSafety[key] { return cached }
+            let safe = hasSystemInitWithLayer(cls)
+            presentationSafety[key] = safe
+            return safe
+        }
+
+        private static let presentationSafetyLock = NSLock()
+        private static var presentationSafety: [ObjectIdentifier: Bool] = [:]
+
+        private static func hasSystemInitWithLayer(_ cls: AnyClass) -> Bool {
             let selector = NSSelectorFromString("initWithLayer:")
             let implementation = class_getMethodImplementation(cls, selector)
             if implementation == class_getMethodImplementation(CALayer.self, selector) { return true }

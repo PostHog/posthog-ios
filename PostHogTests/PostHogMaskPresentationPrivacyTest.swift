@@ -695,7 +695,7 @@
 
             let rects = try h.rects()
             let wireframe = RRWireframe()
-            wireframe.image = try #require(h.window.toImage(preferFidelityRenderer: true))
+            wireframe.image = try #require(h.window.toImage(renderer: .fidelity))
             wireframe.maskableWidgets = rects
             let raw = try #require(wireframe.image)
             let center = CGPoint(x: view.frame.midX, y: view.frame.midY)

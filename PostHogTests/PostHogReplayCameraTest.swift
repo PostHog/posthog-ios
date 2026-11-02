@@ -32,8 +32,8 @@
             defer { window.isHidden = true }
             #expect(window.hasCameraForReplay())
             #expect(PostHogReplayIntegration().collectMaskableRects(in: window) == nil)
-            #expect(window.toImage(preferFidelityRenderer: false) == nil)
-            #expect(window.toImage(preferFidelityRenderer: true) == nil)
+            #expect(window.toImage(renderer: .presentationTree) == nil)
+            #expect(window.toImage(renderer: .fidelity) == nil)
             #expect(window.toImage(afterScreenUpdates: true) == nil)
         }
 
@@ -61,7 +61,7 @@
             picker.removeFromParent()
             #expect(!window.hasCameraForReplay())
             #expect(PostHogReplayIntegration().collectMaskableRects(in: window) != nil)
-            #expect(window.toImage(preferFidelityRenderer: false) != nil)
+            #expect(window.toImage(renderer: .presentationTree) != nil)
         }
 
         @Test("A skipped bridge frame leaves recording active and releases the next capture")
@@ -152,15 +152,15 @@
                 picker.cameraFlashMode = step.isMultiple(of: 2) ? .on : .off
                 try await Task.sleep(nanoseconds: 50_000_000)
                 #expect(integration.collectMaskableRects(in: window) == nil)
-                #expect(window.toImage(preferFidelityRenderer: false) == nil)
-                #expect(window.toImage(preferFidelityRenderer: true) == nil)
+                #expect(window.toImage(renderer: .presentationTree) == nil)
+                #expect(window.toImage(renderer: .fidelity) == nil)
                 #expect(window.toImage(afterScreenUpdates: true) == nil)
             }
             root.dismiss(animated: false)
             try await waitUntil { picker.viewIfLoaded?.window == nil }
             try #require(picker.viewIfLoaded?.window == nil)
             #expect(integration.collectMaskableRects(in: window) != nil)
-            #expect(window.toImage(preferFidelityRenderer: false) != nil)
+            #expect(window.toImage(renderer: .presentationTree) != nil)
         }
     }
 #endif

@@ -63,8 +63,10 @@
         /// Render screenshots on the GPU instead of with `drawHierarchy` when `screenshotMode` is enabled.
         ///
         /// Each capture copies the window's layer tree and renders the copy into a Metal texture, so
-        /// the main thread only builds the copy, and masks are measured from the same layer state the
-        /// pixels come from.
+        /// the main thread only builds the copy, and masks are measured from the same presentation state
+        /// the pixels come from. Layers whose presentation can't be copied safely (an app's own `CALayer`
+        /// subclasses) are drawn from their model state instead, and left out wherever that would draw
+        /// masked content off its mask.
         ///
         /// Not captured exactly:
         /// - Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped

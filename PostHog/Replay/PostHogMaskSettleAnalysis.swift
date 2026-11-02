@@ -28,6 +28,35 @@
             init(_ layer: CALayer, in window: UIWindow?) {
                 self.init(layer, rect: layer.toPresentationRect(window, outsets: layer.drawnOutsets(of: layer.bounds)))
             }
+
+            /// `rect` grown to also cover where the model tree places what it masks.
+            func coveringModel(in window: UIWindow) -> CGRect {
+                if let view = object as? UIView {
+                    return rect.union(view.convert(view.bounds.outset(by: view.drawnOutsets), to: window))
+                }
+                if let layer = object as? CALayer {
+                    return rect.union(layer.convert(layer.bounds.outset(by: layer.drawnOutsets(of: layer.bounds)), to: window.layer))
+                }
+                return rect
+            }
+        }
+
+        /// The renderer for a settled capture in `band`, and the masks that keep its pixels covered: in motion the
+        /// presentation tree, which `regions` were measured on, unless the window holds a layer whose presentation
+        /// can't be copied, which rendering it would trap on. The model tree is drawn then, and masked there too, from
+        /// `remeasure`: drawing it runs any pending layout first, which can move, add or remove what `regions` measured,
+        /// so that layout runs here, before the masks are measured again.
+        static func settledRendering(of window: UIWindow, band: SettleBand, inflatedRects: [CGRect]?, regions: [MaskedRegion]?,
+                                     remeasure: () -> [MaskedRegion]?) -> (renderer: PostHogScreenshotRenderer, rects: [CGRect]?)
+        {
+            if band.usesFidelity {
+                return (.fidelity, inflatedRects ?? regions?.map(\.rect))
+            }
+            if window.layer.canRenderPresentationTree {
+                return (.presentationTree, regions?.map(\.rect))
+            }
+            window.layoutIfNeeded()
+            return (.modelTree, remeasure()?.map { $0.coveringModel(in: window) })
         }
 
         // Tuning surface for the settle check. Defaults are deliberately conservative: measured on

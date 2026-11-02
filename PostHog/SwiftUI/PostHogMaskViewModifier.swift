@@ -110,9 +110,8 @@
                     hasUnsettledReporters = true
                     continue
                 }
-                let rect = reporter.toPresentationRect(window)
-                if !rect.isEmpty {
-                    regions.append(.init(reporter, rect: rect))
+                if let region = region(of: reporter, in: window) {
+                    regions.append(region)
                 }
             }
             return MaskedRects(regions: regions, hasUnsettledReporters: hasUnsettledReporters, hasReporters: hasReporters)
@@ -135,12 +134,19 @@
                     hasUnsettledReporters = true
                     continue
                 }
-                let rect = reporter.toPresentationRect(window)
-                if !rect.isEmpty {
-                    regions.append(.init(reporter, rect: rect))
+                if let region = region(of: reporter, in: window) {
+                    regions.append(region)
                 }
             }
             return MaskedRects(regions: regions, hasUnsettledReporters: hasUnsettledReporters, hasReporters: hasReporters)
+        }
+
+        /// nil for a reporter sized to nothing. One presented collapsed still counts while its model has a size: a capture
+        /// drawn from the model tree shows its content at that size, and masks there from this region.
+        private func region(of reporter: PostHogMaskReporterUIView, in window: UIWindow) -> PostHogReplayIntegration.MaskedRegion? {
+            let rect = reporter.toPresentationRect(window)
+            guard !rect.isEmpty || !reporter.convert(reporter.bounds, to: window).isEmpty else { return nil }
+            return .init(reporter, rect: rect)
         }
 
         #if TESTING

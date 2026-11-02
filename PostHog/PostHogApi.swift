@@ -216,7 +216,6 @@ class PostHogApi {
         }
 
         let uuids = events.map(\.uuid.postHogUuidString)
-        let eventNames = Dictionary(events.map { ($0.uuid.postHogUuidString, $0.event) }, uniquingKeysWith: { first, _ in first })
         let identity = nextCaptureV1Identity(path: path, uuids: Set(uuids))
 
         let toSend: [String: Any] = [
@@ -250,7 +249,7 @@ class PostHogApi {
                 if info.statusCode == 404 {
                     self.warnCaptureNotFoundOnce(url: url, path: path)
                 }
-                completion(self.captureV1Result(info, path: path, data: data, uuids: uuids, identity: identity, eventNames: eventNames))
+                completion(self.captureV1Result(info, path: path, data: data, uuids: uuids, identity: identity))
             }
         }.resume()
     }
@@ -291,40 +290,42 @@ class PostHogApi {
     }
 
     /// Reads the per-event results of a 2xx and records which events, if any,
-    /// the next request retries under the same identity. `eventNames` maps
-    /// UUIDs to event names for the per-event drop log.
+    /// the next request retries under the same identity.
     func captureV1Result(
         _ info: PostHogUploadInfo,
         path: String,
         data: Data?,
         uuids: [String],
-        identity: CaptureV1RequestIdentity,
-        eventNames: [String: String] = [:]
+        identity: CaptureV1RequestIdentity
     ) -> PostHogUploadInfo {
         var retryUuids: Set<String> = []
         var dropped = 0
+        var droppedByDetails: [String: Int] = [:]
+        var duplicatesDropped = 0
         let statusCode = info.statusCode
 
         if let statusCode, 200 ... 299 ~= statusCode {
             // A 2xx whose results can't be read, including a transfer that failed
-            // after the status arrived, counts as delivered: the server already
-            // stored its ok events, and a resend would store them again.
+            // after the status arrived, fails the whole batch. It isn't retried:
+            // the server may have stored its ok events, and a resend would store them again.
             let results = data.flatMap { fromJSONData($0) }?["results"] as? [String: Any]
             if results == nil {
-                hedgeLog("Capture returned \(statusCode) without readable per-event results, treating \(uuids.count) events as delivered.")
+                dropped = uuids.count
+                hedgeLog("Capture returned \(statusCode) without readable per-event results, dropping \(dropped) events.")
             }
-            // Events missing from the results count as delivered.
-            for uuid in uuids {
+            // Events missing from the results count as delivered. A repeated UUID takes its
+            // first copy's result; capture counts the later copies it dropped in `duplicates_dropped`.
+            var seen: Set<String> = []
+            for uuid in uuids where seen.insert(uuid).inserted {
                 guard let entry = results?[uuid] as? [String: Any] else { continue }
+                // Clamped to the batch size so a malformed count can't overflow the sum.
+                duplicatesDropped += min(max((entry["duplicates_dropped"] as? Int) ?? 0, 0), uuids.count)
                 switch entry["result"] as? String {
                 case "retry":
                     retryUuids.insert(uuid)
                 case "drop":
                     dropped += 1
-                    // Debug only. Name, UUID, and the server's reason; never content or properties.
-                    let name = eventNames[uuid].map { "'\($0)'" } ?? "event"
-                    let details = entry["details"] as? String ?? "no details"
-                    hedgeLog("Capture dropped \(name) (\(uuid)): \(details).")
+                    droppedByDetails[entry["details"] as? String ?? "no details", default: 0] += 1
                 default:
                     break
                 }
@@ -332,10 +333,16 @@ class PostHogApi {
         } else if statusCode.map(isCaptureV1RetriableStatusCode) ?? true {
             // No response or a retriable status: the whole batch is resent.
             retryUuids = Set(uuids)
+        } else if statusCode != 413 || uuids.count == 1 {
+            // A terminal status loses the whole batch. The queue halves and resends a multi-event 413.
+            dropped = uuids.count
         }
 
-        if dropped > 0 || !retryUuids.isEmpty {
-            hedgeLog("Capture: \(dropped) dropped, \(retryUuids.count) to retry.")
+        if dropped > 0 || duplicatesDropped > 0 || !retryUuids.isEmpty {
+            let status = statusCode.map { " (status \($0))" } ?? ""
+            // One line per batch: counts and the server's reasons, never event names, UUIDs or properties.
+            let reasons = droppedByDetails.isEmpty ? "" : " (" + droppedByDetails.sorted { $0.key < $1.key }.map { "\($0.key): \($0.value)" }.joined(separator: ", ") + ")"
+            hedgeLog("Capture \(path)\(status): \(dropped) dropped\(reasons), \(duplicatesDropped) duplicates dropped, \(retryUuids.count) to retry.")
         }
 
         captureV1Lock.withLock {
@@ -377,7 +384,7 @@ class PostHogApi {
         var options = event.options
         for (property, option) in legacyOptionProperties {
             guard let legacy = properties.removeValue(forKey: property) else { continue }
-            if options[option] == nil || options[option] is NSNull {
+            if isNullValue(options[option]) {
                 options[option] = legacy
             }
         }

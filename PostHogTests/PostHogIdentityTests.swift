@@ -163,6 +163,20 @@ class PostHogIdentityTests {
         #expect(events.first?.distinctId == "user-a")
     }
 
+    @Test("identify while opted out does not suppress the same properties after opt in")
+    func identifyWhileOptedOutDoesNotSuppressPropertiesAfterOptIn() async throws {
+        let sut = getSut(optOut: true, preloadFeatureFlags: false)
+
+        sut.identify("user-a", userProperties: ["email": "user@test.test"])
+        sut.optIn()
+        sut.identify("user-a", userProperties: ["email": "user@test.test"])
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set"])
+        let set = events.first?.properties["$set"] as? [String: Any] ?? [:]
+        #expect(set["email"] as? String == "user@test.test")
+    }
+
     @Test("identify while opted in captures $identify and reloads flags for the new distinct id")
     func identifyWhileOptedInCapturesAndReloadsFlags() async throws {
         let sut = getSut(preloadFeatureFlags: false)

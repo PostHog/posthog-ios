@@ -16,12 +16,14 @@ final class MockApplicationLifecyclePublisher: AppLifecyclePublishing {
     /// Override per-test to simulate the app being in foreground or
     /// background at the moment some consumer queries the publisher.
     var isInBackground: Bool = false
+    private(set) var hasBecomeActive: Bool = false
 
     func simulateAppDidEnterBackground() {
         onDidEnterBackground.invoke(())
     }
 
     func simulateAppDidBecomeActive() {
+        hasBecomeActive = true
         onDidBecomeActive.invoke(())
     }
 

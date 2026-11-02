@@ -71,6 +71,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     func start() {
         let publisher = DI.main.appLifecyclePublisher
         isAppBackgrounded = publisher.isInBackground
+        isFreshAppLaunch = !publisher.hasBecomeActive
         didFinishLaunchingToken = publisher.onDidFinishLaunching.subscribe { [weak self] in
             self?.captureAppInstallOrUpdated()
         }

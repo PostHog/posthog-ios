@@ -25,6 +25,9 @@ protocol AppLifecyclePublishing: AnyObject {
     /// at subscription time should seed from this rather than waiting for
     /// the next state-change callback.
     var isInBackground: Bool { get }
+    /// Whether the app has already been active, including before a consumer subscribes.
+    /// Off-main reads use observed activations without synchronously querying the UI.
+    var hasBecomeActive: Bool { get }
 }
 
 /**
@@ -65,9 +68,38 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
         #endif
     }
 
-    private init() {
-        let defaultCenter = NotificationCenter.default
+    private let activationLock = NSLock()
+    private var hasObservedActivation = false
 
+    var hasBecomeActive: Bool {
+        if activationLock.withLock({ hasObservedActivation }) {
+            return true
+        }
+        // Do not block on main while a caller may hold SDK locks needed by lifecycle callbacks.
+        guard Thread.isMainThread else { return false }
+
+        let isActive: Bool
+        #if os(iOS) || os(tvOS) || os(visionOS)
+            isActive = UIApplication.shared.applicationState == .active
+        #elseif os(macOS)
+            isActive = NSApplication.shared.isActive
+        #elseif os(watchOS)
+            if #available(watchOS 7.0, *) {
+                isActive = WKApplication.shared().applicationState == .active
+            } else {
+                isActive = WKExtension.shared().applicationState == .active
+            }
+        #else
+            isActive = false
+        #endif
+
+        return activationLock.withLock {
+            hasObservedActivation = hasObservedActivation || isActive
+            return hasObservedActivation
+        }
+    }
+
+    init(notificationCenter defaultCenter: NotificationCenter = .default) {
         #if os(iOS) || os(tvOS)
             defaultCenter.addObserver(self,
                                       selector: #selector(appDidFinishLaunching),
@@ -110,15 +142,15 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
                                       object: nil)
         #elseif os(watchOS)
             if #available(watchOS 7.0, *) {
-                NotificationCenter.default.addObserver(self,
-                                                       selector: #selector(appDidBecomeActive),
-                                                       name: WKApplication.didBecomeActiveNotification,
-                                                       object: nil)
+                defaultCenter.addObserver(self,
+                                          selector: #selector(appDidBecomeActive),
+                                          name: WKApplication.didBecomeActiveNotification,
+                                          object: nil)
             } else {
-                NotificationCenter.default.addObserver(self,
-                                                       selector: #selector(appDidBecomeActive),
-                                                       name: .init("UIApplicationDidBecomeActiveNotification"),
-                                                       object: nil)
+                defaultCenter.addObserver(self,
+                                          selector: #selector(appDidBecomeActive),
+                                          name: .init("UIApplicationDidBecomeActiveNotification"),
+                                          object: nil)
             }
         #endif
     }
@@ -128,6 +160,7 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
     }
 
     @objc private func appDidBecomeActive() {
+        activationLock.withLock { hasObservedActivation = true }
         onDidBecomeActive.invoke(())
     }
 

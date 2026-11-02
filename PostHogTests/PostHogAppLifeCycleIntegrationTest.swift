@@ -9,6 +9,12 @@ import Foundation
 @testable import PostHog
 import Testing
 
+#if os(iOS) || os(tvOS) || os(visionOS)
+    import UIKit
+#elseif os(macOS)
+    import AppKit
+#endif
+
 @Suite("Test App Lifecycle integration", .serialized)
 final class PostHogAppLifeCycleIntegrationTest {
     var server: MockPostHogServer!
@@ -108,6 +114,8 @@ final class PostHogAppLifeCycleIntegrationTest {
             sut.optIn()
         }
 
+        mockAppLifecycle.simulateAppDidBecomeActive()
+        mockAppLifecycle.simulateAppDidBecomeActive()
         mockAppLifecycle.simulateAppDidEnterBackground()
         mockAppLifecycle.simulateAppDidEnterBackground()
         mockAppLifecycle.simulateAppDidBecomeActive()
@@ -159,6 +167,34 @@ final class PostHogAppLifeCycleIntegrationTest {
         let opens = events.filter { $0.event == "Application Opened" }
         #expect(opens.map { $0.properties["from_background"] as? Bool } == [false, true])
     }
+
+    #if os(iOS) || os(tvOS) || os(visionOS) || os(macOS)
+        @Test("publisher remembers activation before notifying subscribers and across threads")
+        func publisherRemembersActivation() async {
+            let center = NotificationCenter()
+            let publisher = ApplicationLifecyclePublisher(notificationCenter: center)
+            let initial = await Task.detached { publisher.hasBecomeActive }.value
+            #expect(!initial)
+
+            let token = publisher.onDidBecomeActive.subscribe {
+                #expect(publisher.hasBecomeActive)
+            }
+            #if os(macOS)
+                center.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+                center.post(name: NSApplication.didResignActiveNotification, object: nil)
+            #elseif os(visionOS)
+                center.post(name: UIScene.didActivateNotification, object: nil)
+                center.post(name: UIScene.willDeactivateNotification, object: nil)
+            #else
+                center.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+                center.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+            #endif
+
+            let afterBackgrounding = await Task.detached { publisher.hasBecomeActive }.value
+            #expect(afterBackgrounding)
+            withExtendedLifetime(token) {}
+        }
+    #endif
 
     @Test("installs lifecycle integration even when event capture is disabled")
     func installsWithCaptureDisabled() {

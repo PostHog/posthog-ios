@@ -123,6 +123,7 @@ You need to change something if your app does any of these:
 - sends events through a proxy that redirects capture requests, other than with a 307 or 308 to the same origin as `host`
 - captures events with an empty event name, or with an event name or distinct ID over 200 bytes
 - sets an empty distinct ID in `beforeSend`
+- replaces `event.options` in `beforeSend`, or returns an event kept from an earlier call (see [Event options](#event-options))
 - sets `projectToken` to a personal API key (`phx_...`)
 - sets `$lib` or `$lib_version` and expects PostHog to store that value
 - reads `$session_id` or `$window_id` from the raw request body, for example in a proxy
@@ -187,6 +188,8 @@ With `debug` on, the SDK logs how many events were dropped and why.
 
 A `NaN`, infinite or other non-JSON property value is removed before sending, and the event is still sent.
 
+Each event needs its own uuid: PostHog keeps the first copy in a request and drops later events with the same uuid. The SDK generates a uuid for each capture and keeps it through `beforeSend`, even when the hook returns an event kept from an earlier call, so you can't send a repeated uuid by accident.
+
 In 3.x, an empty event name or distinct ID made legacy capture reject the whole batch it was in.
 
 The distinct ID can come from `identify(_:)`, the `distinctId` argument of `capture` or `beforeSend`.
@@ -220,7 +223,7 @@ In 4.0 a value you register or pass wins, for example `capture("signed_up", prop
 Capture v1 sends `$session_id` and `$window_id` as top-level `session_id` and `window_id` fields, not as properties.
 The SDK moves them out of `properties` for you.
 A string value, including an empty string, is sent unchanged.
-Any other value is removed and not sent, and the SDK logs a warning that names the key and the value's JSON type, never the value.
+Any other value is removed and not sent. With `debug` on, the SDK logs a warning that names the key and the value's JSON type, never the value.
 A null value counts as unset and is removed without a warning.
 In PostHog, the events still have `$session_id` and `$window_id`, so insights, filters and session replay work as before.
 A registered `$session_id` now overrides the SDK's session ID (see [Property precedence](#property-precedence)), which can detach events from their session replay.
@@ -254,6 +257,7 @@ When the event is sent, the SDK removes each one from `properties` and uses it f
 
 - An option you pass to any of these methods or set in `beforeSend` wins over its legacy property. An option set to `NSNull()` counts as unset, so the legacy property fills it.
 - When `personProfiles` turns person processing off, the SDK sets the `process_person_profile` option to `false`. Otherwise it sends neither, because PostHog processes person profiles by default. To change person processing for one event, pass the `process_person_profile` option or the `$process_person_profile` property. A registered `$process_person_profile` changes it for every event.
+- Review your `beforeSend` hooks for the new event shape. In 3.x, the SDK marked person processing with the `$process_person_profile` property. In 4.0, it's the `process_person_profile` option, and the property isn't set. A hook that replaces `event.options` without keeping that key, or returns an event kept from an earlier call, can lose the `false` the SDK set. That turns person processing on for anonymous users, overriding `personProfiles`.
 - The SDK sends option values as given. PostHog reads common forms of a value, such as `"false"` or `0` for a boolean, and drops an event whose option value it can't read.
 - Other option keys are sent unchanged, and PostHog ignores keys it doesn't know.
 - There are no global options. To set one for every event, register its legacy property, for example `register(["$cookieless_mode": true])`.

@@ -70,6 +70,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
      */
     func start() {
         let publisher = DI.main.appLifecyclePublisher
+        isAppBackgrounded = publisher.isInBackground
         didFinishLaunchingToken = publisher.onDidFinishLaunching.subscribe { [weak self] in
             self?.captureAppInstallOrUpdated()
         }
@@ -169,7 +170,8 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     private func captureAppOpened() {
         guard let postHog else { return }
 
-        guard isAppBackgrounded else {
+        // Setup can happen before the first activation, when the app is not backgrounded yet.
+        guard isFreshAppLaunch || isAppBackgrounded else {
             hedgeLog("Skipping Application Opened event - app already in foreground")
             return
         }
@@ -212,6 +214,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
         }
 
         isAppBackgrounded = true
+        isFreshAppLaunch = false
 
         if !postHog.config.captureApplicationLifecycleEvents {
             hedgeLog("Skipping Application Backgrounded event - captureApplicationLifecycleEvents is disabled in configuration")

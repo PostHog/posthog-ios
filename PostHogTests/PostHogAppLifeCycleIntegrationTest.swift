@@ -33,10 +33,12 @@ final class PostHogAppLifeCycleIntegrationTest {
     private func getSut(
         flushAt: Int = 1,
         captureApplicationLifecycleEvents: Bool = true,
-        disableFlushOnBackgroundForTesting: Bool = true
+        disableFlushOnBackgroundForTesting: Bool = true,
+        optOut: Bool = false
     ) -> PostHogSDK {
         let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9000")
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
+        config.optOut = optOut
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
         config.disableFlushOnBackgroundForTesting = disableFlushOnBackgroundForTesting
@@ -91,6 +93,71 @@ final class PostHogAppLifeCycleIntegrationTest {
         userDefaults.synchronize()
 
         deleteSafely(applicationSupportDirectoryURL())
+    }
+
+    @Test("late setup or opt-in captures the first background and subsequent warm opens", arguments: [false, true])
+    func capturesLifecycleAfterLateStart(optInAfterSetup: Bool) async throws {
+        setVersionDefaults()
+        mockAppLifecycle.isInBackground = false
+        mockAppLifecycle.simulateAppDidFinishLaunching()
+        mockAppLifecycle.simulateAppDidBecomeActive()
+
+        let sut = getSut(flushAt: 100, optOut: optInAfterSetup)
+        defer { sut.close() }
+        if optInAfterSetup {
+            sut.optIn()
+        }
+
+        mockAppLifecycle.simulateAppDidEnterBackground()
+        mockAppLifecycle.simulateAppDidEnterBackground()
+        mockAppLifecycle.simulateAppDidBecomeActive()
+        mockAppLifecycle.simulateAppDidBecomeActive()
+        mockAppLifecycle.simulateAppDidEnterBackground()
+        mockAppLifecycle.simulateAppDidBecomeActive()
+        sut.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == [
+            "Application Installed",
+            "Application Backgrounded",
+            "Application Opened",
+            "Application Backgrounded",
+            "Application Opened",
+        ])
+        let opens = events.filter { $0.event == "Application Opened" }
+        #expect(opens.map { $0.properties["from_background"] as? Bool } == [true, true])
+    }
+
+    @Test("setup or opt-in before first activation preserves cold launch", arguments: [false, true], [false, true])
+    func preservesColdLaunch(startsInBackground: Bool, optInAfterSetup: Bool) async throws {
+        setVersionDefaults()
+        mockAppLifecycle.isInBackground = startsInBackground
+        let sut = getSut(flushAt: 100, optOut: optInAfterSetup)
+        defer { sut.close() }
+        if optInAfterSetup {
+            sut.optIn()
+        }
+
+        mockAppLifecycle.simulateAppDidFinishLaunching()
+        if startsInBackground {
+            mockAppLifecycle.simulateAppDidEnterBackground()
+            mockAppLifecycle.simulateAppDidEnterBackground()
+        }
+        mockAppLifecycle.simulateAppDidBecomeActive()
+        mockAppLifecycle.simulateAppDidBecomeActive()
+        mockAppLifecycle.simulateAppDidEnterBackground()
+        mockAppLifecycle.simulateAppDidBecomeActive()
+        sut.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == [
+            "Application Installed",
+            "Application Opened",
+            "Application Backgrounded",
+            "Application Opened",
+        ])
+        let opens = events.filter { $0.event == "Application Opened" }
+        #expect(opens.map { $0.properties["from_background"] as? Bool } == [false, true])
     }
 
     @Test("installs lifecycle integration even when event capture is disabled")

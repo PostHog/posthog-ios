@@ -40,6 +40,7 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - Cap analytics batches at 5 MiB per request and send a larger event on its own
 - Drop an event with an empty name before sending it, including one `beforeSend` renames to `""`
 - Ignore `identify` with a whitespace-only distinct ID
+- Print a warning, also without `debug`, when `setup` leaves the SDK disabled because `projectToken` is empty or a personal API key
 - Add `SessionReplay`, `CrashReporting` and `Surveys` Swift package traits (on by default) that remove the feature and its public API when turned off
 - Change network reachability detection to `NWPathMonitor`, so a path needing user action counts as reachable, queues pause while cellular data is off for the app, and early events may omit `$network_wifi` and `$network_cellular`
 - Change the replay screen name to the visible screen, reporting the view name for SwiftUI screens and no longer using a plain `UIViewController`'s `title`

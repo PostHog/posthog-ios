@@ -759,6 +759,22 @@ final class PostHogCaptureV1OptionsTest {
         #expect(sut.getDistinctId() == "")
     }
 
+    @Test("setup warns why it left the SDK disabled, with debug off", arguments: [
+        ("", "PostHog SDK will be disabled because projectToken is empty."),
+        ("phx_personal", "PostHog SDK will be disabled because projectToken is a personal API key (phx_...), not a project token (phc_...)."),
+    ])
+    func disabledSetupWarns(projectToken: String, expected: String) {
+        // An empty token leaves the SDK disabled, so setup can run again with the printer injected.
+        let sut = PostHogSDK.with(PostHogConfig(projectToken: ""))
+        defer { sut.close() }
+        var warnings: [String] = []
+        sut.printWarning = { warnings.append($0) }
+
+        sut.setup(PostHogConfig(projectToken: projectToken, host: "http://localhost:9001"))
+
+        #expect(warnings == [expected])
+    }
+
     @Test("an event beforeSend returns again still gets a new UUID")
     func beforeSendReturningEarlierEventGetsNewUuid() async throws {
         var kept: PostHogEvent?

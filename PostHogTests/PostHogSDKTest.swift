@@ -768,7 +768,8 @@ final class PostHogSDKTests {
     func isFeatureEnabledDefaultBeforeFlagsLoad() {
         let sut = getSut()
 
-        #expect(sut.isFeatureEnabled("disabled-flag", defaultValue: true) == true)
+        // A key the mock server never returns: an earlier test's late flags load can still write mock flags into the shared storage.
+        #expect(sut.isFeatureEnabled("missing", defaultValue: true) == true)
 
         sut.reset()
         sut.close()
@@ -788,7 +789,8 @@ final class PostHogSDKTests {
         }
         group.wait()
 
-        #expect(sut.isFeatureEnabled("disabled-flag", defaultValue: true) == true)
+        // A key the mock server never returns: an earlier test's late flags load can still write mock flags into the shared storage.
+        #expect(sut.isFeatureEnabled("missing", defaultValue: true) == true)
 
         sut.reset()
         sut.close()

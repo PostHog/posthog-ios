@@ -156,9 +156,8 @@ Capture v1 requests send the project token in an `Authorization: Bearer <project
 This header replaces any `Authorization` header you set in `PostHogConfig.requestHeaders`, so authenticate your proxy with a different header, such as `X-Proxy-Token`.
 Other requests still send your `Authorization` header.
 
-A personal API key (`phx_...`) in `projectToken` now disables the SDK at setup, as an empty token does, and prints a warning explaining why, also without `debug`. To turn the SDK off in tests, use an empty token.
+A personal API key (`phx_...`) in `projectToken` now disables the SDK at setup, as an empty or whitespace-only token does, and prints a warning explaining why, also without `debug`. The SDK trims whitespace from `projectToken`, as in 3.x. To turn the SDK off in tests, use an empty token.
 In 3.x, the SDK started and PostHog rejected every event with a 401. Use your project token (`phc_...`).
-<!-- TODO(capture-v1): a whitespace-only projectToken isn't disabled (setup checks isEmpty only), while the fleet rule (INV-32) disables whitespace tokens too. Decide whether 4.0 fixes the check or the guide documents it. -->
 
 #### Hosts without capture v1
 

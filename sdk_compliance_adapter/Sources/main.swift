@@ -95,6 +95,22 @@ func clearPostHogStorage() {
     try? FileManager.default.removeItem(atPath: adapterStorageHome)
 }
 
+// Events still on disk in the analytics and AI queues, one file per event. Reading the
+// queue folders reflects what the SDK actually kept: a terminal 4xx removes the batch,
+// and a partial-retry 200 keeps the retried events.
+func pendingQueuedEventCount() -> Int {
+    let fileManager = FileManager.default
+    guard let walker = fileManager.enumerator(atPath: adapterStorageHome) else { return 0 }
+    var count = 0
+    for case let path as String in walker {
+        let name = (path as NSString).lastPathComponent
+        guard name == "posthog.queueFolder.uuid" || name == "posthog.aiFolder" else { continue }
+        let folder = (adapterStorageHome as NSString).appendingPathComponent(path)
+        count += (try? fileManager.contentsOfDirectory(atPath: folder).count) ?? 0
+    }
+    return count
+}
+
 // Configure and create the Vapor application
 var env = try Environment.detect()
 try LoggingSystem.bootstrap(from: &env)
@@ -510,7 +526,7 @@ app.get("state") { req async throws -> Response in
     print("[ADAPTER] GET /state")
 
     let stateData: [String: Any] = [
-        "pending_events": max(0, state.totalEventsCaptured - RequestInterceptor.totalEventsSent),
+        "pending_events": pendingQueuedEventCount(),
         "total_events_captured": state.totalEventsCaptured,
         "total_events_sent": RequestInterceptor.totalEventsSent,
         "total_retries": RequestInterceptor.trackedRequests.filter { $0.retryAttempt > 0 }.count,

@@ -2147,8 +2147,10 @@ let maxRetryDelay = 30.0
             return nil
         }
         // Person processing and flag person properties apply only while the SDK still has the identity
-        // the event was built for, so a `reset()` or `identify()` during the round trip doesn't move them.
+        // the event was built for, so a `reset()` or `identify()` during the round trip doesn't move them,
+        // and only while the wrapper left the event on it: its `$set` otherwise belongs to another person.
         let sameIdentity = event.wrapperBuildDistinctId == getDistinctId()
+            && event.distinctId == event.wrapperBuildDistinctId
             && event.wrapperBuildResetGeneration == wrapperSendLock.withLock { wrapperResetGeneration }
         if sameIdentity, event.wrapperRequiresPersonProcessing {
             requirePersonProcessing()

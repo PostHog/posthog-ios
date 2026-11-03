@@ -247,6 +247,23 @@ final class PostHogWrapperEventTest {
         #expect(sut.config.storageManager?.isPersonProcessing() == false)
     }
 
+    @Test("an event sent for another distinct ID leaves the current user's person state alone")
+    func anotherDistinctIdKeepsPersonState() async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        let built = try #require(build(sut))
+        built.distinctId = "other-user"
+
+        server.reset(batchCount: 1)
+        sut.sendBuiltEventForWrapper(built, ai: false)
+
+        let sent = try #require(try await getServerEvents(server).first)
+        #expect(sent.distinctId == "other-user")
+        #expect(sent.properties["$set"] as? [String: String] == ["plan": "pro"])
+        #expect(try #require(sut.remoteConfig).getPersonPropertiesForFlags()["plan"] == nil)
+        #expect(sut.config.storageManager?.isPersonProcessing() == false)
+    }
+
     @Test("a build turns on person processing only when it's sent")
     func personProcessingDeferredToSend() throws {
         let sut = makeSDK()

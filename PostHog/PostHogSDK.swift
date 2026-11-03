@@ -1078,7 +1078,8 @@ let maxRetryDelay = 30.0
     ///
     /// By default, the first successful identify call links prior anonymous events to the provided ID.
     /// If `PostHogConfig.reuseAnonymousId` is `true`, prior anonymous events are not linked.
-    /// Empty IDs, opted-out users, and configurations with `personProfiles == .never` are ignored.
+    /// Empty IDs and configurations with `personProfiles == .never` are ignored.
+    /// While opted out, the distinct ID and feature flags still update, but no event is captured.
     ///
     /// - Parameter distinctId: Stable user identifier from your application.
     @objc public func identify(_ distinctId: String) {
@@ -1126,10 +1127,6 @@ let maxRetryDelay = 30.0
             return
         }
 
-        if isOptOutState() {
-            return
-        }
-
         if !requirePersonProcessing() {
             return
         }
@@ -1167,34 +1164,37 @@ let maxRetryDelay = 30.0
         }
 
         if hasDifferentDistinctId, !isIdentified {
-            var props: [String: Any] = ["distinct_id": distinctId]
+            // Opt-out gates capture only: identity and flags still follow the new distinct id.
+            if !isOptOutState() {
+                var props: [String: Any] = ["distinct_id": distinctId]
 
-            if !config.reuseAnonymousId {
-                props["$anon_distinct_id"] = oldDistinctId
-            }
+                if !config.reuseAnonymousId {
+                    props["$anon_distinct_id"] = oldDistinctId
+                }
 
-            let eventName = PostHogKnownUnsafeEditableEvent.identify.rawValue
-            let properties = buildProperties(
-                event: eventName,
-                distinctId: distinctId,
-                properties: props,
-                userProperties: sanitizeDictionary(userProperties),
-                userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce)
-            )
+                let eventName = PostHogKnownUnsafeEditableEvent.identify.rawValue
+                let properties = buildProperties(
+                    event: eventName,
+                    distinctId: distinctId,
+                    properties: props,
+                    userProperties: sanitizeDictionary(userProperties),
+                    userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce)
+                )
 
-            guard let event = buildEvent(
-                event: eventName,
-                distinctId: distinctId,
-                properties: properties,
-                options: personProcessingOptions(sanitizeDictionary(options), properties: properties)
-            ) else {
-                return
+                guard let event = buildEvent(
+                    event: eventName,
+                    distinctId: distinctId,
+                    properties: properties,
+                    options: personProcessingOptions(sanitizeDictionary(options), properties: properties)
+                ) else {
+                    return
+                }
+
+                queueEvent(event, queue: queue)
             }
 
             // Automatically set person properties for feature flags during identify() call
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
-
-            queueEvent(event, queue: queue)
 
             remoteConfig?.reloadFeatureFlags()
 

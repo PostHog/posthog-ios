@@ -1227,6 +1227,11 @@
             // measured the mask rects — any later and the presentation tree has moved on. The
             // bridge's first frame renders itself and passes false.
             let image = renderImage ? window.toImage(preferFidelityRenderer: preferFidelityRenderer) : nil
+            // A render that was attempted and failed skips the tick; only a deferred render falls
+            // through to renderAndEnqueueScreenshot's own draw.
+            if renderImage, image == nil {
+                return nil
+            }
 
             return ScreenshotCapture(wireframe: wireframe, windowSize: window.bounds.size, timestampDate: Date(), image: image)
         }

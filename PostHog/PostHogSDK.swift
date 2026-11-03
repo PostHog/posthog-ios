@@ -1961,6 +1961,7 @@ let maxRetryDelay = 30.0
             return nil
         }
 
+        let distinctIdBeforeHooks = getDistinctId()
         guard let posthogEvent = applyBeforeSend(prepared) else {
             return nil
         }
@@ -1983,8 +1984,11 @@ let maxRetryDelay = 30.0
             return nil
         }
 
-        // Automatically set person properties for feature flags during capture event
-        setPersonPropertiesForFlagsIfNeeded(prepared.flagUserProperties, userPropertiesSetOnce: prepared.flagUserPropertiesSetOnce)
+        // Automatically set person properties for feature flags during capture event, unless a
+        // `beforeSend` hook called `reset()` or `identify()`: they belong to the earlier user.
+        if getDistinctId() == distinctIdBeforeHooks {
+            setPersonPropertiesForFlagsIfNeeded(prepared.flagUserProperties, userPropertiesSetOnce: prepared.flagUserPropertiesSetOnce)
+        }
 
         // Session Replay has its own queue
         if isSnapshotEvent {
@@ -2051,6 +2055,7 @@ let maxRetryDelay = 30.0
             warnIfNotAiEvent(event)
         } else if event == "$screen" {
             let screen = buildScreenEventForWrapper(properties: properties, options: options)
+            screen?.wrapperBuiltAsScreen = true
             stampWrapperBuild(screen, event: event)
             return screen
         }
@@ -2106,7 +2111,7 @@ let maxRetryDelay = 30.0
     /// Sends an event from `buildEventForWrapper`: runs the native
     /// `beforeSend` chain on it, then queues it on the analytics lane, or the AI lane when `ai` is true.
     /// The SDK adds only the throttled replay debug properties a normal capture would, and keeps the event's
-    /// `uuid` and `timestamp`. A sent `$screen` event becomes the current screen.
+    /// `uuid` and `timestamp`. An event built and sent as `$screen` becomes the current screen.
     ///
     /// - Parameters:
     ///   - event: The built event, as edited by the wrapper.
@@ -2177,6 +2182,7 @@ let maxRetryDelay = 30.0
         }
         // A `reset()` since the build cleared the screen name, so the old one isn't restored.
         if sent.event == "$screen",
+           event.wrapperBuiltAsScreen,
            event.wrapperBuildResetGeneration == wrapperSendLock.withLock({ wrapperResetGeneration }),
            let screenName = sent.properties["$screen_name"] as? String,
            let cleaned = PostHogScreenNameSanitizer.sanitize(rawScreenName: screenName)

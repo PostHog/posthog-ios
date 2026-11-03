@@ -272,21 +272,18 @@
             #expect(snapshots.touches.allSatisfy { $0["x"] as? Int == 150 && $0["y"] as? Int == 500 })
         }
 
-        @Test("Touches on a camera window are kept without the mask check")
-        func cameraWindowKept() async throws {
+        @Test("Touches on a camera window are dropped")
+        func cameraWindowDropped() async throws {
             let (sut, integration, snapshots) = try makeSut()
             defer { sut.close() }
             let picker = PostHogReplayCameraTest.CameraPicker()
             let window = makeWindow(root: picker)
             defer { window.isHidden = true }
-            let masked = UIView(frame: CGRect(x: 20, y: 100, width: 200, height: 200))
-            masked.accessibilityIdentifier = "ph-no-capture"
-            picker.view.addSubview(masked)
             #expect(window.hasCameraForReplay())
 
             integration.handleApplicationEvent(event: TouchEvent(location: CGPoint(x: 100, y: 150)), date: Date(), window: window)
             await drainReplayQueue()
-            #expect(snapshots.touches.count == 2)
+            #expect(snapshots.touches.isEmpty)
         }
 
         @Test("Touches on a ph-no-capture view inside a cover under a ph-no-mask ancestor are kept")

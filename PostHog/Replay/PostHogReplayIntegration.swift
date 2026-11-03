@@ -332,9 +332,9 @@
                 }
             }
 
-            // start listening to `UIApplication.sendEvent`
+            // Before dispatch, so a touch handler can't hide a masked view ahead of the mask check
             let applicationEventPublisher = DI.main.applicationEventPublisher
-            applicationEventToken = applicationEventPublisher.onApplicationEvent.subscribe { [weak self] event, date in
+            applicationEventToken = applicationEventPublisher.onApplicationEventWillDispatch.subscribe { [weak self] event, date in
                 self?.handleApplicationEvent(event: event, date: date)
             }
 
@@ -2095,7 +2095,7 @@
 
     private extension PostHogReplayIntegration {
         /// Nil for other phases and for touches in an explicit mask. A touch that began masked stays dropped
-        /// through its end, because subscribers run after UIKit dispatch and the masked view may already be gone.
+        /// through its end, because a handler of its start may have removed or hidden the masked view.
         func recordableTouch(_ touch: UITouch, in window: UIWindow) -> (phase: UITouch.Phase, location: CGPoint)? {
             let id = ObjectIdentifier(touch)
             switch touch.phase {
@@ -2120,11 +2120,11 @@
         }
 
         func unmaskedTouch(_ touch: UITouch, in window: UIWindow) -> (phase: UITouch.Phase, location: CGPoint)? {
-            let location = touch.location(in: window)
-            // Presentation layers can trap on camera windows, and the camera covers the window anyway.
+            // Presentation-layer reads can trap on camera windows, and no frames are captured there.
             if window.hasCameraForReplay() {
-                return (phase: touch.phase, location: location)
+                return nil
             }
+            let location = touch.location(in: window)
             return isInsideExplicitMask(location, in: window) ? nil : (phase: touch.phase, location: location)
         }
 

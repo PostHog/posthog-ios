@@ -314,6 +314,27 @@ final class PostHogWrapperEventTest {
         #expect(try #require(sut.replayQueue).depth == 0)
     }
 
+    @Test("a capture built before close() and setup() isn't queued on the new setup", arguments: [false, true])
+    func reconfigureDuringCaptureDropsEvent(aiLane: Bool) throws {
+        let replacement = PostHogConfig(projectToken: "phc_wrapper_\(UUID().uuidString)", host: "http://localhost:9001")
+        replacement.disableReachabilityForTesting = true
+        replacement.disableQueueTimerForTesting = true
+        let sut = makeSDK()
+        defer { sut.close() }
+        var reconfigured = false
+        sut.onCapturePreparedForTesting = {
+            sut.onCapturePreparedForTesting = nil
+            sut.close()
+            sut.setup(replacement)
+            reconfigured = true
+        }
+
+        let uuid = sut.captureInternal(aiLane ? "$ai_generation" : "event", aiLane: aiLane)
+
+        #expect(reconfigured)
+        #expect(uuid == nil)
+    }
+
     @Test("an event built on one SDK instance isn't sent through another")
     func sendOnOtherInstanceDrops() throws {
         let sut = makeSDK()

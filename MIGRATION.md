@@ -102,7 +102,7 @@ If an app updates from a 2.x SDK straight to 4.0, events still queued on disk by
 
 ### `$locale` and `$app_language`
 
-`$locale` now means the device's preferred language, with its region: `de-CH` instead of `de`, and `fr-FR` when your app only supports English. This matches Android's format and the property's definition. If a user picks a language for your app in iOS Settings, iOS reports that language as the first preferred language, so `$locale` follows it.
+`$locale` now means the device's preferred language, with its region: `de-CH` instead of `de`, and `fr-FR` when your app only supports English. This matches Android's format and the property's definition. If a user picks a language for your app in iOS Settings, iOS reports that language as the first preferred language, so `$locale` follows it. Android 4.0 reports the device-wide language even when a per-app language is set, so for those users `$locale` means different things on iOS and Android.
 
 The new `$app_language` property is the language your app shows. It's the closest match to what `$locale` used to mean, but not always the same value: `$locale` sent only the language code, and `$app_language` sends your app's full localization name. An app localized as `de` still sends `de`. An app localized as `pt-BR` or `zh-Hans` now sends that, where `$locale` sent `pt` or `zh`. If you use your own language setting instead of iOS localizations, call `PostHogSDK.shared.setAppLanguage("de")` at startup and whenever it changes.
 

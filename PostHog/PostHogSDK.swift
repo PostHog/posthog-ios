@@ -1957,6 +1957,7 @@ let maxRetryDelay = 30.0
             return nil
         }
 
+        let distinctIdBeforeHooks = getDistinctId()
         guard let posthogEvent = applyBeforeSend(prepared) else {
             return nil
         }
@@ -1979,8 +1980,11 @@ let maxRetryDelay = 30.0
             return nil
         }
 
-        // Automatically set person properties for feature flags during capture event
-        setPersonPropertiesForFlagsIfNeeded(prepared.flagUserProperties, userPropertiesSetOnce: prepared.flagUserPropertiesSetOnce)
+        // Automatically set person properties for feature flags during capture event, unless a
+        // `beforeSend` hook called `reset()` or `identify()`: they belong to the earlier user.
+        if getDistinctId() == distinctIdBeforeHooks {
+            setPersonPropertiesForFlagsIfNeeded(prepared.flagUserProperties, userPropertiesSetOnce: prepared.flagUserPropertiesSetOnce)
+        }
 
         // Session Replay has its own queue
         if isSnapshotEvent {

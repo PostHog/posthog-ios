@@ -672,6 +672,25 @@ enum PostHogFeatureFlagsTest {
             #expect(personProperties["user_plan"] as? String == "premium", "Expected user_plan to be 'premium' from capture call")
         }
 
+        @Test("Capture whose beforeSend resets keeps its userProperties out of the next user's flags")
+        func captureWithBeforeSendResetKeepsUserPropertiesFromNextUser() {
+            var sdk: PostHogSDK?
+            config.setBeforeSend { event in
+                if event.event == "test_event" {
+                    sdk?.reset()
+                }
+                return event
+            }
+            let sut = track(PostHogSDK.with(config))
+            sdk = sut
+            sut.identify("test_user")
+
+            sut.capture("test_event", userProperties: ["user_plan": "premium"])
+
+            #expect(sut.getDistinctId() != "test_user")
+            #expect(sut.remoteConfig?.getPersonPropertiesForFlags()["user_plan"] == nil)
+        }
+
         @Test("Group with groupProperties automatically sets group properties for flags")
         func groupWithGroupPropertiesAutomaticallySetsGroupPropertiesForFlags() async {
             let sut = track(PostHogSDK.with(config))

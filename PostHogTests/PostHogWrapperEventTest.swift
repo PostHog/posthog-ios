@@ -160,6 +160,18 @@ final class PostHogWrapperEventTest {
         #expect(build(sut)?.properties["$screen_name"] == nil)
     }
 
+    @Test("an event built under another name and sent as $screen isn't recorded as a screen")
+    func eventRenamedToScreenNotRecorded() throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        let built = try #require(build(sut, "$captured_screen", properties: ["$screen_name": "Home"]))
+        built.event = "$screen"
+
+        #expect(sut.sendBuiltEventForWrapper(built, ai: false) != nil)
+
+        #expect(build(sut)?.properties["$screen_name"] == nil)
+    }
+
     @Test("a $screen sent after reset doesn't restore its screen name")
     func screenNotRestoredAfterReset() throws {
         let sut = makeSDK()

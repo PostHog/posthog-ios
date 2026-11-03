@@ -44,6 +44,13 @@ jobs:
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make test
 
+  release-notification-tests:
+    name: Test release failure notifications
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: make testReleaseNotifications
+
   test-registration:
     name: Check Xcode Project Test Registration
     runs-on: ubuntu-latest

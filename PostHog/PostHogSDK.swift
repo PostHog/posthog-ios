@@ -1973,8 +1973,8 @@ let maxRetryDelay = 30.0
         // The AI lane always uses its own queue.
         let isSnapshotEvent = !aiLane && posthogEvent.event == "$snapshot"
 
-        // if this is a $snapshot event and $session_id is missing, don't process then event
-        if isSnapshotEvent, posthogEvent.properties["$session_id"] == nil {
+        // A $snapshot without a usable $session_id can't be attached to a recording, so it's dropped.
+        if isSnapshotEvent, (posthogEvent.properties["$session_id"] as? String).map(Self.isBlank) ?? true {
             releaseClaimIfCarried(posthogEvent)
             return nil
         }

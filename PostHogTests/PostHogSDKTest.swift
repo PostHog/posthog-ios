@@ -1335,6 +1335,28 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("a $snapshot without a usable $session_id is dropped", arguments: ["", "  ", 1] as [AnyHashable])
+    func snapshotWithoutUsableSessionIdIsDropped(sessionId: AnyHashable) throws {
+        server.reset(batchCount: 0, snapshotCount: 1)
+        let sut = getSut()
+        let validSessionId = "00000000-0000-7000-8000-000000000043"
+
+        sut.capture("$snapshot", properties: ["$session_id": sessionId, "$snapshot_data": ["marker": "invalid"]])
+        sut.capture("$snapshot", properties: ["$session_id": validSessionId, "$snapshot_data": ["marker": "valid"]])
+        sut.flush()
+
+        let result = XCTWaiter.wait(for: [server.snapshotExpectation!], timeout: testRequestTimeout)
+        #expect(result == .completed)
+        let request = try #require(server.snapshotRequests.first)
+        let data = try #require(request.body()).gunzipped()
+        let events = try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        let sessionIds = events.compactMap { ($0["properties"] as? [String: Any])?["$session_id"] as? String }
+        #expect(sessionIds == [validSessionId])
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("a registered $is_identified overrides the SDK's, and a caller one overrides both")
     func registeredAndCallerOverrideIsIdentified() throws {
         let sut = getSut(flushAt: 3)

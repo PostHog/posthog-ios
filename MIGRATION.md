@@ -305,6 +305,7 @@ In Objective-C, use `captureAiWithEvent:distinctId:properties:userProperties:use
 - AI requests time out after 60 seconds without network activity, or `captureAiTimeout`. Other requests still time out after 10 seconds.
 - AI events are queued on disk separately from other events. Up to 100 events (`captureAiMaxQueueSize`) and 50 MiB are kept, and the oldest are dropped first. `maxQueueSize` doesn't apply.
 - AI requests are gzipped unless you set `captureAiCompression` to `.none`. `compression` doesn't apply.
+<!-- TODO(capture-v1): gzip by default, the 100-event and 50 MiB queue, the 60 s timeout and creating the AI queue at setup are mobile divergences Eli hasn't confirmed yet (DIVERGENCES "Accepted divergences", proposed 2026-11-02). Update these lines if he changes any default. -->
 - AI events use `flushAt`, `maxBatchSize` and `flushIntervalSeconds`, like other events. A request carries up to about 5 MiB, as for analytics events (see [Retries](#retries)).
 - `flush()` and `close()` also send AI events, and AI events left on disk are sent after the next launch.
 - The SDK sends AI events unchanged. It doesn't redact or truncate prompts, outputs or media, so use `beforeSend` to remove anything you don't want to send.
@@ -315,6 +316,7 @@ In Objective-C, use `captureAiWithEvent:distinctId:properties:userProperties:use
 - When the response asks to retry only some events, the SDK keeps those events queued and removes the rest.
 - A `Retry-After` header sets the minimum wait before the next send, up to 30 seconds. This also applies to session replay and logs. In 3.x, analytics events and session replay had no cap, and logs allowed up to 5 minutes.
 - After a failed send, the wait before the next one doubles from 1 second up to 30 seconds, with up to 25% random jitter. In 3.x it grew by 1 second per failure. This applies to events, session replay and logs.
+<!-- TODO(capture-v1): the 1 s starting wait is a mobile divergence from the fleet's 100 ms that Eli hasn't confirmed yet (DIVERGENCES "Accepted divergences", proposed 2026-11-02). Keep or change this line once he decides. -->
 - Event, session replay and log retries have no limit, as in 3.x: queued records stay until they're delivered or a full queue evicts them (`maxQueueSize`, or `logs.maxBufferSize` for logs).
 - `maxRetries` is renamed to `pushNotificationSubscriptionMaxRetries`, with no deprecated alias. Since 3.73.0 it has only limited push-notification subscription retries.
 - A request carries at most `maxBatchSize` events and about 5 MiB, and the SDK sends as soon as about 5 MiB of events is queued, even before `flushAt` is reached. In 3.x, batches were limited by event count only.

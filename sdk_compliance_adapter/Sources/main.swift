@@ -17,6 +17,8 @@ setenv("HOME", adapterStorageHome, 1)
 final class SdkLogRecorder {
     private let lock = NSLock()
     private var lines: [String] = []
+    private let resetMarker = "[PostHogAdapterLogReset]"
+    private let resetDone = DispatchSemaphore(value: 0)
 
     func start() {
         setvbuf(stdout, nil, _IOLBF, 0)
@@ -38,7 +40,10 @@ final class SdkLogRecorder {
                 while let newline = pending.firstIndex(of: 0x0A) {
                     let line = String(decoding: pending[pending.startIndex ..< newline], as: UTF8.self)
                     pending.removeSubrange(pending.startIndex ... newline)
-                    if line.hasPrefix("[PostHog]") {
+                    if line == resetMarker {
+                        lock.withLock { lines = [] }
+                        resetDone.signal()
+                    } else if line.hasPrefix("[PostHog]") {
                         lock.withLock { lines.append(line) }
                     }
                 }
@@ -50,8 +55,10 @@ final class SdkLogRecorder {
         lock.withLock { lines }
     }
 
+    /// Clears through the pipe, so lines from an earlier test still in it can't reach the next one.
     func reset() {
-        lock.withLock { lines = [] }
+        print(resetMarker)
+        _ = resetDone.wait(timeout: .now() + 2)
     }
 }
 

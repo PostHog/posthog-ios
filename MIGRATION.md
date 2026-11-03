@@ -122,7 +122,7 @@ Feature flags aren't affected: the SDK doesn't send `$locale` or `$app_language`
 
 4.0 sends analytics events to capture v1 (`/i/v1/analytics/events`) instead of `/batch`. Most apps upgrade without code changes, and nothing here produces a compile error. Read the checklist first, then the sections that apply to you.
 
-<!-- TODO(capture-v1): when the public capture v1 SDK upgrade guide is published (PostHog/posthog.com#21386), link it here for details on options, limits and per-event results. -->
+For the changes every capture v1 SDK shares, such as event options, limits and per-event results, see [Upgrading to capture v1 SDKs](https://posthog.com/docs/libraries/capture-v1).
 
 ### Do you need to change anything?
 

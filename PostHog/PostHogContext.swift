@@ -268,6 +268,14 @@ class PostHogContext {
         }
     }
 
+    /// The localization the app displays. iOS and macOS relaunch an app when its language changes,
+    /// so one read per process is enough.
+    static let detectedAppLanguage: String? = appLanguage(from: Bundle.main.preferredLocalizations)
+
+    static func appLanguage(from localizations: [String]) -> String? {
+        localizations.first { $0 != "Base" }?.replacingOccurrences(of: "_", with: "-")
+    }
+
     func dynamicContext() -> [String: Any] {
         var properties: [String: Any] = [:]
 
@@ -283,14 +291,8 @@ class PostHogContext {
             properties["$hinge_status"] = hingeStatus
         }
 
-        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
-            if let languageCode = Locale.current.language.languageCode {
-                properties["$locale"] = languageCode.identifier
-            }
-        } else {
-            if Locale.current.languageCode != nil {
-                properties["$locale"] = Locale.current.languageCode
-            }
+        if let locale = Locale.preferredLanguages.first {
+            properties["$locale"] = locale
         }
         properties["$timezone"] = TimeZone.current.identifier
 

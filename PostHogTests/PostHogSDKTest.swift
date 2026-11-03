@@ -1153,6 +1153,52 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("setAppLanguage overrides detection, survives reset and clears back to detection")
+    func setAppLanguageOverridesDetection() async throws {
+        let sut = getSut(flushAt: 3)
+
+        sut.setAppLanguage(" pt_BR ")
+        sut.capture("first")
+        sut.reset()
+        sut.capture("second")
+        sut.setAppLanguage(nil)
+        sut.capture("third")
+
+        let events = try await getServerEvents(fixture.server)
+        #expect(events[0].properties["$app_language"] as? String == "pt-BR")
+        #expect(events[1].properties["$app_language"] as? String == "pt-BR")
+        #expect(events[2].properties["$app_language"] as? String == PostHogContext.detectedAppLanguage)
+    }
+
+    @Test("blank setAppLanguage clears, and a registered value wins")
+    func setAppLanguageBlankAndRegistered() async throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.setAppLanguage("   ")
+        sut.capture("blank")
+        sut.setAppLanguage("de")
+        sut.register(["$app_language": "fr"])
+        sut.capture("registered")
+
+        let events = try await getServerEvents(fixture.server)
+        #expect(events[0].properties["$app_language"] as? String == PostHogContext.detectedAppLanguage)
+        #expect(events[1].properties["$app_language"] as? String == "fr")
+    }
+
+    @Test("detectAppLanguage off sends no language until the wrapper sets one")
+    func detectAppLanguageOff() async throws {
+        let sut = getSut(flushAt: 2)
+        sut.config.detectAppLanguage = false
+
+        sut.capture("first")
+        sut.setAppLanguage("de")
+        sut.capture("second")
+
+        let events = try await getServerEvents(fixture.server)
+        #expect(events[0].properties["$app_language"] == nil)
+        #expect(events[1].properties["$app_language"] as? String == "de")
+    }
+
     @Test("register and unregister properties")
     func registerAndUnregisterProperties() throws {
         let sut = getSut(flushAt: 1)

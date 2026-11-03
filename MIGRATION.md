@@ -100,6 +100,16 @@ If an app's last 3.x launch cached a bootstrapped string payload, got no `/flags
 
 If an app updates from a 2.x SDK straight to 4.0, events still queued on disk by 2.x are deleted instead of sent. Distinct ID, anonymous ID, groups and cached feature flags still carry over. Updates from 3.x aren't affected.
 
+### `$locale` and `$app_language`
+
+`$locale` now means the device's preferred language, with its region: `de-CH` instead of `de`, and `fr-FR` when your app only supports English. This matches Android's format and the property's definition. If a user picks a language for your app in iOS Settings, iOS reports that language as the first preferred language, so `$locale` follows it. Android 4.0 reports the device-wide language even when a per-app language is set, so for those users `$locale` means different things on iOS and Android.
+
+The new `$app_language` property is the language your app shows. It's the closest match to what `$locale` used to mean, but not always the same value: `$locale` sent only the language code, and `$app_language` sends your app's full localization name. An app localized as `de` still sends `de`. An app localized as `pt-BR` or `zh-Hans` now sends that, where `$locale` sent `pt` or `zh`. If you use your own language setting instead of iOS localizations, call `PostHogSDK.shared.setAppLanguage("de")` at startup and whenever it changes.
+
+Update cohorts, insights and actions that match `$locale`: a filter on `$locale = de` stops matching `de-CH`. To filter on the language your app shows, use `$app_language`, with a regex such as `^pt(-|$)` if you ship regional or script localizations. To filter on device language, use a regex on `$locale` such as `^de(-|$)`, because "contains" also matches `en-DE`. Events already stored and app versions still on 3.x keep the old `$locale` and have no `$app_language`.
+
+Feature flags aren't affected: the SDK doesn't send `$locale` or `$app_language` with flag requests, so flags only see these if you set them as person properties yourself.
+
 ### Network reachability
 
 4.0 detects connectivity with `NWPathMonitor`:
@@ -449,6 +459,7 @@ SwiftPM turns a trait on if any package in your dependency graph depends on post
 - [ ] If you use session replay, review recordings on a test build: custom-drawn content, maps, video and web views can now appear. Add masks where needed.
 - [ ] If your app is SwiftUI-rooted and has replay on, expect recordings to start, and check quota and consent.
 - [ ] Update insights, cohorts and actions that use `version` or `build` on lifecycle events, or `wireframe` in `$sdk_debug_replay_capture_mode`.
+- [ ] Update cohorts, insights and actions that match `$locale`, which now includes the region. Use `$app_language` for the language your app shows, which can also include a region or script, such as `pt-BR`.
 - [ ] Check code that reads feature flag payloads and could get `nil` for a malformed one.
 - [ ] Work through the [capture v1 checklist](#do-you-need-to-change-anything), especially reverse proxies, self-hosted instances and long distinct IDs.
 - [ ] Fix the compile errors using the tables above, including `reloadFeatureFlags` closures.

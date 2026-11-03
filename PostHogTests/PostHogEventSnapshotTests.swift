@@ -299,7 +299,7 @@ final class PostHogEventSnapshotTests {
 
         let stringKeys = [
             "$app_namespace", "$device_model", "$device_type", "$device_name", "$os_name",
-            "$os_version", "$locale", "$timezone",
+            "$os_version", "$locale", "$app_language", "$timezone",
         ]
         for key in stringKeys where properties[key] != nil {
             _ = try #require(properties[key] as? String)

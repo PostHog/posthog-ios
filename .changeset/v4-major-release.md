@@ -29,5 +29,6 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - Add `isFeatureEnabled(_:defaultValue:)` and `isFeatureEnabled(_:defaultValue:sendFeatureFlagEvent:)` to return a default you choose when a flag has no value
 - Change network reachability detection to `NWPathMonitor`, so a path needing user action counts as reachable, queues pause while cellular data is off for the app, and early events may omit `$network_wifi` and `$network_cellular`
 - Change the replay screen name to the visible screen, reporting the view name for SwiftUI screens and no longer using a plain `UIViewController`'s `title`
+- Fix `isFeatureEnabled` returning `true` for an empty variant string
 - Fix session replay recording nothing for apps whose window root is a SwiftUI view
 - Fix secure-entry text fields being unmasked inside a `postHogNoMask()` or `ph-no-mask` subtree

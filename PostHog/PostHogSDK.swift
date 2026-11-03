@@ -2559,7 +2559,7 @@ let maxRetryDelay = 30.0
 
     /// Returns whether a feature flag is enabled.
     ///
-    /// Multivariate flags are considered enabled when a variant string is returned.
+    /// Multivariate flags are considered enabled when a non-empty variant string is returned.
     ///
     /// - Parameter key: The feature flag key.
     /// - Returns: `true` when the flag is enabled, otherwise `false`.
@@ -2584,7 +2584,8 @@ let maxRetryDelay = 30.0
     ///
     /// The default is returned when flags have not loaded yet, the flags request failed with nothing
     /// cached, the loaded flags have no flag with this key, or the SDK is not set up. A flag that has a
-    /// value always wins, including `false` and variant strings. `$feature_flag_called` follows
+    /// value always wins, including `false` and variant strings, and an empty variant counts as `false`.
+    /// `$feature_flag_called` follows
     /// `PostHogConfig.sendFeatureFlagEvent` and never reports the default as the flag's value.
     ///
     /// - Parameters:
@@ -2610,7 +2611,8 @@ let maxRetryDelay = 30.0
     ///
     /// The default is returned when flags have not loaded yet, the flags request failed with nothing
     /// cached, the loaded flags have no flag with this key, or the SDK is not set up. A flag that has a
-    /// value always wins, including `false` and variant strings. `$feature_flag_called` never reports
+    /// value always wins, including `false` and variant strings, and an empty variant counts as `false`.
+    /// `$feature_flag_called` never reports
     /// the default as the flag's value.
     ///
     /// - Parameters:
@@ -2633,7 +2635,10 @@ let maxRetryDelay = 30.0
 
     private func isFeatureEnabled(_ key: String, defaultValue: Bool = false, sendEvent: Bool? = nil) -> Bool {
         let result = getFeatureFlag(key, sendEvent: sendEvent)
-        return result is String ? true : (result as? Bool) ?? defaultValue
+        if let variant = result as? String {
+            return !variant.isEmpty
+        }
+        return (result as? Bool) ?? defaultValue
     }
 
     /// Returns all currently loaded feature flags as structured results.

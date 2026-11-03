@@ -806,6 +806,31 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("isFeatureEnabled treats an empty variant as disabled and ignores the default", arguments: [true, false])
+    func isFeatureEnabledEmptyVariantIsDisabled(defaultValue: Bool) {
+        server.flagsResponseHandler = { _ in
+            HTTPStubsResponse(
+                jsonObject: ["flags": ["empty-variant": ["key": "empty-variant", "enabled": true, "variant": ""]]],
+                statusCode: 200,
+                headers: nil
+            )
+        }
+        let sut = getSut()
+
+        let group = DispatchGroup()
+        group.enter()
+        sut.reloadFeatureFlags { _ in
+            group.leave()
+        }
+        group.wait()
+
+        #expect(sut.isFeatureEnabled("empty-variant") == false)
+        #expect(sut.isFeatureEnabled("empty-variant", defaultValue: defaultValue) == false)
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("isFeatureEnabled does not report the default in the feature flag event")
     func isFeatureEnabledDoesNotReportDefault() throws {
         let sut = getSut(preloadFeatureFlags: true)

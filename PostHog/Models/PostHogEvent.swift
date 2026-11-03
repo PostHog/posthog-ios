@@ -63,6 +63,8 @@ import Foundation
     /// The optional replay debug values snapshotted when a wrapper built this event, set only when its built name
     /// is eligible. Send adds them if it claims the throttled window.
     var wrapperDeferredReplayDebug: [String: Any]?
+    /// True when a wrapper built this event as `$screen`. A plain event the wrapper names `$screen` doesn't move the current screen.
+    var wrapperBuiltAsScreen = false
     /// True when a wrapper build passed person properties or groups. Person processing turns on at send.
     var wrapperRequiresPersonProcessing = false
 

@@ -32,6 +32,11 @@
         // Guarded by `bufferingLock`.
         private var startedWithAutomaticDisabled: Bool = false
 
+        // Under React Native the JS layer decides when to record and drives `start()`/`stop()`. Set by its explicit
+        // stop so no native callback (remote config, flags, session change) restarts the recorder behind its back;
+        // cleared by its next explicit start. Guarded by `bufferingLock`.
+        private var stoppedByReactNative: Bool = false
+
         /// Last reported status handed to the crash context, so a reload that moved nothing doesn't
         /// rebuild the whole snapshot. Guards only itself.
         private let statusNotifyLock = NSLock()
@@ -261,6 +266,7 @@
         /// instead, so only an explicit request can establish manual-start provenance.
         func start() {
             // Record the intent before the gates below: the event-trigger gate can defer the actual start.
+            // The React Native stop latch is already lifted by `startSessionRecording()`, the only caller.
             if let config, !config.sessionReplay {
                 bufferingLock.withLock { startedWithAutomaticDisabled = true }
             }
@@ -268,10 +274,10 @@
         }
 
         /// `config.sessionReplay` controls automatic starts; a recording explicitly started while it was
-        /// off is allowed to resume (e.g. into a new session) until an explicit stop. Caller holds
-        /// `bufferingLock`.
+        /// off is allowed to resume (e.g. into a new session) until an explicit stop. Under React Native an
+        /// explicit stop blocks automatic starts until the next explicit start. Caller holds `bufferingLock`.
         private func isAutomaticStartPermittedLocked() -> Bool {
-            guard let config else { return false }
+            guard let config, !stoppedByReactNative else { return false }
             return config.sessionReplay || startedWithAutomaticDisabled
         }
 
@@ -399,8 +405,18 @@
         /// forgets any manual start, so with `config.sessionReplay == false` nothing restarts until the app
         /// calls `start()` again. Internal stops call `stopRecording()` so a manual recording can resume.
         func stop() {
-            bufferingLock.withLock { startedWithAutomaticDisabled = false }
+            bufferingLock.withLock {
+                startedWithAutomaticDisabled = false
+                stoppedByReactNative = !isNotReactNative()
+            }
             stopRecording()
+        }
+
+        /// An explicit `startSessionRecording()` request means JS wants recording, even when this
+        /// call itself cannot start yet (flag not active, no session id): clear the React Native
+        /// stop latch so a refused request doesn't leave automatic starts blocked until JS asks again.
+        func clearReactNativeStop() {
+            bufferingLock.withLock { stoppedByReactNative = false }
         }
 
         /// Note: This does not clear remoteConfigLoadedToken or eventCapturedToken as those are managed by install/uninstall.
@@ -464,11 +480,16 @@
         /// Local config sample rate takes precedence over remote config.
         /// Returns `true` if no sample rate is configured (record everything).
         private func shouldRecordSession(postHog: PostHogSDK, sessionId: String) -> Bool {
+            let localSampleRate = postHog.config.sessionReplayConfig.sampleRate?.doubleValue
+
             if let remoteConfig = postHog.remoteConfig, remoteConfig.hasSessionRecordingTriggerGroups() {
-                return remoteConfig.isSessionRecordingPermittedByTriggerGroups(sessionId: sessionId)
+                // The local rate still takes precedence under v2: it caps whatever the groups allow.
+                guard remoteConfig.isSessionRecordingPermittedByTriggerGroups(sessionId: sessionId) else {
+                    return false
+                }
+                return localSampleRate.map { sampleOnProperty(sessionId, $0) } ?? true
             }
 
-            let localSampleRate = postHog.config.sessionReplayConfig.sampleRate?.doubleValue
             let remoteSampleRate = postHog.remoteConfig?.getRecordingSampleRate()
 
             guard let sampleRate = localSampleRate ?? remoteSampleRate else {
@@ -620,10 +641,13 @@
         /// (not a force-flush). The `awaitingFirstRemoteConfig` flip is atomic under `bufferingLock`;
         /// the clear/migrate runs after the lock to keep buffer I/O out of the critical section.
         private func resolveFirstRemoteConfigBuffer(flagActive: Bool) {
-            let wasAwaiting = bufferingLock.withLock { () -> Bool in
-                guard awaitingFirstRemoteConfig else { return false }
+            // Read `isEnabled` in the same acquisition as the awaiting flip: an explicit stop() while
+            // buffering must drop the window too, or the first `/config` migrates snapshots the
+            // recorder was asked to stop.
+            let (wasAwaiting, recordingPermitted) = bufferingLock.withLock { () -> (Bool, Bool) in
+                guard awaitingFirstRemoteConfig else { return (false, false) }
                 awaitingFirstRemoteConfig = false
-                return true
+                return (true, isEnabled)
             }
 
             guard wasAwaiting else { return }
@@ -633,7 +657,7 @@
             // A stale cache that recorded the window for a session the fresh config now excludes (sampled
             // out, or newly trigger-gated) must drop it, not migrate it, or it leaks against the fresh
             // policy — `startRecording()` enforces the same gates. These mirror the flag-off discard path.
-            if flagActive, isCurrentSessionSampledIn(), !shouldWaitForEventTriggers(), let replayQueue {
+            if recordingPermitted, flagActive, isCurrentSessionSampledIn(), !shouldWaitForEventTriggers(), let replayQueue {
                 migrateBufferIfMinimumDurationMet(replayQueue)
             } else {
                 replayQueue?.clearBuffer()

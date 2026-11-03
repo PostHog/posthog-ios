@@ -2898,6 +2898,9 @@ let maxRetryDelay = 30.0
          - The session is not sampled,
          - Event triggers are configured and have not been activated for the current session.
 
+         Under React Native, a call also lifts the hold an earlier `stopSessionRecording()` put on automatic
+         starts, even when the call itself can't start recording yet.
+
          - Parameter resumeCurrent:
             Whether to resume recording of current session (true) or start a new session (false).
          */
@@ -2921,6 +2924,10 @@ let maxRetryDelay = 30.0
             guard let replayIntegration else {
                 return
             }
+
+            // An explicit start request means JS wants recording: clear the React Native stop latch
+            // before the guards below, so a refused request doesn't leave automatic starts blocked.
+            replayIntegration.clearReactNativeStop()
 
             if resumeCurrent, replayIntegration.isActive() {
                 // nothing to resume, already active
@@ -2946,7 +2953,8 @@ let maxRetryDelay = 30.0
 
          With `config.sessionReplay = false`, this also cancels a pending `startSessionRecording()` call, so
          remote config loads, event triggers and session changes will not start recording until the app
-         calls `startSessionRecording()` again.
+         calls `startSessionRecording()` again. Under React Native, where the JS layer drives recording, this
+         holds whatever `config.sessionReplay` is.
 
          This method will have no effect if PostHog is not enabled
          */

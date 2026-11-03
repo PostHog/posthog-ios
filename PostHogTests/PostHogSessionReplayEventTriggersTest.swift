@@ -19,11 +19,13 @@
         private func getSut(
             eventTriggers: [String]? = nil,
             linkedFlagNotMatched: Bool = false,
-            triggerGroups: [[String: Any]]? = nil
+            triggerGroups: [[String: Any]]? = nil,
+            localSampleRate: NSNumber? = nil
         ) -> PostHogSDK {
             // A token per test keeps the seeded recording config apart from other suites' SDK instances
             let config = PostHogConfig(projectToken: "replay_triggers_\(UUID().uuidString)", host: "http://localhost:9001")
             config.sessionReplay = true
+            config.sessionReplayConfig.sampleRate = localSampleRate
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
             config.preloadFeatureFlags = false
@@ -258,6 +260,73 @@
             #expect(sut.getReplayIntegration()?.isActive() == true)
         }
 
+        @Test("under React Native a native config callback does not restart a recorder JS stopped")
+        func reactNativeStopSurvivesConfigCallback() async throws {
+            let original = postHogSdkName
+            postHogSdkName = "posthog-react-native"
+            defer { postHogSdkName = original }
+
+            let sut = getSut(triggerGroups: [eventOnlyTriggerGroup])
+            defer { sut.close() }
+            // Under React Native the JS layer hands native its session id.
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == true)
+
+            // JS found the session no longer eligible and stopped the recorder.
+            sut.stopSessionRecording()
+            #expect(integration.isActive() == false)
+
+            integration.applyRemoteConfig(remoteConfig: sut.remoteConfig?.getRemoteConfig())
+            #expect(integration.isActive() == false)
+
+            // Only the JS layer's next start resumes it.
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(integration.isActive() == true)
+        }
+
+        @Test("under React Native a refused start request still unblocks automatic starts")
+        func reactNativeRefusedStartStillClearsStopLatch() async throws {
+            let original = postHogSdkName
+            postHogSdkName = "posthog-react-native"
+            defer { postHogSdkName = original }
+
+            let sut = getSut(triggerGroups: [eventOnlyTriggerGroup])
+            defer { sut.close() }
+            // Under React Native the JS layer hands native its session id.
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == true)
+
+            // JS found the session no longer eligible and stopped the recorder.
+            sut.stopSessionRecording()
+            #expect(integration.isActive() == false)
+
+            // JS asks to start again, but native refuses this call: the replay flag is not active.
+            sut.remoteConfig?.setSessionReplayFlagActiveForTesting(false)
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(integration.isActive() == false)
+
+            // The request still meant "JS wants recording": a later automatic start (config
+            // callback) must not stay blocked by the latch.
+            sut.remoteConfig?.setSessionReplayFlagActiveForTesting(true)
+            integration.applyRemoteConfig(remoteConfig: sut.remoteConfig?.getRemoteConfig())
+            #expect(integration.isActive() == true)
+        }
+
+        @Test("outside React Native a config callback can still resume after a stop")
+        func nativeStopCanResumeOnConfigCallback() async throws {
+            let sut = getSut(triggerGroups: [["id": "unconditional", "sampleRate": 1, "conditions": ["matchType": "any"]]])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.stopSessionRecording()
+            #expect(integration.isActive() == false)
+
+            integration.applyRemoteConfig(remoteConfig: sut.remoteConfig?.getRemoteConfig())
+            #expect(integration.isActive() == true)
+        }
+
         @Test("the v1 linked flag does not gate recording under trigger groups")
         func linkedFlagIgnoredUnderTriggerGroups() async throws {
             let sut = getSut(
@@ -268,6 +337,17 @@
 
             #expect(sut.getReplayIntegration()?.isActive() == true)
             #expect(sut.remoteConfig?.sessionReplayLinkedFlagSnapshot().configured == false)
+        }
+
+        @Test("the local sample rate still caps recording under trigger groups")
+        func localSampleRateCapsTriggerGroups() async throws {
+            let sut = getSut(
+                triggerGroups: [["id": "unconditional", "sampleRate": 1, "conditions": ["matchType": "any"]]],
+                localSampleRate: 0
+            )
+            defer { sut.close() }
+
+            #expect(sut.getReplayIntegration()?.isActive() == false)
         }
 
         private var eventOnlyTriggerGroup: [String: Any] {

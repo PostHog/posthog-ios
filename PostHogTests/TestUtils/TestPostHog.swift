@@ -262,6 +262,14 @@ let testBundleIdentifier = Bundle.main.bundleIdentifier ?? "com.posthog.test"
 
 let testAppGroupIdentifier = "group.com.posthog.test"
 
+/// Whether this process can get the test app group's container. Since macOS 15 only a process entitled to the group
+/// may create its folder in ~/Library/Group Containers, so an unsigned `swift test` run can't; the iOS simulator can.
+let appGroupContainerAvailable: Bool = {
+    let config = PostHogConfig(projectToken: "app-group-container-probe")
+    config.appGroupIdentifier = testAppGroupIdentifier
+    return appGroupContainerUrl(config: config) != nil
+}()
+
 final class BundleLocator {}
 
 let testProjectToken = "test_project_token"

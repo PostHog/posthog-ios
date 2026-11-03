@@ -25,13 +25,15 @@
         ///     its cached value to `cachedLinkedFlagValue`.
         ///   - cachedLinkedFlagValue: the cached value seeded for `linkedFlag` (drives the cold-start flag).
         ///   - preloadFeatureFlags: the `config.preloadFeatureFlags` value (gates the linkedFlag deferral).
+        ///   - triggerGroups: if set, seed a v2 config with these groups next to the v1 fields, the way the server sends it.
         private func getSut(
             flagActive: Bool,
             minimumDurationMilliseconds: Int? = nil,
             sampleRate: Double? = nil,
             linkedFlag: String? = nil,
             cachedLinkedFlagValue: Bool = true,
-            preloadFeatureFlags: Bool = false
+            preloadFeatureFlags: Bool = false,
+            triggerGroups: [[String: Any]]? = nil
         ) -> PostHogSDK {
             // Unique token per SUT so the disk-backed replay queue is isolated and this suite never
             // pollutes (or inherits) snapshots from the shared "test_project_token" used elsewhere.
@@ -62,6 +64,10 @@
             if let sampleRate {
                 sessionRecording["sampleRate"] = sampleRate
             }
+            if let triggerGroups {
+                sessionRecording["version"] = 2
+                sessionRecording["triggerGroups"] = triggerGroups
+            }
             storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": sessionRecording])
 
             // Reset the static install flag a prior replay suite may have left set, so this SUT installs
@@ -77,7 +83,8 @@
             sampleRate: Double? = nil,
             linkedFlag: String? = nil,
             cachedLinkedFlagValue: Bool = true,
-            preloadFeatureFlags: Bool = false
+            preloadFeatureFlags: Bool = false,
+            triggerGroups: [[String: Any]]? = nil
         ) throws -> (sut: PostHogSDK, integration: PostHogReplayIntegration, replayQueue: PostHogReplayQueue) {
             let sut = getSut(
                 flagActive: flagActive,
@@ -85,7 +92,8 @@
                 sampleRate: sampleRate,
                 linkedFlag: linkedFlag,
                 cachedLinkedFlagValue: cachedLinkedFlagValue,
-                preloadFeatureFlags: preloadFeatureFlags
+                preloadFeatureFlags: preloadFeatureFlags,
+                triggerGroups: triggerGroups
             )
             return (sut, try #require(sut.getReplayIntegration()), try #require(sut.replayQueue))
         }
@@ -191,6 +199,64 @@
             #expect(integration.isBuffering == false)
             // Flag is still on — this is a trigger-gated drop, not a flag-off drop.
             #expect(sut.remoteConfig?.isSessionReplayFlagActive() == true)
+        }
+
+        // MARK: - explicit stop while awaiting the first remote config
+
+        @Test("an explicit stop before the first remote config drops the buffered window (React Native v2 trigger groups)")
+        func explicitStopBeforeFirstConfigDropsBufferReactNative() async throws {
+            // JS stops native recording (the stop latch is set, blocking any automatic restart) while
+            // the first /config is still pending. That config must drop the pre-stop opening window,
+            // not migrate it — recording was asked to stop and nothing would gate the upload.
+            let original = postHogSdkName
+            postHogSdkName = "posthog-react-native"
+            defer { postHogSdkName = original }
+
+            let (sut, integration, replayQueue) = try makeSut(
+                flagActive: true,
+                triggerGroups: [["id": "rn", "sampleRate": 1, "conditions": ["matchType": "any"]]]
+            )
+            defer { sut.close() }
+
+            // Without a session id the sampling gate already drops the buffer, which would mask the bug.
+            sut.sessionManager.setSessionId(UUID().uuidString)
+
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+            #expect(replayQueue.bufferDepth == 2)
+            #expect(replayQueue.depth == 0)
+
+            sut.stopSessionRecording()
+            integration.applyRemoteConfig(remoteConfig: nil)
+
+            await waitUntil { replayQueue.bufferDepth == 0 }
+
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 0)
+            #expect(integration.isBuffering == false)
+            // The stop latch blocks the automatic restart the config would otherwise trigger.
+            #expect(integration.isActive() == false)
+        }
+
+        @Test("an explicit stop before the first remote config drops the buffered window (native v1 config)")
+        func explicitStopBeforeFirstConfigDropsBufferNative() async throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            // Without a session id the sampling gate already drops the buffer, which would mask the bug.
+            sut.sessionManager.setSessionId(UUID().uuidString)
+
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+            #expect(replayQueue.bufferDepth == 2)
+
+            sut.stopSessionRecording()
+            integration.applyRemoteConfig(remoteConfig: nil)
+
+            await waitUntil { replayQueue.bufferDepth == 0 }
+
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 0)
         }
 
         @Test("minimum-duration elapsed does not migrate while awaiting the first remote config")
@@ -388,6 +454,123 @@
             replayQueue.add(snapshotEvent("2"))
             #expect(replayQueue.bufferDepth == 2)
 
+            integration.applyRemoteConfig(remoteConfig: nil)
+            await waitUntil { replayQueue.bufferDepth == 0 }
+            #expect(integration.isBuffering == false)
+            #expect(replayQueue.depth == 2)
+        }
+
+        // MARK: - v2 flag groups defer like the linkedFlag (the server still sends the v1 linkedFlag next to them)
+
+        private static let flagGroup: [String: Any] = [
+            "id": "flag-group",
+            "sampleRate": 1,
+            "conditions": ["matchType": "all", "flag": "replay_linked_flag"],
+        ]
+
+        @Test("a v2 flag group defers the first-config resolve to /flags and drops when the flag is now off")
+        func flagGroupDefersToFlagsAndDropsWhenOff() async throws {
+            let (sut, integration, replayQueue) = try makeSut(
+                flagActive: true, linkedFlag: "replay_linked_flag", cachedLinkedFlagValue: true,
+                preloadFeatureFlags: true, triggerGroups: [Self.flagGroup]
+            )
+            defer { sut.close() }
+
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+            #expect(replayQueue.bufferDepth == 2)
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isBuffering == true)
+            #expect(replayQueue.depth == 0)
+            #expect(replayQueue.bufferDepth == 2)
+
+            // /flags lands without the flag → the group no longer allows this session → buffer dropped.
+            sut.reloadFeatureFlags()
+            await waitUntil { replayQueue.bufferDepth == 0 }
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 0)
+            #expect(integration.isBuffering == false)
+        }
+
+        @Test("a v2 flag group defers the first-config resolve to /flags and migrates when the flag is still on")
+        func flagGroupDefersToFlagsAndMigratesWhenOn() async throws {
+            let (sut, integration, replayQueue) = try makeSut(
+                flagActive: true, linkedFlag: "replay_linked_flag", cachedLinkedFlagValue: true,
+                preloadFeatureFlags: true, triggerGroups: [Self.flagGroup]
+            )
+            defer { sut.close() }
+
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isBuffering == true)
+            #expect(replayQueue.depth == 0)
+            #expect(replayQueue.bufferDepth == 2)
+
+            // /flags confirms the flag → the group allows this session → the held window is kept.
+            server.featureFlags = ["replay_linked_flag": true]
+            sut.reloadFeatureFlags()
+            await waitUntil { replayQueue.bufferDepth == 0 && replayQueue.depth == 2 }
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 2)
+            #expect(integration.isBuffering == false)
+        }
+
+        @Test("a v2 flag group resolves at first /config when preloadFeatureFlags is off")
+        func flagGroupResolvesAtConfigWhenPreloadDisabled() async throws {
+            let (sut, integration, replayQueue) = try makeSut(
+                flagActive: true, linkedFlag: "replay_linked_flag", cachedLinkedFlagValue: true,
+                preloadFeatureFlags: false, triggerGroups: [Self.flagGroup]
+            )
+            defer { sut.close() }
+
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            await waitUntil { replayQueue.bufferDepth == 0 }
+            #expect(integration.isBuffering == false)
+            #expect(replayQueue.depth == 2)
+        }
+
+        @Test("v2 groups without a flag condition resolve at first /config even with a v1 linkedFlag present")
+        func flaglessGroupsDoNotDefer() async throws {
+            let unconditional: [String: Any] = ["id": "all", "sampleRate": 1, "conditions": ["matchType": "all"]]
+            let (sut, integration, replayQueue) = try makeSut(
+                flagActive: true, linkedFlag: "replay_linked_flag", cachedLinkedFlagValue: true,
+                preloadFeatureFlags: true, triggerGroups: [unconditional]
+            )
+            defer { sut.close() }
+
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            await waitUntil { replayQueue.bufferDepth == 0 }
+            #expect(integration.isBuffering == false)
+            #expect(replayQueue.depth == 2)
+        }
+
+        @Test("under React Native a v2 flag group resolves at first /config: JS evaluates the flags")
+        func flagGroupDoesNotDeferUnderReactNative() async throws {
+            let original = postHogSdkName
+            postHogSdkName = "posthog-react-native"
+            defer { postHogSdkName = original }
+
+            let (sut, integration, replayQueue) = try makeSut(
+                flagActive: true, linkedFlag: "replay_linked_flag", cachedLinkedFlagValue: true,
+                preloadFeatureFlags: true, triggerGroups: [Self.flagGroup]
+            )
+            defer { sut.close() }
+            // Without a session id the sampling gate drops the buffer, which would hide a wrong deferral.
+            sut.sessionManager.setSessionId(UUID().uuidString)
+
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+
+            // Native never evaluates the groups under React Native, so there's no /flags to wait for.
             integration.applyRemoteConfig(remoteConfig: nil)
             await waitUntil { replayQueue.bufferDepth == 0 }
             #expect(integration.isBuffering == false)

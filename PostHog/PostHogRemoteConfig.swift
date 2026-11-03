@@ -1345,8 +1345,10 @@ class PostHogRemoteConfig {
             sessionReplayLinkedFlagConfigured = false
             recordingSampleRate = nil
             #if os(iOS)
-                sessionRecordingTriggerGroups = nil
-                triggerGroupsEvaluator.onConfig([])
+                // Trigger groups are project config, not per-user state: keep them across reset()
+                // (Android does too) so a trigger event captured before the next /flags response is
+                // not lost. Only the evaluator's per-session activation state resets.
+                triggerGroupsEvaluator.reset()
             #endif
         }
 
@@ -1379,14 +1381,22 @@ class PostHogRemoteConfig {
             sessionReplayLock.withLock { sessionReplayFlagActive }
         }
 
-        /// Whether recording is gated on a linked feature flag (vs a plain boolean). The flag's value
-        /// is only fresh after `/flags`, which lands just after `/config`, so callers may want to defer
-        /// flag-dependent decisions to the flags reload rather than evaluate against the cached flag.
+        /// Whether recording is gated on a feature flag (vs a plain boolean): the v1 linked flag, or under v2 a
+        /// trigger group with a flag condition. The flag's value is only fresh after `/flags`, which lands just
+        /// after `/config`, so callers may want to defer flag-dependent decisions to the flags reload rather
+        /// than evaluate against the cached flag.
         func isRecordingGatedOnLinkedFlag() -> Bool {
             let sessionRecording = remoteConfigLock.withLock {
                 getCachedRemoteConfig()?["sessionRecording"] as? [String: Any]
             }
-            return sessionRecording.map { Self.hasLinkedFlag(Self.linkedFlagFreeConfig($0)) } ?? false
+            guard let sessionRecording else { return false }
+            // v2 ignores the v1 `linkedFlag`; the groups' flag conditions take its place. Under React Native
+            // the JS layer evaluates the groups, so native has nothing to wait for.
+            if let triggerGroups = parseTriggerGroupsConfig(sessionRecording) {
+                return postHogSdkName != "posthog-react-native"
+                    && triggerGroups.groups.contains { $0.conditions.hasFlagLeg }
+            }
+            return Self.hasLinkedFlag(sessionRecording)
         }
 
         /// Reads `configured` and `activated` under one lock acquisition so both describe the same config generation.

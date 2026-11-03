@@ -523,6 +523,44 @@ enum PostHogRemoteConfigTest {
                 #expect(storage.getDictionary(forKey: .remoteConfig) != nil)
             }
 
+            @Test("trigger groups survive clear() and re-activate for the new session")
+            func triggerGroupsSurviveClear() {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                storage.setDictionary(forKey: .remoteConfig, contents: [
+                    "sessionRecording": [
+                        "endpoint": "/s/",
+                        "version": 2,
+                        "triggerGroups": [
+                            ["id": "purchase", "sampleRate": 1, "conditions": ["matchType": "any", "events": [["name": "purchase_completed"]]]],
+                        ],
+                    ],
+                ])
+
+                let sut = getSut(storage: storage)
+                #expect(sut.hasSessionRecordingTriggerGroups() == true)
+
+                // The previous user's session activated the event-only group.
+                let previousSessionId = UUID().uuidString
+                #expect(sut.onSessionRecordingTriggerEvent(sessionId: previousSessionId, eventName: "purchase_completed", properties: nil) == true)
+                #expect(sut.isSessionRecordingPermittedByTriggerGroups(sessionId: previousSessionId) == true)
+
+                // Mimic reset(): clear() resets user-scoped state but must keep the project-level
+                // groups, so a trigger event captured before the next /flags response is not lost.
+                sut.clear()
+                #expect(sut.hasSessionRecordingTriggerGroups() == true)
+
+                // The old session's activation is gone and the group is pending for the new session...
+                let newSessionId = UUID().uuidString
+                #expect(sut.isSessionRecordingPermittedByTriggerGroups(sessionId: previousSessionId) == false)
+                #expect(sut.hasPendingSessionRecordingTriggerGroups(sessionId: newSessionId) == true)
+
+                // ...until a matching event activates it.
+                #expect(sut.onSessionRecordingTriggerEvent(sessionId: newSessionId, eventName: "purchase_completed", properties: nil) == true)
+                #expect(sut.isSessionRecordingPermittedByTriggerGroups(sessionId: newSessionId) == true)
+            }
+
             @Test("returns isSessionReplayFlagActive false if recording is disabled remotely")
             func returnIsSessionReplayFlagActiveFalseIfFeatureFlagDisabled() async {
                 let storage = PostHogStorage(config)

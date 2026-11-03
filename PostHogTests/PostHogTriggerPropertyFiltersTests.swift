@@ -33,6 +33,39 @@ struct PostHogTriggerPropertyFiltersTests {
         #expect(!match(filter: filter(key: "amount", value: 100.5), event: ["amount": 100]))
     }
 
+    @Test("a number of exactly 2^63 does not trap")
+    func twoToTheSixtyThreeDoesNotTrap() {
+        // Double(Int64.max) rounds up to 2^63, the one value a range check would let through.
+        let huge = 9_223_372_036_854_775_808.0
+        #expect(match(filter: filter(key: "id", value: huge), event: ["id": huge]))
+        #expect(!match(filter: filter(key: "id", value: 1), event: ["id": huge]))
+    }
+
+    @Test("exact renders doubles the way js String does", arguments: [
+        // A property value and what JS String() gives for it.
+        (0.000001, "0.000001"),
+        (0.0000001, "1e-7"),
+        (123.456, "123.456"),
+        (-0.5, "-0.5"),
+        (1.5e20, "150000000000000000000"),
+        (1e21, "1e+21"),
+        (9_223_372_036_854_775_808.0, "9223372036854776000"),
+        (-0.000001, "-0.000001"),
+        (-1e21, "-1e+21"),
+        (-100.0, "-100"),
+        (0.0, "0"),
+        (-0.0, "0"),
+        (Double.nan, "NaN"),
+        (Double.infinity, "Infinity"),
+        (-Double.infinity, "-Infinity"),
+        (1.5e-7, "1.5e-7"),
+        (12.5, "12.5"),
+        (1.5, "1.5"),
+    ])
+    func exactRendersDoublesLikeJS(property: Double, expected: String) {
+        #expect(match(filter: filter(key: "amount", value: expected), event: ["amount": property]))
+    }
+
     @Test("exact matches any element of array values")
     func exactMatchesArrayElements() {
         #expect(match(filter: filter(value: ["free", "pro"]), event: ["plan": "pro"]))

@@ -97,14 +97,43 @@ private enum PostHogTriggerPropertyFilters {
         return String(describing: value)
     }
 
+    /// JS `Number.prototype.toString()`. Swift's description already holds the shortest round-trip digits but lays
+    /// them out differently (`1e-06`, `100.0`), so re-lay them with the JS plain/exponent thresholds.
     private static func jsNumberString(_ value: Double) -> String {
-        guard value.isFinite, value == value.rounded(), abs(value) < 1e21 else {
-            return String(value)
+        if value.isNaN { return "NaN" }
+        if value.isInfinite { return value < 0 ? "-Infinity" : "Infinity" }
+        if value == 0 { return "0" }
+        if value < 0 { return "-" + jsNumberString(-value) }
+
+        let text = String(value)
+        let parts = text.split(separator: "e")
+        let mantissa = parts[0]
+        let exponent = parts.count > 1 ? Int(parts[1]) ?? 0 : 0
+        let mantissaParts = mantissa.split(separator: ".", omittingEmptySubsequences: false)
+        let integerPart = mantissaParts[0]
+        let allDigits = String(integerPart) + (mantissaParts.count > 1 ? String(mantissaParts[1]) : "")
+        let significant = allDigits.drop(while: { $0 == "0" })
+        // The decimal point sits after `point` significant digits; negative means leading zeros after "0.".
+        let point = integerPart.count + exponent - (allDigits.count - significant.count)
+        var digits = String(significant)
+        while digits.last == "0" {
+            digits.removeLast()
         }
-        if abs(value) <= Double(Int64.max) {
-            return String(Int64(value))
+        let count = digits.count
+
+        if count <= point, point <= 21 {
+            return digits + String(repeating: "0", count: point - count)
         }
-        return String(value)
+        if point > 0, point < count {
+            let split = digits.index(digits.startIndex, offsetBy: point)
+            return String(digits[..<split]) + "." + String(digits[split...])
+        }
+        if point > -6, point <= 0 {
+            return "0." + String(repeating: "0", count: -point) + digits
+        }
+        let exponentText = point - 1 >= 0 ? "e+\(point - 1)" : "e\(point - 1)"
+        if count == 1 { return digits + exponentText }
+        return String(digits.prefix(1)) + "." + digits.dropFirst() + exponentText
     }
 
     private static func jsParseDouble(_ value: String) -> Double? {

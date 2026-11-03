@@ -23,11 +23,14 @@ class PostHogStorageTest {
         #expect(actualSuffix == expectedSuffix)
     }
 
-    @Test("returns the app group container dir URL")
-    func returnsTheAppGroupContainerDirURL() {
+    @Test(
+        "returns the app group container dir URL",
+        .enabled(if: appGroupContainerAvailable, "needs an app group container; this process isn't entitled to create one")
+    )
+    func returnsTheAppGroupContainerDirURL() throws {
         let config = PostHogConfig(projectToken: "test_project_token")
         config.appGroupIdentifier = testAppGroupIdentifier
-        let url = appGroupContainerUrl(config: config)!
+        let url = try #require(appGroupContainerUrl(config: config))
 
         let expectedSuffix = ["Library", "Application Support", testAppGroupIdentifier]
         let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
@@ -146,7 +149,10 @@ class PostHogStorageTest {
         sut.reset()
     }
 
-    @Test("writes to disk in a project token folder under a group container directory")
+    @Test(
+        "writes to disk in a project token folder under a group container directory",
+        .enabled(if: appGroupContainerAvailable, "needs an app group container; this process isn't entitled to create one")
+    )
     func writesToDiskInAProjectTokenFolderUnderGroupContainerDirectory() {
         let config = PostHogConfig(projectToken: "test_project_token")
         config.appGroupIdentifier = testAppGroupIdentifier
@@ -192,7 +198,11 @@ class PostHogStorageTest {
 
 @Suite("PostHogStorage backup exclusion", .serialized)
 struct PostHogStorageBackupTest {
-    @Test("excludes new and existing project folders from backup", arguments: [false, true], [false, true])
+    // The app group cases need a container this process may create (see appGroupContainerAvailable).
+    @Test(
+        "excludes new and existing project folders from backup",
+        arguments: [false, true], appGroupContainerAvailable ? [false, true] : [false]
+    )
     func excludesProjectFolderFromBackup(existingFolder: Bool, appGroup: Bool) throws {
         let config = PostHogConfig(projectToken: "backup-test-\(UUID().uuidString)")
         if appGroup {

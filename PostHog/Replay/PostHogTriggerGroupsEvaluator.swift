@@ -52,6 +52,14 @@ class PostHogTriggerGroupsEvaluator {
         }
     }
 
+    /// Drops the session activation while keeping the configured groups, so a post-reset session
+    /// re-activates the groups from scratch. With no activation session no group reads as activated,
+    /// and the next event clears the group sets as for any new session. Sampling decisions are a
+    /// deterministic per-session cache (as in posthog-js), so they stay.
+    func reset() {
+        lock.withLock { activationSessionId = nil }
+    }
+
     func onEvent(sessionId: String,
                  eventName: String,
                  eventProperties: [String: Any?]?,

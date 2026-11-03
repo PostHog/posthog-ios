@@ -249,17 +249,9 @@ class RequestInterceptor: URLProtocol {
             }
         }
 
-        // Extract retry count from URL
-        let retryCount: Int
-        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-           let retryParam = components.queryItems?.first(where: { $0.name == "retry_count" }),
-           let retryValue = retryParam.value,
-           let retry = Int(retryValue)
-        {
-            retryCount = retry
-        } else {
-            retryCount = 0
-        }
+        // Capture v1 numbers each send in `PostHog-Attempt`, starting at 1.
+        let attempt = request.value(forHTTPHeaderField: "PostHog-Attempt").flatMap { Int($0) } ?? 1
+        let retryCount = max(attempt - 1, 0)
 
         let trackedRequest = TrackedRequest(
             timestampMs: Int64(Date().timeIntervalSince1970 * 1000),

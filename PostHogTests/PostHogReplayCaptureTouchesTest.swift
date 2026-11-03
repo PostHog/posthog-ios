@@ -8,8 +8,8 @@
     @MainActor
     struct PostHogReplayCaptureTouchesTests {
         private final class Touch: UITouch {
-            private let recordedPhase: UITouch.Phase
-            private let recordedLocation: CGPoint
+            var recordedPhase: UITouch.Phase
+            var recordedLocation: CGPoint
 
             init(phase: UITouch.Phase, location: CGPoint) {
                 recordedPhase = phase
@@ -24,18 +24,23 @@
         }
 
         private final class TouchEvent: UIEvent {
-            private let location: CGPoint
+            private let touches: [Touch]
             var touchesRead = false
 
             init(location: CGPoint = CGPoint(x: 123, y: 456)) {
-                self.location = location
+                touches = [Touch(phase: .began, location: location), Touch(phase: .ended, location: location)]
+                super.init()
+            }
+
+            init(_ touch: Touch) {
+                touches = [touch]
                 super.init()
             }
 
             override var type: UIEvent.EventType { .touches }
             override func touches(for _: UIWindow) -> Set<UITouch>? {
                 touchesRead = true
-                return [Touch(phase: .began, location: location), Touch(phase: .ended, location: location)]
+                return Set(touches)
             }
         }
 
@@ -161,6 +166,74 @@
             integration.handleApplicationEvent(event: TouchEvent(location: CGPoint(x: 120, y: 170)), date: Date(), window: window)
             await drainReplayQueue()
             #expect(snapshots.touches.isEmpty)
+        }
+
+        private func send(_ touch: Touch, phase: UITouch.Phase, to integration: PostHogReplayIntegration, in window: UIWindow) {
+            touch.recordedPhase = phase
+            integration.handleApplicationEvent(event: TouchEvent(touch), date: Date(), window: window)
+        }
+
+        private func addNoCaptureView(to window: UIWindow) -> UIView {
+            let masked = UIView(frame: CGRect(x: 20, y: 100, width: 300, height: 300))
+            masked.accessibilityIdentifier = "ph-no-capture"
+            window.rootViewController?.view.addSubview(masked)
+            return masked
+        }
+
+        @Test("A touch that began on a ph-no-capture view stays dropped after the view is removed", arguments: [true, false])
+        func beganMaskedEndAfterRemovalDropped(removeView: Bool) async throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let window = makeWindow()
+            defer { window.isHidden = true }
+            let masked = addNoCaptureView(to: window)
+            let touch = Touch(phase: .began, location: CGPoint(x: 120, y: 170))
+
+            send(touch, phase: .began, to: integration, in: window)
+            if removeView {
+                masked.removeFromSuperview()
+            } else {
+                masked.isHidden = true
+            }
+            send(touch, phase: .ended, to: integration, in: window)
+            await drainReplayQueue()
+            #expect(snapshots.touches.isEmpty)
+        }
+
+        @Test("A cancelled masked touch does not suppress a later unmasked touch on the same object")
+        func cancelledMaskedTouchClearsSuppression() async throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let window = makeWindow()
+            defer { window.isHidden = true }
+            _ = addNoCaptureView(to: window)
+            let touch = Touch(phase: .began, location: CGPoint(x: 120, y: 170))
+
+            send(touch, phase: .began, to: integration, in: window)
+            send(touch, phase: .cancelled, to: integration, in: window)
+            touch.recordedLocation = CGPoint(x: 150, y: 600)
+            send(touch, phase: .began, to: integration, in: window)
+            send(touch, phase: .ended, to: integration, in: window)
+            await drainReplayQueue()
+            #expect(snapshots.touches.compactMap { $0["type"] as? Int } == [7, 9])
+            #expect(snapshots.touches.allSatisfy { $0["x"] as? Int == 150 && $0["y"] as? Int == 600 })
+        }
+
+        @Test("A touch that began outside masks and ended on a ph-no-capture view keeps only its start")
+        func endedInsideMaskDropsEnd() async throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let window = makeWindow()
+            defer { window.isHidden = true }
+            _ = addNoCaptureView(to: window)
+            let touch = Touch(phase: .began, location: CGPoint(x: 150, y: 600))
+
+            send(touch, phase: .began, to: integration, in: window)
+            touch.recordedLocation = CGPoint(x: 120, y: 170)
+            send(touch, phase: .ended, to: integration, in: window)
+            await drainReplayQueue()
+            #expect(snapshots.touches.compactMap { $0["type"] as? Int } == [7])
+            #expect(snapshots.touches.first?["x"] as? Int == 150)
         }
 
         @Test("Touches inside a postHogMask() region are dropped")

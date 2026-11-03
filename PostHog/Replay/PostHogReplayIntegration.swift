@@ -49,6 +49,8 @@
         private var sessionIdChangedToken: RegistrationToken?
         private var eventCapturedToken: RegistrationToken?
         private var installedPlugins: [PostHogSessionReplayPlugin] = []
+        // Touches that began inside an explicit mask. Main thread only.
+        private var suppressedTouches = Set<ObjectIdentifier>()
 
         private let screenshotRenderLock = NSLock()
         private var isScreenshotRenderInFlight = false
@@ -2092,11 +2094,32 @@
     // MARK: - Explicitly masked touches
 
     private extension PostHogReplayIntegration {
-        /// Nil for touches that aren't began or ended, or that land in an explicitly masked region.
+        /// Nil for other phases and for touches in an explicit mask. A touch that began masked stays dropped
+        /// through its end, because subscribers run after UIKit dispatch and the masked view may already be gone.
         func recordableTouch(_ touch: UITouch, in window: UIWindow) -> (phase: UITouch.Phase, location: CGPoint)? {
-            guard touch.phase == .began || touch.phase == .ended else {
+            let id = ObjectIdentifier(touch)
+            switch touch.phase {
+            case .began:
+                guard let recordable = unmaskedTouch(touch, in: window) else {
+                    suppressedTouches.insert(id)
+                    return nil
+                }
+                suppressedTouches.remove(id)
+                return recordable
+            case .ended:
+                if suppressedTouches.remove(id) != nil {
+                    return nil
+                }
+                return unmaskedTouch(touch, in: window)
+            case .cancelled:
+                suppressedTouches.remove(id)
+                return nil
+            default:
                 return nil
             }
+        }
+
+        func unmaskedTouch(_ touch: UITouch, in window: UIWindow) -> (phase: UITouch.Phase, location: CGPoint)? {
             let location = touch.location(in: window)
             // Presentation layers can trap on camera windows, and the camera covers the window anyway.
             if window.hasCameraForReplay() {

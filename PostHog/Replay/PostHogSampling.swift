@@ -18,8 +18,8 @@ func simpleHash(_ str: String) -> Int {
         hash = (hash &<< 5) &- hash &+ codeUnitValue // hash = hash * 31 + codeUnitValue, wrapping
     }
 
-    // Match JS: return hash & 0x7fffffff
-    return Int(hash & 0x7FFFFFFF)
+    // JS returns Math.abs(hash), a double, so Int32.min maps to 2147483648 rather than to itself.
+    return Int(hash.magnitude)
 }
 
 /// Determines whether a property (typically a session ID) should be sampled in,

@@ -44,7 +44,11 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - **Breaking:** change `$locale` to the device's preferred language with its region, such as `de-CH` instead of `de` — filter on `$app_language` for the language the app shows
 - Add the `$app_language` property with the language the app displays, and `setAppLanguage(_:)` to set it when the app translates some other way
 - Add `SessionReplay`, `CrashReporting` and `Surveys` Swift package traits (on by default) that remove the feature and its public API when turned off
+- Add `isFeatureEnabled(_:defaultValue:)` and `isFeatureEnabled(_:defaultValue:sendFeatureFlagEvent:)` to return a default you choose when a flag has no value
+- Add compile errors that name the replacement, with an Xcode fix-it for renames, when Swift code uses a removed or renamed 3.x API
 - Change network reachability detection to `NWPathMonitor`, so a path needing user action counts as reachable, queues pause while cellular data is off for the app, and early events may omit `$network_wifi` and `$network_cellular`
 - Change the replay screen name to the visible screen, reporting the view name for SwiftUI screens and no longer using a plain `UIViewController`'s `title`
+- Fix `isFeatureEnabled` returning `true` for an empty variant string
 - Fix session replay recording nothing for apps whose window root is a SwiftUI view
 - Fix secure-entry text fields being unmasked inside a `postHogNoMask()` or `ph-no-mask` subtree
+- Fix session replay leaving content drawn outside a masked view's bounds unmasked, such as unclipped aspect-fill images, image text attachments, layer shadows and button titles that sit outside the button

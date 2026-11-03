@@ -1,5 +1,11 @@
 ## Next
 
+## 3.93.4
+
+### Patch Changes
+
+- 0ccda7e: A `beforeSend` hook that calls `reset()` or `identify()` no longer gives the event's `userProperties` to the next user's feature flag evaluation.
+
 ## 3.93.3
 
 ### Patch Changes

@@ -1,5 +1,5 @@
 //
-//  RRWireframe.swift
+//  RRScreenshotFrame.swift
 //  PostHog
 //
 //  Created by Manoel Aranda Neto on 21.03.24.
@@ -10,7 +10,7 @@ import Foundation
     import UIKit
 #endif
 
-class RRWireframe {
+class RRScreenshotFrame {
     var id: Int = 0
     var posX: Int = 0
     var posY: Int = 0
@@ -41,7 +41,7 @@ class RRWireframe {
             guard hasMaskableWidgets(), let image else {
                 return nil
             }
-            return RRWireframe.maskImage(image, maskableWidgets: maskableWidgets ?? [], pixelScale: screenshotPixelScale)
+            return RRScreenshotFrame.maskImage(image, maskableWidgets: maskableWidgets ?? [], pixelScale: screenshotPixelScale)
         }
 
         // Shared so tests can redact through the exact production path instead of reimplementing it.
@@ -104,7 +104,7 @@ class RRWireframe {
                         maskRenderFailed = true
                     }
                 } else if type == "screenshot" {
-                    base64 = RRWireframe.unmaskedScreenshot(image, pixelScale: screenshotPixelScale).toBase64()
+                    base64 = RRScreenshotFrame.unmaskedScreenshot(image, pixelScale: screenshotPixelScale).toBase64()
                 } else {
                     base64 = image.toBase64()
                 }

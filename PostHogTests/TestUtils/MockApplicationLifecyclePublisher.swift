@@ -13,15 +13,23 @@ final class MockApplicationLifecyclePublisher: AppLifecyclePublishing {
     let onDidEnterBackground = PostHogMulticastCallback<Void>()
     let onDidFinishLaunching = PostHogMulticastCallback<Void>()
 
-    /// Override per-test to simulate the app being in foreground or
-    /// background at the moment some consumer queries the publisher.
+    /// Override platform snapshots independently of the simulated notification history.
     var isInBackground: Bool = false
+    var isActive: Bool = false
+    private var hasObservedActivation = false
+    var hasBecomeActive: Bool {
+        if Thread.isMainThread, isActive {
+            hasObservedActivation = true
+        }
+        return hasObservedActivation
+    }
 
     func simulateAppDidEnterBackground() {
         onDidEnterBackground.invoke(())
     }
 
     func simulateAppDidBecomeActive() {
+        hasObservedActivation = true
         onDidBecomeActive.invoke(())
     }
 

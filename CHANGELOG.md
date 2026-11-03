@@ -1,5 +1,19 @@
 ## Next
 
+## 3.93.3
+
+### Patch Changes
+
+- 23cf425: Skip a session replay screenshot when `drawHierarchy` reports it could not render the window, instead of uploading a blank frame.
+- 23cf425: Clear the session replay screenshot bitmap before drawing, so a failed or partial render can no longer upload leftover memory in a snapshot.
+- 6af1bbd: Update the user's identity and reload feature flags when `identify()` is called while opted out, matching the other PostHog SDKs. No events are captured while opted out.
+
+## 3.93.2
+
+### Patch Changes
+
+- c6057bc: Fix missing background events and incorrect cold opens after late setup or opt-in.
+
 ## 3.93.1
 
 ### Patch Changes

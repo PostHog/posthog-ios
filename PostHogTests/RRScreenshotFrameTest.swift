@@ -1,5 +1,5 @@
 //
-//  RRWireframeTest.swift
+//  RRScreenshotFrameTest.swift
 //  PostHogTests
 //
 
@@ -10,13 +10,13 @@ import Testing
     import UIKit
 #endif
 
-@Suite("RRWireframe Tests")
-struct RRWireframeTest {
+@Suite("RRScreenshotFrame Tests")
+struct RRScreenshotFrameTest {
     // A tiny base64 data URL as produced by `UIImage.toBase64()`.
     static let base64Image = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/"
 
-    static func makeWireframe() -> RRWireframe {
-        let wireframe = RRWireframe()
+    static func makeWireframe() -> RRScreenshotFrame {
+        let wireframe = RRScreenshotFrame()
         wireframe.id = 42
         wireframe.posX = 16
         wireframe.posY = 120
@@ -29,7 +29,7 @@ struct RRWireframeTest {
     struct ToDictTests {
         @Test("only produces the required geometry keys when nothing else is set")
         func onlyRequiredKeysWhenNothingSet() {
-            let dict = RRWireframe().toDict()
+            let dict = RRScreenshotFrame().toDict()
 
             #expect(Set(dict.keys) == ["id", "x", "y", "width", "height"])
             #expect(dict["id"] as? Int == 0)
@@ -41,7 +41,7 @@ struct RRWireframeTest {
 
         @Test("always includes the required geometry keys with their values")
         func includesRequiredKeys() {
-            let dict = RRWireframeTest.makeWireframe().toDict()
+            let dict = RRScreenshotFrameTest.makeWireframe().toDict()
 
             #expect(dict["id"] as? Int == 42)
             #expect(dict["x"] as? Int == 16)
@@ -52,11 +52,11 @@ struct RRWireframeTest {
         }
 
         @Test("a single optional field only produces its own key", arguments: [
-            ("type", { (w: RRWireframe) in w.type = "screenshot" }, "screenshot"),
-            ("base64", { (w: RRWireframe) in w.base64 = RRWireframeTest.base64Image }, RRWireframeTest.base64Image),
+            ("type", { (w: RRScreenshotFrame) in w.type = "screenshot" }, "screenshot"),
+            ("base64", { (w: RRScreenshotFrame) in w.base64 = RRScreenshotFrameTest.base64Image }, RRScreenshotFrameTest.base64Image),
         ])
-        func singleFieldOnlyProducesItsOwnKey(key: String, set: (RRWireframe) -> Void, expected: String) {
-            let wireframe = RRWireframe()
+        func singleFieldOnlyProducesItsOwnKey(key: String, set: (RRScreenshotFrame) -> Void, expected: String) {
+            let wireframe = RRScreenshotFrame()
             set(wireframe)
 
             let dict = wireframe.toDict()
@@ -68,15 +68,15 @@ struct RRWireframeTest {
 
         @Test("includes the screenshot type and image")
         func includesScreenshotFields() {
-            let wireframe = RRWireframeTest.makeWireframe()
+            let wireframe = RRScreenshotFrameTest.makeWireframe()
             wireframe.type = "screenshot"
-            wireframe.base64 = RRWireframeTest.base64Image
+            wireframe.base64 = RRScreenshotFrameTest.base64Image
 
             let dict = wireframe.toDict()
 
             #expect(Set(dict.keys) == ["id", "x", "y", "width", "height", "type", "base64"])
             #expect(dict["type"] as? String == "screenshot")
-            #expect(dict["base64"] as? String == RRWireframeTest.base64Image)
+            #expect(dict["base64"] as? String == RRScreenshotFrameTest.base64Image)
             #expect(!dict.values.contains { $0 is NSNull })
         }
     }
@@ -92,7 +92,7 @@ struct RRWireframeTest {
                 }
                 let rect = CGRect(x: 20, y: 20, width: 60, height: 40)
 
-                let masked = try #require(RRWireframe.maskImage(white, maskableWidgets: [rect]))
+                let masked = try #require(RRScreenshotFrame.maskImage(white, maskableWidgets: [rect]))
 
                 for corner in [CGPoint(x: 20, y: 20), CGPoint(x: 79, y: 20), CGPoint(x: 20, y: 59), CGPoint(x: 79, y: 59)] {
                     #expect(Self.red(of: masked, at: corner) == 0, "corner \(corner) is not masked")

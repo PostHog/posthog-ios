@@ -141,6 +141,21 @@ final class PostHogQueueTest {
         #expect(second.fileQueue.peek(10).count == 1)
     }
 
+    @Test("queueing an event logs nothing per event")
+    func addItemToQueueLogsNothingPerEvent() async throws {
+        let wasLogging = hedgeLogEnabled
+        hedgeLogEnabled = true
+        defer { hedgeLogEnabled = wasLogging }
+        let sut = getSut(flushAt: 20)
+        defer { sut.clear() }
+        let event = PostHogEvent(event: "secret_event", distinctId: "user")
+
+        let output = try captureStdout { sut.add(event) }
+
+        #expect(!output.contains("secret_event"))
+        #expect(!output.contains("Depth"))
+    }
+
     @Test("add item to queue")
     func addItemToQueue() async {
         let sut = getSut()

@@ -54,6 +54,7 @@ final class PostHogCaptureV1Test {
         #expect(request.value(forHTTPHeaderField: "PostHog-Attempt") == "1")
         let requestId = try #require(request.value(forHTTPHeaderField: "PostHog-Request-Id"))
         #expect(UUID(uuidString: requestId) != nil)
+        #expect(requestId[requestId.index(requestId.startIndex, offsetBy: 14)] == "7")
         let timestamp = try #require(request.value(forHTTPHeaderField: "PostHog-Request-Timestamp"))
         #expect(timestamp.hasSuffix("Z"))
         #expect(toISO8601Date(timestamp) != nil)
@@ -191,6 +192,31 @@ final class PostHogCaptureV1Test {
         for uuid in uuids {
             #expect(!output.contains(uuid))
         }
+    }
+
+    @Test("cleans and clips the server's drop reasons, most common first")
+    func cleansDropReasons() throws {
+        let wasLogging = hedgeLogEnabled
+        hedgeLogEnabled = true
+        defer { hedgeLogEnabled = wasLogging }
+        let uuids = [UUID().postHogUuidString, UUID().postHogUuidString, UUID().postHogUuidString]
+        let identity = CaptureV1RequestIdentity(uuids: Set(uuids), requestId: "request", attempt: 1, createdAt: "now")
+        let noisy = "bad\n\u{2028}tag" + String(repeating: "x", count: 100)
+        let body = try JSONSerialization.data(withJSONObject: ["results": [
+            uuids[0]: ["result": "drop", "details": "zzz"],
+            uuids[1]: ["result": "drop", "details": "zzz"],
+            uuids[2]: ["result": "drop", "details": noisy],
+        ]])
+
+        let output = try captureStdout {
+            _ = makeApi().captureV1Result(
+                PostHogUploadInfo(statusCode: 200, error: nil), path: PostHogApi.captureV1AiPath, data: body,
+                uuids: uuids, identity: identity
+            )
+        }
+
+        let clean = "badtag" + String(repeating: "x", count: 58)
+        #expect(output.contains("3 dropped (zzz: 2, \(clean): 1), 0 duplicates dropped"))
     }
 
     @Test("counts duplicate copies capture dropped once per UUID")

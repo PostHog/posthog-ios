@@ -1309,15 +1309,27 @@ final class PostHogSDKTests {
         sut.close()
     }
 
-    @Test("blank or non-string caller $session_id keeps the SDK session", arguments: ["", "  ", 1] as [AnyHashable])
-    func invalidCallerSessionIdKeepsSdkSession(sessionId: AnyHashable) throws {
+    @Test("a blank caller $session_id is sent unchanged", arguments: ["", "  "])
+    func blankCallerSessionIdIsSent(sessionId: String) throws {
         let sut = getSut()
 
         sut.capture("event", properties: ["$session_id": sessionId])
 
         let event = try #require(getBatchedEvents(server).first)
-        let sentSessionId = try #require(event.properties["$session_id"] as? String)
-        #expect(!sentSessionId.trimmingCharacters(in: .whitespaces).isEmpty)
+        #expect(event.properties["$session_id"] as? String == sessionId)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("a non-string caller $session_id is dropped, not replaced by the SDK session")
+    func nonStringCallerSessionIdIsDropped() throws {
+        let sut = getSut()
+
+        sut.capture("event", properties: ["$session_id": 1])
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.properties["$session_id"] == nil)
 
         sut.reset()
         sut.close()
@@ -1946,10 +1958,15 @@ extension PostHogSDKTests {
             ]
             PHBeforeSendExceptionTestFixture.setBeforeSend(boxes, on: sut.config)
 
-            let returnedNormally = PHBeforeSendExceptionTestFixture.invokeWithoutException {
-                sut.capture("objc_exception_event")
+            var returnedNormally = false
+            let output = try captureStdout {
+                returnedNormally = PHBeforeSendExceptionTestFixture.invokeWithoutException {
+                    sut.capture("objc_exception_event")
+                }
             }
             sut.flush()
+            #expect(output.contains("Dropping event 'objc_exception_event'"))
+            #expect(!output.contains("beforeSend failure"))
 
             let storage = try #require(sut.storage, "Expected analytics storage to be configured")
             let persistedQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue))

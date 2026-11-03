@@ -12,6 +12,52 @@ let adapterStorageHome = (NSTemporaryDirectory() as NSString).appendingPathCompo
 setenv("CFFIXED_USER_HOME", adapterStorageHome, 1)
 setenv("HOME", adapterStorageHome, 1)
 
+/// Records the SDK's log lines for /state and still prints them. The SDK logs with `print`, so
+/// this reads stdout through a pipe and keeps the lines with the SDK's prefix.
+final class SdkLogRecorder {
+    private let lock = NSLock()
+    private var lines: [String] = []
+
+    func start() {
+        setvbuf(stdout, nil, _IOLBF, 0)
+        let original = dup(STDOUT_FILENO)
+        var fds: [Int32] = [0, 0]
+        pipe(&fds)
+        dup2(fds[1], STDOUT_FILENO)
+        close(fds[1])
+        let source = fds[0]
+
+        Thread.detachNewThread { [self] in
+            var pending = Data()
+            var buffer = [UInt8](repeating: 0, count: 65536)
+            while true {
+                let count = read(source, &buffer, buffer.count)
+                if count <= 0 { return }
+                _ = write(original, buffer, count)
+                pending.append(contentsOf: buffer[0 ..< count])
+                while let newline = pending.firstIndex(of: 0x0A) {
+                    let line = String(decoding: pending[pending.startIndex ..< newline], as: UTF8.self)
+                    pending.removeSubrange(pending.startIndex ... newline)
+                    if line.hasPrefix("[PostHog]") {
+                        lock.withLock { lines.append(line) }
+                    }
+                }
+            }
+        }
+    }
+
+    func snapshot() -> [String] {
+        lock.withLock { lines }
+    }
+
+    func reset() {
+        lock.withLock { lines = [] }
+    }
+}
+
+let sdkLogRecorder = SdkLogRecorder()
+sdkLogRecorder.start()
+
 // Global state for the adapter
 class AdapterState {
     var posthogSDK: PostHogSDK?
@@ -24,6 +70,7 @@ class AdapterState {
         apiKey = nil
         host = nil
         RequestInterceptor.reset()
+        sdkLogRecorder.reset()
     }
 }
 
@@ -58,7 +105,7 @@ app.get("health") { req async throws -> Response in
         // harness skips the capability-gated capture suites entirely.
         "capabilities": [
             "capture_v1", "capture_ai_v1", "encoding_gzip", "event_options",
-            "disable_geoip", "generated_payloads", "property_layers", "fail_open",
+            "disable_geoip", "generated_payloads", "log_capture", "property_layers", "fail_open",
         ],
     ]
 
@@ -129,6 +176,7 @@ app.post("init") { req async throws -> Response in
         config.captureAiCompression = .none
     }
     config.disableGeoIp = initReq.disableGeoip ?? config.disableGeoIp
+    config.debug = true
     if let setProperties = initReq.beforeSend?["set_properties"]?.value as? [String: Any] {
         config.setBeforeSend { event in
             event.properties.merge(setProperties) { _, new in new }
@@ -449,6 +497,7 @@ app.get("state") { req async throws -> Response in
 
     let stateData: [String: Any] = [
         "total_events_sent": RequestInterceptor.totalEventsSent,
+        "log_lines": sdkLogRecorder.snapshot(),
         "requests_made": RequestInterceptor.trackedRequests.map { request in
             [
                 "timestamp_ms": request.timestampMs,

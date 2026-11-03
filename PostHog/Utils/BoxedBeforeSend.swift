@@ -27,8 +27,8 @@ internal import PostHogObjCExceptionSupport
 
     func invokeSafely(with event: PostHogEvent) -> PostHogEvent? {
         PHObjCExceptionCatcher.invokeBlock(from: self, with: event) { exception in
-            let reason = exception.reason ?? "No reason provided"
-            hedgeLog("Objective-C beforeSend callback raised \(exception.name.rawValue): \(reason). The event was dropped.")
+            // The exception's name only: its reason can hold the values the hook was redacting.
+            hedgeLogWarning("Dropping event '\(event.event)': Objective-C beforeSend raised \(exception.name.rawValue).")
         } as? PostHogEvent
     }
 }
@@ -49,8 +49,7 @@ internal import PostHogObjCExceptionSupport
 
     func invokeSafely(with record: PostHogLogRecord) -> PostHogLogRecord? {
         PHObjCExceptionCatcher.invokeBlock(from: self, with: record) { exception in
-            let reason = exception.reason ?? "No reason provided"
-            hedgeLog("Objective-C log beforeSend callback raised \(exception.name.rawValue): \(reason). The log was dropped.")
+            hedgeLogWarning("Dropping a log: Objective-C beforeSend raised \(exception.name.rawValue).")
         } as? PostHogLogRecord
     }
 }

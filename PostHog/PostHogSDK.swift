@@ -862,7 +862,7 @@ let maxRetryDelay = 30.0
         // Caller-supplied properties win over registered super properties and SDK-set values.
         // A blank caller value for a key the SDK filled in above is treated as absent.
         var callerProps = properties ?? [:]
-        for key in ["$session_id", "$screen_name", "distinct_id"] where props[key] != nil {
+        for key in ["$screen_name", "distinct_id"] where props[key] != nil {
             if let value = callerProps[key] as? String, !Self.isBlank(value) {
                 continue
             }

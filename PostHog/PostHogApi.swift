@@ -284,7 +284,7 @@ class PostHogApi {
                 )
             }
             return CaptureV1RequestIdentity(
-                uuids: uuids, requestId: UUID().postHogUuidString, attempt: 1, createdAt: toISO8601String(Date())
+                uuids: uuids, requestId: UUID.v7().postHogUuidString, attempt: 1, createdAt: toISO8601String(Date())
             )
         }
     }
@@ -325,7 +325,7 @@ class PostHogApi {
                     retryUuids.insert(uuid)
                 case "drop":
                     dropped += 1
-                    droppedByDetails[entry["details"] as? String ?? "no details", default: 0] += 1
+                    droppedByDetails[(entry["details"] as? String).map(cleanDropReason) ?? "no details", default: 0] += 1
                 default:
                     break
                 }
@@ -341,7 +341,7 @@ class PostHogApi {
         if dropped > 0 || duplicatesDropped > 0 || !retryUuids.isEmpty {
             let status = statusCode.map { " (status \($0))" } ?? ""
             // One line per batch: counts and the server's reasons, never event names, UUIDs or properties.
-            let reasons = droppedByDetails.isEmpty ? "" : " (" + droppedByDetails.sorted { $0.key < $1.key }.map { "\($0.key): \($0.value)" }.joined(separator: ", ") + ")"
+            let reasons = droppedByDetails.isEmpty ? "" : " (" + droppedByDetails.sorted { ($1.value, $0.key) < ($0.value, $1.key) }.map { "\($0.key): \($0.value)" }.joined(separator: ", ") + ")"
             hedgeLog("Capture \(path)\(status): \(dropped) dropped\(reasons), \(duplicatesDropped) duplicates dropped, \(retryUuids.count) to retry.")
         }
 
@@ -404,6 +404,12 @@ class PostHogApi {
         json["options"] = options
         json["properties"] = properties
         return json
+    }
+
+    /// A drop reason is server text: no control or line-break characters, 64 characters at most.
+    private func cleanDropReason(_ details: String) -> String {
+        let scalars = details.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) && !CharacterSet.newlines.contains($0) }
+        return String(String.UnicodeScalarView(scalars).prefix(64))
     }
 
     /// Removes `key` from `properties` and returns its value when it's a string,

@@ -69,11 +69,13 @@ sdkLogRecorder.start()
 class AdapterState {
     var posthogSDK: PostHogSDK?
     var capturedEvents: [[String: Any]] = []
+    var totalEventsCaptured = 0
     var apiKey: String?
     var host: String?
 
     func reset() {
         capturedEvents = []
+        totalEventsCaptured = 0
         apiKey = nil
         host = nil
         RequestInterceptor.reset()
@@ -285,6 +287,7 @@ app.post("capture") { req async throws -> Response in
         options: captureReq.options?.mapValues(\.value)
     )
 
+    state.totalEventsCaptured += 1
     print("[ADAPTER] Event captured: \(captureReq.event)")
 
     let result = ["status": "ok"]
@@ -333,6 +336,10 @@ app.on(.POST, "capture_ai", body: .collect(maxSize: "9mb")) { req async throws -
         timestamp: captureReq.timestamp.flatMap(parseHarnessTimestamp),
         options: captureReq.options?.mapValues(\.value)
     )
+
+    if uuid != nil {
+        state.totalEventsCaptured += 1
+    }
 
     var result: [String: Any] = ["success": true]
     result["uuid"] = uuid
@@ -503,7 +510,11 @@ app.get("state") { req async throws -> Response in
     print("[ADAPTER] GET /state")
 
     let stateData: [String: Any] = [
+        "pending_events": max(0, state.totalEventsCaptured - RequestInterceptor.totalEventsSent),
+        "total_events_captured": state.totalEventsCaptured,
         "total_events_sent": RequestInterceptor.totalEventsSent,
+        "total_retries": RequestInterceptor.trackedRequests.filter { $0.retryAttempt > 0 }.count,
+        "last_error": NSNull(),
         "log_lines": sdkLogRecorder.snapshot(),
         "requests_made": RequestInterceptor.trackedRequests.map { request in
             [

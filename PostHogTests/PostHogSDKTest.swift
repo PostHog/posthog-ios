@@ -1958,6 +1958,9 @@ extension PostHogSDKTests {
             ]
             PHBeforeSendExceptionTestFixture.setBeforeSend(boxes, on: sut.config)
 
+            let wasLogging = hedgeLogEnabled
+            hedgeLogEnabled = true
+            defer { hedgeLogEnabled = wasLogging }
             var returnedNormally = false
             let output = try captureStdout {
                 returnedNormally = PHBeforeSendExceptionTestFixture.invokeWithoutException {

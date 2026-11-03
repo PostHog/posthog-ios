@@ -2114,12 +2114,13 @@ let maxRetryDelay = 30.0
         timestamp: Date? = nil,
         ai: Bool // swiftlint:disable:this identifier_name
     ) -> PostHogEvent? {
+        let buildSetup = currentSetupGeneration()
         if ai {
             warnIfNotAiEvent(event)
         } else if event == "$screen" {
             let screen = buildScreenEventForWrapper(properties: properties, options: options)
             screen?.wrapperBuiltAsScreen = true
-            stampWrapperBuild(screen, event: event)
+            stampWrapperBuild(screen, event: event, setupGeneration: buildSetup)
             return screen
         }
         let built = prepareCaptureEvent(
@@ -2136,18 +2137,20 @@ let maxRetryDelay = 30.0
             aiLane: ai,
             forWrapper: true
         )
+        onCapturePreparedForTesting?()
         built?.wrapperAiLane = ai
-        stampWrapperBuild(built, event: event)
+        stampWrapperBuild(built, event: event, setupGeneration: buildSetup)
         return built
     }
 
     /// Records the build-time state a wrapper send checks: this SDK and its setup, the identity, and the
     /// replay debug values, so a `close()`/`setup()`, `reset()` or new session during the round trip doesn't
-    /// leak into the event.
-    private func stampWrapperBuild(_ built: PostHogEvent?, event: String) {
+    /// leak into the event. `setupGeneration` is read before the build, so a `close()`/`setup()` during it
+    /// leaves the event on the old setup.
+    private func stampWrapperBuild(_ built: PostHogEvent?, event: String, setupGeneration: Int) {
         guard let built else { return }
         built.wrapperBuildSDK = ObjectIdentifier(self)
-        built.wrapperBuildSetupGeneration = currentSetupGeneration()
+        built.wrapperBuildSetupGeneration = setupGeneration
         built.wrapperBuildDistinctId = getDistinctId()
         built.wrapperBuildResetGeneration = wrapperSendLock.withLock { wrapperResetGeneration }
         if Self.isReplayDebugEvent(event) {

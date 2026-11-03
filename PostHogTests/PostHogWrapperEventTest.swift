@@ -335,6 +335,27 @@ final class PostHogWrapperEventTest {
         #expect(uuid == nil)
     }
 
+    @Test("a wrapper event built across close() and setup() isn't sent through the new setup")
+    func reconfigureDuringWrapperBuildDropsEvent() throws {
+        let replacement = PostHogConfig(projectToken: "phc_wrapper_\(UUID().uuidString)", host: "http://localhost:9001")
+        replacement.disableReachabilityForTesting = true
+        replacement.disableQueueTimerForTesting = true
+        let sut = makeSDK()
+        defer { sut.close() }
+        var reconfigured = false
+        sut.onCapturePreparedForTesting = {
+            sut.onCapturePreparedForTesting = nil
+            sut.close()
+            sut.setup(replacement)
+            reconfigured = true
+        }
+
+        let built = try #require(build(sut))
+
+        #expect(reconfigured)
+        #expect(sut.sendBuiltEventForWrapper(built, ai: false) == nil)
+    }
+
     @Test("an event built on one SDK instance isn't sent through another")
     func sendOnOtherInstanceDrops() throws {
         let sut = makeSDK()

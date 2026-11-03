@@ -1309,15 +1309,63 @@ final class PostHogSDKTests {
         sut.close()
     }
 
-    @Test("blank or non-string caller $session_id keeps the SDK session", arguments: ["", "  ", 1] as [AnyHashable])
-    func invalidCallerSessionIdKeepsSdkSession(sessionId: AnyHashable) throws {
+    @Test("a blank caller $session_id is sent unchanged", arguments: ["", "  "])
+    func blankCallerSessionIdIsSent(sessionId: String) throws {
         let sut = getSut()
 
         sut.capture("event", properties: ["$session_id": sessionId])
 
         let event = try #require(getBatchedEvents(server).first)
-        let sentSessionId = try #require(event.properties["$session_id"] as? String)
-        #expect(!sentSessionId.trimmingCharacters(in: .whitespaces).isEmpty)
+        #expect(event.properties["$session_id"] as? String == sessionId)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("a non-string caller $session_id is dropped, not replaced by the SDK session")
+    func nonStringCallerSessionIdIsDropped() throws {
+        let sut = getSut()
+
+        sut.capture("event", properties: ["$session_id": 1])
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.properties["$session_id"] == nil)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("a null caller $session_id falls back to the SDK session")
+    func nullCallerSessionIdUsesSdkSession() throws {
+        let sut = getSut()
+        sut.sessionManager.setSessionId("00000000-0000-7000-8000-000000000042")
+
+        sut.capture("event", properties: ["$session_id": NSNull()])
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.properties["$session_id"] as? String == "00000000-0000-7000-8000-000000000042")
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("a $snapshot without a usable $session_id is dropped", arguments: ["", "  ", 1] as [AnyHashable])
+    func snapshotWithoutUsableSessionIdIsDropped(sessionId: AnyHashable) throws {
+        server.reset(batchCount: 0, snapshotCount: 1)
+        let sut = getSut()
+        let validSessionId = "00000000-0000-7000-8000-000000000043"
+
+        sut.capture("$snapshot", properties: ["$session_id": sessionId, "$snapshot_data": ["marker": "invalid"]])
+        sut.capture("$snapshot", properties: ["$session_id": validSessionId, "$snapshot_data": ["marker": "valid"]])
+        sut.flush()
+
+        let result = XCTWaiter.wait(for: [server.snapshotExpectation!], timeout: testRequestTimeout)
+        #expect(result == .completed)
+        let request = try #require(server.snapshotRequests.first)
+        let data = try #require(request.body()).gunzipped()
+        let events = try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        let sessionIds = events.compactMap { ($0["properties"] as? [String: Any])?["$session_id"] as? String }
+        #expect(sessionIds == [validSessionId])
 
         sut.reset()
         sut.close()
@@ -1946,10 +1994,18 @@ extension PostHogSDKTests {
             ]
             PHBeforeSendExceptionTestFixture.setBeforeSend(boxes, on: sut.config)
 
-            let returnedNormally = PHBeforeSendExceptionTestFixture.invokeWithoutException {
-                sut.capture("objc_exception_event")
+            let wasLogging = hedgeLogEnabled
+            hedgeLogEnabled = true
+            defer { hedgeLogEnabled = wasLogging }
+            var returnedNormally = false
+            let output = try captureStdout {
+                returnedNormally = PHBeforeSendExceptionTestFixture.invokeWithoutException {
+                    sut.capture("objc_exception_event")
+                }
             }
             sut.flush()
+            #expect(output.contains("Dropping event 'objc_exception_event'"))
+            #expect(!output.contains("beforeSend failure"))
 
             let storage = try #require(sut.storage, "Expected analytics storage to be configured")
             let persistedQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue))

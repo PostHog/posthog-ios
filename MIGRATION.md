@@ -145,7 +145,7 @@ Capture v1 requests send the project token in an `Authorization: Bearer <project
 This header replaces any `Authorization` header you set in `PostHogConfig.requestHeaders`, so authenticate your proxy with a different header, such as `X-Proxy-Token`.
 Other requests still send your `Authorization` header.
 
-A personal API key (`phx_...`) in `projectToken` now disables the SDK at setup, as an empty token does, and prints a warning explaining why, also without `debug`.
+A personal API key (`phx_...`) in `projectToken` now disables the SDK at setup, as an empty token does, and prints a warning explaining why, also without `debug`. To turn the SDK off in tests, use an empty token.
 In 3.x, the SDK started and PostHog rejected every event with a 401. Use your project token (`phc_...`).
 
 #### Hosts without capture v1
@@ -157,7 +157,7 @@ If you send events through your own reverse proxy, update it before you upgrade:
 
 - Forward `/i/v1/analytics/events` and `/i/v1/ai/events` to PostHog.
 - Pass `Authorization` (the project token, sent as `Bearer <token>`), every `PostHog-*` header, `Content-Type`, `Content-Encoding` and `User-Agent` through unchanged. PostHog answers `401` without `Authorization` and `400` without the others, and the batch is dropped.
-- If your proxy strips other credentials, keep `Authorization` values that start with `Bearer phc_`, or the exact `Bearer <token>` if your project token doesn't start with `phc_`.
+- If your proxy strips other credentials, keep `Authorization` values that start with `Bearer phc_`, `Bearer phs_` or `Bearer phx_`, or the exact `Bearer <key>` of an older key without a prefix.
 - Pass PostHog's response body through unchanged. A 2xx response whose body isn't PostHog's `{"results": {...}}` drops the events instead of retrying them.
 - Accept request bodies up to 20 MB. AI requests are often larger than 1 MB, the default limit in nginx and ingress-nginx. On a `413` from the proxy, the SDK splits the batch and drops any event that is still too large on its own.
 
@@ -180,7 +180,7 @@ The SDK drops an event with an empty event name before sending it, for example `
 `captureAi` then returns `nil`, and with `debug` on the SDK logs the first one.
 
 The SDK doesn't check these before sending. PostHog drops the event, and the SDK removes it from the queue.
-With `debug` on, the SDK logs how many events were dropped and why.
+With `debug` on, the SDK logs how many events were dropped and why. There's no error callback, and the log text changed from 3.x, so update any log-based alerts.
 
 - An event with an empty or whitespace-only distinct ID is dropped, for example one `beforeSend` sets to `""`.
   An empty or whitespace-only `distinctId` argument isn't dropped: like `nil`, it uses the current distinct ID.
@@ -229,6 +229,12 @@ A null value counts as unset and is removed without a warning.
 In PostHog, the events still have `$session_id` and `$window_id`, so insights, filters and session replay work as before.
 A registered `$session_id` now overrides the SDK's session ID (see [Property precedence](#property-precedence)), which can detach events from their session replay.
 
+### Timestamps and IDs
+
+The SDK sends every timestamp in UTC with 3 fractional digits, for example `2026-01-01T00:00:00.000Z`, as 3.x did.
+It doesn't check for future timestamps. PostHog replaces a timestamp more than 23 hours ahead with the time it received the event.
+Event uuids, request IDs and anonymous distinct IDs are UUID v7.
+
 ### Event options
 
 Capture v1 reads processing settings from an `options` object sent next to `properties`.
@@ -262,6 +268,7 @@ When the event is sent, the SDK removes each one from `properties` and uses it f
 - The SDK sends option values as given. PostHog reads common forms of a value, such as `"false"` or `0` for a boolean, and drops an event whose option value it can't read.
 - Other option keys are sent unchanged, and PostHog ignores keys it doesn't know.
 - There are no global options. To set one for every event, register its legacy property, for example `register(["$cookieless_mode": true])`.
+- A registered option also reaches `$identify`, `$create_alias` and `$groupidentify`. If it turns person processing off, for example `register(["$process_person_profile": false])`, PostHog accepts those events and then drops them with an ingestion warning, and the SDK doesn't report it.
 - Events still queued on disk by 3.x are sent to capture v1 after the update, with their legacy properties moved to options.
 
 ### AI events
@@ -276,6 +283,7 @@ PostHogSDK.shared.captureAi("$ai_generation", properties: ["$ai_model": "gpt-5",
 In Objective-C, use `captureAiWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:`.
 
 - An AI event's properties can be up to 8 MiB. The SDK drops a serialized event over 8 MiB + 64 KiB, and `captureAi` returns `nil`. Set `captureAiMaxEventBytes` to lower the limit; it measures the whole serialized event.
+- Any `$ai_*` event never creates or updates a person profile, so `$set` and `$set_once` are ignored, and it's billed as an AI event. See [the `$ai_` prefix](https://posthog.com/docs/ai-observability/basics#the-ai_-prefix).
 - PostHog drops an event sent with `captureAi` whose name doesn't start with `$ai_`. `capture` never sends events to the AI endpoint, even ones named `$ai_*`.
 - AI requests time out after 60 seconds without network activity, or `captureAiTimeout`. Other requests still time out after 10 seconds.
 - AI events are queued on disk separately from other events. Up to 100 events (`captureAiMaxQueueSize`) and 50 MiB are kept, and the oldest are dropped first. `maxQueueSize` doesn't apply.
@@ -286,7 +294,7 @@ In Objective-C, use `captureAiWithEvent:distinctId:properties:userProperties:use
 
 ### Retries
 
-- The SDK retries network errors and 404, 408, 429, 500, 502, 503 and 504 responses. Other statuses, such as a 402 when you're over your billing limit, drop the whole request. 3.x did not retry 404, and retried 3xx responses.
+- The SDK retries network errors and 404, 408, 429, 500, 502, 503 and 504 responses. Other statuses, such as a 402 when you're over your billing limit, drop the whole request. A product quota, such as for exceptions or AI events, instead drops only those events inside a 200. 3.x did not retry 404, and retried 3xx responses.
 - When the response asks to retry only some events, the SDK keeps those events queued and removes the rest.
 - A `Retry-After` header pauses sending for at most 30 seconds. This also applies to session replay and logs. In 3.x, analytics events and session replay had no cap, and logs allowed up to 5 minutes.
 - After a failed send, the wait before the next one doubles from 1 second up to 30 seconds, with up to 25% random jitter. In 3.x it grew by 1 second per failure. This applies to events, session replay and logs.

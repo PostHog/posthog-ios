@@ -420,7 +420,6 @@ class PostHogQueue<Record> {
         if !result.evicted.isEmpty {
             hedgeLog("Queue is full, dropped \(result.evicted.count) oldest record(s)")
         }
-        hedgeLog("Queued \(endpoint.describe(record)). Depth: \(fileQueue.depth)")
         flushIfOverThreshold()
         return true
     }

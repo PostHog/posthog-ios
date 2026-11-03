@@ -862,11 +862,15 @@ let maxRetryDelay = 30.0
         // Caller-supplied properties win over registered super properties and SDK-set values.
         // A blank caller value for a key the SDK filled in above is treated as absent.
         var callerProps = properties ?? [:]
-        for key in ["$session_id", "$screen_name", "distinct_id"] where props[key] != nil {
+        for key in ["$screen_name", "distinct_id"] where props[key] != nil {
             if let value = callerProps[key] as? String, !Self.isBlank(value) {
                 continue
             }
             callerProps.removeValue(forKey: key)
+        }
+        // A null caller $session_id counts as unset, so the SDK session fills it.
+        if callerProps["$session_id"] is NSNull {
+            callerProps.removeValue(forKey: "$session_id")
         }
         // A caller-supplied $groups adds to the registered and per-call groups instead of replacing them.
         if let callerGroups = callerProps["$groups"] as? [String: Any], let currentGroups = props["$groups"] as? [String: Any] {
@@ -1974,8 +1978,8 @@ let maxRetryDelay = 30.0
         // The AI lane always uses its own queue.
         let isSnapshotEvent = !aiLane && posthogEvent.event == "$snapshot"
 
-        // if this is a $snapshot event and $session_id is missing, don't process then event
-        if isSnapshotEvent, posthogEvent.properties["$session_id"] == nil {
+        // A $snapshot without a usable $session_id can't be attached to a recording, so it's dropped.
+        if isSnapshotEvent, (posthogEvent.properties["$session_id"] as? String).map(Self.isBlank) ?? true {
             releaseClaimIfCarried(posthogEvent)
             return nil
         }

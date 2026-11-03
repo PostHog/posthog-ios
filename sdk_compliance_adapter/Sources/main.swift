@@ -12,18 +12,74 @@ let adapterStorageHome = (NSTemporaryDirectory() as NSString).appendingPathCompo
 setenv("CFFIXED_USER_HOME", adapterStorageHome, 1)
 setenv("HOME", adapterStorageHome, 1)
 
+/// Records the SDK's log lines for /state and still prints them. The SDK logs with `print`, so
+/// this reads stdout through a pipe and keeps the lines with the SDK's prefix.
+final class SdkLogRecorder {
+    private let lock = NSLock()
+    private var lines: [String] = []
+    private let resetMarker = "[PostHogAdapterLogReset]"
+    private let resetDone = DispatchSemaphore(value: 0)
+
+    func start() {
+        setvbuf(stdout, nil, _IOLBF, 0)
+        let original = dup(STDOUT_FILENO)
+        var fds: [Int32] = [0, 0]
+        pipe(&fds)
+        dup2(fds[1], STDOUT_FILENO)
+        close(fds[1])
+        let source = fds[0]
+
+        Thread.detachNewThread { [self] in
+            var pending = Data()
+            var buffer = [UInt8](repeating: 0, count: 65536)
+            while true {
+                let count = read(source, &buffer, buffer.count)
+                if count <= 0 { return }
+                _ = write(original, buffer, count)
+                pending.append(contentsOf: buffer[0 ..< count])
+                while let newline = pending.firstIndex(of: 0x0A) {
+                    let line = String(decoding: pending[pending.startIndex ..< newline], as: UTF8.self)
+                    pending.removeSubrange(pending.startIndex ... newline)
+                    if line == resetMarker {
+                        lock.withLock { lines = [] }
+                        resetDone.signal()
+                    } else if line.hasPrefix("[PostHog]") {
+                        lock.withLock { lines.append(line) }
+                    }
+                }
+            }
+        }
+    }
+
+    func snapshot() -> [String] {
+        lock.withLock { lines }
+    }
+
+    /// Clears through the pipe, so lines from an earlier test still in it can't reach the next one.
+    func reset() {
+        print(resetMarker)
+        _ = resetDone.wait(timeout: .now() + 2)
+    }
+}
+
+let sdkLogRecorder = SdkLogRecorder()
+sdkLogRecorder.start()
+
 // Global state for the adapter
 class AdapterState {
     var posthogSDK: PostHogSDK?
     var capturedEvents: [[String: Any]] = []
+    var totalEventsCaptured = 0
     var apiKey: String?
     var host: String?
 
     func reset() {
         capturedEvents = []
+        totalEventsCaptured = 0
         apiKey = nil
         host = nil
         RequestInterceptor.reset()
+        sdkLogRecorder.reset()
     }
 }
 
@@ -37,6 +93,22 @@ let state = AdapterState()
 // layout. The SDK recreates the directories it needs on the next setup().
 func clearPostHogStorage() {
     try? FileManager.default.removeItem(atPath: adapterStorageHome)
+}
+
+// Events still on disk in the analytics and AI queues, one file per event. Reading the
+// queue folders reflects what the SDK actually kept: a terminal 4xx removes the batch,
+// and a partial-retry 200 keeps the retried events.
+func pendingQueuedEventCount() -> Int {
+    let fileManager = FileManager.default
+    guard let walker = fileManager.enumerator(atPath: adapterStorageHome) else { return 0 }
+    var count = 0
+    for case let path as String in walker {
+        let name = (path as NSString).lastPathComponent
+        guard name == "posthog.queueFolder.uuid" || name == "posthog.aiFolder" else { continue }
+        let folder = (adapterStorageHome as NSString).appendingPathComponent(path)
+        count += (try? fileManager.contentsOfDirectory(atPath: folder).count) ?? 0
+    }
+    return count
 }
 
 // Configure and create the Vapor application
@@ -58,7 +130,7 @@ app.get("health") { req async throws -> Response in
         // harness skips the capability-gated capture suites entirely.
         "capabilities": [
             "capture_v1", "capture_ai_v1", "encoding_gzip", "event_options",
-            "disable_geoip", "generated_payloads", "property_layers", "fail_open",
+            "disable_geoip", "generated_payloads", "log_capture", "property_layers", "fail_open",
         ],
     ]
 
@@ -129,6 +201,7 @@ app.post("init") { req async throws -> Response in
         config.captureAiCompression = .none
     }
     config.disableGeoIp = initReq.disableGeoip ?? config.disableGeoIp
+    config.debug = true
     if let setProperties = initReq.beforeSend?["set_properties"]?.value as? [String: Any] {
         config.setBeforeSend { event in
             event.properties.merge(setProperties) { _, new in new }
@@ -230,6 +303,7 @@ app.post("capture") { req async throws -> Response in
         options: captureReq.options?.mapValues(\.value)
     )
 
+    state.totalEventsCaptured += 1
     print("[ADAPTER] Event captured: \(captureReq.event)")
 
     let result = ["status": "ok"]
@@ -278,6 +352,10 @@ app.on(.POST, "capture_ai", body: .collect(maxSize: "9mb")) { req async throws -
         timestamp: captureReq.timestamp.flatMap(parseHarnessTimestamp),
         options: captureReq.options?.mapValues(\.value)
     )
+
+    if uuid != nil {
+        state.totalEventsCaptured += 1
+    }
 
     var result: [String: Any] = ["success": true]
     result["uuid"] = uuid
@@ -448,7 +526,12 @@ app.get("state") { req async throws -> Response in
     print("[ADAPTER] GET /state")
 
     let stateData: [String: Any] = [
+        "pending_events": pendingQueuedEventCount(),
+        "total_events_captured": state.totalEventsCaptured,
         "total_events_sent": RequestInterceptor.totalEventsSent,
+        "total_retries": RequestInterceptor.trackedRequests.filter { $0.retryAttempt > 0 }.count,
+        "last_error": NSNull(),
+        "log_lines": sdkLogRecorder.snapshot(),
         "requests_made": RequestInterceptor.trackedRequests.map { request in
             [
                 "timestamp_ms": request.timestampMs,

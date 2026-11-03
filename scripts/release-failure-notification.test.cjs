@@ -62,31 +62,30 @@ for (const name of ['Check for changesets', 'Bump version and commit to main', r
     }
 }
 
-test('best-effort CocoaPods failure is reported even when the workflow and job succeed', async () => {
+test('job-level continue-on-error preserves the CocoaPods failure despite a successful run', async () => {
     const payload = await inspect([
         job(releaseJob, 'success'),
-        job('Publish to CocoaPods', 'success', [{ name: 'Publish to CocoaPods', conclusion: 'failure' }]),
+        job('Publish to CocoaPods', 'failure', [{ name: 'Publish to CocoaPods', conclusion: 'failure' }]),
         job(notifyJob, 'success'),
     ]);
-    assert.match(payload.text, /Publish to CocoaPods>:? \/ Publish to CocoaPods: failure/);
+    assert.match(payload.text, /Publish to CocoaPods>: failure/);
     assert.match(payload.text, /CocoaPods publishing is best-effort/);
 });
 
-test('continue-on-error Slack failure is reported despite a successful job and run', async () => {
-    const payload = await inspect([
+test('optional continued steps have successful API conclusions and do not cause false alarms', async () => {
+    assert.equal(await inspect([
         job(releaseJob, 'success'),
-        job(notifyJob, 'success', [{ name: 'Notify Slack - Released', conclusion: 'failure' }]),
-    ]);
-    assert.match(payload.text, /Notify Slack - Released> \/ Notify Slack - Released: failure/);
+        job(notifyJob, 'success', [{ name: 'Add released reaction', conclusion: 'success' }]),
+    ]), null);
 });
 
-test('approval notification failure does not depend on a thread timestamp', async () => {
+test('approval notification job failure does not depend on a thread timestamp', async () => {
     const payload = await inspect([
-        job('Notify Slack - Approval Needed / notify', 'success', [
+        job('Notify Slack - Approval Needed / notify', 'failure', [
             { name: 'Send Slack notification', conclusion: 'failure' },
         ]),
-    ]);
-    assert.match(payload.text, /Send Slack notification: failure/);
+    ], 'failure');
+    assert.match(payload.text, /Notify Slack - Approval Needed \/ notify>: failure/);
     assert.equal(payload.channel, channel);
 });
 

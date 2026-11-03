@@ -76,7 +76,7 @@ Make sure the PR includes a changeset file and was merged to `main`, or trigger 
 
 ### Failed or cancelled release
 
-The independent [release failure notification workflow](.github/workflows/release-failure-notification.yml) checks every completed main-branch release attempt and posts a failure message to the release approvals Slack channel if a job or step failed, timed out, or was cancelled. This includes runner startup failures, whole-run cancellations, and best-effort CocoaPods or Slack steps whose errors do not fail the run. It also alerts if the GitHub release exists but the released Slack notification was skipped.
+The independent [release failure notification workflow](.github/workflows/release-failure-notification.yml) checks every completed main-branch release attempt and posts a failure message to the release approvals Slack channel if a job failed, timed out, or was cancelled. This includes runner startup failures, whole-run cancellations, and best-effort CocoaPods job failures that do not fail the run. It also alerts if the GitHub release exists but the released Slack notification was skipped.
 
 The failure message is a new channel message, not a thread reply, so it does not depend on the approval notification succeeding. Existing approval, rejection, and successful-release messages remain in the approval thread. The released/status messages and the independent failure message surface Slack API errors rather than silently ignoring them, allowing the completion check to detect a failed release notification. The completion workflow must be present on the default branch to run; local tests do not send Slack messages.
 

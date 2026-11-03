@@ -295,7 +295,7 @@ This is supporting CI evidence, not a claim that a particular current CI run was
 
 ### 1. `PostHogMaskFailClosedTest.swift`
 
-Production owner: `RRWireframe` and replay snapshot collection/emission. These unit/queue tests complement—not replace—rendered goldens.
+Production owner: `RRScreenshotFrame` and replay snapshot collection/emission. These unit/queue tests complement—not replace—rendered goldens.
 
 | Line | Declaration | Decision / contract and regression |
 |---:|---|---|

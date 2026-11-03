@@ -765,7 +765,7 @@
         }
 
         func captureSnapshot(
-            _ wireframe: RRWireframe,
+            _ wireframe: RRScreenshotFrame,
             window: UIWindow,
             windowSize: CGSize,
             screenName: String?,
@@ -860,8 +860,8 @@
             return imageHash == lastImageHash
         }
 
-        private func createBasicWireframe(_ view: UIView) -> RRWireframe {
-            let wireframe = RRWireframe()
+        private func createBasicWireframe(_ view: UIView) -> RRScreenshotFrame {
+            let wireframe = RRScreenshotFrame()
 
             // since FE will render each node of the wireframe with position: fixed
             // we need to convert bounds to global screen coordinates
@@ -1149,7 +1149,7 @@
             }
         }
 
-        private func prepareScreenshotWireframe(_ window: UIWindow, overrideMaskRects: [CGRect]? = nil) -> RRWireframe? {
+        private func prepareScreenshotWireframe(_ window: UIWindow, overrideMaskRects: [CGRect]? = nil) -> RRScreenshotFrame? {
             // this will bail on view controller animations (interactive or not)
             if !window.isVisible() || isAnimatingTransition(window) || window.hasCameraForReplay() {
                 return nil
@@ -1206,7 +1206,7 @@
         }
 
         private struct ScreenshotCapture {
-            let wireframe: RRWireframe
+            let wireframe: RRScreenshotFrame
             let windowSize: CGSize
             let timestampDate: Date
             let image: UIImage?
@@ -1227,13 +1227,18 @@
             // measured the mask rects — any later and the presentation tree has moved on. The
             // bridge's first frame renders itself and passes false.
             let image = renderImage ? window.toImage(preferFidelityRenderer: preferFidelityRenderer) : nil
+            // A render that was attempted and failed skips the tick; only a deferred render falls
+            // through to renderAndEnqueueScreenshot's own draw.
+            if renderImage, image == nil {
+                return nil
+            }
 
             return ScreenshotCapture(wireframe: wireframe, windowSize: window.bounds.size, timestampDate: Date(), image: image)
         }
 
         @discardableResult
         private func renderAndEnqueueScreenshot(
-            _ wireframe: RRWireframe,
+            _ wireframe: RRScreenshotFrame,
             window: UIWindow,
             windowSize: CGSize,
             screenName: String?,

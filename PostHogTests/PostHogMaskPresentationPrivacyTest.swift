@@ -708,7 +708,7 @@
             try await settle(h.window)
 
             let rects = try h.rects()
-            let wireframe = RRWireframe()
+            let wireframe = RRScreenshotFrame()
             wireframe.image = try #require(h.window.toImage(preferFidelityRenderer: true))
             wireframe.maskableWidgets = rects
             let raw = try #require(wireframe.image)

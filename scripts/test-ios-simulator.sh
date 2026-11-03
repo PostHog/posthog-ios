@@ -7,7 +7,7 @@
 # absorbs that stall before the full suite starts.
 #
 # Swift Testing failures are never retried: rerunning Swift Testing suites in the same process
-# reinstalls irreversible swizzles. XCTest (Quick) cases are retried because CI simulators
+# reinstalls irreversible swizzles. XCTest cases are retried because CI simulators
 # occasionally deliver a stubbed request tens of seconds late, past the tests' 30s wait.
 set -uo pipefail
 

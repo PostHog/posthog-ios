@@ -82,7 +82,7 @@
             try #require(integration).processTapForTesting(touchX: 100, touchY: 100)
             try #require(integration).processTapForTesting(touchX: 200, touchY: 200)
 
-            let events = getBatchedEvents(server)
+            let events = getBatchedEvents(server, failIfNotCompleted: false)
             let rageclickEvents = events.filter { $0.event == "$rageclick" }
 
             #expect(rageclickEvents.count == 0)
@@ -126,7 +126,7 @@
             try #require(integration).processTapForTesting(touchX: 105, touchY: 205, screenName: nil, elementsChain: "UIButton:attr__class=\"UIButton\"")
             try #require(integration).processTapForTesting(touchX: 102, touchY: 202, screenName: nil, elementsChain: "UIButton:attr__class=\"UIButton\"")
 
-            let events = getBatchedEvents(server)
+            let events = getBatchedEvents(server, failIfNotCompleted: false)
             let rageclickEvents = events.filter { $0.event == "$rageclick" }
 
             #expect(rageclickEvents.count == 0)

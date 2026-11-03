@@ -31,4 +31,36 @@ struct BundleUtilsTest {
             #expect(parseBundleVersion("0") as? Int == 0)
         }
     }
+
+    @Suite("appBuildToolchainProperties")
+    struct AppBuildToolchainPropertiesTests {
+        @Test("reads DTXcode and DTSDKName as-is")
+        func readsXcodeAndSdk() {
+            let props = appBuildToolchainProperties([
+                "DTXcode": "2640",
+                "DTXcodeBuild": "17E202",
+                "DTSDKName": "iphoneos26.4",
+            ])
+
+            #expect(props.count == 2)
+            #expect(props["$app_build_xcode"] as? String == "2640")
+            #expect(props["$app_build_sdk"] as? String == "iphoneos26.4")
+        }
+
+        @Test("omits keys that are missing, empty or not strings")
+        func omitsInvalidValues() {
+            #expect(appBuildToolchainProperties(nil).isEmpty)
+            #expect(appBuildToolchainProperties([:]).isEmpty)
+            #expect(appBuildToolchainProperties(["DTXcode": "", "DTSDKName": ""]).isEmpty)
+            #expect(appBuildToolchainProperties(["DTXcode": 2640, "DTSDKName": 26.4]).isEmpty)
+        }
+
+        @Test("sets each key independently")
+        func setsEachKeyIndependently() {
+            let props = appBuildToolchainProperties(["DTSDKName": "macosx26.4"])
+
+            #expect(props["$app_build_xcode"] == nil)
+            #expect(props["$app_build_sdk"] as? String == "macosx26.4")
+        }
+    }
 }

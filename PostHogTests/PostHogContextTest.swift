@@ -6,12 +6,17 @@
 //
 
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
+import Testing
 
-class PostHogContextTest: QuickSpec {
-    func getSut() -> PostHogContext {
+@Suite("PostHogContext", .serialized, .resetsGlobalState)
+struct PostHogContextTest {
+    /// The `$app_*` values come from the host process's `Bundle.main`. Under Xcode (and XCTest) the
+    /// host is `xctest`; `swift test` runs Swift Testing in `swiftpm-testing-helper`, which has no
+    /// Info.plist, so the host-specific values below are only asserted under the `xctest` host.
+    private static let isXCTestHost = Bundle.main.bundleIdentifier == "com.apple.dt.xctest.tool"
+
+    private func getSut() -> PostHogContext {
         #if !os(watchOS)
             var reachability: Reachability?
             do {
@@ -25,67 +30,75 @@ class PostHogContextTest: QuickSpec {
         #endif
     }
 
-    override func spec() {
-        it("returns static context") {
-            let sut = self.getSut()
+    @Test("returns static context")
+    func returnsStaticContext() {
+        let sut = getSut()
 
-            let context = sut.staticContext()
-            expect(context["$app_name"] as? String) == "xctest"
-            expect(context["$app_version"] as? String) != nil
-            expect(context["$app_build"] as? Int) != nil
-            expect(context["$app_namespace"] as? String) == "com.apple.dt.xctest.tool"
-            expect(context["$is_emulator"] as? Bool) != nil
-            #if os(iOS) || os(tvOS) || os(visionOS)
-                expect(context["$device_name"] as? String) != nil
-                expect(context["$os_name"] as? String) != nil
-                expect(context["$os_version"] as? String) != nil
-                expect(context["$device_type"] as? String) != nil
-                expect(context["$device_model"] as? String) != nil
-                expect(context["$device_manufacturer"] as? String) == "Apple"
-            #endif
+        let context = sut.staticContext()
+        if Self.isXCTestHost {
+            #expect(context["$app_name"] as? String == "xctest")
+            #expect(context["$app_version"] as? String != nil)
+            #expect(context["$app_build"] as? Int != nil)
+            #expect(context["$app_namespace"] as? String == "com.apple.dt.xctest.tool")
+        } else {
+            #expect(context["$app_namespace"] as? String == testBundleIdentifier)
         }
+        #expect(context["$is_emulator"] as? Bool != nil)
+        #if os(iOS) || os(tvOS) || os(visionOS)
+            #expect(context["$device_name"] as? String != nil)
+            #expect(context["$os_name"] as? String != nil)
+            #expect(context["$os_version"] as? String != nil)
+            #expect(context["$device_type"] as? String != nil)
+            #expect(context["$device_model"] as? String != nil)
+            #expect(context["$device_manufacturer"] as? String == "Apple")
+        #endif
+    }
 
-        it("returns dynamic context") {
-            let sut = self.getSut()
+    @Test("returns dynamic context")
+    func returnsDynamicContext() {
+        let sut = getSut()
 
-            let context = sut.dynamicContext()
+        let context = sut.dynamicContext()
 
-            expect(context["$locale"] as? String) != nil
-            expect(context["$timezone"] as? String) != nil
-            expect(context["$network_wifi"] as? Bool) != nil
-            expect(context["$network_cellular"] as? Bool) != nil
+        #expect(context["$locale"] as? String != nil)
+        #expect(context["$timezone"] as? String != nil)
+        #expect(context["$network_wifi"] as? Bool != nil)
+        #expect(context["$network_cellular"] as? Bool != nil)
+    }
+
+    @Test("returns sdk info")
+    func returnsSdkInfo() {
+        let sut = getSut()
+
+        let context = sut.sdkInfo()
+
+        #expect(context["$lib"] as? String == "posthog-ios")
+        #expect(context["$lib_version"] as? String == postHogVersion)
+    }
+
+    @Test("returns person properties context")
+    func returnsPersonPropertiesContext() {
+        let sut = getSut()
+
+        let context = sut.personPropertiesContext()
+
+        // Check that it includes expected properties from static context
+        if Self.isXCTestHost {
+            #expect(context["$app_version"] as? String != nil)
+            #expect(context["$app_build"] as? Int != nil)
         }
+        #expect(context["$app_namespace"] as? String != nil)
 
-        it("returns sdk info") {
-            let sut = self.getSut()
+        #if os(iOS) || os(tvOS) || os(visionOS)
+            #expect(context["$os_name"] as? String != nil)
+            #expect(context["$os_version"] as? String != nil)
+            #expect(context["$device_type"] as? String != nil)
+        #endif
 
-            let context = sut.sdkInfo()
+        #expect(context["$lib"] as? String == "posthog-ios")
+        #expect(context["$lib_version"] as? String == postHogVersion)
 
-            expect(context["$lib"] as? String) == "posthog-ios"
-            expect(context["$lib_version"] as? String) == postHogVersion
-        }
-
-        it("returns person properties context") {
-            let sut = self.getSut()
-
-            let context = sut.personPropertiesContext()
-
-            // Check that it includes expected properties from static context
-            expect(context["$app_version"] as? String) != nil
-            expect(context["$app_build"] as? Int) != nil
-            expect(context["$app_namespace"] as? String) != nil
-
-            #if os(iOS) || os(tvOS) || os(visionOS)
-                expect(context["$os_name"] as? String) != nil
-                expect(context["$os_version"] as? String) != nil
-                expect(context["$device_type"] as? String) != nil
-            #endif
-
-            expect(context["$lib"] as? String) == "posthog-ios"
-            expect(context["$lib_version"] as? String) == postHogVersion
-
-            // Verify it doesn't include non-person properties
-            expect(context["$is_emulator"] as? Bool) == nil
-        }
+        // Verify it doesn't include non-person properties
+        #expect(context["$is_emulator"] as? Bool == nil)
     }
 }

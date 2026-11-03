@@ -25,6 +25,8 @@
          Note: an explicit `postHogMask()` always masks its region, even inside an area marked
          with `postHogNoMask()` — the explicit mask wins.
 
+         Note: for `.drawingGroup()` or `Canvas` content, apply this modifier to the group itself.
+
          For example:
          ```swift
          // This view will be masked in recordings

@@ -480,7 +480,18 @@ class PostHogApi {
         guard nsError.domain == NSURLErrorDomain else {
             return false
         }
-        return nsError.code == NSURLErrorTimedOut || nsError.code == NSURLErrorNetworkConnectionLost
+        // Refused connections (NSURLErrorCannotConnectToHost) are intentionally not retried.
+        switch nsError.code {
+        case NSURLErrorTimedOut,
+             NSURLErrorNetworkConnectionLost,
+             NSURLErrorNotConnectedToInternet,
+             NSURLErrorCannotFindHost,
+             NSURLErrorDNSLookupFailed,
+             NSURLErrorSecureConnectionFailed:
+            return true
+        default:
+            return false
+        }
     }
 
     private static func isRetryableFlagsStatusCode(_ statusCode: Int) -> Bool {

@@ -381,7 +381,7 @@ class PostHogReplayQueueTests {
     }
 
     @Test("events added while migration is running are not re-buffered")
-    func eventsDuringMigrationGoToInnerQueue() async throws {
+    func eventsDuringMigrationGoToInnerQueue() {
         let queue = createReplayQueue()
 
         final class SlowMigratingDelegate: PostHogReplayBufferDelegate {
@@ -411,8 +411,11 @@ class PostHogReplayQueueTests {
         #expect(queue.depth == 0)
 
         // Trigger migration on a background thread and pause inside delegate callback.
+        // Off the main thread migration runs inline, so add() returns once it finishes.
+        let migrationFinished = DispatchSemaphore(value: 0)
         DispatchQueue.global(qos: .userInitiated).async {
             queue.add(self.createTestEvent("snapshot_3"))
+            migrationFinished.signal()
         }
 
         let entered = slowDelegate.enteredMigration.wait(timeout: .now() + 2)
@@ -422,7 +425,7 @@ class PostHogReplayQueueTests {
         queue.add(createTestEvent("snapshot_4"))
 
         slowDelegate.continueMigration.signal()
-        try await Task.sleep(nanoseconds: 150_000_000)
+        #expect(migrationFinished.wait(timeout: .now() + 5) == .success)
 
         #expect(queue.bufferDepth == 0)
         #expect(queue.depth == 4)

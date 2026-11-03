@@ -7,6 +7,24 @@ func parseBundleVersion(_ value: String) -> Any {
     Int(value) ?? value
 }
 
+/// The Xcode toolchain that built the host app, read from the `DT*` keys Xcode stamps into
+/// the app's Info.plist at build time:
+/// - `$app_build_xcode`: `DTXcode`, e.g. `"2640"` for Xcode 26.4
+/// - `$app_build_sdk`: `DTSDKName`, e.g. `"iphoneos26.4"`
+///
+/// Values are sent as-is. A key is omitted when missing or not a non-empty string
+/// (command-line tools and some test hosts have no `DT*` keys).
+func appBuildToolchainProperties(_ infoDictionary: [String: Any]?) -> [String: Any] {
+    var properties: [String: Any] = [:]
+    if let xcode = infoDictionary?["DTXcode"] as? String, !xcode.isEmpty {
+        properties["$app_build_xcode"] = xcode
+    }
+    if let sdk = infoDictionary?["DTSDKName"] as? String, !sdk.isEmpty {
+        properties["$app_build_sdk"] = sdk
+    }
+    return properties
+}
+
 /// Reads `CFBundleShortVersionString` from the main bundle. Nil for command-line
 /// tools / XCTest hosts that lack an Info.plist short version string.
 func appVersionString() -> String? {

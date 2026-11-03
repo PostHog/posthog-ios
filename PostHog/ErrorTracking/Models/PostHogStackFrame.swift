@@ -40,21 +40,14 @@ struct PostHogStackFrame {
         dict["platform"] = "apple" // always the same for posthog-ios (may need to revisit)
         dict["in_app"] = inApp
 
-        if let module = module {
-            dict["module"] = module
-        }
-
-        if let package = package {
-            dict["package"] = package
-        }
+        dict["module"] = module
+        dict["package"] = package
 
         if let imageAddress = imageAddress {
             dict["image_addr"] = String(format: Self.hexAddressFormat, imageAddress)
         }
 
-        if let function = function {
-            dict["function"] = function
-        }
+        dict["function"] = function
 
         if let symbolAddress = symbolAddress {
             dict["symbol_addr"] = String(format: Self.hexAddressFormat, symbolAddress)

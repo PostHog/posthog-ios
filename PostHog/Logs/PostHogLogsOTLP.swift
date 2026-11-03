@@ -78,13 +78,19 @@ enum PostHogLogsOTLP {
     }
 
     /// Converts `[String: Any]` to an OTLP `KeyValue[]` list, dropping entries
-    /// whose values cannot be represented.
+    /// with an empty key or a value that cannot be represented.
     static func toKeyValueList(_ dict: [String: Any]) -> [[String: Any]] {
         var result: [[String: Any]] = []
         result.reserveCapacity(dict.count)
         // Sort keys so the wire output is deterministic — easier on tests and
         // diff-based debugging.
         for key in dict.keys.sorted() {
+            // OTLP requires a non-empty key; the server would store a nameless
+            // attribute nothing can filter on.
+            if key.isEmpty {
+                hedgeLog("Logs: dropping attribute with an empty key")
+                continue
+            }
             // NSNull / nil-bridged values are treated as absent rather than
             // serialized as a literal null — OTLP has no null AnyValue.
             let raw = dict[key]

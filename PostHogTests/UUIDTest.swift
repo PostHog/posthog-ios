@@ -6,11 +6,11 @@
 //
 
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
+import Testing
 
-class UUIDTest: QuickSpec {
+@Suite("UUID", .serialized, .resetsGlobalState)
+struct UUIDTest {
     private func compareULongs(_ l1: UInt64, _ l2: UInt64) -> Int {
         let high1 = Int32(bitPattern: UInt32((l1 >> 32) & 0xFFFF_FFFF))
         let high2 = Int32(bitPattern: UInt32((l2 >> 32) & 0xFFFF_FFFF))
@@ -30,68 +30,71 @@ class UUIDTest: QuickSpec {
         return Int(i2 < 0 ? -1 : (i1 - i2))
     }
 
-    override func spec() {
-        it("mostSignificantBits") {
-            let uuid = UUID(uuidString: "019025e6-b135-7e40-97df-ae0cebef184c")!
-            expect(uuid.mostSignificantBits) == 112_631_663_430_041_152
+    @Test("mostSignificantBits")
+    func mostSignificantBits() throws {
+        let uuid = try #require(UUID(uuidString: "019025e6-b135-7e40-97df-ae0cebef184c"))
+        #expect(uuid.mostSignificantBits == 112_631_663_430_041_152)
+    }
+
+    @Test("leastSignificantBits")
+    func leastSignificantBits() throws {
+        let uuid = try #require(UUID(uuidString: "019025e6-b135-7e40-97df-ae0cebef184c"))
+        #expect(uuid.leastSignificantBits == -7_503_087_083_654_801_332)
+    }
+
+    @Test("generates lowercase UUID strings")
+    func generatesLowercaseUUIDStrings() {
+        let uuidString = UUID.v7String()
+
+        #expect(uuidString.range(of: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$", options: .regularExpression) != nil)
+    }
+
+    @Test("formats UUID strings as lowercase")
+    func formatsUUIDStringsAsLowercase() throws {
+        let cases = [
+            (
+                input: "82CADE9D-1A41-744E-8462-1CDCFDB5B747",
+                expected: "82cade9d-1a41-744e-8462-1cdcfdb5b747"
+            ),
+            (
+                input: "82cade9d-1a41-744e-8462-1cdcfdb5b747",
+                expected: "82cade9d-1a41-744e-8462-1cdcfdb5b747"
+            ),
+            (
+                input: "82CaDe9D-1a41-744e-8462-1cDcFdB5B747",
+                expected: "82cade9d-1a41-744e-8462-1cdcfdb5b747"
+            ),
+        ]
+
+        for testCase in cases {
+            let uuid = try #require(UUID(uuidString: testCase.input))
+
+            #expect(uuid.postHogUuidString == testCase.expected)
+        }
+    }
+
+    @Test("test sorted and duplicated")
+    func sortedAndDuplicated() {
+        let count = 10000
+
+        var created: [UUID] = []
+        for _ in 0 ..< count {
+            created.append(UUID.v7())
         }
 
-        it("leastSignificantBits") {
-            let uuid = UUID(uuidString: "019025e6-b135-7e40-97df-ae0cebef184c")!
-            expect(uuid.leastSignificantBits) == -7_503_087_083_654_801_332
-        }
-
-        it("generates lowercase UUID strings") {
-            let uuidString = UUID.v7String()
-
-            expect(uuidString).to(match("^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$"))
-        }
-
-        it("formats UUID strings as lowercase") {
-            let cases = [
-                (
-                    input: "82CADE9D-1A41-744E-8462-1CDCFDB5B747",
-                    expected: "82cade9d-1a41-744e-8462-1cdcfdb5b747"
-                ),
-                (
-                    input: "82cade9d-1a41-744e-8462-1cdcfdb5b747",
-                    expected: "82cade9d-1a41-744e-8462-1cdcfdb5b747"
-                ),
-                (
-                    input: "82CaDe9D-1a41-744e-8462-1cDcFdB5B747",
-                    expected: "82cade9d-1a41-744e-8462-1cdcfdb5b747"
-                ),
-            ]
-
-            for testCase in cases {
-                let uuid = UUID(uuidString: testCase.input)!
-
-                expect(uuid.postHogUuidString).to(equal(testCase.expected))
+        let sortedUUIDs = created.sorted { uuid1, uuid2 in
+            if uuid1.mostSignificantBits != uuid2.mostSignificantBits {
+                return uuid1.mostSignificantBits < uuid2.mostSignificantBits
             }
+            return uuid1.leastSignificantBits < uuid2.leastSignificantBits
         }
 
-        it("test sorted and duplicated") {
-            let count = 10000
+        var unique: Set<UUID> = Set(minimumCapacity: count)
 
-            var created: [UUID] = []
-            for _ in 0 ..< count {
-                created.append(UUID.v7())
-            }
-
-            let sortedUUIDs = created.sorted { uuid1, uuid2 in
-                if uuid1.mostSignificantBits != uuid2.mostSignificantBits {
-                    return uuid1.mostSignificantBits < uuid2.mostSignificantBits
-                }
-                return uuid1.leastSignificantBits < uuid2.leastSignificantBits
-            }
-
-            var unique: Set<UUID> = Set(minimumCapacity: count)
-
-            for i in 0 ..< created.count {
-                expect(sortedUUIDs[i]) == created[i]
-                if !unique.insert(created[i]).inserted {
-                    fatalError("Duplicate at index \(i)")
-                }
+        for i in 0 ..< created.count {
+            #expect(sortedUUIDs[i] == created[i])
+            if !unique.insert(created[i]).inserted {
+                fatalError("Duplicate at index \(i)")
             }
         }
     }

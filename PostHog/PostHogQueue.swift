@@ -156,7 +156,11 @@ class PostHogQueue<Record> {
         if isRetriable {
             let newCount = nextRetryCount()
             let backoffDelay = min(TimeInterval(newCount) * retryDelay, maxRetryDelay)
-            let delay = max(backoffDelay, result.retryAfter ?? 0)
+            var retryAfter = result.retryAfter ?? 0
+            if let maxRetryAfter = endpoint.maxRetryAfterSeconds {
+                retryAfter = min(retryAfter, maxRetryAfter)
+            }
+            let delay = max(backoffDelay, retryAfter)
             pauseFor(seconds: delay)
             hedgeLog("Pausing queue consumption for \(delay) seconds due to \(newCount) API failure(s).")
             payload.completion(false)
@@ -544,6 +548,10 @@ class PostHogQueue<Record> {
 
         var currentRetryCountForTesting: Int {
             stateLock.withLock { retryCount }
+        }
+
+        var pausedUntilForTesting: Date? {
+            stateLock.withLock { pausedUntil }
         }
     }
 #endif

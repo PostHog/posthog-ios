@@ -532,6 +532,8 @@
                     hedgeLog("[Surveys] Received a show event for a non-active survey")
                     return nil
                 }
+                // start the wait period on show, so a restart before close does not skip it
+                setLastSeenSurveyDate(Date())
                 // clear up event-activated surveys
                 if activeSurvey.hasEvents {
                     eventActivatedSurveysLock.withLock { _ = eventActivatedSurveys.removeValue(forKey: activeSurvey.id) }
@@ -1089,10 +1091,6 @@
 
             var testActiveSurveyLanguage: String? {
                 activeSurveyLock.withLock { self.activeSurveyLanguage }
-            }
-
-            func testRefreshActiveSurveyTranslations() {
-                refreshActiveSurveyTranslations()
             }
 
             func getNextQuestion(index: Int, response: PostHogSurveyResponse) -> (Int, Bool)? {

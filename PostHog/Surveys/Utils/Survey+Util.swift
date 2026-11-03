@@ -136,14 +136,6 @@
         /**
          All modern browsers support the following 140 color names (see http://www.w3schools.com/cssref/css_colornames.asp)
          */
-        fileprivate static func hexFromCssName(_ cssName: String) -> String {
-            let key = cssName.uppercased()
-            if let hex = cssToHexDictionary[key] {
-                return hex
-            }
-            return cssName
-        }
-
         fileprivate static let cssToHexDictionary: [String: String] = [
             "CLEAR": "00000000",
             "TRANSPARENT": "00000000",

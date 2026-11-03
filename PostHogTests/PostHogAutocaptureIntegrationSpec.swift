@@ -6,114 +6,118 @@
 //
 
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
+import Testing
 
 #if os(iOS)
-    class PostHogAutocaptureIntegrationSpec: QuickSpec {
-        override func spec() {
-            var server: MockPostHogServer!
-            var integration: PostHogAutocaptureIntegration!
-            var posthog: PostHogSDK!
+    @Suite("PostHogAutocaptureIntegration", .serialized, .resetsGlobalState)
+    final class PostHogAutocaptureIntegrationSpec {
+        private let server: MockPostHogServer
+        private let integration: PostHogAutocaptureIntegration
+        private let posthog: PostHogSDK
 
-            beforeEach {
-                let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
-                config.captureElementInteractions = true
-                config.flushIntervalSeconds = 0.2
-                config.maxBatchSize = 1
-                config.disableFlushOnBackgroundForTesting = true
+        init() throws {
+            deleteSafely(applicationSupportDirectoryURL())
 
-                server = MockPostHogServer()
-                server.start()
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            config.captureElementInteractions = true
+            config.flushIntervalSeconds = 0.2
+            config.maxBatchSize = 1
+            config.disableFlushOnBackgroundForTesting = true
 
-                posthog = PostHogSDK.with(config)
+            server = MockPostHogServer()
+            server.start()
 
-                integration = posthog.getAutocaptureIntegration()
-                integration.start()
-            }
+            posthog = PostHogSDK.with(config)
 
-            afterEach {
-                server.stop()
-                server = nil
-                integration.stop()
-                posthog.endSession()
-                posthog.close()
-                deleteSafely(applicationSupportDirectoryURL())
-            }
+            integration = try #require(posthog.getAutocaptureIntegration())
+            integration.start()
+        }
 
-            context("when initialized") {
-                it("should set the eventProcessor to itself on start") {
-                    integration.start()
-                    expect(PostHogAutocaptureEventTracker.eventProcessor).to(beIdenticalTo(integration))
-                }
+        deinit {
+            server.stop()
+            integration.stop()
+            posthog.endSession()
+            posthog.close()
+            deleteSafely(applicationSupportDirectoryURL())
+        }
 
-                it("should clear the eventProcessor on stop") {
-                    integration.start()
-                    integration.stop()
-                    expect(PostHogAutocaptureEventTracker.eventProcessor).to(beNil())
-                }
-            }
+        // MARK: - when initialized
 
-            context("processing events") {
-                it("should process events without a debounce interval") {
-                    let event = createTestEventData()
-                    server.start(batchCount: 2)
+        @Test("should set the eventProcessor to itself on start")
+        func setsEventProcessorOnStart() {
+            integration.start()
+            #expect(PostHogAutocaptureEventTracker.eventProcessor === integration)
+        }
 
-                    integration.process(source: .actionMethod(description: "buttonPress"), event: event)
-                    integration.process(source: .actionMethod(description: "buttonPress"), event: event)
+        @Test("should clear the eventProcessor on stop")
+        func clearsEventProcessorOnStop() {
+            integration.start()
+            integration.stop()
+            #expect(PostHogAutocaptureEventTracker.eventProcessor == nil)
+        }
 
-                    let events = getBatchedEvents(server)
+        // MARK: - processing events
 
-                    expect(events.count).to(equal(2))
-                }
+        @Test("should process events without a debounce interval")
+        func processesEventsWithoutDebounce() {
+            let event = createTestEventData()
+            server.start(batchCount: 2)
 
-                it("should process events from different sources") {
-                    let event = createTestEventData()
+            integration.process(source: .actionMethod(description: "buttonPress"), event: event)
+            integration.process(source: .actionMethod(description: "buttonPress"), event: event)
 
-                    server.start(batchCount: 3)
+            let events = getBatchedEvents(server)
 
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .gestureRecognizer(description: "gesture1"), event: event)
+            #expect(events.count == 2)
+        }
 
-                    let events = getBatchedEvents(server)
+        @Test("should process events from different sources")
+        func processesEventsFromDifferentSources() {
+            let event = createTestEventData()
 
-                    expect(events.count).to(equal(3))
-                }
+            server.start(batchCount: 3)
 
-                it("should debounce events if debounceInterval is greater than 0") {
-                    let debouncedEvent = createTestEventData(debounceInterval: 0.2)
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .gestureRecognizer(description: "gesture1"), event: event)
 
-                    integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
-                    integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
-                    integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
-                    integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
-                    integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
-                    integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
+            let events = getBatchedEvents(server)
 
-                    posthog.flush()
+            #expect(events.count == 3)
+        }
 
-                    let debouncedEvents = getBatchedEvents(server)
+        @Test("should debounce events if debounceInterval is greater than 0")
+        func debouncesEvents() {
+            let debouncedEvent = createTestEventData(debounceInterval: 0.2)
 
-                    expect(debouncedEvents.count).to(equal(1))
+            integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
+            integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
+            integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
+            integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
+            integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
+            integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
 
-                    server.start(batchCount: 6)
-                    let event = createTestEventData()
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .actionMethod(description: "action"), event: event)
+            posthog.flush()
 
-                    posthog.flush()
+            let debouncedEvents = getBatchedEvents(server)
 
-                    let events = getBatchedEvents(server)
+            #expect(debouncedEvents.count == 1)
 
-                    expect(events.count).to(equal(6))
-                }
-            }
+            server.start(batchCount: 6)
+            let event = createTestEventData()
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .actionMethod(description: "action"), event: event)
+
+            posthog.flush()
+
+            let events = getBatchedEvents(server)
+
+            #expect(events.count == 6)
         }
     }
 

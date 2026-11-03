@@ -16,8 +16,6 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/Quick/Quick.git", from: "6.0.0"),
-        .package(url: "https://github.com/Quick/Nimble.git", from: "12.0.0"),
         .package(url: "https://github.com/AliSoftware/OHHTTPStubs.git", from: "9.0.0"),
     ],
     targets: [
@@ -95,8 +93,6 @@ let package = Package(
             dependencies: [
                 "PostHog",
                 "PostHogTestsObjC",
-                "Quick",
-                "Nimble",
                 "OHHTTPStubs",
                 .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs"),
                 // The crash-report processor tests import this directly to build a PHPLCrashReport.

@@ -148,11 +148,6 @@ private extension GzipError.Kind {
 }
 
 extension Data {
-    /// Whether the receiver is compressed in gzip format.
-    var isGzipped: Bool {
-        starts(with: [0x1F, 0x8B]) // check magic number
-    }
-
     /// Create a new `Data` instance by compressing the receiver using zlib.
     /// Throws an error if compression failed.
     ///

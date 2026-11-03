@@ -6,11 +6,15 @@
 //
 
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
+import Testing
 
-class PostHogFileBackedQueueTest: QuickSpec {
+@Suite("PostHog file backed queue", .serialized, .resetsGlobalState)
+struct PostHogFileBackedQueueTest {
+    init() {
+        deleteSafely(applicationSupportDirectoryURL())
+    }
+
     let eventJson =
         """
         {
@@ -59,7 +63,7 @@ class PostHogFileBackedQueueTest: QuickSpec {
         }
         """
 
-    func getSut() -> PostHogFileBackedQueue {
+    private func getSut() -> PostHogFileBackedQueue {
         let baseUrl = applicationSupportDirectoryURL()
         let oldURL = baseUrl.appendingPathComponent("oldQueue")
         let newURL = baseUrl.appendingPathComponent("queue")
@@ -67,279 +71,288 @@ class PostHogFileBackedQueueTest: QuickSpec {
         return PostHogFileBackedQueue(queue: newURL, oldQueues: [oldURL])
     }
 
-    override func spec() {
-        it("create folder and init queue") {
-            let sut = self.getSut()
+    @Test("create folder and init queue")
+    func createFolderAndInitQueue() {
+        let sut = getSut()
 
-            expect(sut.depth) == 0
-            expect(FileManager.default.fileExists(atPath: sut.queue.path)) == true
+        #expect(sut.depth == 0)
+        #expect(FileManager.default.fileExists(atPath: sut.queue.path))
 
-            sut.clear()
+        sut.clear()
+    }
+
+    @Test("load cached files into memory")
+    func loadCachedFilesIntoMemory() throws {
+        let baseUrl = applicationSupportDirectoryURL()
+        let newURL = baseUrl.appendingPathComponent("queue")
+        try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+
+        let eventURL = newURL.appendingPathComponent("1698236044.407")
+        let eventsData = try #require(eventJson.data(using: .utf8))
+        try eventsData.write(to: eventURL)
+
+        #expect(FileManager.default.fileExists(atPath: eventURL.path))
+
+        let sut = getSut()
+
+        #expect(sut.depth == 1)
+        let items = sut.peek(1)
+        #expect(items.first != nil)
+
+        sut.clear()
+    }
+
+    @Test("trims cached files to configured capacity on load")
+    func trimsCachedFilesToConfiguredCapacityOnLoad() throws {
+        let baseUrl = applicationSupportDirectoryURL()
+        let newURL = baseUrl.appendingPathComponent("queue")
+        try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+
+        let oldestURL = newURL.appendingPathComponent("cached-oldest")
+        let middleURL = newURL.appendingPathComponent("cached-middle")
+        let newestURL = newURL.appendingPathComponent("cached-newest")
+        let oldestData = Data("cached-0".utf8)
+        let middleData = Data("cached-1".utf8)
+        let newestData = Data("cached-2".utf8)
+
+        for (url, data, creationDate, modificationDate) in [
+            (newestURL, newestData, Date(timeIntervalSince1970: 300), Date(timeIntervalSince1970: 100)),
+            (oldestURL, oldestData, Date(timeIntervalSince1970: 100), Date(timeIntervalSince1970: 300)),
+            (middleURL, middleData, Date(timeIntervalSince1970: 200), Date(timeIntervalSince1970: 200)),
+        ] {
+            try data.write(to: url)
+            try FileManager.default.setAttributes([.modificationDate: modificationDate], ofItemAtPath: url.path)
+            try FileManager.default.setAttributes([.creationDate: creationDate], ofItemAtPath: url.path)
         }
 
-        it("load cached files into memory") {
-            let baseUrl = applicationSupportDirectoryURL()
-            let newURL = baseUrl.appendingPathComponent("queue")
-            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+        let sut = PostHogFileBackedQueue(queue: newURL, maxSize: 2)
 
-            let eventURL = newURL.appendingPathComponent("1698236044.407")
-            let eventsData = self.eventJson.data(using: .utf8)!
-            try eventsData.write(to: eventURL)
+        #expect(sut.depth == 2)
+        #expect(sut.peek(2) == [middleData, newestData])
+        #expect(!FileManager.default.fileExists(atPath: oldestURL.path))
+        #expect(FileManager.default.fileExists(atPath: middleURL.path))
+        #expect(FileManager.default.fileExists(atPath: newestURL.path))
 
-            expect(FileManager.default.fileExists(atPath: eventURL.path)) == true
+        sut.clear()
+    }
 
-            let sut = self.getSut()
+    @Test("delete from queue and disk")
+    func deleteFromQueueAndDisk() throws {
+        let baseUrl = applicationSupportDirectoryURL()
+        let newURL = baseUrl.appendingPathComponent("queue")
+        try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
 
-            expect(sut.depth) == 1
-            let items = sut.peek(1)
-            expect(items.first) != nil
+        let eventURL = newURL.appendingPathComponent("1698236044.407")
+        let eventsData = try #require(eventJson.data(using: .utf8))
+        try eventsData.write(to: eventURL)
 
-            sut.clear()
-        }
+        #expect(FileManager.default.fileExists(atPath: eventURL.path))
 
-        it("trims cached files to configured capacity on load") {
-            let baseUrl = applicationSupportDirectoryURL()
-            let newURL = baseUrl.appendingPathComponent("queue")
-            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+        let sut = getSut()
 
-            let oldestURL = newURL.appendingPathComponent("cached-oldest")
-            let middleURL = newURL.appendingPathComponent("cached-middle")
-            let newestURL = newURL.appendingPathComponent("cached-newest")
-            let oldestData = Data("cached-0".utf8)
-            let middleData = Data("cached-1".utf8)
-            let newestData = Data("cached-2".utf8)
+        sut.delete(index: 0)
 
-            for (url, data, creationDate, modificationDate) in [
-                (newestURL, newestData, Date(timeIntervalSince1970: 300), Date(timeIntervalSince1970: 100)),
-                (oldestURL, oldestData, Date(timeIntervalSince1970: 100), Date(timeIntervalSince1970: 300)),
-                (middleURL, middleData, Date(timeIntervalSince1970: 200), Date(timeIntervalSince1970: 200)),
-            ] {
-                try data.write(to: url)
-                try FileManager.default.setAttributes([.modificationDate: modificationDate], ofItemAtPath: url.path)
-                try FileManager.default.setAttributes([.creationDate: creationDate], ofItemAtPath: url.path)
+        #expect(sut.depth == 0)
+        #expect(!FileManager.default.fileExists(atPath: eventURL.path))
+
+        sut.clear()
+    }
+
+    @Test("pop from queue and disk")
+    func popFromQueueAndDisk() throws {
+        let baseUrl = applicationSupportDirectoryURL()
+        let newURL = baseUrl.appendingPathComponent("queue")
+        try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+
+        let eventURL = newURL.appendingPathComponent("1698236044.407")
+        let eventsData = try #require(eventJson.data(using: .utf8))
+        try eventsData.write(to: eventURL)
+
+        #expect(FileManager.default.fileExists(atPath: eventURL.path))
+
+        let sut = getSut()
+
+        sut.pop(1)
+
+        #expect(sut.depth == 0)
+        #expect(!FileManager.default.fileExists(atPath: eventURL.path))
+
+        sut.clear()
+    }
+
+    @Test("removes exact stable entry identities")
+    func removesExactStableEntryIdentities() throws {
+        let sut = getSut()
+        let identicalData = try #require(eventJson.data(using: .utf8))
+
+        sut.add(identicalData)
+        sut.add(identicalData)
+        sut.add(identicalData)
+
+        let entries = sut.peekEntries(3)
+        #expect(Set(entries.map(\.id)).count == 3)
+        try #require(entries.map(\.data) == [identicalData, identicalData, identicalData])
+
+        sut.remove(ids: [entries[0].id, entries[2].id, "missing-entry"])
+
+        let remaining = sut.peekEntries(3)
+        #expect(remaining.map(\.id) == [entries[1].id])
+        #expect(sut.depth == 1)
+        #expect(!FileManager.default.fileExists(atPath: sut.queue.appendingPathComponent(entries[0].id).path))
+        #expect(FileManager.default.fileExists(atPath: sut.queue.appendingPathComponent(entries[1].id).path))
+        #expect(!FileManager.default.fileExists(atPath: sut.queue.appendingPathComponent(entries[2].id).path))
+
+        sut.clear()
+    }
+
+    @Test("enforces capacity atomically across concurrent adds")
+    func enforcesCapacityAtomicallyAcrossConcurrentAdds() {
+        let sut = getSut()
+        let capacity = 3
+        let group = DispatchGroup()
+        let producers = DispatchQueue(label: "com.posthog.file-queue-capacity-test", attributes: .concurrent)
+
+        for value in 0 ..< 100 {
+            group.enter()
+            producers.async {
+                sut.add(Data("event-\(value)".utf8), maxSize: capacity)
+                group.leave()
             }
-
-            let sut = PostHogFileBackedQueue(queue: newURL, maxSize: 2)
-
-            expect(sut.depth) == 2
-            expect(sut.peek(2)) == [middleData, newestData]
-            expect(FileManager.default.fileExists(atPath: oldestURL.path)) == false
-            expect(FileManager.default.fileExists(atPath: middleURL.path)) == true
-            expect(FileManager.default.fileExists(atPath: newestURL.path)) == true
-
-            sut.clear()
         }
 
-        it("delete from queue and disk") {
-            let baseUrl = applicationSupportDirectoryURL()
-            let newURL = baseUrl.appendingPathComponent("queue")
-            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+        #expect(group.wait(timeout: .now() + 5) == .success)
+        #expect(sut.depth == capacity)
+        #expect((try? FileManager.default.contentsOfDirectory(atPath: sut.queue.path).count) == capacity)
 
-            let eventURL = newURL.appendingPathComponent("1698236044.407")
-            let eventsData = self.eventJson.data(using: .utf8)!
-            try eventsData.write(to: eventURL)
+        sut.clear()
+    }
 
-            expect(FileManager.default.fileExists(atPath: eventURL.path)) == true
+    @Test("add to queue and disk")
+    func addToQueueAndDisk() throws {
+        let baseUrl = applicationSupportDirectoryURL()
+        let newURL = baseUrl.appendingPathComponent("queue")
+        try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
 
-            let sut = self.getSut()
+        let eventsData = try #require(eventJson.data(using: .utf8))
 
-            sut.delete(index: 0)
+        let sut = getSut()
 
-            expect(sut.depth) == 0
-            expect(FileManager.default.fileExists(atPath: eventURL.path)) == false
+        sut.add(eventsData)
 
-            sut.clear()
-        }
+        let items = try FileManager.default.contentsOfDirectory(atPath: newURL.path)
+        #expect(sut.depth == 1)
+        #expect(items.count == 1)
 
-        it("pop from queue and disk") {
-            let baseUrl = applicationSupportDirectoryURL()
-            let newURL = baseUrl.appendingPathComponent("queue")
-            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+        sut.clear()
+    }
 
-            let eventURL = newURL.appendingPathComponent("1698236044.407")
-            let eventsData = self.eventJson.data(using: .utf8)!
-            try eventsData.write(to: eventURL)
+    @Test("clear queue and disk")
+    func clearQueueAndDisk() throws {
+        let baseUrl = applicationSupportDirectoryURL()
+        let newURL = baseUrl.appendingPathComponent("queue")
+        try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
 
-            expect(FileManager.default.fileExists(atPath: eventURL.path)) == true
+        let eventsData = try #require(eventJson.data(using: .utf8))
 
-            let sut = self.getSut()
+        let sut = getSut()
 
-            sut.pop(1)
+        sut.add(eventsData)
+        sut.clear()
 
-            expect(sut.depth) == 0
-            expect(FileManager.default.fileExists(atPath: eventURL.path)) == false
+        let items = try FileManager.default.contentsOfDirectory(atPath: newURL.path)
+        #expect(sut.depth == 0)
+        #expect(items.count == 0)
+    }
 
-            sut.clear()
-        }
+    @Test("loads and sorts files in chronological order")
+    func loadsAndSortsFilesInChronologicalOrder() throws {
+        let baseUrl = applicationSupportDirectoryURL()
+        let newURL = baseUrl.appendingPathComponent("queue")
+        try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
 
-        it("removes exact stable entry identities") {
-            let sut = self.getSut()
-            let identicalData = self.eventJson.data(using: .utf8)!
+        // Create files in expected order with delays to ensure distinct modification dates
+        let file1 = newURL.appendingPathComponent("1698236044.407")
+        try "event-1".data(using: .utf8)!.write(to: file1)
+        Thread.sleep(forTimeInterval: 0.01)
 
-            sut.add(identicalData)
-            sut.add(identicalData)
-            sut.add(identicalData)
+        let file2 = newURL.appendingPathComponent("A1B2C3D4-E5F6-7890-ABCD-EF1234567890")
+        try "event-2".data(using: .utf8)!.write(to: file2)
+        Thread.sleep(forTimeInterval: 0.01)
 
-            let entries = sut.peekEntries(3)
-            expect(Set(entries.map(\.id)).count) == 3
-            expect(entries.map(\.data)) == [identicalData, identicalData, identicalData]
+        let file3 = newURL.appendingPathComponent("1698236046.789")
+        try "event-3".data(using: .utf8)!.write(to: file3)
+        Thread.sleep(forTimeInterval: 0.01)
 
-            sut.remove(ids: [entries[0].id, entries[2].id, "missing-entry"])
+        let file4 = newURL.appendingPathComponent("F1E2D3C4-B5A6-7890-1234-567890ABCDEF")
+        try "event-4".data(using: .utf8)!.write(to: file4)
+        Thread.sleep(forTimeInterval: 0.01)
 
-            let remaining = sut.peekEntries(3)
-            expect(remaining.map(\.id)) == [entries[1].id]
-            expect(sut.depth) == 1
-            expect(FileManager.default.fileExists(atPath: sut.queue.appendingPathComponent(entries[0].id).path)) == false
-            expect(FileManager.default.fileExists(atPath: sut.queue.appendingPathComponent(entries[1].id).path)) == true
-            expect(FileManager.default.fileExists(atPath: sut.queue.appendingPathComponent(entries[2].id).path)) == false
+        let file5 = newURL.appendingPathComponent("1698236045.123")
+        try "event-5".data(using: .utf8)!.write(to: file5)
+        Thread.sleep(forTimeInterval: 0.01)
 
-            sut.clear()
-        }
+        let file6 = newURL.appendingPathComponent("G1H2I3J4-K5L6-7890-1234-567890ABCDEF")
+        try "event-6".data(using: .utf8)!.write(to: file6)
 
-        it("enforces capacity atomically across concurrent adds") {
-            let sut = self.getSut()
-            let capacity = 3
-            let group = DispatchGroup()
-            let producers = DispatchQueue(label: "com.posthog.file-queue-capacity-test", attributes: .concurrent)
+        // Initialize queue - should load and sort all files correctly
+        let sut = getSut()
 
-            for value in 0 ..< 100 {
-                group.enter()
-                producers.async {
-                    sut.add(Data("event-\(value)".utf8), maxSize: capacity)
-                    group.leave()
-                }
-            }
+        // Verify FIFO order - sorted by modification date (oldest first)
+        let items = sut.peek(6)
+        try #require(items.count == 6)
+        #expect(String(data: items[0], encoding: .utf8) == "event-1")
+        #expect(String(data: items[1], encoding: .utf8) == "event-2")
+        #expect(String(data: items[2], encoding: .utf8) == "event-3")
+        #expect(String(data: items[3], encoding: .utf8) == "event-4")
+        #expect(String(data: items[4], encoding: .utf8) == "event-5")
+        #expect(String(data: items[5], encoding: .utf8) == "event-6")
 
-            expect(group.wait(timeout: .now() + 5)) == .success
-            expect(sut.depth) == capacity
-            expect(try? FileManager.default.contentsOfDirectory(atPath: sut.queue.path).count) == capacity
+        sut.clear()
+    }
 
-            sut.clear()
-        }
+    @Test("migrates files from old queue folder to new queue folder")
+    func migratesFilesFromOldQueueFolderToNewQueueFolder() throws {
+        let baseUrl = applicationSupportDirectoryURL()
+        let oldQueueFolder = baseUrl.appendingPathComponent("posthog.queueFolder")
+        let newQueueFolder = baseUrl.appendingPathComponent("posthog.queueFolder.uuid")
 
-        it("add to queue and disk") {
-            let baseUrl = applicationSupportDirectoryURL()
-            let newURL = baseUrl.appendingPathComponent("queue")
-            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+        // Clean up any existing folders
+        try? FileManager.default.removeItem(at: oldQueueFolder)
+        try? FileManager.default.removeItem(at: newQueueFolder)
 
-            let eventsData = self.eventJson.data(using: .utf8)!
+        // Create old queue folder with some files (simulating pre-3.49.0 SDK)
+        try FileManager.default.createDirectory(at: oldQueueFolder, withIntermediateDirectories: true)
 
-            let sut = self.getSut()
+        let file1 = oldQueueFolder.appendingPathComponent("1698236044.407")
+        try "event-1".data(using: .utf8)!.write(to: file1)
 
-            sut.add(eventsData)
+        let file2 = oldQueueFolder.appendingPathComponent("1698236045.123")
+        try "event-2".data(using: .utf8)!.write(to: file2)
 
-            let items = try FileManager.default.contentsOfDirectory(atPath: newURL.path)
-            expect(sut.depth) == 1
-            expect(items.count) == 1
+        let file3 = oldQueueFolder.appendingPathComponent("A1B2C3D4-E5F6-7890-ABCD-EF1234567890")
+        try "event-3".data(using: .utf8)!.write(to: file3)
 
-            sut.clear()
-        }
+        #expect(FileManager.default.fileExists(atPath: oldQueueFolder.path))
+        #expect(!FileManager.default.fileExists(atPath: newQueueFolder.path))
 
-        it("clear queue and disk") {
-            let baseUrl = applicationSupportDirectoryURL()
-            let newURL = baseUrl.appendingPathComponent("queue")
-            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+        // Initialize queue with old folder as migration source
+        let sut = PostHogFileBackedQueue(queue: newQueueFolder, oldQueues: [oldQueueFolder])
 
-            let eventsData = self.eventJson.data(using: .utf8)!
+        // Verify migration happened
+        #expect(!FileManager.default.fileExists(atPath: oldQueueFolder.path))
+        #expect(FileManager.default.fileExists(atPath: newQueueFolder.path))
 
-            let sut = self.getSut()
+        // Verify all files were migrated and are readable
+        #expect(sut.depth == 3)
+        let items = sut.peek(3)
+        #expect(items.count == 3)
 
-            sut.add(eventsData)
-            sut.clear()
+        // Verify content (order may vary based on modification date)
+        let contents = items.map { String(data: $0, encoding: .utf8) }
+        #expect(contents.contains("event-1"))
+        #expect(contents.contains("event-2"))
+        #expect(contents.contains("event-3"))
 
-            let items = try FileManager.default.contentsOfDirectory(atPath: newURL.path)
-            expect(sut.depth) == 0
-            expect(items.count) == 0
-        }
-
-        it("loads and sorts files in chronological order") {
-            let baseUrl = applicationSupportDirectoryURL()
-            let newURL = baseUrl.appendingPathComponent("queue")
-            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
-
-            // Create files in expected order with delays to ensure distinct modification dates
-            let file1 = newURL.appendingPathComponent("1698236044.407")
-            try "event-1".data(using: .utf8)!.write(to: file1)
-            Thread.sleep(forTimeInterval: 0.01)
-
-            let file2 = newURL.appendingPathComponent("A1B2C3D4-E5F6-7890-ABCD-EF1234567890")
-            try "event-2".data(using: .utf8)!.write(to: file2)
-            Thread.sleep(forTimeInterval: 0.01)
-
-            let file3 = newURL.appendingPathComponent("1698236046.789")
-            try "event-3".data(using: .utf8)!.write(to: file3)
-            Thread.sleep(forTimeInterval: 0.01)
-
-            let file4 = newURL.appendingPathComponent("F1E2D3C4-B5A6-7890-1234-567890ABCDEF")
-            try "event-4".data(using: .utf8)!.write(to: file4)
-            Thread.sleep(forTimeInterval: 0.01)
-
-            let file5 = newURL.appendingPathComponent("1698236045.123")
-            try "event-5".data(using: .utf8)!.write(to: file5)
-            Thread.sleep(forTimeInterval: 0.01)
-
-            let file6 = newURL.appendingPathComponent("G1H2I3J4-K5L6-7890-1234-567890ABCDEF")
-            try "event-6".data(using: .utf8)!.write(to: file6)
-
-            // Initialize queue - should load and sort all files correctly
-            let sut = self.getSut()
-
-            // Verify FIFO order - sorted by modification date (oldest first)
-            let items = sut.peek(6)
-            expect(items.count) == 6
-            expect(String(data: items[0], encoding: .utf8)) == "event-1"
-            expect(String(data: items[1], encoding: .utf8)) == "event-2"
-            expect(String(data: items[2], encoding: .utf8)) == "event-3"
-            expect(String(data: items[3], encoding: .utf8)) == "event-4"
-            expect(String(data: items[4], encoding: .utf8)) == "event-5"
-            expect(String(data: items[5], encoding: .utf8)) == "event-6"
-
-            sut.clear()
-        }
-
-        it("migrates files from old queue folder to new queue folder") {
-            let baseUrl = applicationSupportDirectoryURL()
-            let oldQueueFolder = baseUrl.appendingPathComponent("posthog.queueFolder")
-            let newQueueFolder = baseUrl.appendingPathComponent("posthog.queueFolder.uuid")
-
-            // Clean up any existing folders
-            try? FileManager.default.removeItem(at: oldQueueFolder)
-            try? FileManager.default.removeItem(at: newQueueFolder)
-
-            // Create old queue folder with some files (simulating pre-3.49.0 SDK)
-            try FileManager.default.createDirectory(at: oldQueueFolder, withIntermediateDirectories: true)
-
-            let file1 = oldQueueFolder.appendingPathComponent("1698236044.407")
-            try "event-1".data(using: .utf8)!.write(to: file1)
-
-            let file2 = oldQueueFolder.appendingPathComponent("1698236045.123")
-            try "event-2".data(using: .utf8)!.write(to: file2)
-
-            let file3 = oldQueueFolder.appendingPathComponent("A1B2C3D4-E5F6-7890-ABCD-EF1234567890")
-            try "event-3".data(using: .utf8)!.write(to: file3)
-
-            expect(FileManager.default.fileExists(atPath: oldQueueFolder.path)) == true
-            expect(FileManager.default.fileExists(atPath: newQueueFolder.path)) == false
-
-            // Initialize queue with old folder as migration source
-            let sut = PostHogFileBackedQueue(queue: newQueueFolder, oldQueues: [oldQueueFolder])
-
-            // Verify migration happened
-            expect(FileManager.default.fileExists(atPath: oldQueueFolder.path)) == false
-            expect(FileManager.default.fileExists(atPath: newQueueFolder.path)) == true
-
-            // Verify all files were migrated and are readable
-            expect(sut.depth) == 3
-            let items = sut.peek(3)
-            expect(items.count) == 3
-
-            // Verify content (order may vary based on modification date)
-            let contents = items.map { String(data: $0, encoding: .utf8) }
-            expect(contents).to(contain("event-1"))
-            expect(contents).to(contain("event-2"))
-            expect(contents).to(contain("event-3"))
-
-            sut.clear()
-        }
+        sut.clear()
     }
 }

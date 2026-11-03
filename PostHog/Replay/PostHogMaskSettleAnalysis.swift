@@ -20,12 +20,13 @@
                 self.rect = rect
             }
 
+            /// Covers everything the view draws itself, including content past its bounds.
             init(_ view: UIView, in window: UIWindow?) {
-                self.init(view, rect: view.toPresentationRect(window))
+                self.init(view, rect: view.toPresentationRect(window, outsets: view.drawnOutsets))
             }
 
             init(_ layer: CALayer, in window: UIWindow?) {
-                self.init(layer, rect: layer.toPresentationRect(window))
+                self.init(layer, rect: layer.toPresentationRect(window, outsets: layer.drawnOutsets(of: layer.bounds)))
             }
         }
 

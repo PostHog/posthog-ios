@@ -34,7 +34,7 @@ When the PR is merged to `main`, the release workflow will automatically:
    - Update the `CHANGELOG.md`
    - Commit the version bump to `main`
    - Create a git tag and GitHub release
-   - Publish the pod to CocoaPods
+   - Publish the pod to CocoaPods (best-effort, see [CocoaPods publish failed](#cocoapods-publish-failed))
    - SPM uses the tag name to determine the version, directly from the repo
 
 ### Manual Trigger
@@ -74,11 +74,17 @@ If the release workflow fails with "No changesets found", ensure your PR include
 
 Make sure the PR includes a changeset file and was merged to `main`, or trigger the workflow manually from the Actions tab.
 
-### Manual CocoaPods publish (emergency only)
+### CocoaPods publish failed
 
-In case of automation failure, you can manually publish:
+CocoaPods publishing is best-effort and does not block the release. If the "Publish to CocoaPods" job fails, the run still succeeds once the tag and GitHub release exist, the "released" Slack notification still goes out, and the Slack release thread gets a reply saying whether the version was published to CocoaPods, so you know when the pod is missing.
+
+CocoaPods Trunk becomes permanently read-only on December 2nd 2026, after which new pod versions can no longer be published.
+
+To publish a missed pod manually, check out the release tag and push it:
 
 ```bash
+git fetch --tags
+git checkout <version>  # e.g. 3.93.3
 make releaseCocoaPods
 ```
 

@@ -13,7 +13,7 @@
     import UIKit
     import WebKit
 
-    class PostHogReplayIntegration: PostHogIntegration {
+    class PostHogReplayIntegration: PostHogIntegration { // swiftlint:disable:this type_body_length
         var requiresSwizzling: Bool { true }
 
         private static let integrationInstallState = PostHogIntegrationInstallState()

@@ -109,7 +109,7 @@ If an app updates from a 2.x SDK straight to 4.0, events still queued on disk by
 
 ## Compile errors and how to fix them
 
-Removed and renamed APIs fail to build, usually with a "has no member" or "cannot find in scope" error that doesn't name the replacement, so look them up here. Objective-C names are listed where they differ.
+Removed and renamed APIs fail to build. For most of them Xcode names the replacement, and offers a fix-it for plain renames. Internal and utility APIs get a plain "cannot find in scope" error, so look those up here. Objective-C names are listed where they differ.
 
 ### Configuration
 

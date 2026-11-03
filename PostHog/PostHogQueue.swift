@@ -487,9 +487,15 @@ class PostHogQueue<Record> {
     #if !os(watchOS)
         /// Applies the latest shared reachability snapshot and returns whether
         /// this queue may send under its configured data mode.
+        ///
+        /// Doesn't wait for the first path. While the connection is unknown, `.any`
+        /// stays unpaused (a failed send is kept and retried) and `.wifi` stays paused;
+        /// the first path's `onReachable`/`onUnreachable` notification then sets the
+        /// real state. Reading inside `stateLock` keeps that notification, if it races
+        /// with `start()`, from being overwritten by this stale unknown.
         private func updatePauseState(for reachability: Reachability) -> Bool {
-            let connection = reachability.connection
-            return stateLock.withLock {
+            stateLock.withLock {
+                let connection = reachability.connectionIfKnown
                 if connection == .unavailable {
                     hedgeLog("Queue is paused because network is unreachable")
                     paused = true

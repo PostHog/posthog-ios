@@ -868,6 +868,10 @@ let maxRetryDelay = 30.0
             }
             callerProps.removeValue(forKey: key)
         }
+        // A null caller $session_id counts as unset, so the SDK session fills it.
+        if callerProps["$session_id"] is NSNull {
+            callerProps.removeValue(forKey: "$session_id")
+        }
         // A caller-supplied $groups adds to the registered and per-call groups instead of replacing them.
         if let callerGroups = callerProps["$groups"] as? [String: Any], let currentGroups = props["$groups"] as? [String: Any] {
             callerProps["$groups"] = currentGroups.merging(callerGroups) { _, new in new }.merging((groups ?? [:]) as [String: Any]) { _, new in new }

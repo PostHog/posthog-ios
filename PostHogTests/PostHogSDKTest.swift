@@ -1335,6 +1335,20 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("a null caller $session_id falls back to the SDK session")
+    func nullCallerSessionIdUsesSdkSession() throws {
+        let sut = getSut()
+        sut.sessionManager.setSessionId("00000000-0000-7000-8000-000000000042")
+
+        sut.capture("event", properties: ["$session_id": NSNull()])
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.properties["$session_id"] as? String == "00000000-0000-7000-8000-000000000042")
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("a $snapshot without a usable $session_id is dropped", arguments: ["", "  ", 1] as [AnyHashable])
     func snapshotWithoutUsableSessionIdIsDropped(sessionId: AnyHashable) throws {
         server.reset(batchCount: 0, snapshotCount: 1)

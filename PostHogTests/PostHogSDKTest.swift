@@ -1047,9 +1047,9 @@ final class PostHogSDKTests {
     func keepsLegacyOptionPropertiesOnMinimalFeatureFlagEvents() throws {
         server.minimalFlagCalledEvents = true
         let sut = getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
-        sut.register(["$cookieless_mode": true, "$ignore_sent_at": true, "$product_tour_id": "tour"])
 
         waitForFeatureFlagsLoaded(server, sut)
+        sut.register(["$cookieless_mode": true, "$ignore_sent_at": true, "$product_tour_id": "tour"])
         #expect(sut.isFeatureEnabled("string-value") == true)
 
         let events = getBatchedEvents(server)

@@ -29,6 +29,7 @@ jobs:
         env:
           SLACK_CHANNEL_ID: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
         with:
+          retries: 3
           script: |
             const notification = require('./scripts/release-failure-notification.cjs');
             const payload = await notification({ github, context, channel: process.env.SLACK_CHANNEL_ID });

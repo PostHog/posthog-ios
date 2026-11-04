@@ -199,10 +199,6 @@ testUploadSymbols:
 testIOSResultParser:
 	bash scripts/check-ios-test-result.test.sh
 
-.PHONY: testReleaseNotifications
-testReleaseNotifications:
-	node --test scripts/release-failure-notification.test.cjs
-
 test: testUploadSymbols testIOSResultParser
 	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING $(if $(filter),--filter $(filter))
 

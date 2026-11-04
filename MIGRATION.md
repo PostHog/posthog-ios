@@ -122,11 +122,11 @@ Feature flags aren't affected: the SDK doesn't send `$locale` or `$app_language`
 
 4.0 sends analytics events to capture v1 (`/i/v1/analytics/events`) instead of `/batch`. Most apps upgrade without code changes, and nothing here produces a compile error. Read the checklist first, then the sections that apply to you.
 
-<!-- TODO(capture-v1): when the public capture v1 SDK upgrade guide is published (PostHog/posthog.com#21386), link it here for details on options, limits and per-event results. -->
+For the changes every capture v1 SDK shares, such as event options, limits and per-event results, see [Upgrading to capture v1 SDKs](https://posthog.com/docs/libraries/capture-v1).
 
-### Do you need to change anything?
+### Checklist
 
-You need to change something if your app does any of these:
+You need to change code if your app does any of these:
 
 - sends events to a self-hosted PostHog or a reverse proxy that doesn't serve `/i/v1/analytics/events`
 - authenticates its proxy with an `Authorization` header in `requestHeaders`
@@ -140,6 +140,7 @@ You need to change something if your app does any of these:
 - registers a super property, or passes an event property, with the same key as one the SDK sets, such as `$os`, `$is_identified` or `$geoip_disable`, and expects the SDK's value to win
 - sets `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` to a value PostHog can't read, such as `"maybe"`
 - relies on a `Retry-After` longer than 30 seconds
+- reads the SDK's debug log, for example in log-based alerts
 
 ### Endpoints
 
@@ -155,7 +156,7 @@ Capture v1 requests send the project token in an `Authorization: Bearer <project
 This header replaces any `Authorization` header you set in `PostHogConfig.requestHeaders`, so authenticate your proxy with a different header, such as `X-Proxy-Token`.
 Other requests still send your `Authorization` header.
 
-A personal API key (`phx_...`) in `projectToken` now disables the SDK at setup, as an empty token does, and prints a warning explaining why, also without `debug`. To turn the SDK off in tests, use an empty token.
+A personal API key (`phx_...`) in `projectToken` now disables the SDK at setup, as an empty or whitespace-only token does, and prints a warning explaining why, also without `debug`. The SDK trims whitespace from `projectToken`, as in 3.x. To turn the SDK off in tests, use an empty token.
 In 3.x, the SDK started and PostHog rejected every event with a 401. Use your project token (`phc_...`).
 
 #### Hosts without capture v1
@@ -191,6 +192,7 @@ The SDK drops an event with an empty event name before sending it, for example `
 
 The SDK doesn't check these before sending. PostHog drops the event, and the SDK removes it from the queue.
 With `debug` on, the SDK logs how many events were dropped and why. There's no error callback, and the log text changed from 3.x, so update any log-based alerts.
+The line has counts and PostHog's drop reasons, never event names, uuids or properties.
 
 - An event with an empty or whitespace-only distinct ID is dropped, for example one `beforeSend` sets to `""`.
   An empty or whitespace-only `distinctId` argument isn't dropped: like `nil`, it uses the current distinct ID.
@@ -198,6 +200,7 @@ With `debug` on, the SDK logs how many events were dropped and why. There's no e
 - An event whose distinct ID is over 200 UTF-8 bytes is dropped. Legacy capture shortened the ID to 200 characters and kept the event.
 
 A `NaN`, infinite or other non-JSON property value is removed before sending, and the event is still sent.
+<!-- TODO(capture-v1): document how a nested dictionary with non-string keys (for example [Int: Any]) is handled. Today the SDK removes the whole nested value (DictUtils.swift sanitizeInvalidValue), while the fleet rule (INV-25) converts scalar keys to strings, as Android does. The maintainer is still deciding which behavior 4.0 keeps. -->
 
 Each event needs its own uuid: PostHog keeps the first copy in a request and drops later events with the same uuid. The SDK generates a uuid for each capture and keeps it through `beforeSend`, even when the hook returns an event kept from an earlier call, so you can't send a repeated uuid by accident.
 
@@ -222,7 +225,8 @@ An event's properties are merged in this order, and later values win:
 3. the properties you pass to `capture` or another event-sending method
 4. `beforeSend`
 
-Per-call `userProperties` and `userPropertiesSetOnce` are applied between steps 2 and 3, so they win over a registered `$set` or `$set_once`, as in 3.x.
+Per-call `userProperties` and `userPropertiesSetOnce` are applied between steps 2 and 3, so they replace a registered `$set` or `$set_once` whole, as in 3.x.
+A `$set` or `$set_once` you pass in the properties also replaces a registered one whole. The two aren't merged.
 Groups set with `group()` and per-call `groups` are applied there too, and replace a registered `$groups`.
 If you also pass `$set`, `$set_once` or `$groups` in the properties, the per-call `userProperties`, `userPropertiesSetOnce` and `groups` win key by key over them. In 3.x, `$set` and `$set_once` in the properties replaced the per-call values, and `$groups` in the properties won per key.
 
@@ -243,7 +247,8 @@ A registered `$session_id` now overrides the SDK's session ID (see [Property pre
 
 The SDK sends every timestamp in UTC with 3 fractional digits, for example `2026-01-01T00:00:00.000Z`, as 3.x did.
 It doesn't check for future timestamps. PostHog replaces a timestamp more than 23 hours ahead with the time it received the event.
-Event uuids, request IDs and anonymous distinct IDs are UUID v7.
+Event uuids and anonymous distinct IDs are UUID v7, as in 3.x.
+The new `PostHog-Request-Id` header is a UUID v7 too.
 
 ### Event options
 
@@ -262,10 +267,10 @@ PostHogSDK.shared.capture("signed_up", options: ["cookieless_mode": true])
 
 In Objective-C, use the selectors that end in `options:`, such as `captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:`, `screenWithTitle:properties:options:`, `identifyWithDistinctId:userProperties:userPropertiesSetOnce:options:`, `setPersonPropertiesWithUserPropertiesToSet:userPropertiesToSetOnce:options:`, `alias:options:`, `groupWithType:key:groupProperties:options:`, `captureExceptionWithError:properties:options:` and `captureExceptionWithNSException:properties:options:`. The selectors without `options:` still work.
 
-The legacy option properties still work.
+The legacy option properties, the `$`-prefixed properties legacy capture reads as settings, still work.
 When the event is sent, the SDK removes each one from `properties` and uses it for its option:
 
-| Legacy property | Option |
+| Legacy option property | Option |
 | --- | --- |
 | `$process_person_profile` | `process_person_profile` |
 | `$cookieless_mode` | `cookieless_mode` |
@@ -274,6 +279,7 @@ When the event is sent, the SDK removes each one from `properties` and uses it f
 
 - An option you pass to any of these methods or set in `beforeSend` wins over its legacy property. An option set to `NSNull()` counts as unset, so the legacy property fills it.
 - When `personProfiles` turns person processing off, the SDK sets the `process_person_profile` option to `false`. Otherwise it sends neither, because PostHog processes person profiles by default. To change person processing for one event, pass the `process_person_profile` option or the `$process_person_profile` property. A registered `$process_person_profile` changes it for every event.
+- Calling `group()`, or passing `userProperties`, `userPropertiesSetOnce` or `groups`, still turns person processing on for later events when `personProfiles` is `.identifiedOnly`, as in 3.x.
 - Review your `beforeSend` hooks for the new event shape. In 3.x, the SDK marked person processing with the `$process_person_profile` property. In 4.0, it's the `process_person_profile` option, and the property isn't set. A hook that replaces `event.options` without keeping that key, or returns an event kept from an earlier call, can lose the `false` the SDK set. That turns person processing on for anonymous users, overriding `personProfiles`.
 - The SDK sends option values as given. PostHog reads common forms of a value, such as `"false"` or `0` for a boolean, and drops an event whose option value it can't read.
 - Other option keys are sent unchanged, and PostHog ignores keys it doesn't know.
@@ -306,12 +312,14 @@ In Objective-C, use `captureAiWithEvent:distinctId:properties:userProperties:use
 
 - The SDK retries network errors and 404, 408, 429, 500, 502, 503 and 504 responses. Other statuses, such as a 402 when you're over your billing limit, drop the whole request. A product quota, such as for exceptions or AI events, instead drops only those events inside a 200. 3.x did not retry 404, and retried 3xx responses.
 - When the response asks to retry only some events, the SDK keeps those events queued and removes the rest.
-- A `Retry-After` header pauses sending for at most 30 seconds. This also applies to session replay and logs. In 3.x, analytics events and session replay had no cap, and logs allowed up to 5 minutes.
+- A `Retry-After` header sets the minimum wait before the next send, up to 30 seconds. This also applies to session replay and logs. In 3.x, analytics events and session replay had no cap, and logs allowed up to 5 minutes.
 - After a failed send, the wait before the next one doubles from 1 second up to 30 seconds, with up to 25% random jitter. In 3.x it grew by 1 second per failure. This applies to events, session replay and logs.
 - Event, session replay and log retries have no limit, as in 3.x: queued records stay until they're delivered or a full queue evicts them (`maxQueueSize`, or `logs.maxBufferSize` for logs).
 - `maxRetries` is renamed to `pushNotificationSubscriptionMaxRetries`, with no deprecated alias. Since 3.73.0 it has only limited push-notification subscription retries.
 - A request carries at most `maxBatchSize` events and about 5 MiB, and the SDK sends as soon as about 5 MiB of events is queued, even before `flushAt` is reached. In 3.x, batches were limited by event count only.
-- A 413 still splits the batch into smaller requests.
+- A 413 halves the batch and resends it, until a request carries one event. A single event that still gets a 413 is dropped. 3.x did the same.
+- There's no per-event size limit for analytics events, as in 3.x. An event larger than about 5 MiB is sent in a request of its own.
+- With `debug` on, the SDK no longer logs a line for each queued event, and a failed capture request no longer logs PostHog's response body. 3.x did both.
 
 ## Compile errors and how to fix them
 
@@ -461,6 +469,6 @@ SwiftPM turns a trait on if any package in your dependency graph depends on post
 - [ ] Update insights, cohorts and actions that use `version` or `build` on lifecycle events, or `wireframe` in `$sdk_debug_replay_capture_mode`.
 - [ ] Update cohorts, insights and actions that match `$locale`, which now includes the region. Use `$app_language` for the language your app shows, which can also include a region or script, such as `pt-BR`.
 - [ ] Check code that reads feature flag payloads and could get `nil` for a malformed one.
-- [ ] Work through the [capture v1 checklist](#do-you-need-to-change-anything), especially reverse proxies, self-hosted instances and long distinct IDs.
+- [ ] Work through the [capture v1 checklist](#checklist), especially reverse proxies, self-hosted instances and long distinct IDs.
 - [ ] Fix the compile errors using the tables above, including `reloadFeatureFlags` closures.
 - [ ] If you use package traits, list every trait you want to keep.

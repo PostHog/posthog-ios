@@ -106,6 +106,10 @@ class PostHogQueue<Record> {
 
     private var isFlushing = false
     private let isFlushingLock = NSLock()
+    /// Entries of the last request that failed or came back with records to retry.
+    /// The next flush resends exactly these, so the request keeps its ID and
+    /// counts the attempt. In memory only. Guarded by `isFlushingLock`.
+    private var retryEntryIds: [String] = []
     /// Guards `timer` and `stopped`. The flag is set by `stop()` so a `start()`
     /// whose main-thread block hasn't fired yet can short-circuit instead of
     /// scheduling a timer that escapes invalidation.
@@ -200,7 +204,7 @@ class PostHogQueue<Record> {
 
         if isRetriable {
             pauseForBackoff(retryAfter: result.retryAfter)
-            payload.completion(false)
+            payload.completeRetrying()
             return
         }
 
@@ -491,6 +495,17 @@ class PostHogQueue<Record> {
                 return
             }
 
+            // A request to retry goes again on its own first. If any of its entries
+            // was dropped since (queue full, cleared), the request starts over.
+            let retryIds = self.isFlushingLock.withLock { self.retryEntryIds }
+            if !retryIds.isEmpty {
+                if let retry = self.fileQueue.peekEntries(ids: retryIds) {
+                    self.consume(retry, from: 0, completion: completion)
+                    return
+                }
+                self.isFlushingLock.withLock { self.retryEntryIds = [] }
+            }
+
             // Bound this flush to its original FIFO window, including across
             // replay boundaries. Concurrent appends belong to a later flush.
             // A byte-limited endpoint reads about one batch, not the whole window.
@@ -540,9 +555,12 @@ class PostHogQueue<Record> {
         }
         let nextIndex = next
 
-        let finishFlush: () -> Void = { [weak self] in
+        let finishFlush: (_ retryIds: [String]) -> Void = { [weak self] retryIds in
             guard let self else { return }
-            self.isFlushingLock.withLock { self.isFlushing = false }
+            self.isFlushingLock.withLock {
+                self.retryEntryIds = retryIds
+                self.isFlushing = false
+            }
         }
 
         completion(PostHogConsumerPayload(records: processing, completion: { [weak self] success in
@@ -557,7 +575,7 @@ class PostHogQueue<Record> {
                     self?.consume(entries, from: nextIndex, completion: completion)
                 }
             } else {
-                finishFlush()
+                finishFlush([])
             }
         }, completeKeeping: { [weak self] keepRecordIds in
             guard let self else { return }
@@ -568,7 +586,10 @@ class PostHogQueue<Record> {
                 self.fileQueue.remove(ids: delivered)
             }
             hedgeLog("Completed \(delivered.count) of \(selectedIds.count) records, keeping the rest for retry.")
-            finishFlush()
+            let deliveredIds = Set(delivered)
+            finishFlush(selectedIds.filter { !deliveredIds.contains($0) })
+        }, completeRetrying: {
+            finishFlush(selectedIds)
         }))
     }
 

@@ -314,7 +314,7 @@ jobs:
             exit 0
           fi
 
-          if grep -qi "read-only" "$RUNNER_TEMP/pod-trunk-push.log"; then
+          if grep -Eqi "read[-[:space:]]+only" "$RUNNER_TEMP/pod-trunk-push.log"; then
             echo "::warning::CocoaPods Trunk is read-only. PostHog $RELEASE_VERSION was not published to CocoaPods; publish it manually later (see RELEASING.md)."
             exit 1
           fi

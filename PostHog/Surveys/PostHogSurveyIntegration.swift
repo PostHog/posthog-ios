@@ -276,7 +276,10 @@
                 return false
             }
 
-            return postHog.isFeatureEnabled(flagKey)
+            return postHog.isFeatureEnabled(
+                flagKey,
+                sendFeatureFlagEvent: postHog.config.sendFeatureFlagEvent && !flagKey.hasPrefix("survey-targeting-")
+            )
         }
 
         private func matchesLinkedFlagVariant(_ survey: PostHogSurvey) -> Bool {

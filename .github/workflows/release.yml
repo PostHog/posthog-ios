@@ -292,6 +292,53 @@ jobs:
               "alertContext": "The GitHub release creation step failed."
             }
 
+  update-references:
+    name: Update SDK reference
+    needs: create-github-release
+    runs-on: macos-26
+    # Best-effort: the reference is regenerated on the next release if this fails.
+    continue-on-error: true
+    if: always() && needs.create-github-release.result == 'success'
+    permissions:
+      contents: read
+    steps:
+      - name: Get GitHub App token
+        id: releaser
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.GH_APP_POSTHOG_IOS_RELEASER_APP_ID }}
+          private-key: ${{ secrets.GH_APP_POSTHOG_IOS_RELEASER_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          token: ${{ steps.releaser.outputs.token }}
+
+      - name: Checkout sdk-specs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: PostHog/sdk-specs
+          path: ${{ runner.temp }}/sdk-specs
+
+      # The reference needs docc from Swift 6.3 or later (Markdown output).
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '26.4'
+
+      - name: Generate the reference
+        run: python3 scripts/generate-markdown.py --sdk-specs "$RUNNER_TEMP/sdk-specs"
+
+      - name: Commit the reference
+        uses: planetscale/ghcommit-action@a6b150b81dca5dd027baa898604418eec9e11465 # v0.2.22
+        with:
+          commit_message: "docs: update SDK reference for v${{ needs.create-github-release.outputs.version }} [skip ci]"
+          repo: ${{ github.repository }}
+          branch: main
+          file_pattern: references/
+        env:
+          GITHUB_TOKEN: ${{ steps.releaser.outputs.token }}
+
   publish-cocoapods:
     name: Publish to CocoaPods
     needs: [create-github-release, notify-approval-needed]

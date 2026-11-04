@@ -412,7 +412,8 @@ PostHogSDK.shared.reloadFeatureFlags { result in
 
 The other callbacks must return right away, so don't read main-actor state in them.
 
-Arrays of plain closures still work with `setBeforeSend(_:)`. You don't need to retype them as `[BeforeSendBlock]`.
+An array of plain closures stored in a variable still works with `setBeforeSend(_:)`, so you don't need to retype it as `[BeforeSendBlock]`.
+In Swift 5 mode, an array literal with a single closure variable, such as `config.setBeforeSend([sanitize])`, fails with "ambiguous use of 'setBeforeSend'". Pass the closure directly instead: `config.setBeforeSend(sanitize)`. The same applies to `config.logs.setBeforeSend(_:)`.
 
 ### Internal and utility APIs
 

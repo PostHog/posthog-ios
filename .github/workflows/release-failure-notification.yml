@@ -23,16 +23,26 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
+      - name: Download approval thread timestamps
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: release-slack-thread-*
+          path: ${{ runner.temp }}/release-slack-threads
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+
       - name: Check release jobs
         id: release-status
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           SLACK_CHANNEL_ID: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
+          THREAD_DIRECTORY: ${{ runner.temp }}/release-slack-threads
         with:
           retries: 3
           script: |
             const notification = require('./scripts/release-failure-notification.cjs');
-            const payload = await notification({ github, context, channel: process.env.SLACK_CHANNEL_ID });
+            const payload = await notification({ github, context, channel: process.env.SLACK_CHANNEL_ID, threadDirectory: process.env.THREAD_DIRECTORY });
             if (payload) core.setOutput('payload', JSON.stringify(payload));
 
       - name: Notify Slack - Failed

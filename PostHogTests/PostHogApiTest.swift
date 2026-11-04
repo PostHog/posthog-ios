@@ -8,7 +8,7 @@
 import Foundation
 import OHHTTPStubs
 import OHHTTPStubsSwift
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 
 struct RequestBodyHelperTests {
@@ -538,6 +538,24 @@ enum PostHogApiTests {
             let request = try #require(server.batchRequests.first)
             #expect(request.value(forHTTPHeaderField: "Content-Type") != "text/plain")
             #expect(request.value(forHTTPHeaderField: "User-Agent") != "evil")
+        }
+    }
+
+    @Suite("Wrapper SDK identity", .resetsGlobalState)
+    class TestWrapperSdkIdentity: BaseTestSuite {
+        @Test("setSdkName is exposed to Objective-C and names the sending SDK")
+        func setSdkNameNamesSendingSdk() async throws {
+            let originalVersion = postHogVersion
+            defer { postHogVersion = originalVersion }
+            #expect((PostHogSDK.self as AnyObject).responds(to: NSSelectorFromString("setSdkName:version:")))
+
+            PostHogSDK.setSdkName("posthog-kmp", version: "1.2.3")
+            let sut = PostHogApi(PostHogConfig(projectToken: "test_project_token", host: "http://localhost"))
+            _ = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+            let request = try #require(server.batchRequests.first)
+            #expect(request.value(forHTTPHeaderField: "User-Agent") == "posthog-kmp/1.2.3")
         }
     }
 

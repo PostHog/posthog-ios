@@ -52,6 +52,26 @@ jobs:
       slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
       posthog_project_api_key: ${{ secrets.POSTHOG_PROJECT_API_KEY }}
 
+  preserve-slack-thread:
+    name: Preserve Slack thread
+    needs: notify-approval-needed
+    if: needs.notify-approval-needed.outputs.slack_ts != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - name: Save approval thread timestamp
+        env:
+          THREAD_TS: ${{ needs.notify-approval-needed.outputs.slack_ts }}
+        run: printf '%s' "$THREAD_TS" > thread-ts.txt
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-slack-thread-${{ github.run_attempt }}
+          path: thread-ts.txt
+          retention-days: 30
+          if-no-files-found: error
+
   version-bump:
     name: Bump version and commit to main
     needs: [check-changesets, notify-approval-needed]
@@ -297,6 +317,9 @@ jobs:
         with:
           xcode-version: '16.2'
 
+      - name: Prepare CocoaPods validation environment
+        run: make prepareCocoaPods
+
       - name: Publish to CocoaPods
         id: publish
         env:
@@ -309,13 +332,14 @@ jobs:
               | grep -E -- "^[[:space:]]*- ${RELEASE_VERSION//./\\.} \("
           }
 
-          if make releaseCocoaPods 2>&1 | tee "$RUNNER_TEMP/pod-trunk-push.log"; then
+          if make publishCocoaPods 2>&1 | tee "$RUNNER_TEMP/pod-trunk-push.log"; then
             echo "published=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           if grep -Eqi "read[-[:space:]]+only" "$RUNNER_TEMP/pod-trunk-push.log"; then
-            echo "::warning::CocoaPods Trunk is read-only. PostHog $RELEASE_VERSION was not published to CocoaPods; publish it manually later (see RELEASING.md)."
+            echo "read_only=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::CocoaPods Trunk is read-only. PostHog $RELEASE_VERSION was not published to CocoaPods; the GitHub/SPM release is available."
             exit 1
           fi
 
@@ -341,7 +365,7 @@ jobs:
 
       # Notify in case of failure
       - name: Send failure event to PostHog
-        if: ${{ failure() }}
+        if: ${{ failure() && steps.publish.outputs.read_only != 'true' }}
         continue-on-error: true
         uses: PostHog/posthog-github-action@9a6a19d360820ab4d95ecc4a5a7564062c895f84 # v1.3.0
         with:
@@ -359,7 +383,7 @@ jobs:
               "packageVersion": "${{ needs.create-github-release.outputs.version || 'unknown' }}",
               "actionUrl": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
               "alertText": ":rotating_light: Failed to publish posthog-ios@v${{ needs.create-github-release.outputs.version }} to CocoaPods :rotating_light:",
-              "alertContext": "The CocoaPods publish step failed."
+              "alertContext": "The CocoaPods preparation or publish step failed."
             }
 
   notify-released:

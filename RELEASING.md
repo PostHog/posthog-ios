@@ -74,6 +74,16 @@ If the release workflow fails with "No changesets found", ensure your PR include
 
 Make sure the PR includes a changeset file and was merged to `main`, or trigger the workflow manually from the Actions tab.
 
+### Failed or cancelled release
+
+The independent [release failure notification workflow](.github/workflows/release-failure-notification.yml) checks every completed main-branch release attempt and alerts if a job failed, timed out, or was cancelled. This includes runner startup failures and cancellations with job records. The workflow also alerts if the GitHub release exists but the released Slack notification was skipped. Once the GitHub/SPM release exists, alerts describe follow-up problems rather than claiming the release failed.
+
+Cancelled runs with no jobs are ignored, including superseded queued runs and manual cancellations before any job is created. A version-bump failure before any steps ran is also ignored when the rejection-reply step confirms an explicit rejection in the same attempt and no other job failed.
+
+Job inspection retries transient GitHub API failures up to three times. If inspection still fails, it logs the HTTP status or error type and message, then posts a fallback alert with the overall run status and logs link so the release can be checked manually. Error diagnostics stay in the run log, not in the Slack message.
+
+Alerts reply to the approval thread in the release approvals Slack channel. The release workflow preserves the thread timestamp in a run artifact for 30 days, independently of release approval. Failed-job reruns reuse the latest available thread from the same or an earlier attempt. If the timestamp is missing, invalid, or unavailable, the alert falls back to a new channel message, so it does not depend on the approval notification succeeding. The released message and the independent failure message surface Slack API errors rather than silently ignoring them, allowing the completion check to detect a failed release notification. The completion workflow must be present on the default branch to run; local tests do not send Slack messages.
+
 ## CocoaPods
 
 PostHog 4.0 and later is not published to CocoaPods. The release workflow has no CocoaPods step, and the repository no longer has a podspec or a `make releaseCocoaPods` target.

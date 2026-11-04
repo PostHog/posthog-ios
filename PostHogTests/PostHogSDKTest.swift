@@ -24,6 +24,7 @@ private final class SDKTestFixture {
     // starve the background thread pool, stalling async work (flag loads, flushes) on CI.
     private var trackedSuts: [PostHogSDK] = []
     var server: MockPostHogServer!
+    let projectToken = "sdk-test-\(UUID().uuidString)"
     let mockAppLifecycle = MockApplicationLifecyclePublisher()
 
     init() {
@@ -31,6 +32,8 @@ private final class SDKTestFixture {
 
         Self.deleteDefaults()
         server = MockPostHogServer(version: 4)
+        server.batchProjectToken = projectToken
+        server.flagsProjectToken = projectToken
         server.start()
 
         DI.main.appLifecyclePublisher = mockAppLifecycle
@@ -67,7 +70,7 @@ private final class SDKTestFixture {
                 setDefaultPersonProperties: Bool = true,
                 beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
     {
-        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.preloadFeatureFlags = preloadFeatureFlags
         config.sendFeatureFlagEvent = sendFeatureFlagEvent
@@ -152,7 +155,7 @@ final class PostHogSDKTests {
     }
 
     private func bootstrapReconcileConfig(existing: (anon: String, distinct: String?, identified: Bool)) -> PostHogConfig {
-        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: fixture.projectToken, host: "http://localhost:9001")
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
         config.disableFlushOnBackgroundForTesting = true
@@ -255,12 +258,41 @@ final class PostHogSDKTests {
         #expect(installed?.distinctId == "user-123")
     }
 
+    @Test("SDK fixtures ignore late batches from other tests")
+    static func fixtureIgnoresBatchesFromOtherTests() throws {
+        let previousProjectToken: String
+        do {
+            let previousFixture = SDKTestFixture()
+            previousProjectToken = previousFixture.getSut().config.projectToken
+        }
+        let fixture = SDKTestFixture()
+        let server: MockPostHogServer = fixture.server
+        let sut = fixture.getSut()
+        #expect(sut.config.projectToken != previousProjectToken)
+
+        let previousEvent = PostHogEvent(event: "Application Installed", distinctId: "user-existing")
+        var delayedRequest = URLRequest(url: URL(string: "http://localhost:9001/batch")!)
+        delayedRequest.httpBody = try JSONSerialization.data(withJSONObject: [
+            "api_key": previousProjectToken,
+            "batch": [previousEvent.toJSON()],
+        ]).gzipped()
+
+        server.trackBatchRequest(delayedRequest)
+        #expect(server.batchRequests.isEmpty)
+
+        sut.capture("current-fixture-event")
+
+        let events = getBatchedEvents(server)
+        #expect(events.map(\.event) == ["current-fixture-event"])
+        #expect(events.first?.distinctId == sut.getDistinctId())
+    }
+
     // The .never asymmetry below is intentional posthog-js parity: the fresh-install seed applies the
     // identity via an ungated write, while the returning-anon path routes through identify(), which
     // no-ops under .never. These lock in that behavior so it isn't "made consistent" by mistake.
     @Test("applies an identified bootstrap on a fresh install even when personProfiles is never")
     func appliesIdentifiedBootstrapOnFreshInstallWhenPersonProfilesNever() {
-        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: fixture.projectToken, host: "http://localhost:9001")
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
         config.disableFlushOnBackgroundForTesting = true
@@ -667,13 +699,12 @@ final class PostHogSDKTests {
 
     @Test("a reader never sees opt-out consent before integrations are uninstalled")
     func optOutAppliesConsentWithItsTransition() {
-        let config = OptOutObservingConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+        let config = OptOutObservingConfig(projectToken: fixture.projectToken, host: "http://localhost:9001")
         config.flushAt = 1
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
         config.disableFlushOnBackgroundForTesting = true
         config.captureApplicationLifecycleEvents = true
-        // Other suites share this token's storage while this test holds opt-out
         config.persistOptOut = false
         PostHogStorage(config).reset()
         let sut = PostHogSDK.with(config)
@@ -1569,6 +1600,8 @@ final class PostHogSDKTests {
         fixture.server.stop()
         fixture.server = nil
         fixture.server = MockPostHogServer()
+        fixture.server.batchProjectToken = fixture.projectToken
+        fixture.server.flagsProjectToken = fixture.projectToken
         fixture.server.start()
 
         sut.capture("event captured w/o session")
@@ -2128,7 +2161,7 @@ extension PostHogSDKTests {
 
             @Test("isAutocaptureActive() should be false if disabled by config")
             func isAutocaptureActiveFalseWhenDisabledByConfig() {
-                let config = PostHogConfig(projectToken: testProjectToken)
+                let config = PostHogConfig(projectToken: fixture.projectToken)
                 config.captureElementInteractions = false
                 let sut = PostHogSDK.with(config)
                 defer { sut.close() }
@@ -2138,7 +2171,7 @@ extension PostHogSDKTests {
 
             @Test("isAutocaptureActive() should be false if SDK is not enabled")
             func isAutocaptureActiveFalseWhenSDKNotEnabled() {
-                let config = PostHogConfig(projectToken: testProjectToken)
+                let config = PostHogConfig(projectToken: fixture.projectToken)
                 config.captureElementInteractions = true
                 let sut = PostHogSDK.with(config)
                 sut.close()

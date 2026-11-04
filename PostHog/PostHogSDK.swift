@@ -1661,6 +1661,7 @@ let maxRetryDelay = 30.0
             finalProperties[PostHogExceptionStepFields.stepsKey] = steps
         }
 
+        let distinctIdBeforeHooks = getDistinctId()
         // Sanitize is now called in buildEvent
         let posthogEvent = buildEvent(
             event: event,
@@ -1682,8 +1683,9 @@ let maxRetryDelay = 30.0
             return
         }
 
-        // Automatically set person properties for feature flags during capture event
-        if !skipBuildProperties {
+        // Automatically set person properties for feature flags during capture event, unless a
+        // `beforeSend` hook called `reset()` or `identify()`: they belong to the earlier user.
+        if !skipBuildProperties, getDistinctId() == distinctIdBeforeHooks {
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
         }
 

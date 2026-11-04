@@ -275,7 +275,7 @@ jobs:
   publish-cocoapods:
     name: Publish to CocoaPods
     needs: [create-github-release, notify-approval-needed]
-    runs-on: macos-14
+    runs-on: macos-15
     if: always() && needs.create-github-release.result == 'success'
     # Best-effort: SPM consumers get the release from the tag, so a CocoaPods
     # failure must not fail the release. Publish a missed pod manually (see RELEASING.md).

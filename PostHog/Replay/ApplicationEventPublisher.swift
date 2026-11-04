@@ -11,29 +11,48 @@ import Foundation
     import UIKit
 
     protocol ApplicationEventPublishing: AnyObject {
-        /// Registers a callback for a `UIApplication.sendEvent`
+        /// Invoked for each `UIApplication.sendEvent`, before UIKit dispatches the event.
+        var onApplicationEventWillDispatch: PostHogMulticastCallback<ApplicationEventData> { get }
+        /// Invoked for each `UIApplication.sendEvent`, after UIKit dispatches the event.
         var onApplicationEvent: PostHogMulticastCallback<ApplicationEventData> { get }
     }
 
     typealias ApplicationEventData = (UIEvent, Date)
 
     final class ApplicationEventPublisher: ApplicationEventPublishing {
-        private(set) lazy var onApplicationEvent = PostHogMulticastCallback<ApplicationEventData> { [weak self] subscriberCount in
-            if subscriberCount > 0 {
-                self?.swizzleSendEvent()
-            } else {
-                self?.unswizzleSendEvent()
+        static let shared = ApplicationEventPublisher()
+
+        var onApplicationEventWillDispatch: PostHogMulticastCallback<ApplicationEventData> { willDispatchCallbacks }
+        var onApplicationEvent: PostHogMulticastCallback<ApplicationEventData> { didDispatchCallbacks }
+        private var willDispatchCallbacks: PostHogMulticastCallback<ApplicationEventData>!
+        private var didDispatchCallbacks: PostHogMulticastCallback<ApplicationEventData>!
+
+        private let swizzleLock = NSLock()
+        private var hasSwizzled = false
+        private let exchangeSendEvent: () -> Void
+
+        init(exchangeSendEvent: @escaping () -> Void = ApplicationEventPublisher.exchangeSendEventImplementations) {
+            self.exchangeSendEvent = exchangeSendEvent
+            // Initialize before publication; Swift lazy properties are not safe on concurrent first access.
+            willDispatchCallbacks = PostHogMulticastCallback { [weak self] _ in
+                self?.updateSwizzle()
+            }
+            didDispatchCallbacks = PostHogMulticastCallback { [weak self] _ in
+                self?.updateSwizzle()
             }
         }
 
-        static let shared = ApplicationEventPublisher()
+        private func updateSwizzle() {
+            swizzleLock.withLock {
+                let hasSubscribers = willDispatchCallbacks.subscriberCount + didDispatchCallbacks.subscriberCount > 0
+                guard hasSubscribers != hasSwizzled else { return }
+                hasSwizzled = hasSubscribers
+                exchangeSendEvent()
+            }
+        }
 
-        private var hasSwizzled: Bool = false
-
-        private func swizzleSendEvent() {
-            guard !hasSwizzled else { return }
-            hasSwizzled = true
-
+        // Exchanging twice restores the original implementation.
+        private static func exchangeSendEventImplementations() {
             swizzle(
                 forClass: UIApplication.self,
                 original: #selector(UIApplication.sendEvent(_:)),
@@ -41,28 +60,18 @@ import Foundation
             )
         }
 
-        private func unswizzleSendEvent() {
-            guard hasSwizzled else { return }
-            hasSwizzled = false
-
-            // swizzling twice will exchange implementations back to original
-            swizzle(
-                forClass: UIApplication.self,
-                original: #selector(UIApplication.sendEvent(_:)),
-                new: #selector(UIApplication.sendEventOverride)
-            )
-        }
-
-        // Called from swizzled `UIApplication.sendEvent`
-        fileprivate func sendEvent(event: UIEvent, date: Date) {
-            onApplicationEvent.invoke((event, date))
+        func publish(_ event: UIEvent, dispatch: () -> Void) {
+            onApplicationEventWillDispatch.invoke((event, Date()))
+            dispatch()
+            onApplicationEvent.invoke((event, Date()))
         }
     }
 
     extension UIApplication {
         @objc func sendEventOverride(_ event: UIEvent) {
-            sendEventOverride(event)
-            ApplicationEventPublisher.shared.sendEvent(event: event, date: Date())
+            ApplicationEventPublisher.shared.publish(event) {
+                sendEventOverride(event)
+            }
         }
     }
 #endif

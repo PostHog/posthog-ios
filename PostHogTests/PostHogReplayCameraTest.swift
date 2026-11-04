@@ -7,7 +7,7 @@
     @MainActor
     struct PostHogReplayCameraTest {
         // Exercise controller containment without starting a camera capture session.
-        private final class CameraPicker: UIImagePickerController {
+        final class CameraPicker: UIImagePickerController {
             override var sourceType: UIImagePickerController.SourceType {
                 get { .camera }
                 set {}

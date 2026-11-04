@@ -2283,11 +2283,14 @@ let maxRetryDelay = 30.0
     ///     `PostHogEvent.options`.
     @objc(screenWithTitle:properties:options:)
     public func screen(_ screenTitle: String, properties: [String: Any]? = nil, options: [String: Any]? = nil) {
+        let buildSetup = currentSetupGeneration()
         guard let prepared = prepareScreenEvent(screenTitle, properties: properties, options: options) else {
             return
         }
-        guard let queue else {
+        onCapturePreparedForTesting?()
+        guard let queue = captureQueues(aiLane: false, setupGeneration: buildSetup)?.lane else {
             releaseClaimIfCarried(prepared.event)
+            hedgeLog("PostHog event $screen was built before the SDK was closed or set up again, so it was dropped")
             return
         }
         guard let event = applyBeforeSend(prepared.event) else {

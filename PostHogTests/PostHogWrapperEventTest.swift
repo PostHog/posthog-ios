@@ -335,6 +335,32 @@ final class PostHogWrapperEventTest {
         #expect(uuid == nil)
     }
 
+    @Test("a screen built before close() and setup() isn't queued on the new setup")
+    func reconfigureDuringScreenDropsEvent() {
+        let replacement = PostHogConfig(projectToken: "phc_wrapper_\(UUID().uuidString)", host: "http://localhost:9001")
+        replacement.disableReachabilityForTesting = true
+        replacement.disableQueueTimerForTesting = true
+        let screenReachedNewSetup = AsyncLatch()
+        replacement.setBeforeSend { event in
+            if event.event == "$screen" { screenReachedNewSetup.signal() }
+            return event
+        }
+        let sut = makeSDK()
+        defer { sut.close() }
+        var reconfigured = false
+        sut.onCapturePreparedForTesting = {
+            sut.onCapturePreparedForTesting = nil
+            sut.close()
+            sut.setup(replacement)
+            reconfigured = true
+        }
+
+        sut.screen("Home")
+
+        #expect(reconfigured)
+        #expect(!screenReachedNewSetup.isSignaled)
+    }
+
     @Test("a wrapper event built across close() and setup() isn't sent through the new setup")
     func reconfigureDuringWrapperBuildDropsEvent() throws {
         let replacement = PostHogConfig(projectToken: "phc_wrapper_\(UUID().uuidString)", host: "http://localhost:9001")

@@ -1203,7 +1203,7 @@
         /// Pre-existing limitation with `screenshotModeBackgroundCapture` (off by default): pixels
         /// render after this collection, so any rect source can go stale for content committed in
         /// between.
-        private func collectMaskedRegions(in window: UIWindow) -> [MaskedRegion]? {
+        func collectMaskedRegions(in window: UIWindow) -> [MaskedRegion]? {
             guard !window.hasCameraForReplay() else {
                 return nil
             }
@@ -1386,7 +1386,8 @@
         }
 
         private func isLabelSensitive(_ view: UILabel) -> Bool {
-            isTextInputSensitive(view) && hasText(view.text)
+            // Cleared text stays on screen until the label redraws.
+            isTextInputSensitive(view) && (hasText(view.text) || view.layer.needsDisplay())
         }
 
         private func isButtonSensitive(_ view: UIButton) -> Bool {
@@ -1436,7 +1437,7 @@
                 + (view.animationImages ?? []) + (view.highlightedAnimationImages ?? [])
 
             if sources.isEmpty {
-                return false
+                return showsReplacedImage(view, sources: sources)
             }
 
             // sensitive, regardless
@@ -1445,8 +1446,8 @@
             }
 
             // asset images and symbols are probably not sensitive
-            return config?.sessionReplayConfig.maskAllImages == true
-                && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) }
+            return (config?.sessionReplayConfig.maskAllImages == true && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) })
+                || showsReplacedImage(view, sources: sources)
         }
 
         private func toWireframe(_ view: UIView) -> RRWireframe? {
@@ -1690,13 +1691,13 @@
                 // Banded on mask geometry alone, not on layout-event counts: layout events arrive in
                 // bursts, so a count false-positives on the very burst that triggered the capture.
                 let verdict = Self.settleVerdict(before: sentinelRegions, after: regionsNow)
-                self.performScreenshotCapture(
-                    window: window,
-                    screenName: screenName,
-                    postHog: postHog,
-                    preferFidelityRenderer: verdict.band.usesFidelity,
-                    overrideMaskRects: verdict.inflatedRects ?? regionsNow?.map(\.rect)
-                )
+                guard let rendering = Self.settledRendering(of: window, band: verdict.band, inflatedRects: verdict.inflatedRects, regions: regionsNow) else {
+                    hedgeLog("[Session Replay] Skipping snapshot: the window holds a layer the motion renderer can't draw")
+                    self.finishScreenshotRender()
+                    return
+                }
+                self.performScreenshotCapture(window: window, screenName: screenName, postHog: postHog,
+                                              preferFidelityRenderer: rendering.preferFidelityRenderer, overrideMaskRects: rendering.rects)
             }
         }
 
@@ -1814,6 +1815,20 @@
     }
 
     private extension PostHogReplayIntegration {
+        /// An image replaced since the last commit stays on screen until then: the presentation layer still holds it.
+        /// A layer whose presentation can't be copied counts as replaced, since that can't be read.
+        /// An animating view presents its current frames, which aren't replaced images.
+        func showsReplacedImage(_ view: UIImageView, sources: [UIImage]) -> Bool {
+            guard view.isNoCapture() || config?.sessionReplayConfig.maskAllImages == true else { return false }
+            guard CALayer.canCopyPresentation(of: view.layer) else { return true }
+            guard let presented = view.layer.presentation()?.contents else { return false }
+            let shown = presented as AnyObject
+            if view.layer.contents as AnyObject? === shown {
+                return false
+            }
+            return !sources.contains { $0.cgImage === shown }
+        }
+
         /// Image attachments in text are drawn by the label or text view itself, with no image view to
         /// mask, so masking images masks text that holds one. Like image views, symbols and
         /// asset-catalog images stay visible; an attachment whose image can't be read is masked.

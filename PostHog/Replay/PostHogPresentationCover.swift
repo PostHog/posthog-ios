@@ -17,6 +17,8 @@
         /// when content behind the presentation still shows. Only a cover that spans the whole
         /// window qualifies, so a sheet, a partial cover, or a transition still on its way in
         /// keeps everything behind it masked — the check fails closed.
+        /// A layer whose presentation can't be copied (see `CALayer.presentedValues`) is judged
+        /// by its model only while nothing animates it.
         static func frontmostFullWindowCover(in window: UIWindow) -> UIView? {
             var cover: UIView?
             var controller = window.rootViewController
@@ -34,19 +36,26 @@
                 isOpaqueCover(view),
                 hasUnobstructedCoverage(view, in: window),
                 view.convert(view.bounds, to: window).contains(window.bounds),
-                view.toPresentationRect(window).contains(window.bounds)
+                coversWindowAsPresented(view.layer, window)
             else {
                 return nil
             }
             return view
         }
 
+        private static func coversWindowAsPresented(_ layer: CALayer, _ window: UIWindow) -> Bool {
+            let presented = layer.presentedRect(in: window.layer)
+            return presented.isExact && presented.rect.contains(window.bounds)
+        }
+
         private static func hasUnobstructedCoverage(_ view: UIView, in window: UIWindow) -> Bool {
             var current = view
             while true {
                 let layer = current.layer
-                guard isUnmodifiedRectangle(layer, in: window.layer),
-                      isUnmodifiedRectangle(layer.presentation() ?? layer, in: window.layer.presentation() ?? window.layer)
+                guard isUnmodifiedRectangle(layer),
+                      !layer.masksToBounds || layer.convert(layer.bounds, to: window.layer).contains(window.layer.bounds),
+                      let presented = layer.presentedValues, isUnmodifiedRectangle(presented),
+                      !presented.masksToBounds || coversWindowAsPresented(layer, window)
                 else {
                     return false
                 }
@@ -58,7 +67,7 @@
 
         // Check both trees: destination values can already be opaque/rectangular while the
         // rendered cover still exposes the presenter. Unknown shapes keep the masks behind them.
-        private static func isUnmodifiedRectangle(_ layer: CALayer, in windowLayer: CALayer) -> Bool {
+        private static func isUnmodifiedRectangle(_ layer: CALayer) -> Bool {
             guard !layer.isHidden, layer.opacity >= 1,
                   layer.cornerRadius == 0, layer.mask == nil,
                   CATransform3DIsAffine(layer.transform),
@@ -67,10 +76,7 @@
                 return false
             }
             let transform = CATransform3DGetAffineTransform(layer.transform)
-            guard transform.a > 0, transform.d > 0, transform.b == 0, transform.c == 0 else {
-                return false
-            }
-            return !layer.masksToBounds || layer.convert(layer.bounds, to: windowLayer).contains(windowLayer.bounds)
+            return transform.a > 0 && transform.d > 0 && transform.b == 0 && transform.c == 0
         }
 
         /// Whether `view` is the last of its siblings to be drawn. Subview order alone does not
@@ -80,7 +86,7 @@
         /// sitting earlier in the array still wins when its `zPosition` is higher.
         private static func drawsLast(_ view: UIView, in parent: UIView) -> Bool {
             let viewPosition = view.layer.zPosition
-            let renderedViewPosition = view.layer.presentation()?.zPosition ?? viewPosition
+            guard let renderedViewPosition = view.layer.presentedValues?.zPosition else { return false }
             var isAfterView = false
             for sibling in parent.subviews {
                 if sibling === view {
@@ -98,8 +104,9 @@
                     return false
                 }
                 // Model order can already hide a sibling that is still rendered above the cover.
-                let renderedPosition = sibling.layer.presentation()?.zPosition ?? position
-                if renderedPosition > renderedViewPosition || (renderedPosition == renderedViewPosition && isAfterView) {
+                guard let renderedPosition = sibling.layer.presentedValues?.zPosition,
+                      renderedPosition < renderedViewPosition || (renderedPosition == renderedViewPosition && !isAfterView)
+                else {
                     return false
                 }
             }
@@ -112,7 +119,7 @@
         /// counts: a flag parked at its destination while the render server still shows the
         /// view keeps everything behind the presentation masked.
         private static func drawsNothing(_ view: UIView) -> Bool {
-            if view.isHidden, view.layer.presentation()?.isHidden ?? true {
+            if view.isHidden, view.layer.presentedValues?.isHidden ?? false {
                 return true
             }
             return !view.hasRenderedOpacity
@@ -122,7 +129,7 @@
             let layer = view.layer
             // Presentation style and isOpaque are not proof of the pixels currently painted.
             return (layer.backgroundColor?.alpha ?? 0) >= 1 &&
-                ((layer.presentation() ?? layer).backgroundColor?.alpha ?? 0) >= 1
+                (layer.presentedValues?.backgroundColor?.alpha ?? 0) >= 1
         }
     }
 #endif

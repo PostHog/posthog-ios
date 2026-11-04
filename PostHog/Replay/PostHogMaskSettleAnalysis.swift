@@ -30,6 +30,19 @@
             }
         }
 
+        /// Whether a settled capture in `band` draws with `drawHierarchy`, and its mask rects. nil skips the frame: motion
+        /// needs the presentation tree, which `regions` were measured on, and rendering it traps on a layer whose
+        /// presentation can't be copied.
+        static func settledRendering(of window: UIWindow, band: SettleBand, inflatedRects: [CGRect]?, regions: [MaskedRegion]?)
+            -> (preferFidelityRenderer: Bool, rects: [CGRect]?)?
+        {
+            if band.usesFidelity {
+                return (true, inflatedRects ?? regions?.map(\.rect))
+            }
+            guard window.layer.canRenderPresentationTree else { return nil }
+            return (false, regions?.map(\.rect))
+        }
+
         // Tuning surface for the settle check. Defaults are deliberately conservative: measured on
         // device, a 25ms window sees ~1.5pt of slow drift, ~4pt of CA animation and 185pt+ of a
         // scroll fling, so everything except a fling keeps the same renderer session replay has

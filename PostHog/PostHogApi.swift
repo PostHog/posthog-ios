@@ -75,7 +75,6 @@ class PostHogApi {
     private var captureV1PendingRetry: [String: CaptureV1RequestIdentity] = [:]
     // A 404 keeps the events queued, so the warning is printed once instead of on every retry.
     private var warnedCaptureNotFound = false
-    private var warnedCaptureUnauthorized = false
     var printWarning: (String) -> Void = hedgeLogWarning
 
     init(_ config: PostHogConfig) {
@@ -252,8 +251,6 @@ class PostHogApi {
                 guard let self else { return completion(info) }
                 if info.statusCode == 404 {
                     self.warnCaptureNotFoundOnce(url: url, path: path)
-                } else if info.statusCode == 401 {
-                    self.warnCaptureUnauthorizedOnce(url: url, data: data)
                 }
                 completion(self.captureV1Result(info, path: path, data: data, uuids: uuids, identity: identity))
             }
@@ -270,34 +267,6 @@ class PostHogApi {
             "\(warningURL(url) ?? path) returned 404. Events stay queued and are retried. "
                 + "If you use a reverse proxy or self-host PostHog, make sure it serves \(path)."
         )
-    }
-
-    private func warnCaptureUnauthorizedOnce(url: URL, data: Data?) {
-        let shouldWarn = captureV1Lock.withLock {
-            defer { warnedCaptureUnauthorized = true }
-            return !warnedCaptureUnauthorized
-        }
-        guard shouldWarn else { return }
-        // Only PostHog's own error codes are echoed: a proxy's 401 body can contain anything.
-        let code = data.flatMap { fromJSONData($0) }?["error"] as? String
-        let location = warningURL(url) ?? url.path
-        switch code {
-        case "missing_authorization":
-            printWarning(
-                "\(location) returned 401 (missing_authorization). Events were dropped. "
-                    + "If you use a reverse proxy, make sure it forwards the Authorization header unchanged."
-            )
-        case "invalid_api_token":
-            printWarning(
-                "\(location) returned 401 (invalid_api_token). Events were dropped. "
-                    + "Check that projectToken is your project token (phc_...)."
-            )
-        default:
-            printWarning(
-                "\(location) returned 401. Events were dropped. "
-                    + "If you use a reverse proxy, make sure it accepts the SDK's requests and forwards the Authorization header unchanged."
-            )
-        }
     }
 
     /// The URL for a warning, which prints even without debug: no credentials in the host, and no

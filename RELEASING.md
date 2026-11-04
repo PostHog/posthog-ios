@@ -74,6 +74,16 @@ If the release workflow fails with "No changesets found", ensure your PR include
 
 Make sure the PR includes a changeset file and was merged to `main`, or trigger the workflow manually from the Actions tab.
 
+### Failed or cancelled release
+
+The independent [release failure notification workflow](.github/workflows/release-failure-notification.yml) checks every completed main-branch release attempt and posts a failure message to the release approvals Slack channel if a job failed, timed out, or was cancelled. This includes runner startup failures, cancellations with job records, and best-effort CocoaPods job failures that do not fail the run. It also alerts if the GitHub release exists but the released Slack notification was skipped.
+
+Cancelled runs with no jobs are ignored, including superseded queued runs and manual cancellations before any job is created. A version-bump failure before any steps ran is also ignored when the rejection-reply step confirms an explicit rejection in the same attempt and no other job failed.
+
+Job inspection retries transient GitHub API failures up to three times. If inspection still fails, it logs the HTTP status or error type and message, then posts a fallback alert with the overall run status and logs link so the release can be checked manually. Error diagnostics stay in the run log, not in the Slack message.
+
+The failure message is a new channel message, not a thread reply, so it does not depend on the approval notification succeeding. Existing approval, rejection, and successful-release messages remain in the approval thread. The CocoaPods-status reply is attempted even if the released reply fails, unless the job is cancelled. The released/status messages and the independent failure message surface Slack API errors rather than silently ignoring them, allowing the completion check to detect a failed release notification. The completion workflow must be present on the default branch to run; local tests do not send Slack messages.
+
 ### CocoaPods publish failed
 
 CocoaPods publishing is best-effort and does not block the release. If the "Publish to CocoaPods" job fails, the run still succeeds once the tag and GitHub release exist, the "released" Slack notification still goes out, and the Slack release thread gets a reply saying whether the version was published to CocoaPods, so you know when the pod is missing.

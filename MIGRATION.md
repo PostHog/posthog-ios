@@ -167,7 +167,7 @@ If you self-host PostHog, check that it serves `/i/v1/analytics/events` and `/i/
 If you send events through your own reverse proxy, update it before you upgrade:
 
 - Forward `/i/v1/analytics/events` and `/i/v1/ai/events` to PostHog.
-- Pass `Authorization` (the project token, sent as `Bearer <token>`), every `PostHog-*` header, `Content-Type`, `Content-Encoding` and `User-Agent` through unchanged. PostHog answers `401` without `Authorization` and `400` without the others, and the batch is dropped.
+- Pass `Authorization` (the project token, sent as `Bearer <token>`), every `PostHog-*` header, `Content-Type`, `Content-Encoding` and `User-Agent` through unchanged. PostHog answers `401` without `Authorization` and `400` without the others, and the batch is dropped. On the first `401`, the SDK prints a warning, also without `debug`, with PostHog's error code, such as `missing_authorization`.
 - If your proxy strips other credentials, keep `Authorization` values that start with `Bearer phc_`, `Bearer phs_` or `Bearer phx_`, or the exact `Bearer <key>` of an older key without a prefix.
 - Pass PostHog's response body through unchanged. A 2xx response whose body isn't PostHog's `{"results": {...}}` drops the events instead of retrying them.
 - Accept request bodies up to 20 MB. AI requests are often larger than 1 MB, the default limit in nginx and ingress-nginx. On a `413` from the proxy, the SDK splits the batch and drops any event that is still too large on its own.
@@ -196,11 +196,12 @@ The line has counts and PostHog's drop reasons, never event names, uuids or prop
 
 - An event with an empty or whitespace-only distinct ID is dropped, for example one `beforeSend` sets to `""`.
   An empty or whitespace-only `distinctId` argument isn't dropped: like `nil`, it uses the current distinct ID.
+  `identify` ignores an empty or whitespace-only distinct ID. 3.x ignored only an empty one.
 - An event whose name is over 200 UTF-8 bytes is dropped. Legacy capture had no limit on event name length.
 - An event whose distinct ID is over 200 UTF-8 bytes is dropped. Legacy capture shortened the ID to 200 characters and kept the event.
 
 A `NaN`, infinite or other non-JSON property value is removed before sending, and the event is still sent.
-<!-- TODO(capture-v1): document how a nested dictionary with non-string keys (for example [Int: Any]) is handled. Today the SDK removes the whole nested value (DictUtils.swift sanitizeInvalidValue), while the fleet rule (INV-25) converts scalar keys to strings, as Android does. The maintainer is still deciding which behavior 4.0 keeps. -->
+In a nested dictionary, a key that isn't a string, such as an `Int`, `Double` or `Bool`, is sent as its string form: `["scores": [1: "gold"]]` is sent as `{"scores": {"1": "gold"}}`. A key with no string form is removed, and the rest of the dictionary is sent. In 3.x, the SDK removed the whole nested dictionary.
 
 Each event needs its own uuid: PostHog keeps the first copy in a request and drops later events with the same uuid. The SDK generates a uuid for each capture and keeps it through `beforeSend`, even when the hook returns an event kept from an earlier call, so you can't send a repeated uuid by accident.
 
@@ -303,7 +304,7 @@ In Objective-C, use `captureAiWithEvent:distinctId:properties:userProperties:use
 - PostHog drops an event sent with `captureAi` whose name doesn't start with `$ai_`. `capture` never sends events to the AI endpoint, even ones named `$ai_*`.
 - AI requests time out after 60 seconds without network activity, or `captureAiTimeout`. Other requests still time out after 10 seconds.
 - AI events are queued on disk separately from other events. Up to 100 events (`captureAiMaxQueueSize`) and 50 MiB are kept, and the oldest are dropped first. `maxQueueSize` doesn't apply.
-- AI requests are gzipped unless you set `captureAiCompression` to `.none`. `compression` doesn't apply.
+- AI requests are gzipped unless you set `captureAiCompression` or `compression` to `.none`. Setting `compression` to `.none` turns compression off for every request, AI requests included.
 - AI events use `flushAt`, `maxBatchSize` and `flushIntervalSeconds`, like other events. A request carries up to about 5 MiB, as for analytics events (see [Retries](#retries)).
 - `flush()` and `close()` also send AI events, and AI events left on disk are sent after the next launch.
 - The SDK sends AI events unchanged. It doesn't redact or truncate prompts, outputs or media, so use `beforeSend` to remove anything you don't want to send.
@@ -318,7 +319,9 @@ In Objective-C, use `captureAiWithEvent:distinctId:properties:userProperties:use
 - `maxRetries` is renamed to `pushNotificationSubscriptionMaxRetries`, with no deprecated alias. Since 3.73.0 it has only limited push-notification subscription retries.
 - A request carries at most `maxBatchSize` events and about 5 MiB, and the SDK sends as soon as about 5 MiB of events is queued, even before `flushAt` is reached. In 3.x, batches were limited by event count only.
 - A 413 halves the batch and resends it, until a request carries one event. A single event that still gets a 413 is dropped. 3.x did the same.
-- There's no per-event size limit for analytics events, as in 3.x. An event larger than about 5 MiB is sent in a request of its own.
+- The SDK has no per-event size limit for analytics events, as in 3.x. An event larger than about 5 MiB is sent in a request of its own.
+- PostHog drops an analytics event whose serialized size is over 1,000,000 bytes, and only that event; with `debug` on, the drop line says `event_too_big`. In 3.x, such an event got a 413 for its whole batch, and was dropped once the SDK had split the batch down to it.
+- `beforeSend` runs when you capture the event, before it's queued, so batching, splitting and retries never change what it sees.
 - With `debug` on, the SDK no longer logs a line for each queued event, and a failed capture request no longer logs PostHog's response body. 3.x did both.
 
 ## Compile errors and how to fix them
@@ -412,7 +415,8 @@ PostHogSDK.shared.reloadFeatureFlags { result in
 
 The other callbacks must return right away, so don't read main-actor state in them.
 
-Arrays of plain closures still work with `setBeforeSend(_:)`. You don't need to retype them as `[BeforeSendBlock]`.
+An array of plain closures stored in a variable still works with `setBeforeSend(_:)`, so you don't need to retype it as `[BeforeSendBlock]`.
+In Swift 5 mode, an array literal with a single closure variable, such as `config.setBeforeSend([sanitize])`, fails with "ambiguous use of 'setBeforeSend'". Pass the closure directly instead: `config.setBeforeSend(sanitize)`. The same applies to `config.logs.setBeforeSend(_:)`.
 
 ### Internal and utility APIs
 

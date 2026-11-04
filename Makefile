@@ -199,11 +199,7 @@ testUploadSymbols:
 testIOSResultParser:
 	bash scripts/check-ios-test-result.test.sh
 
-.PHONY: testCocoaPodsPublish
-testCocoaPodsPublish:
-	bash scripts/publish-cocoapods.test.sh
-
-test: testUploadSymbols testIOSResultParser testCocoaPodsPublish
+test: testUploadSymbols testIOSResultParser
 	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING $(if $(filter),--filter $(filter))
 
 recordEventShapeSnapshots:

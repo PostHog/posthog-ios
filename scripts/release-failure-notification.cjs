@@ -10,7 +10,8 @@ module.exports = async function releaseFailureNotification({ github, context, ch
             attempt_number: run.run_attempt,
             per_page: 100,
         });
-    } catch {
+    } catch (error) {
+        console.error('Failed to inspect release jobs:', error.status ?? error.name, error.message);
         return {
             channel,
             text: [
@@ -23,9 +24,20 @@ module.exports = async function releaseFailureNotification({ github, context, ch
         };
     }
 
-    const problems = jobs
-        .filter(job => unsuccessful.has(job.conclusion))
-        .map(job => `• <${job.html_url}|${job.name}>: ${job.conclusion}`);
+    if (jobs.length === 0 && run.conclusion === 'cancelled') {
+        return null;
+    }
+
+    const failedJobs = jobs.filter(job => unsuccessful.has(job.conclusion));
+    const versionBump = jobs.find(job => job.name === 'Bump version and commit to main');
+    if (run.conclusion === 'failure' && failedJobs.length === 1
+        && versionBump?.conclusion === 'failure' && versionBump.steps?.length === 0
+        && jobs.some(job => job.name === 'Notify Slack - Rejected'
+            && job.steps?.some(step => step.name === 'Notify Slack - Rejected' && step.conclusion === 'success'))) {
+        return null;
+    }
+
+    const problems = failedJobs.map(job => `• <${job.html_url}|${job.name}>: ${job.conclusion}`);
 
     const releaseCreated = jobs.some(job => job.name === 'Tag and create GitHub release' && job.conclusion === 'success');
     const releasedNotification = jobs.find(job => job.name === 'Notify Slack - Released');

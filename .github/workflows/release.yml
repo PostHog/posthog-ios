@@ -380,6 +380,7 @@ jobs:
           errors: true
 
       - name: Notify Slack - CocoaPods status
+        if: ${{ !cancelled() }}
         uses: PostHog/.github/.github/actions/slack-thread-reply@cc755983073d8c8d9e94d8b84ff761e6451d287f # main
         with:
           slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}

@@ -33,4 +33,3 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - Fix `isFeatureEnabled` returning `true` for an empty variant string
 - Fix session replay recording nothing for apps whose window root is a SwiftUI view
 - Fix secure-entry text fields being unmasked inside a `postHogNoMask()` or `ph-no-mask` subtree
-- Fix session replay leaving content drawn outside a masked view's bounds unmasked, such as unclipped aspect-fill images, image text attachments, layer shadows and button titles that sit outside the button

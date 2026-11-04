@@ -304,7 +304,7 @@ In Objective-C, use `captureAiWithEvent:distinctId:properties:userProperties:use
 - PostHog drops an event sent with `captureAi` whose name doesn't start with `$ai_`. `capture` never sends events to the AI endpoint, even ones named `$ai_*`.
 - AI requests time out after 60 seconds without network activity, or `captureAiTimeout`. Other requests still time out after 10 seconds.
 - AI events are queued on disk separately from other events. Up to 100 events (`captureAiMaxQueueSize`) and 50 MiB are kept, and the oldest are dropped first. `maxQueueSize` doesn't apply.
-- AI requests are gzipped unless you set `captureAiCompression` or `compression` to `.none`. Setting `compression` to `.none` turns compression off for every request, AI requests included.
+- AI requests are gzipped unless you set `captureAiCompression` to `.none`. `compression` doesn't apply.
 - AI events use `flushAt`, `maxBatchSize` and `flushIntervalSeconds`, like other events. A request carries up to about 5 MiB, as for analytics events (see [Retries](#retries)).
 - `flush()` and `close()` also send AI events, and AI events left on disk are sent after the next launch.
 - The SDK sends AI events unchanged. It doesn't redact or truncate prompts, outputs or media, so use `beforeSend` to remove anything you don't want to send.

@@ -986,14 +986,14 @@ final class PostHogCaptureV1QueueTest {
             }
             events.forEach { queue.add($0) }
             queue.flush()
-            await waitUntil { queue.currentRetryCountForTesting == 1 }
+            await waitUntil { queue.currentRetryCountForTesting == 1 && !queue.isFlushingForTesting }
             server.return500 = false
 
             let later = PostHogEvent(event: "later", distinctId: "user")
             queue.add(later)
             clock.date = clock.date.addingTimeInterval(maxRetryDelay + 1)
             queue.flush()
-            await waitUntil { queue.depth == 1 }
+            await waitUntil { queue.depth == 1 && !queue.isFlushingForTesting }
             queue.flush()
             await waitUntil { queue.depth == 0 }
 
@@ -1029,7 +1029,7 @@ final class PostHogCaptureV1QueueTest {
             server.return500 = true
             events.forEach { queue.add($0) }
             queue.flush()
-            await waitUntil { queue.currentRetryCountForTesting == 1 }
+            await waitUntil { queue.currentRetryCountForTesting == 1 && !queue.isFlushingForTesting }
             server.return500 = false
 
             let later = PostHogEvent(event: "later", distinctId: "user")
@@ -1279,7 +1279,7 @@ final class PostHogCaptureAiTest {
 
         queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user"))
         queue.flush()
-        await waitUntil { queue.currentRetryCountForTesting == 1 }
+        await waitUntil { queue.currentRetryCountForTesting == 1 && !queue.isFlushingForTesting }
 
         #expect(queue.depth == 1)
         #expect(server.aiRequests.count == 1)

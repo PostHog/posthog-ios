@@ -660,5 +660,9 @@ class PostHogQueue<Record> {
         var pausedUntilForTesting: Date? {
             stateLock.withLock { pausedUntil }
         }
+
+        var isFlushingForTesting: Bool {
+            isFlushingLock.withLock { isFlushing }
+        }
     }
 #endif

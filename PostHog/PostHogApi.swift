@@ -237,8 +237,7 @@ class PostHogApi {
         var (request, payload) = requestAndPayload(
             url: url, data: data, endpointName: "capture",
             timeout: isAi ? config.effectiveCaptureAiTimeout : nil,
-            // Turning compression off covers every request, the AI lane included.
-            compression: isAi ? (config.compression == .none ? .none : config.captureAiCompression) : nil
+            compression: isAi ? config.captureAiCompression : nil
         )
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(config.projectToken)", forHTTPHeaderField: "Authorization")

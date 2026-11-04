@@ -47,7 +47,6 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - Drop an event with an empty name before sending it, including one `beforeSend` renames to `""`
 - Ignore `identify` with a whitespace-only distinct ID
 - Send a nested dictionary's number and boolean keys as strings instead of dropping the whole dictionary
-- Send `captureAi` requests uncompressed when `compression` is `.none`
 - Print a warning, also without `debug`, the first time capture returns 401, with PostHog's error code and a reverse proxy hint
 - Use the current distinct ID for an empty or whitespace-only `distinctId` argument
 - Give each capture its own UUID, even when `beforeSend` returns an event kept from an earlier call

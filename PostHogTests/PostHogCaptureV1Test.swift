@@ -1161,21 +1161,6 @@ final class PostHogCaptureAiTest {
         #expect(batchRequest.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
     }
 
-    @Test("compression = .none also sends AI requests uncompressed")
-    func compressionOffCoversAiLane() async throws {
-        let sut = makeSDK { config in
-            config.compression = .none
-        }
-        defer { sut.close() }
-
-        sut.captureAi("$ai_generation")
-        await waitUntil { self.server.aiRequests.count == 1 }
-        let request = try #require(server.aiRequests.first)
-        #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
-        let batch = server.parseRequest(request, gzip: false)?["batch"] as? [[String: Any]]
-        #expect(batch?.map { $0["event"] as? String } == ["$ai_generation"])
-    }
-
     @Test("AI settings of 0 or less use their defaults, and captureAiMaxEventBytes can't exceed its default")
     func aiSettingLimits() {
         let config = PostHogConfig(projectToken: "phc_ai_settings")

@@ -485,15 +485,12 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     ///
     /// Set this to `.none` when the network between the app and PostHog changes or re-encodes
     /// the compressed body, e.g. on a managed work profile, which makes the server reject the request.
-    /// `.none` also sends `captureAi` requests uncompressed, whatever `captureAiCompression` is.
+    /// `captureAi` requests use `captureAiCompression` instead.
     ///
     /// Default: `.gzip`.
     @objc public var compression: PostHogCompression = .gzip
 
-    /// How the SDK compresses `captureAi` request bodies while `compression` is `.gzip`.
-    ///
-    /// Set it to `.none` to send AI requests uncompressed but keep compressing other requests.
-    /// When `compression` is `.none`, AI requests are sent uncompressed too.
+    /// How the SDK compresses `captureAi` request bodies, separately from `compression`.
     ///
     /// Default: `.gzip`.
     @objc public var captureAiCompression: PostHogCompression = .gzip

@@ -23,7 +23,10 @@ func processUploadResponse(
     let retryAfter = httpResponse.flatMap { $0.value(forHTTPHeaderField: "Retry-After") }.flatMap(parseRetryAfter)
 
     if let error {
-        hedgeLog("Error calling the \(endpointName) API: \(error).")
+        // Domain and code only: the error's description includes the request URL, which can
+        // carry proxy credentials in the host.
+        let nsError = error as NSError
+        hedgeLog("Error calling the \(endpointName) API: \(nsError.domain) \(nsError.code).")
         // A 3xx left on a failed task is the redirect URLSession was still following, not an
         // outcome for the payload, so it's reported as no status. Honoring it would let the
         // policies that treat 3xx as terminal (logs, push unregister) delete durable records
@@ -72,6 +75,7 @@ class PostHogApi {
     private var captureV1PendingRetry: [String: CaptureV1RequestIdentity] = [:]
     // A 404 keeps the events queued, so the warning is printed once instead of on every retry.
     private var warnedCaptureNotFound = false
+    private var warnedCaptureUnauthorized = false
     var printWarning: (String) -> Void = hedgeLogWarning
 
     init(_ config: PostHogConfig) {
@@ -233,7 +237,8 @@ class PostHogApi {
         var (request, payload) = requestAndPayload(
             url: url, data: data, endpointName: "capture",
             timeout: isAi ? config.effectiveCaptureAiTimeout : nil,
-            compression: isAi ? config.captureAiCompression : nil
+            // Turning compression off covers every request, the AI lane included.
+            compression: isAi ? (config.compression == .none ? .none : config.captureAiCompression) : nil
         )
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(config.projectToken)", forHTTPHeaderField: "Authorization")
@@ -248,6 +253,8 @@ class PostHogApi {
                 guard let self else { return completion(info) }
                 if info.statusCode == 404 {
                     self.warnCaptureNotFoundOnce(url: url, path: path)
+                } else if info.statusCode == 401 {
+                    self.warnCaptureUnauthorizedOnce(url: url, data: data)
                 }
                 completion(self.captureV1Result(info, path: path, data: data, uuids: uuids, identity: identity))
             }
@@ -260,17 +267,49 @@ class PostHogApi {
             return !warnedCaptureNotFound
         }
         guard shouldWarn else { return }
-        // Warnings print even without debug, so drop any credentials in the host. Clearing the
-        // query also drops the trailing "?" that getEndpointURL's empty query prints as.
+        printWarning(
+            "\(warningURL(url) ?? path) returned 404. Events stay queued and are retried. "
+                + "If you use a reverse proxy or self-host PostHog, make sure it serves \(path)."
+        )
+    }
+
+    private func warnCaptureUnauthorizedOnce(url: URL, data: Data?) {
+        let shouldWarn = captureV1Lock.withLock {
+            defer { warnedCaptureUnauthorized = true }
+            return !warnedCaptureUnauthorized
+        }
+        guard shouldWarn else { return }
+        // Only PostHog's own error codes are echoed: a proxy's 401 body can contain anything.
+        let code = data.flatMap { fromJSONData($0) }?["error"] as? String
+        let location = warningURL(url) ?? url.path
+        switch code {
+        case "missing_authorization":
+            printWarning(
+                "\(location) returned 401 (missing_authorization). Events were dropped. "
+                    + "If you use a reverse proxy, make sure it forwards the Authorization header unchanged."
+            )
+        case "invalid_api_token":
+            printWarning(
+                "\(location) returned 401 (invalid_api_token). Events were dropped. "
+                    + "Check that projectToken is your project token (phc_...)."
+            )
+        default:
+            printWarning(
+                "\(location) returned 401. Events were dropped. "
+                    + "If you use a reverse proxy, make sure it accepts the SDK's requests and forwards the Authorization header unchanged."
+            )
+        }
+    }
+
+    /// The URL for a warning, which prints even without debug: no credentials in the host, and no
+    /// trailing "?" from getEndpointURL's empty query.
+    private func warningURL(_ url: URL) -> String? {
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         components?.user = nil
         components?.password = nil
         components?.query = nil
         components?.fragment = nil
-        printWarning(
-            "\(components?.url?.absoluteString ?? path) returned 404. Events stay queued and are retried. "
-                + "If you use a reverse proxy or self-host PostHog, make sure it serves \(path)."
-        )
+        return components?.url?.absoluteString
     }
 
     /// Reuses the request ID with the next attempt number when `uuids` is the

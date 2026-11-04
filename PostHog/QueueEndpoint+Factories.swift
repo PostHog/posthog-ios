@@ -11,9 +11,9 @@ private func isSnapshotRetriableStatusCode(_ code: Int) -> Bool {
         || (300 ... 399).contains(code)
 }
 
-/// Documented maximum for honoring `Retry-After` on `/i/v1/logs`. A larger
-/// header (e.g. from a misconfigured proxy) is clamped to this before it
-/// floors the backoff, so it can't strand the logs queue. Matches posthog-js.
+/// Documented maximum for honoring `Retry-After` on `/i/v1/logs`, matching posthog-js.
+/// The queue also caps every `Retry-After` at its 30-second backoff ceiling, which is
+/// lower, so in practice the logs queue pauses for at most 30 seconds.
 let logsMaxRetryAfterSeconds: TimeInterval = 5 * 60
 
 /// Capture V1 retry policy: 404, 408, 429 and the listed 5xx. Everything else,

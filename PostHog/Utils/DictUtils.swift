@@ -77,11 +77,42 @@ private func sanitizeInvalidValue(_ value: Any) -> Any? {
     if let nested = value as? [String: Any] {
         return sanitizeDictionary(nested) ?? [:]
     }
+    if let nested = value as? [AnyHashable: Any] {
+        return sanitizeDictionary(stringKeyed(nested)) ?? [:]
+    }
     if let array = value as? [Any] {
         let sanitized = sanitizeArray(array)
         return sanitized.isEmpty ? nil : sanitized
     }
     return nil
+}
+
+/// Converts a key with a natural string form (number, boolean or `NSNull`) the way a JSON encoder
+/// writes it, and drops only a key with no such form, so the rest of the dictionary is kept.
+private func stringKeyed(_ dict: [AnyHashable: Any]) -> [String: Any] {
+    var result: [String: Any] = [:]
+    for (key, value) in dict {
+        if let string = jsonKeyString(key.base) {
+            result[string] = value
+        }
+    }
+    return result
+}
+
+private func jsonKeyString(_ key: Any) -> String? {
+    switch key {
+    case let string as String:
+        return string
+    case let number as NSNumber:
+        if CFGetTypeID(number) == CFBooleanGetTypeID() {
+            return number.boolValue ? "true" : "false"
+        }
+        return number.stringValue
+    case is NSNull:
+        return "null"
+    default:
+        return nil
+    }
 }
 
 private func sanitizeArray(_ array: [Any]) -> [Any] {

@@ -369,6 +369,27 @@ final class PostHogCaptureV1Test {
         #expect(!warning.contains("proxy-password"))
     }
 
+    @Test("a 401 warns once with PostHog's error code and a hint", arguments: [
+        ("missing_authorization", "returned 401 (missing_authorization). Events were dropped. If you use a reverse proxy, make sure it forwards the Authorization header unchanged."),
+        ("invalid_api_token", "returned 401 (invalid_api_token). Events were dropped. Check that projectToken is your project token (phc_...)."),
+        ("<html>proxy-secret</html>", "returned 401. Events were dropped. If you use a reverse proxy, make sure it accepts the SDK's requests and forwards the Authorization header unchanged."),
+    ])
+    func unauthorizedWarnsOnce(code: String, expected: String) async throws {
+        server.captureV1ResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: ["error": code, "error_description": "secret detail"], statusCode: 401, headers: nil)
+        }
+        let api = PostHogApi(PostHogConfig(projectToken: "phc_capture_v1", host: "http://proxy-user:proxy-password@localhost:9001/proxy"))
+        var warnings: [String] = []
+        api.printWarning = { warnings.append($0) }
+
+        let result = await send(api, [PostHogEvent(event: "first", distinctId: "user")])
+        _ = await send(api, [PostHogEvent(event: "second", distinctId: "user")])
+
+        #expect(result.statusCode == 401)
+        #expect(!QueueEndpoint<PostHogEvent>.batch(api: api).isRetriableStatusCode(401))
+        #expect(warnings == ["http://localhost:9001/proxy/i/v1/analytics/events " + expected])
+    }
+
     @Test("sends empty and whitespace session and window IDs at the root unchanged", arguments: ["", "  "])
     func sendsBlankSessionIds(value: String) async throws {
         let event = PostHogEvent(event: "test", distinctId: "user", properties: ["$session_id": value, "$window_id": value])
@@ -1138,6 +1159,21 @@ final class PostHogCaptureAiTest {
         let batchRequest = try #require(server.batchRequests.first)
         #expect(batchRequest.timeoutInterval < 90)
         #expect(batchRequest.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
+    }
+
+    @Test("compression = .none also sends AI requests uncompressed")
+    func compressionOffCoversAiLane() async throws {
+        let sut = makeSDK { config in
+            config.compression = .none
+        }
+        defer { sut.close() }
+
+        sut.captureAi("$ai_generation")
+        await waitUntil { self.server.aiRequests.count == 1 }
+        let request = try #require(server.aiRequests.first)
+        #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
+        let batch = server.parseRequest(request, gzip: false)?["batch"] as? [[String: Any]]
+        #expect(batch?.map { $0["event"] as? String } == ["$ai_generation"])
     }
 
     @Test("AI settings of 0 or less use their defaults, and captureAiMaxEventBytes can't exceed its default")

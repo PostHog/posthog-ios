@@ -67,7 +67,7 @@ jobs:
     steps:
       - name: Notify Slack - Approved
         continue-on-error: true
-        uses: PostHog/.github/.github/actions/slack-thread-reply@cb0979b67dcd585828b61ac45927eef4da8f6287 # main
+        uses: PostHog/.github/.github/actions/slack-thread-reply@cc755983073d8c8d9e94d8b84ff761e6451d287f # main
         with:
           slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
           slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
@@ -184,7 +184,7 @@ jobs:
       - name: Notify Slack - Rejected
         if: steps.check-rejection.outputs.was_rejected == 'true'
         continue-on-error: true
-        uses: PostHog/.github/.github/actions/slack-thread-reply@cb0979b67dcd585828b61ac45927eef4da8f6287 # main
+        uses: PostHog/.github/.github/actions/slack-thread-reply@cc755983073d8c8d9e94d8b84ff761e6451d287f # main
         with:
           slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
           slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
@@ -370,34 +370,20 @@ jobs:
     if: always() && needs.create-github-release.result == 'success' && needs.notify-approval-needed.outputs.slack_ts != ''
     steps:
       - name: Notify Slack - Released
-        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
+        uses: PostHog/.github/.github/actions/slack-thread-reply@cc755983073d8c8d9e94d8b84ff761e6451d287f # main
         with:
-          method: chat.postMessage
-          token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
+          slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
+          slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
+          thread_ts: ${{ needs.notify-approval-needed.outputs.slack_ts }}
+          message: '🚀 `posthog-ios` released successfully!'
+          emoji_reaction: 'rocket'
           errors: true
-          payload: |
-            channel: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
-            thread_ts: "${{ needs.notify-approval-needed.outputs.slack_ts }}"
-            text: '🚀 `posthog-ios` released successfully!'
 
       - name: Notify Slack - CocoaPods status
-        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
+        uses: PostHog/.github/.github/actions/slack-thread-reply@cc755983073d8c8d9e94d8b84ff761e6451d287f # main
         with:
-          method: chat.postMessage
-          token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
+          slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
+          slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
+          thread_ts: ${{ needs.notify-approval-needed.outputs.slack_ts }}
+          message: ${{ needs.publish-cocoapods.outputs.published == 'true' && format('📦 `posthog-ios@v{0}` published to CocoaPods.', needs.create-github-release.outputs.version) || format('⚠️ `posthog-ios@v{0}` was not published to CocoaPods.', needs.create-github-release.outputs.version) }}
           errors: true
-          payload: |
-            channel: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
-            thread_ts: "${{ needs.notify-approval-needed.outputs.slack_ts }}"
-            text: ${{ needs.publish-cocoapods.outputs.published == 'true' && format('📦 `posthog-ios@v{0}` published to CocoaPods.', needs.create-github-release.outputs.version) || format('⚠️ `posthog-ios@v{0}` was not published to CocoaPods.', needs.create-github-release.outputs.version) }}
-
-      - name: Add released reaction
-        continue-on-error: true
-        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
-        with:
-          method: reactions.add
-          token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
-          payload: |
-            channel: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
-            timestamp: "${{ needs.notify-approval-needed.outputs.slack_ts }}"
-            name: rocket

@@ -171,6 +171,41 @@
             #expect(rects.contains { $0.contains(committed) && $0.contains(field.convert(field.bounds, to: window)) }, "\(rects)")
         }
 
+        @Test("A masked view under an app layer set to alpha 0 since its last commit stays masked, since the screen still shows it")
+        func maskedViewUnderUncommittedAppLayerFadeStaysMasked() async throws {
+            let window = makeReplayTestWindow()
+            try #require(!CALayer.isPresentationSafe(AppAnimatableLayer.self))
+            let container = AppLayerView(frame: CGRect(x: 20, y: 20, width: 160, height: 100))
+            let field = secretField(CGRect(x: 10, y: 10, width: 120, height: 60))
+            container.addSubview(field)
+            window.addSubview(container)
+            window.layoutIfNeeded()
+            try await commit()
+
+            // No run-loop turn in between: the screen still shows the last commit.
+            container.alpha = 0
+            try #require(container.layer.animationKeys() == nil)
+
+            let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window))
+            #expect(rects.contains { $0.contains(field.convert(field.bounds, to: window)) }, "\(rects)")
+        }
+
+        @Test("A masked view under a plain view set to alpha 0 and committed is no longer masked")
+        func maskedViewUnderCommittedTransparentViewIsDropped() async throws {
+            let window = makeReplayTestWindow()
+            let container = UIView(frame: CGRect(x: 20, y: 20, width: 160, height: 100))
+            let field = secretField(CGRect(x: 10, y: 10, width: 120, height: 60))
+            container.addSubview(field)
+            window.addSubview(container)
+            window.layoutIfNeeded()
+            try await commit()
+            container.alpha = 0
+            try await commit()
+
+            let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window))
+            #expect(!rects.contains { $0.intersects(field.convert(field.bounds, to: window)) }, "\(rects)")
+        }
+
         // MARK: - The presentation tree
 
         @Test("A view added under a parent mid-animation, before it commits, is masked where the parent's presentation places it")

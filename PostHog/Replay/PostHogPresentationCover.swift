@@ -18,7 +18,7 @@
         /// window qualifies, so a sheet, a partial cover, or a transition still on its way in
         /// keeps everything behind it masked — the check fails closed.
         /// A layer whose presentation can't be copied (see `CALayer.presentedValues`) is judged
-        /// by its model only while nothing animates it.
+        /// by its model only while nothing animates it, and never reads as transparent.
         static func frontmostFullWindowCover(in window: UIWindow) -> UIView? {
             var cover: UIView?
             var controller = window.rootViewController

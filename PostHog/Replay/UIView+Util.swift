@@ -59,10 +59,13 @@
         /// model `alpha` sits at the destination while the presentation layer holds the
         /// in-flight value the screenshot renders, so a view fading out reads as opaque
         /// here. The model value comes first, so `presentation()` — which copies the layer —
-        /// is only paid for on a view that is already transparent. A fade that can't be read
-        /// counts as drawn.
+        /// is only paid for on a view that is already transparent. A layer whose presentation
+        /// can't be copied counts as drawn, since its committed opacity can't be read.
         var hasRenderedOpacity: Bool {
             if alpha > 0 {
+                return true
+            }
+            guard CALayer.canCopyPresentation(of: layer) else {
                 return true
             }
             return (layer.presentedValues?.opacity ?? 1) > 0

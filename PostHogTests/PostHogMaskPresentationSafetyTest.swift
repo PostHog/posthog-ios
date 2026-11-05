@@ -206,6 +206,40 @@
             #expect(!rects.contains { $0.intersects(field.convert(field.bounds, to: window)) }, "\(rects)")
         }
 
+        @Test("A layer under a root layer that can't be copied is measured over the whole root, since no presentation can be read through it")
+        func layerUnderUncopyableRootIsMeasuredOverTheRoot() {
+            let root = AppAnimatableLayer()
+            root.bounds = CGRect(x: 0, y: 0, width: 200, height: 300)
+            let child = CALayer()
+            child.frame = CGRect(x: 20, y: 40, width: 100, height: 50)
+            root.addSublayer(child)
+            let grandchild = CALayer()
+            grandchild.frame = CGRect(x: 5, y: 5, width: 30, height: 20)
+            child.addSublayer(grandchild)
+
+            #expect(!CALayer.isPresentationSafe(AppAnimatableLayer.self))
+            #expect(grandchild.presentationAnchor() == nil)
+            for layer in [child, grandchild] {
+                let (rect, isExact) = layer.presentedRect(in: root)
+                #expect(!isExact)
+                #expect(rect.contains(root.bounds))
+            }
+        }
+
+        @Test("A layer tree of copyable classes that hasn't been committed is measured at its model, exactly")
+        func uncommittedCopyableLayerTreeIsMeasuredExactly() {
+            let root = CALayer()
+            root.bounds = CGRect(x: 0, y: 0, width: 200, height: 300)
+            let child = CALayer()
+            child.frame = CGRect(x: 20, y: 40, width: 100, height: 50)
+            root.addSublayer(child)
+
+            #expect(child.presentation() == nil)
+            let (rect, isExact) = child.presentedRect(in: root)
+            #expect(isExact)
+            #expect(rect == child.frame)
+        }
+
         // MARK: - The presentation tree
 
         @Test("A view added under a parent mid-animation, before it commits, is masked where the parent's presentation places it")

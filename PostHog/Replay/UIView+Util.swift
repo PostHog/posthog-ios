@@ -326,7 +326,11 @@
         /// under an ancestor whose presentation can't be copied, or while such a layer moves, the rect isn't exact and
         /// spans the window.
         func presentedRect(in windowLayer: CALayer?, outsets: UIEdgeInsets = .zero) -> (rect: CGRect, isExact: Bool) {
-            guard let anchor = presentationAnchor() else { return (convert(bounds.outset(by: outsets), to: windowLayer), true) }
+            guard let anchor = presentationAnchor() else {
+                let model = convert(bounds.outset(by: outsets), to: windowLayer)
+                guard !Self.canCopyPresentation(of: rootLayer) else { return (model, true) }
+                return (model.union((windowLayer ?? rootLayer).bounds), false)
+            }
             let presentedWindow = windowLayer.map { $0.presentationAnchor()?.presented ?? $0 }
             if anchor.layer === self {
                 return (anchor.presented.convert(anchor.presented.bounds.outset(by: outsets), to: presentedWindow), true)

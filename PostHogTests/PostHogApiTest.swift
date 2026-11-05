@@ -558,6 +558,7 @@ enum PostHogApiTests {
             }
             let request = try #require(server.batchRequests.first)
             #expect(request.value(forHTTPHeaderField: "User-Agent") == "posthog-kmp/1.2.3")
+            #expect(request.value(forHTTPHeaderField: "PostHog-Sdk-Info") == "posthog-kmp/1.2.3")
         }
     }
 

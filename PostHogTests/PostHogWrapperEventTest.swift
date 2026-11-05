@@ -333,6 +333,8 @@ final class PostHogWrapperEventTest {
 
         #expect(reconfigured)
         #expect(uuid == nil)
+        #expect(try #require(sut.replayQueue).depth == 0)
+        #expect(try #require(sut.aiQueue).depth == 0)
     }
 
     @Test("a screen built before close() and setup() isn't queued on the new setup")

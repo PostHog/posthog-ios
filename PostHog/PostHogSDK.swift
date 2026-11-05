@@ -62,8 +62,11 @@ let maxRetryDelay = 30.0
     private let lastScreenLock = NSLock()
     private let replayDebugPropertiesLock = NSLock()
     private let wrapperSendLock = NSLock()
-    /// Bumped by `setup` and `close`, so a wrapper event built before a reconfigure isn't sent through the new one.
-    private var wrapperSetupGeneration = 0
+    /// Bumped by `setup` and `close`, so an event built before a reconfigure isn't sent through the new one.
+    /// Guarded by `wrapperSendLock`; changed only while `setupLock` is held.
+    private var setupGeneration = 0
+    /// Test-only: runs after `captureInternal` builds an event and before it picks the queues.
+    var onCapturePreparedForTesting: (() -> Void)?
     /// Bumped by `reset()`, so a wrapper send treats a reset that keeps the distinct ID as a new identity.
     private var wrapperResetGeneration = 0
     private var _lastScreenName: String?
@@ -214,7 +217,7 @@ let maxRetryDelay = 30.0
 
             enabled = true
             self.config = config
-            wrapperSendLock.withLock { wrapperSetupGeneration += 1 }
+            wrapperSendLock.withLock { setupGeneration += 1 }
             let theStorage = PostHogStorage(config)
             storage = theStorage
             let api = PostHogApi(config)
@@ -1843,6 +1846,7 @@ let maxRetryDelay = 30.0
         deduplicatePersonProperties: Bool = false,
         aiLane: Bool = false
     ) -> String? {
+        let buildSetup = currentSetupGeneration()
         guard let prepared = prepareCaptureEvent(
             event,
             distinctId: distinctId,
@@ -1858,7 +1862,13 @@ let maxRetryDelay = 30.0
         ) else {
             return nil
         }
-        return finishCaptureEvent(prepared, aiLane: aiLane, queues: captureQueues(aiLane: aiLane), deduplicatePersonProperties: deduplicatePersonProperties)?
+        onCapturePreparedForTesting?()
+        guard let queues = captureQueues(aiLane: aiLane, setupGeneration: buildSetup) else {
+            releaseClaimIfCarried(prepared)
+            hedgeLog("PostHog event \(event) was built before the SDK was closed or set up again, so it was dropped")
+            return nil
+        }
+        return finishCaptureEvent(prepared, aiLane: aiLane, queues: queues, deduplicatePersonProperties: deduplicatePersonProperties)?
             .uuid.postHogUuidString
     }
 
@@ -1988,6 +1998,19 @@ let maxRetryDelay = 30.0
         setupLock.withLock { CaptureQueues(lane: aiLane ? _aiQueue : _queue, replay: _replayQueue) }
     }
 
+    private func currentSetupGeneration() -> Int {
+        wrapperSendLock.withLock { setupGeneration }
+    }
+
+    /// The queues of the setup `setupGeneration` names, or `nil` once `close()`/`setup()` has replaced it.
+    /// Checked under `setupLock`, which `setup()` and `close()` hold to change the generation and the queues,
+    /// so an event that passes goes to the queues of the setup it was built for.
+    private func captureQueues(aiLane: Bool, setupGeneration expected: Int) -> CaptureQueues? {
+        setupLock.withLock {
+            currentSetupGeneration() == expected ? captureQueues(aiLane: aiLane) : nil
+        }
+    }
+
     /// Runs `beforeSend` on an event from `prepareCaptureEvent` and queues the result in `queues`.
     /// - Returns: The queued event, as `beforeSend` returned it, or `nil` when the event isn't queued.
     private func finishCaptureEvent(
@@ -2091,12 +2114,13 @@ let maxRetryDelay = 30.0
         timestamp: Date? = nil,
         ai: Bool // swiftlint:disable:this identifier_name
     ) -> PostHogEvent? {
+        let buildSetup = currentSetupGeneration()
         if ai {
             warnIfNotAiEvent(event)
         } else if event == "$screen" {
             let screen = buildScreenEventForWrapper(properties: properties, options: options)
             screen?.wrapperBuiltAsScreen = true
-            stampWrapperBuild(screen, event: event)
+            stampWrapperBuild(screen, event: event, setupGeneration: buildSetup)
             return screen
         }
         let built = prepareCaptureEvent(
@@ -2113,18 +2137,20 @@ let maxRetryDelay = 30.0
             aiLane: ai,
             forWrapper: true
         )
+        onCapturePreparedForTesting?()
         built?.wrapperAiLane = ai
-        stampWrapperBuild(built, event: event)
+        stampWrapperBuild(built, event: event, setupGeneration: buildSetup)
         return built
     }
 
     /// Records the build-time state a wrapper send checks: this SDK and its setup, the identity, and the
     /// replay debug values, so a `close()`/`setup()`, `reset()` or new session during the round trip doesn't
-    /// leak into the event.
-    private func stampWrapperBuild(_ built: PostHogEvent?, event: String) {
+    /// leak into the event. `setupGeneration` is read before the build, so a `close()`/`setup()` during it
+    /// leaves the event on the old setup.
+    private func stampWrapperBuild(_ built: PostHogEvent?, event: String, setupGeneration: Int) {
         guard let built else { return }
         built.wrapperBuildSDK = ObjectIdentifier(self)
-        built.wrapperBuildSetupGeneration = wrapperSendLock.withLock { wrapperSetupGeneration }
+        built.wrapperBuildSetupGeneration = setupGeneration
         built.wrapperBuildDistinctId = getDistinctId()
         built.wrapperBuildResetGeneration = wrapperSendLock.withLock { wrapperResetGeneration }
         if Self.isReplayDebugEvent(event) {
@@ -2176,15 +2202,9 @@ let maxRetryDelay = 30.0
             hedgeLog("PostHog event \(event.event) wasn't built by buildEventForWrapper, or was already sent, so it was dropped")
             return nil
         }
-        // Under `setupLock`, which `setup()` and `close()` hold to change the generation and the queues,
-        // so an event that passes this check goes to the queues of the setup it was built for.
-        let queues: CaptureQueues? = setupLock.withLock {
-            let currentSetup = wrapperSendLock.withLock { wrapperSetupGeneration }
-            guard event.wrapperBuildSDK == ObjectIdentifier(self), event.wrapperBuildSetupGeneration == currentSetup else {
-                return nil
-            }
-            return captureQueues(aiLane: ai)
-        }
+        let queues = event.wrapperBuildSDK == ObjectIdentifier(self)
+            ? event.wrapperBuildSetupGeneration.flatMap { captureQueues(aiLane: ai, setupGeneration: $0) }
+            : nil
         guard let queues else {
             hedgeLog("PostHog event \(event.event) was built before the SDK was closed or set up again, so it was dropped")
             return nil
@@ -2263,11 +2283,14 @@ let maxRetryDelay = 30.0
     ///     `PostHogEvent.options`.
     @objc(screenWithTitle:properties:options:)
     public func screen(_ screenTitle: String, properties: [String: Any]? = nil, options: [String: Any]? = nil) {
+        let buildSetup = currentSetupGeneration()
         guard let prepared = prepareScreenEvent(screenTitle, properties: properties, options: options) else {
             return
         }
-        guard let queue else {
+        onCapturePreparedForTesting?()
+        guard let queue = captureQueues(aiLane: false, setupGeneration: buildSetup)?.lane else {
             releaseClaimIfCarried(prepared.event)
+            hedgeLog("PostHog event $screen was built before the SDK was closed or set up again, so it was dropped")
             return
         }
         guard let event = applyBeforeSend(prepared.event) else {
@@ -3656,7 +3679,7 @@ let maxRetryDelay = 30.0
 
         setupLock.withLock {
             enabled = false
-            wrapperSendLock.withLock { wrapperSetupGeneration += 1 }
+            wrapperSendLock.withLock { setupGeneration += 1 }
             PostHogSDK.projectTokens.remove(config.projectToken)
 
             queue?.flush()

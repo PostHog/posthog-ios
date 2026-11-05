@@ -1,10 +1,11 @@
 """Generate the SDK reference Markdown from the Swift doc comments with DocC, build time only.
 
 `xcodebuild docbuild` builds the iOS DocC archive with the DocC that ships in Xcode. Its render JSON
-holds each symbol's declaration, parameters and discussion. Our code walks that JSON, groups symbols
-by the `posthog-capability: <slug>` line in their doc comment, in the PostHog/sdk-specs README's
-order, and writes front matter. PostHogSDK members listed in UTILS go to SDK utils, and any other
-untagged member fails the run. Symbols obsoleted or unavailable in Swift are left out.
+holds each symbol's declaration, parameters and discussion. Our code walks that JSON, groups
+PostHogSDK members by the sdk-specs capability `docs/capabilities.json` maps their base name to, in
+the PostHog/sdk-specs README's order, and writes front matter. Members the map lists under "utils" go
+to SDK utils. A member in neither, a map entry with no member, or an unknown slug fails the run.
+Symbols obsoleted or unavailable in Swift are left out.
 
     python3 scripts/generate-markdown.py --sdk-specs DIR [--major 4]
 """
@@ -17,19 +18,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FIRST = ["setup", "capture", "identify"]
-TAG = "posthog-capability:"
 # Public helpers with no place in the reference, and members the compiler synthesizes.
 SKIP = {"Gzip", "GzipError", "CompressionLevel", "ReachabilityError", "BoxedBeforeSendBlock", "BoxedBeforeSendLogBlock"}
-# Untagged PostHogSDK members that belong to no sdk-specs capability, across 3.x and 4.x.
-UTILS = {
-    "shared", "didStartNotification", "setAppLanguage(_:)",
-    "captureDeepLink(openURLContexts:)", "captureDeepLink(url:)", "captureDeepLink(url:options:)",
-    "captureDeepLink(urls:)", "captureDeepLink(userActivity:)",
-    "captureFeatureInteraction(flag:flagVariant:)", "captureFeatureView(flag:flagVariant:)",
-    "capturePushNotificationOpened(response:)", "capturePushNotificationOpened(title:subtitle:body:payload:action:)",
-    "prewarmPushNotificationOpenCapture()", "registerPushNotificationToken(_:)",
-    "registerPushNotificationToken(_:appId:)", "unregisterPushNotificationToken()",
-}
 SYNTHESIZED = {"==(_:_:)", "!=(_:_:)", "hash(into:)", "hashValue", "rawValue", "init(rawValue:)"}
 EXTENDED = ["View", "UIView", "URLSession"]  # extensions of system types, listed under SDK utils
 MDX = str.maketrans({"<": "&lt;", "{": "&#123;", "}": "&#125;"})  # MDX 1 reads these as JSX
@@ -86,9 +76,7 @@ def blocks(nodes: list, refs: dict, level: int) -> list[str]:
     for n in nodes:
         kind = n["type"]
         if kind == "paragraph":
-            text = inline(n["inlineContent"], refs)
-            if not text.lower().startswith(TAG):
-                out.append(text)
+            out.append(inline(n["inlineContent"], refs))
         elif kind == "heading":
             out.append("#" * (level + n["level"] - 2) + " " + n["text"])
         elif kind == "codeListing":
@@ -103,13 +91,9 @@ def blocks(nodes: list, refs: dict, level: int) -> list[str]:
     return out
 
 
-def tag(page: dict) -> str | None:
-    for section in page.get("primaryContentSections", []):
-        for n in section.get("content", []):
-            text = inline(n.get("inlineContent", []), {}).lower()
-            if n["type"] == "paragraph" and text.startswith(TAG):
-                return text[len(TAG) :].strip()
-    return None
+def base(page: dict) -> str:
+    """A member's name without its argument labels, which the capability map is keyed by."""
+    return page["metadata"]["title"].split("(")[0]
 
 
 def entries(pages: list[dict], prefix: str, level: int) -> list[str]:
@@ -158,16 +142,19 @@ def reference(archive: Archive, caps: dict[str, str]) -> list[str]:
     symbols = archive.members(module)
     by_title = {s["metadata"]["title"]: s for s in symbols}
     sdk = archive.members(by_title["PostHogSDK"])
-    if untagged := [m["metadata"]["title"] for m in sdk if not tag(m) and m["metadata"]["title"] not in UTILS]:
-        raise SystemExit(f"PostHogSDK members with no capability tag, tag them or add them to UTILS: {untagged}")
+    mapped = json.loads((ROOT / "docs/capabilities.json").read_text())
+    utils, names = set(mapped.pop("utils")), {base(m) for m in sdk}
+    if missing := sorted(names - set(mapped) - utils):
+        raise SystemExit(f"PostHogSDK members not in docs/capabilities.json: {missing}")
+    if stale := sorted((set(mapped) | utils) - names):
+        raise SystemExit(f"docs/capabilities.json names no PostHogSDK member: {stale}")
+    if unknown := sorted(set(mapped.values()) - set(caps)):
+        raise SystemExit(f"docs/capabilities.json slugs not in sdk-specs: {unknown}")
     out = []
     for slug, title in caps.items():
-        if tagged := [m for m in sdk if tag(m) == slug]:
-            out += [f"## {title}", *entries(tagged, "PostHogSDK.", 3)]
-    found = {tag(m) for m in sdk} - {None} - set(caps)
-    if found:
-        raise SystemExit(f"unknown capability tags: {sorted(found)}")
-    out += ["## SDK utils", *entries([m for m in sdk if not tag(m)], "PostHogSDK.", 3)]
+        if members := [m for m in sdk if mapped.get(base(m)) == slug]:
+            out += [f"## {title}", *entries(members, "PostHogSDK.", 3)]
+    out += ["## SDK utils", *entries([m for m in sdk if base(m) in utils], "PostHogSDK.", 3)]
     for extended in (s for s in symbols if s["metadata"].get("role") == "collection"):
         for t in archive.members(extended):
             if t["metadata"]["title"] in EXTENDED:

@@ -23,8 +23,6 @@ public extension PostHogSDK {
 
     /// Posted after a feature flag reload finishes and cached flags are updated.
     ///
-    /// posthog-capability: on-feature-flags
-    ///
     /// The notification object is `nil`.
     @objc static let didReceiveFeatureFlags = Notification.Name("PostHogDidReceiveFeatureFlags") // object: nil
 }

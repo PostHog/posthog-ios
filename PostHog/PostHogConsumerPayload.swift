@@ -16,4 +16,7 @@ struct PostHogConsumerPayload<Record> {
     /// Removes every record except those whose `QueueEndpoint.recordId` is in
     /// the given set, then ends the flush so the kept records wait for backoff.
     let completeKeeping: (Set<String>) -> Void
+    /// Keeps every record and ends the flush. The next flush resends exactly
+    /// these records first, as another attempt of the same request.
+    let completeRetrying: () -> Void
 }

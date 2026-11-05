@@ -964,6 +964,91 @@ final class PostHogCaptureV1QueueTest {
         }
     }
 
+    @Test(
+        "resends a retry alone under the same request before batching events queued since",
+        arguments: [false, true], [false, true]
+    )
+    func retryGoesAloneFirst(wholeBatchFails: Bool, aiLane: Bool) async throws {
+        try await withMockedClock { clock in
+            let config = PostHogConfig(projectToken: "phc_retry_\(UUID().uuidString)", host: "http://localhost:9001")
+            config.flushAt = 100
+            let storage = PostHogStorage(config)
+            let api = PostHogApi(config)
+            let queue = PostHogQueue(config, storage, aiLane ? .ai(api: api) : .batch(api: api), nil)
+            server.batchProjectToken = config.projectToken
+            defer {
+                queue.stop()
+                queue.clear()
+                deleteSafely(storage.appFolderUrl)
+            }
+
+            let events = (0 ..< 2).map { PostHogEvent(event: "e\($0)", distinctId: "user") }
+            let retried = wholeBatchFails ? events : [events[1]]
+            server.return500 = wholeBatchFails
+            server.captureV1EventResult = { uuid, index in
+                index == 1 && uuid == events[1].uuid.postHogUuidString ? "retry" : "ok"
+            }
+            events.forEach { queue.add($0) }
+            queue.flush()
+            await waitUntil { queue.currentRetryCountForTesting == 1 && !queue.isFlushingForTesting }
+            server.return500 = false
+
+            let later = PostHogEvent(event: "later", distinctId: "user")
+            queue.add(later)
+            clock.date = clock.date.addingTimeInterval(maxRetryDelay + 1)
+            queue.flush()
+            await waitUntil { queue.depth == 1 && !queue.isFlushingForTesting }
+            queue.flush()
+            await waitUntil { queue.depth == 0 }
+
+            let requests = aiLane ? server.aiRequests : server.batchRequests
+            try #require(requests.count == 3)
+            #expect(server.parsePostHogEvents(requests[1]).map(\.uuid) == retried.map(\.uuid))
+            #expect(server.parsePostHogEvents(requests[2]).map(\.uuid) == [later.uuid])
+            #expect(requests.map { $0.value(forHTTPHeaderField: "PostHog-Attempt") } == ["1", "2", "1"])
+            let ids = requests.map { $0.value(forHTTPHeaderField: "PostHog-Request-Id") }
+            #expect(ids[1] == ids[0])
+            #expect(ids[2] != ids[0])
+            let createdAt = try requests.map { try #require(server.parseRequest($0))["created_at"] as? String }
+            #expect(createdAt[1] == createdAt[0])
+        }
+    }
+
+    @Test("starts a new request with the whole queue when a record to retry was evicted")
+    func evictedRetryStartsOver() async throws {
+        try await withMockedClock { clock in
+            let config = PostHogConfig(projectToken: "phc_evicted_\(UUID().uuidString)", host: "http://localhost:9001")
+            config.flushAt = 100
+            config.maxQueueSize = 2
+            let storage = PostHogStorage(config)
+            let queue = PostHogQueue(config, storage, .batch(api: PostHogApi(config)), nil)
+            server.batchProjectToken = config.projectToken
+            defer {
+                queue.stop()
+                queue.clear()
+                deleteSafely(storage.appFolderUrl)
+            }
+
+            let events = (0 ..< 2).map { PostHogEvent(event: "e\($0)", distinctId: "user") }
+            server.return500 = true
+            events.forEach { queue.add($0) }
+            queue.flush()
+            await waitUntil { queue.currentRetryCountForTesting == 1 && !queue.isFlushingForTesting }
+            server.return500 = false
+
+            let later = PostHogEvent(event: "later", distinctId: "user")
+            queue.add(later)
+            clock.date = clock.date.addingTimeInterval(maxRetryDelay + 1)
+            queue.flush()
+            await waitUntil { queue.depth == 0 }
+
+            let requests = server.batchRequests
+            try #require(requests.count == 2)
+            #expect(server.parsePostHogEvents(requests[1]).map(\.uuid) == [events[1].uuid, later.uuid])
+            #expect(requests[1].value(forHTTPHeaderField: "PostHog-Attempt") == "1")
+        }
+    }
+
     @Test("splits analytics batches at the byte limit and sends an event over it alone")
     func batchesByBytes() async throws {
         let config = PostHogConfig(projectToken: "phc_bytes_\(UUID().uuidString)", host: "http://localhost:9001")
@@ -1198,7 +1283,7 @@ final class PostHogCaptureAiTest {
 
         queue.add(PostHogEvent(event: "$ai_generation", distinctId: "user"))
         queue.flush()
-        await waitUntil { queue.currentRetryCountForTesting == 1 }
+        await waitUntil { queue.currentRetryCountForTesting == 1 && !queue.isFlushingForTesting }
 
         #expect(queue.depth == 1)
         #expect(server.aiRequests.count == 1)

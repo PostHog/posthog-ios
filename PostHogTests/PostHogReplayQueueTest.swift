@@ -181,6 +181,7 @@ class PostHogReplayQueueTests {
         // Flush and wait for server to receive snapshot events
         queue.flush()
         try await waitForSnapshotRequest(server)
+        await waitUntil { queue.depth == 0 }
 
         #expect(queue.depth == 0)
     }

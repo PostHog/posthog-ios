@@ -81,6 +81,21 @@ class PostHogFileBackedQueue {
         loadEntries(count, maxBytes: maxBytes)
     }
 
+    /// Reads exactly the entries with `ids`, oldest first, or `nil` when any of
+    /// them is no longer queued or readable.
+    func peekEntries(ids: [String]) -> [Entry]? {
+        let wanted = Set(ids)
+        let queued = itemsLock.withLock { items.filter { wanted.contains($0) } }
+        guard queued.count == wanted.count else { return nil }
+
+        var results = [Entry]()
+        for item in queued {
+            guard let contents = try? Data(contentsOf: queue.appendingPathComponent(item)) else { return nil }
+            results.append(Entry(id: item, data: contents))
+        }
+        return results
+    }
+
     func delete(index: Int) {
         let removed: String? = itemsLock.withLock {
             guard index < items.count else { return nil }

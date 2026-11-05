@@ -217,6 +217,16 @@
             #expect(backoff.isInBackoffForTesting == false)
         }
 
+        @Test("a change whose capture was dropped stays admitted until a frame reports")
+        func droppedCaptureStaysAdmitted() {
+            let backoff = backedOff(structure: 1)
+
+            #expect(backoff.shouldCapture(structure: { 2 }))
+            #expect(backoff.shouldCapture(structure: { 2 }))
+            backoff.noteFrame(unchanged: true)
+            #expect(backoff.shouldCapture(structure: { 2 }) == false)
+        }
+
         @Test("an unchanged structure keeps waiting for the idle interval")
         func sameStructureWaits() {
             let backoff = backedOff(structure: 1)

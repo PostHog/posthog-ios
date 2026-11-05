@@ -20,6 +20,9 @@
         private var unchangedFrames = 0
         private var lastEmit: UInt64 = 0
         private var lastWalkedStructure: Int?
+        /// A capture can be dropped after admission without reporting back, and the walk has already
+        /// absorbed the change, so it stays admitted until a frame reports or the idle interval takes over.
+        private var awaitingChangedFrame = false
 
         /// The cadence backoff starts from, which is replay's own throttle interval.
         func setBaseInterval(_ interval: TimeInterval) {
@@ -32,6 +35,7 @@
         /// Reports a rendered frame's dedup verdict, from whichever queue produced it.
         func noteFrame(unchanged: Bool) {
             lock.withLock {
+                awaitingChangedFrame = false
                 guard unchanged else {
                     unchangedFrames = 0
                     return
@@ -54,7 +58,7 @@
         ///
         /// `structure` is walked on every backed-off opportunity, so a fingerprint that differs from the
         /// previous walk captures at once, covering touchless changes that never call `wake()`. Only the
-        /// rendered frame's verdict leaves backoff, so an invisible change costs one frame.
+        /// rendered frame's verdict leaves backoff, so an invisible change costs one reported frame.
         func shouldCapture(structure: () -> Int? = { nil }) -> Bool {
             guard lock.withLock({ isBackingOff }) else { return true }
             // Outside the lock: noteFrame arrives from the render queue and must not wait on a view walk.
@@ -69,7 +73,8 @@
                 let now = DispatchTime.now().uptimeNanoseconds
                 let elapsed = now >= lastEmit ? now - lastEmit : 0
                 let idleIntervalElapsed = TimeInterval(elapsed) / TimeInterval(NSEC_PER_SEC) >= idleInterval
-                guard structureChanged || idleIntervalElapsed else { return false }
+                guard structureChanged || idleIntervalElapsed else { return awaitingChangedFrame }
+                awaitingChangedFrame = structureChanged
                 lastEmit = now
                 return true
             }

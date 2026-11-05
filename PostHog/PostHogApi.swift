@@ -376,8 +376,8 @@ class PostHogApi {
     ]
 
     /// Shapes a stored event for capture V1. `$session_id` and `$window_id`
-    /// move to the event root, and `$lib`/`$lib_version` are dropped because
-    /// the server reads them from `PostHog-Sdk-Info`.
+    /// move to the event root. `$lib`/`$lib_version` stay in properties, so an
+    /// event queued by an older SDK version keeps the version that captured it.
     ///
     /// Legacy option properties are hoisted here, after `beforeSend`, so events
     /// queued by older versions are hoisted too. Each is always removed from
@@ -385,8 +385,6 @@ class PostHogApi {
     /// Values aren't coerced: the server validates them.
     private static func captureV1JSON(_ event: PostHogEvent) -> [String: Any] {
         var properties = event.properties
-        properties.removeValue(forKey: "$lib")
-        properties.removeValue(forKey: "$lib_version")
 
         var options = event.options
         for (property, option) in legacyOptionProperties {

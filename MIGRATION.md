@@ -135,7 +135,6 @@ You need to change code if your app does any of these:
 - sets an empty distinct ID in `beforeSend`
 - replaces `event.options` in `beforeSend`, or returns an event kept from an earlier call (see [Event options](#event-options))
 - sets `projectToken` to a personal API key (`phx_...`)
-- sets `$lib` or `$lib_version` and expects PostHog to store that value
 - reads `$session_id` or `$window_id` from the raw request body, for example in a proxy
 - registers a super property, or passes an event property, with the same key as one the SDK sets, such as `$os`, `$is_identified` or `$geoip_disable`, and expects the SDK's value to win
 - sets `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` to a value PostHog can't read, such as `"maybe"`
@@ -209,13 +208,6 @@ In 3.x, an empty event name or distinct ID made legacy capture reject the whole 
 
 The distinct ID can come from `identify(_:)`, the `distinctId` argument of `capture` or `beforeSend`.
 If you identify users with a long ID, such as a JWT or a long email address, shorten or hash it before you upgrade. Otherwise every event for that user is dropped.
-
-### SDK identity
-
-PostHog sets `$lib` and `$lib_version` from the `PostHog-Sdk-Info` request header, for example `posthog-ios/4.0.0`.
-The SDK removes `$lib` and `$lib_version` from the properties it sends to capture v1.
-A value you set in properties, in a super property or in `beforeSend` doesn't reach PostHog.
-The SDK removes them when it sends the event, so `beforeSend` still sees them.
 
 ### Property precedence
 

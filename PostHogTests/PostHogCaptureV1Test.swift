@@ -62,7 +62,7 @@ final class PostHogCaptureV1Test {
         #expect(request.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
     }
 
-    @Test("builds the V1 body: created_at root, promoted session/window IDs, no $lib")
+    @Test("builds the V1 body: created_at root, promoted session/window IDs, the event's own $lib")
     func buildsV1Body() async throws {
         let event = PostHogEvent(
             event: "test",
@@ -95,10 +95,13 @@ final class PostHogCaptureV1Test {
         #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
 
         let properties = try #require(sent["properties"] as? [String: Any])
-        for key in ["$session_id", "$window_id", "$lib", "$lib_version", "$process_person_profile"] {
+        for key in ["$session_id", "$window_id", "$process_person_profile"] {
             #expect(properties[key] == nil, "\(key) should not be in properties")
         }
         #expect(properties["custom"] as? String == "value")
+        #expect(properties["$lib"] as? String == "posthog-ios")
+        #expect(properties["$lib_version"] as? String == "1.0.0")
+        #expect(request.value(forHTTPHeaderField: "PostHog-Sdk-Info") == "\(postHogSdkName)/\(postHogVersion)")
 
         // The stored event is not reshaped.
         #expect(event.properties["$session_id"] as? String == "session-1")

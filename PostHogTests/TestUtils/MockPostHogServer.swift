@@ -41,7 +41,7 @@ class MockPostHogServer {
         set { requestsLock.withLock { recordedAiRequests = newValue } }
     }
     /// Optional override for `/i/v1/ai/events` responses, given the request and its
-    /// 1-based number. When `nil`, every event gets an `ok` result.
+    /// 1-based number. When `nil`, it answers like `/i/v1/analytics/events` (`return500`, `captureV1EventResult`).
     var aiResponseHandler: ((URLRequest, Int) -> HTTPStubsResponse)?
     var batchExpectation: XCTestExpectation?
     var snapshotExpectation: XCTestExpectation?
@@ -433,15 +433,7 @@ class MockPostHogServer {
             if let handler = self.captureV1ResponseHandler ?? self.batchResponseHandler {
                 return handler(request, index)
             }
-            if self.return500 {
-                return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
-            }
-            let uuids = (self.parseRequest(request)?["batch"] as? [[String: Any]] ?? []).compactMap { $0["uuid"] as? String }
-            var results: [String: Any] = [:]
-            for uuid in uuids {
-                results[uuid] = ["result": self.captureV1EventResult?(uuid, index) ?? "ok"]
-            }
-            return HTTPStubsResponse(jsonObject: ["results": results], statusCode: 200, headers: nil)
+            return self.defaultCaptureV1Response(request, index)
         })
 
         stubDescriptors.append(stub(condition: pathEndsWith("/i/v1/ai/events")) { request in
@@ -454,9 +446,7 @@ class MockPostHogServer {
             if let handler = self.aiResponseHandler {
                 return handler(request, index)
             }
-            let uuids = (self.parseRequest(request)?["batch"] as? [[String: Any]] ?? []).compactMap { $0["uuid"] as? String }
-            let results = Dictionary(uniqueKeysWithValues: uuids.map { ($0, ["result": "ok"]) })
-            return HTTPStubsResponse(jsonObject: ["results": results], statusCode: 200, headers: nil)
+            return self.defaultCaptureV1Response(request, index)
         })
 
         stubDescriptors.append(stub(condition: pathEndsWith("/s")) { _ in
@@ -673,6 +663,19 @@ class MockPostHogServer {
         pushSubscriptionStatusHandler = nil
         pushSubscriptionRetryAfter = nil
         pushSubscriptionResponseHandler = nil
+    }
+
+    /// A 500 when `return500` is set, otherwise a 200 with each event's result from `captureV1EventResult` (default `ok`).
+    private func defaultCaptureV1Response(_ request: URLRequest, _ index: Int) -> HTTPStubsResponse {
+        if return500 {
+            return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+        }
+        let uuids = (parseRequest(request)?["batch"] as? [[String: Any]] ?? []).compactMap { $0["uuid"] as? String }
+        var results: [String: Any] = [:]
+        for uuid in uuids {
+            results[uuid] = ["result": captureV1EventResult?(uuid, index) ?? "ok"]
+        }
+        return HTTPStubsResponse(jsonObject: ["results": results], statusCode: 200, headers: nil)
     }
 
     func parseRequest(_ context: URLRequest, gzip: Bool = true) -> [String: Any]? {

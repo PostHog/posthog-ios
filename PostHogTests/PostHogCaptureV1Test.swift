@@ -964,13 +964,17 @@ final class PostHogCaptureV1QueueTest {
         }
     }
 
-    @Test("resends a retry alone under the same request before batching events queued since", arguments: [false, true])
-    func retryGoesAloneFirst(wholeBatchFails: Bool) async throws {
+    @Test(
+        "resends a retry alone under the same request before batching events queued since",
+        arguments: [false, true], [false, true]
+    )
+    func retryGoesAloneFirst(wholeBatchFails: Bool, aiLane: Bool) async throws {
         try await withMockedClock { clock in
             let config = PostHogConfig(projectToken: "phc_retry_\(UUID().uuidString)", host: "http://localhost:9001")
             config.flushAt = 100
             let storage = PostHogStorage(config)
-            let queue = PostHogQueue(config, storage, .batch(api: PostHogApi(config)), nil)
+            let api = PostHogApi(config)
+            let queue = PostHogQueue(config, storage, aiLane ? .ai(api: api) : .batch(api: api), nil)
             server.batchProjectToken = config.projectToken
             defer {
                 queue.stop()
@@ -997,7 +1001,7 @@ final class PostHogCaptureV1QueueTest {
             queue.flush()
             await waitUntil { queue.depth == 0 }
 
-            let requests = server.batchRequests
+            let requests = aiLane ? server.aiRequests : server.batchRequests
             try #require(requests.count == 3)
             #expect(server.parsePostHogEvents(requests[1]).map(\.uuid) == retried.map(\.uuid))
             #expect(server.parsePostHogEvents(requests[2]).map(\.uuid) == [later.uuid])

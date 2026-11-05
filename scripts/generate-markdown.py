@@ -4,7 +4,8 @@
 holds each symbol's declaration, parameters and discussion. Our code walks that JSON, groups
 PostHogSDK members by the sdk-specs capability `docs/capabilities.json` maps their base name to, in
 the PostHog/sdk-specs README's order, and writes front matter. Members the map lists under "utils" go
-to SDK utils. A member in neither, a map entry with no member, or an unknown slug fails the run.
+to SDK utils, and "next" maps members only the next major has. A member in neither, an unknown slug,
+or, for the declared major, a map key with no member fails the run.
 Symbols obsoleted or unavailable in Swift are left out.
 
     python3 scripts/generate-markdown.py --sdk-specs DIR [--major 4]
@@ -137,17 +138,18 @@ def capabilities(checkout: str) -> dict[str, str]:
     return {s: titles[s][0].upper() + titles[s][1:] for s in order if s in titles}
 
 
-def reference(archive: Archive, caps: dict[str, str]) -> list[str]:
+def reference(archive: Archive, caps: dict[str, str], current: bool) -> list[str]:
     module = archive.page("documentation/posthog")
     symbols = archive.members(module)
     by_title = {s["metadata"]["title"]: s for s in symbols}
     sdk = archive.members(by_title["PostHogSDK"])
     mapped = json.loads((ROOT / "docs/capabilities.json").read_text())
-    utils, names = set(mapped.pop("utils")), {base(m) for m in sdk}
-    if missing := sorted(names - set(mapped) - utils):
+    utils, upcoming, names = set(mapped.pop("utils")), mapped.pop("next"), {base(m) for m in sdk}
+    if missing := sorted(names - set(mapped) - set(upcoming) - utils):
         raise SystemExit(f"PostHogSDK members not in docs/capabilities.json: {missing}")
-    if stale := sorted((set(mapped) | utils) - names):
+    if current and (stale := sorted(set(mapped) - names)):
         raise SystemExit(f"docs/capabilities.json names no PostHogSDK member: {stale}")
+    mapped |= upcoming
     if unknown := sorted(set(mapped.values()) - set(caps)):
         raise SystemExit(f"docs/capabilities.json slugs not in sdk-specs: {unknown}")
     out = []
@@ -216,7 +218,7 @@ def main() -> None:
         )
         archive = Archive(Path(tmp))
         body = ["## Getting started", nest((ROOT / "docs/getting-started.md").read_text())]
-        body += reference(archive, capabilities(opts.sdk_specs))
+        body += reference(archive, capabilities(opts.sdk_specs), declared >= major)
     (ROOT / "references").mkdir(exist_ok=True)
     title = f"PostHog iOS SDK {major}.x" + ("" if declared >= major else " (experimental)")
     write(f"posthog-ios-{major}.md", [front_matter(title, body), *body])

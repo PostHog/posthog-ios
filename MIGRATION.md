@@ -87,6 +87,7 @@ Secure-entry text fields now stay masked inside a `.postHogNoMask()` or `ph-no-m
 
 - A malformed, empty or whitespace-only payload now reads as `nil` from `getFeatureFlagResult(_:)` and `getAllFeatureFlags()`. In 3.x you got the raw string. The flag's value and enabled state don't change.
 - Bootstrapped string payloads in `PostHogBootstrapConfig.featureFlagPayloads` stay strings. In 3.x, a bootstrapped `"123"` or `"true"` was decoded a second time and read back as a number or `Bool`.
+- `isFeatureEnabled(_:)` returns `false` for a flag whose variant is an empty string. In 3.x it returned `true`.
 
 If your code relied on getting the raw string back, make the payload valid JSON in PostHog.
 
@@ -401,7 +402,7 @@ In Objective-C, call `[[PostHogSDK shared] onFeatureFlags:^(PostHogFeatureFlagsL
 
 ### Callbacks are `@Sendable`
 
-Callbacks the SDK can call off the main thread are now `@Sendable`: `reloadFeatureFlags(_:)`, the blocks passed to `setBeforeSend(_:)` on `PostHogConfig` and `PostHogLogsConfig`, `getAnonymousId`, `pushIdentityProvider` and its `completion`, and `sessionReplayConfig.captureLogsConfig.logSanitizer`.
+Callbacks the SDK can call off the main thread are now `@Sendable`: `reloadFeatureFlags(_:)`, the blocks passed to `setBeforeSend(_:)` on `PostHogConfig` and `PostHogLogsConfig`, `getAnonymousId`, `pushIdentityProvider` and its `completion`, and `sessionReplayConfig.captureLogsConfig.logSanitizer`. The `BeforeSendBlock` and `PostHogBeforeSendLogBlock` type aliases are `@Sendable` too.
 
 In Swift 6 mode, a closure that reads or writes main-actor state no longer compiles (Swift 5 mode warns). For `reloadFeatureFlags(_:)` and `pushIdentityProvider`, hop to the main actor:
 
@@ -427,8 +428,8 @@ These were public only for PostHog's own React Native and Flutter SDKs, or by ac
 | `PostHogSessionManager` | `getSessionId()`, `startSession()` and `endSession()` on `PostHogSDK` |
 | `postHogSdkName`, `postHogVersion`, `config.snapshotEndpoint` | No longer public. A wrapper SDK that must read or set them can use `@_spi(PostHogInternal) import PostHog`, with no stability guarantees. |
 | ObjC: `[PostHogSessionManager shared]`, `setSessionId:`, `config.snapshotEndpoint` | No longer exposed to Objective-C. `[[PostHogSDK shared] getSessionId]`, `startSession` and `endSession` replace the session calls. |
-| `dateToMillis(_:)` | `Int64(date.timeIntervalSince1970 * 1000)` |
-| `imageToBase64(_:_:)`, `toISO8601String(_:)`, `toISO8601Date(_:)`, `sanitizeDictionary(_:)`, `deleteSafely(_:)`, `postHogiOSSdkName`, `Gzip`, `GzipError`, `CompressionLevel`, `UIColor(hex:)`, `UIColor.hexDescription(_:)` | No longer public. Copy the code you need into your app. |
+| `dateToMillis(_:)`, `imageToBase64(_:_:)` | No longer public. For `dateToMillis(_:)`, use `Int64(date.timeIntervalSince1970 * 1000)`; for `imageToBase64(_:_:)`, copy the code you need into your app. A wrapper SDK can still use both through `@_spi(PostHogInternal) import PostHog`, with no stability guarantees. |
+| `toISO8601String(_:)`, `toISO8601Date(_:)`, `sanitizeDictionary(_:)`, `deleteSafely(_:)`, `postHogiOSSdkName`, `Gzip`, `GzipError`, `CompressionLevel`, `UIColor(hex:)`, `UIColor.hexDescription(_:)` | No longer public. Copy the code you need into your app. |
 | `ReachabilityError`, `ReachabilityChangedNotification` | Removed. Use `NWPathMonitor` if your app needs reachability. |
 
 ## Package traits

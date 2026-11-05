@@ -23,6 +23,9 @@ tableOfContents:
   - value: "Alias"
     url: alias
     depth: 0
+  - value: "Capture AI"
+    url: capture-ai
+    depth: 0
   - value: "Capture exception"
     url: capture-exception
     depth: 0
@@ -110,6 +113,15 @@ tableOfContents:
   - value: "Unregister"
     url: unregister
     depth: 0
+  - value: "Autocapture"
+    url: autocapture
+    depth: 0
+  - value: "Device ID generator"
+    url: device-id-generator
+    depth: 0
+  - value: "Session manager"
+    url: session-manager
+    depth: 0
   - value: "SDK utils"
     url: sdk-utils
     depth: 0
@@ -123,10 +135,12 @@ tableOfContents:
 
 ### Install
 
-Add the package with Swift Package Manager, `https://github.com/PostHog/posthog-ios.git`, or with CocoaPods:
+PostHog 4.x is published with Swift Package Manager only. In Xcode, choose **File > Add Package Dependencies…** and enter `https://github.com/PostHog/posthog-ios`, or add it to your `Package.swift`:
 
-```ruby
-pod "PostHog"
+```swift
+dependencies: [
+    .package(url: "https://github.com/PostHog/posthog-ios.git", from: "4.0.0")
+]
 ```
 
 ### Initialize
@@ -418,8 +432,6 @@ Swift-native variant of `captureLog` with default values for every argument exce
 - `spanId`: Optional 16-character lowercase hex W3C span ID.
 - `traceFlags`: Optional W3C trace flags bitfield.
 
-### `PostHogSDK.captureLog(_:level:attributes:traceId:spanId:traceFlags:)`
-
 ```swift
 @objc(captureLogWithBody:level:attributes:traceId:spanId:traceFlags:) func captureLog(_ body: String, level: PostHogLogSeverity, attributes: [String : Any]?, traceId: String?, spanId: String?, traceFlags: NSNumber?)
 ```
@@ -453,6 +465,58 @@ Assigns an additional distinct ID to the current user.
 
 Use alias when a user should be connected to another identifier that was previously used to track them. This sends a `$create_alias` event.
 
+### `PostHogSDK.alias(_:options:)`
+
+```swift
+@objc(alias:options:) func alias(_ alias: String, options: [String : Any]? = nil)
+```
+
+Assigns an additional distinct ID to the current user.
+
+#### Parameters
+
+- `alias`: The additional distinct ID to associate with the current user.
+- `options`: Optional settings that tell PostHog how to process the `$create_alias` event, sent apart from its properties. Known keys are `process_person_profile` (`Bool`), `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id` (`String`), as described on `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`. An option wins over its legacy `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through `PostHogEvent.options`.
+
+#### Discussion
+
+Use alias when a user should be connected to another identifier that was previously used to track them. This sends a `$create_alias` event.
+
+## Capture AI
+
+### `PostHogSDK.captureAi(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`
+
+```swift
+@discardableResult @objc(captureAiWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:) func captureAi(_ event: String, distinctId: String? = nil, properties: [String : Any]? = nil, userProperties: [String : Any]? = nil, userPropertiesSetOnce: [String : Any]? = nil, groups: [String : String]? = nil, timestamp: Date? = nil, options: [String : Any]? = nil) -> String?
+```
+
+Captures an AI observability event, such as `$ai_generation`, `$ai_span`, `$ai_trace` or `$ai_embedding`, and sends it to PostHog’s AI endpoint, which accepts much larger events than `capture`.
+
+#### Parameters
+
+- `event`: AI event name, such as `$ai_generation`.
+- `distinctId`: Optional distinct ID override. Defaults to the current SDK distinct ID.
+- `properties`: Event properties attached only to this event.
+- `userProperties`: Person properties to set. Existing values are overwritten.
+- `userPropertiesSetOnce`: Person properties to set only if they do not already exist.
+- `groups`: Group type/key pairs to attach to this event.
+- `timestamp`: Optional event timestamp. Defaults to the current time.
+- `options`: Optional settings that tell PostHog how to process this event. Same keys as `capture`’s `options`.
+
+#### Return Value
+
+The event’s UUID, or `nil` if the event wasn’t queued: for example, the SDK is opted out or disabled, its name is empty, `beforeSend` dropped it, or it’s over `captureAiMaxEventBytes`.
+
+#### Discussion
+
+Takes the same arguments as `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)` and goes through the same `beforeSend` hooks. The event is queued on disk separately from other events and sent unchanged: the SDK doesn’t redact or truncate prompts, outputs or media. An event over `captureAiMaxEventBytes` (8 MiB plus 64 KiB by default) is dropped. PostHog drops an event sent here whose name doesn’t start with `$ai_`, and the SDK logs a debug message when it’s given one. `capture` never sends events here, even ones named `$ai_*`.
+
+AI events use `flushAt`, `maxBatchSize` and `flushIntervalSeconds` from `PostHogConfig`, like other events, and `captureAiCompression`, `captureAiMaxQueueSize` and `captureAiTimeout` instead of `compression`, `maxQueueSize` and the 10-second timeout. These limits are fixed:
+
+- Requests carry up to about 5 MiB of events, and the SDK sends as soon as that much is queued.
+
+- Up to 50 MiB of AI events are kept on disk. Beyond that, the oldest are dropped.
+
 ## Capture exception
 
 ### `PostHogSDK.captureException(_:)`
@@ -470,8 +534,6 @@ Capture an NSException without additional properties
 #### Discussion
 
 Convenience overload for Objective-C callers so `properties:` doesn’t need to be passed as `nil`.
-
-### `PostHogSDK.captureException(_:)`
 
 ```swift
 @objc(captureExceptionWithError:) func captureException(_ error: Error)
@@ -514,8 +576,6 @@ Example:
     [[PostHogSDK shared] captureExceptionWithNSException:exception properties:nil];
 }
 ```
-
-### `PostHogSDK.captureException(_:properties:options:)`
 
 ```swift
 @objc(captureExceptionWithError:properties:options:) func captureException(_ error: Error, properties: [String : Any]? = nil, options: [String : Any]? = nil)
@@ -813,6 +873,67 @@ Returns whether a feature flag is enabled.
 #### Discussion
 
 Multivariate flags are considered enabled when a non-empty variant string is returned.
+
+### `PostHogSDK.isFeatureEnabled(_:defaultValue:)`
+
+```swift
+@objc(isFeatureEnabledWithKey:defaultValue:) func isFeatureEnabled(_ key: String, defaultValue: Bool) -> Bool
+```
+
+Returns whether a feature flag is enabled, or a default you supply when the flag has no value.
+
+#### Parameters
+
+- `key`: The feature flag key.
+- `defaultValue`: The value to return when the flag has no value.
+
+#### Return Value
+
+`true` when the flag is enabled, `false` when it is disabled, otherwise `defaultValue`.
+
+#### Discussion
+
+`defaultValue` has no implicit value; `isFeatureEnabled(_:)` is the equivalent of passing `false`.
+
+The default is returned when flags have not loaded yet, the flags request failed with nothing cached, the loaded flags have no flag with this key, or the SDK is not set up. A flag that has a value always wins, including `false` and variant strings, and an empty variant counts as `false`. `$feature_flag_called` follows `PostHogConfig.sendFeatureFlagEvent` and never reports the default as the flag’s value.
+
+```swift
+if PostHogSDK.shared.isFeatureEnabled("new-checkout", defaultValue: true) {
+    showNewCheckout()
+}
+```
+
+### `PostHogSDK.isFeatureEnabled(_:defaultValue:sendFeatureFlagEvent:)`
+
+```swift
+@objc(isFeatureEnabledWithKey:defaultValue:sendFeatureFlagEvent:) func isFeatureEnabled(_ key: String, defaultValue: Bool, sendFeatureFlagEvent: Bool) -> Bool
+```
+
+Returns whether a feature flag is enabled, or a default you supply when the flag has no value, and optionally captures a usage event.
+
+#### Parameters
+
+- `key`: The feature flag key.
+- `defaultValue`: The value to return when the flag has no value.
+- `sendFeatureFlagEvent`: Whether to capture `$feature_flag_called` for this lookup.
+
+#### Return Value
+
+`true` when the flag is enabled, `false` when it is disabled, otherwise `defaultValue`.
+
+#### Discussion
+
+`defaultValue` has no implicit value, and `sendFeatureFlagEvent` overrides `PostHogConfig.sendFeatureFlagEvent` for this call.
+
+The default is returned when flags have not loaded yet, the flags request failed with nothing cached, the loaded flags have no flag with this key, or the SDK is not set up. A flag that has a value always wins, including `false` and variant strings, and an empty variant counts as `false`. `$feature_flag_called` never reports the default as the flag’s value.
+
+```swift
+let enabled = PostHogSDK.shared.isFeatureEnabled(
+    "new-checkout",
+    defaultValue: true,
+    sendFeatureFlagEvent: false
+)
+```
 
 ### `PostHogSDK.isFeatureEnabled(_:sendFeatureFlagEvent:)`
 
@@ -1428,57 +1549,69 @@ Removes a previously registered super property.
 
 - `key`: The property key to stop attaching to future events.
 
-## SDK utils
+## Autocapture
 
-### `PostHogSDK.alias(_:options:)`
-
-```swift
-@objc(alias:options:) func alias(_ alias: String, options: [String : Any]? = nil)
-```
-
-Assigns an additional distinct ID to the current user.
-
-#### Parameters
-
-- `alias`: The additional distinct ID to associate with the current user.
-- `options`: Optional settings that tell PostHog how to process the `$create_alias` event, sent apart from its properties. Known keys are `process_person_profile` (`Bool`), `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id` (`String`), as described on `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`. An option wins over its legacy `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through `PostHogEvent.options`.
-
-#### Discussion
-
-Use alias when a user should be connected to another identifier that was previously used to track them. This sends a `$create_alias` event.
-
-### `PostHogSDK.captureAi(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`
+### `PostHogSDK.isAutocaptureActive()`
 
 ```swift
-@discardableResult @objc(captureAiWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:) func captureAi(_ event: String, distinctId: String? = nil, properties: [String : Any]? = nil, userProperties: [String : Any]? = nil, userPropertiesSetOnce: [String : Any]? = nil, groups: [String : String]? = nil, timestamp: Date? = nil, options: [String : Any]? = nil) -> String?
+@objc func isAutocaptureActive() -> Bool
 ```
 
-Captures an AI observability event, such as `$ai_generation`, `$ai_span`, `$ai_trace` or `$ai_embedding`, and sends it to PostHog’s AI endpoint, which accepts much larger events than `capture`.
-
-#### Parameters
-
-- `event`: AI event name, such as `$ai_generation`.
-- `distinctId`: Optional distinct ID override. Defaults to the current SDK distinct ID.
-- `properties`: Event properties attached only to this event.
-- `userProperties`: Person properties to set. Existing values are overwritten.
-- `userPropertiesSetOnce`: Person properties to set only if they do not already exist.
-- `groups`: Group type/key pairs to attach to this event.
-- `timestamp`: Optional event timestamp. Defaults to the current time.
-- `options`: Optional settings that tell PostHog how to process this event. Same keys as `capture`’s `options`.
+Returns whether UIKit or SwiftUI element autocapture is enabled in local state.
 
 #### Return Value
 
-The event’s UUID, or `nil` if the event wasn’t queued: for example, the SDK is opted out or disabled, its name is empty, `beforeSend` dropped it, or it’s over `captureAiMaxEventBytes`.
+`true` when the SDK is set up and either interaction autocapture option is enabled. This does not verify that the swizzling-backed integration was installed.
+
+### `PostHogSDK.isRageClickActive()`
+
+```swift
+@objc func isRageClickActive() -> Bool
+```
+
+Returns whether rage click autocapture is enabled in local state.
+
+#### Return Value
+
+`true` when the SDK is set up and rage click detection is enabled. This does not verify that the swizzling-backed integration was installed.
+
+## Device ID generator
+
+### `PostHogSDK.getDeviceId()`
+
+```swift
+@objc func getDeviceId() -> String
+```
+
+Returns the stable device identifier used for device-level feature flag bucketing.
+
+#### Return Value
+
+The stable device ID, or an empty string when the SDK is not set up.
 
 #### Discussion
 
-Takes the same arguments as `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)` and goes through the same `beforeSend` hooks. The event is queued on disk separately from other events and sent unchanged: the SDK doesn’t redact or truncate prompts, outputs or media. An event over `captureAiMaxEventBytes` (8 MiB plus 64 KiB by default) is dropped. PostHog drops an event sent here whose name doesn’t start with `$ai_`, and the SDK logs a debug message when it’s given one. `capture` never sends events here, even ones named `$ai_*`.
+This ID persists across `identify()` and `reset()` calls, only changing on a fresh app install, manual cache clearing, or OS-initiated storage cleanup.
 
-AI events use `flushAt`, `maxBatchSize` and `flushIntervalSeconds` from `PostHogConfig`, like other events, and `captureAiCompression`, `captureAiMaxQueueSize` and `captureAiTimeout` instead of `compression`, `maxQueueSize` and the 10-second timeout. These limits are fixed:
+## Session manager
 
-- Requests carry up to about 5 MiB of events, and the SDK sends as soon as that much is queued.
+### `PostHogSDK.endSession()`
 
-- Up to 50 MiB of AI events are kept on disk. Beyond that, the oldest are dropped.
+```swift
+@objc func endSession()
+```
+
+Ends the current analytics session.
+
+### `PostHogSDK.startSession()`
+
+```swift
+@objc func startSession()
+```
+
+Starts or resumes the current analytics session.
+
+## SDK utils
 
 ### `PostHogSDK.captureDeepLink(openURLContexts:)`
 
@@ -1557,32 +1690,6 @@ Capture a deep link from an NSUserActivity (universal links).
 
 Use this method with `application(_:continue:restorationHandler:)` in your app delegate, or with SwiftUI’s `.onContinueUserActivity()` modifier. Only activities of type `NSUserActivityTypeBrowsingWeb` are processed.
 
-### `PostHogSDK.captureExceptionObjC(_:properties:)`
-
-```swift
-@objc(captureExceptionWithNSException:properties:) func captureExceptionObjC(_ exception: NSException, properties: [String : Any]?)
-```
-
-Capture an NSException from Objective-C
-
-#### Parameters
-
-- `exception`: The NSException to capture
-- `properties`: Optional additional properties to attach to the event
-
-### `PostHogSDK.captureExceptionObjC(_:properties:)`
-
-```swift
-@objc(captureExceptionWithError:properties:) func captureExceptionObjC(_ error: Error, properties: [String : Any]?)
-```
-
-Capture a Swift Error or NSError from Objective-C
-
-#### Parameters
-
-- `error`: The error to capture (can be any Error or NSError)
-- `properties`: Optional additional properties to attach to the event
-
 ### `PostHogSDK.captureFeatureInteraction(flag:flagVariant:)`
 
 ```swift
@@ -1608,24 +1715,6 @@ Captures a `$feature_view` event for the specified feature flag.
 
 - `flag`: The key of the feature flag being viewed.
 - `flagVariant`: The variant of the feature flag being viewed. If `nil`, the SDK looks up the current flag value and skips capture when no value is available.
-
-### `PostHogSDK.captureObjC(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:)`
-
-```swift
-@objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:) func captureObjC(_ event: String, distinctId: String?, properties: [String : Any]?, userProperties: [String : Any]?, userPropertiesSetOnce: [String : Any]?, groups: [String : String]?, timestamp: Date?)
-```
-
-Captures a custom event for an explicit distinct ID and timestamp from Objective-C.
-
-#### Parameters
-
-- `event`: Event name to capture.
-- `distinctId`: Optional distinct ID override. Defaults to the current SDK distinct ID when nil, empty or whitespace-only.
-- `properties`: Event properties attached only to this event.
-- `userProperties`: Person properties to set. Existing values are overwritten.
-- `userPropertiesSetOnce`: Person properties to set only if they do not already exist.
-- `groups`: Group type/key pairs to attach to this event.
-- `timestamp`: Optional event timestamp. Defaults to the current time.
 
 ### `PostHogSDK.capturePushNotificationOpened(response:)`
 
@@ -1671,143 +1760,6 @@ Use this when no `UNNotificationResponse` is available — for example when you 
 
 A notification sent by PostHog is captured once: when `payload["posthog"]` carries an `invocation_id`, a repeat with the same `invocation_id` and `action_id` within 5 minutes of the first capture is skipped, whether that first capture came from this method or from the SDK’s automatic capture. Payloads without a `posthog.invocation_id` are always captured. Only the 20 most recently captured notifications are remembered, so a host that reports more than that inside the window can capture a repeat of the oldest. This overload carries no notification identifier, so a rerun of that workflow reported through it inside the window reads as the same tap and is skipped; report a rerun through `capturePushNotificationOpened(response:)`, which can tell the deliveries apart.
 
-### `PostHogSDK.endSession()`
-
-```swift
-@objc func endSession()
-```
-
-Ends the current analytics session.
-
-### `PostHogSDK.getDeviceId()`
-
-```swift
-@objc func getDeviceId() -> String
-```
-
-Returns the stable device identifier used for device-level feature flag bucketing.
-
-#### Return Value
-
-The stable device ID, or an empty string when the SDK is not set up.
-
-#### Discussion
-
-This ID persists across `identify()` and `reset()` calls, only changing on a fresh app install, manual cache clearing, or OS-initiated storage cleanup.
-
-### `PostHogSDK.groupObjC(type:key:groupProperties:)`
-
-```swift
-@objc(groupWithType:key:groupProperties:) func groupObjC(type: String, key: String, groupProperties: [String : Any]?)
-```
-
-Associates subsequent events with a group and optionally updates group properties from Objective-C.
-
-#### Parameters
-
-- `type`: Group type, such as `"company"` or `"organization"`.
-- `key`: Group key from your application.
-- `groupProperties`: Optional properties to set on the group profile.
-
-### `PostHogSDK.identifyObjC(_:userProperties:userPropertiesSetOnce:)`
-
-```swift
-@objc(identifyWithDistinctId:userProperties:userPropertiesSetOnce:) func identifyObjC(_ distinctId: String, userProperties: [String : Any]?, userPropertiesSetOnce: [String : Any]?)
-```
-
-Identifies the current user and sets person properties from Objective-C.
-
-#### Parameters
-
-- `distinctId`: Stable user identifier from your application.
-- `userProperties`: Properties to set on the person profile. Existing values are overwritten.
-- `userPropertiesSetOnce`: Properties to set only if they do not already exist.
-
-### `PostHogSDK.isAutocaptureActive()`
-
-```swift
-@objc func isAutocaptureActive() -> Bool
-```
-
-Returns whether UIKit or SwiftUI element autocapture is enabled in local state.
-
-#### Return Value
-
-`true` when the SDK is set up and either interaction autocapture option is enabled. This does not verify that the swizzling-backed integration was installed.
-
-### `PostHogSDK.isFeatureEnabled(_:defaultValue:)`
-
-```swift
-@objc(isFeatureEnabledWithKey:defaultValue:) func isFeatureEnabled(_ key: String, defaultValue: Bool) -> Bool
-```
-
-Returns whether a feature flag is enabled, or a default you supply when the flag has no value.
-
-#### Parameters
-
-- `key`: The feature flag key.
-- `defaultValue`: The value to return when the flag has no value.
-
-#### Return Value
-
-`true` when the flag is enabled, `false` when it is disabled, otherwise `defaultValue`.
-
-#### Discussion
-
-`defaultValue` has no implicit value; `isFeatureEnabled(_:)` is the equivalent of passing `false`.
-
-The default is returned when flags have not loaded yet, the flags request failed with nothing cached, the loaded flags have no flag with this key, or the SDK is not set up. A flag that has a value always wins, including `false` and variant strings, and an empty variant counts as `false`. `$feature_flag_called` follows `PostHogConfig.sendFeatureFlagEvent` and never reports the default as the flag’s value.
-
-```swift
-if PostHogSDK.shared.isFeatureEnabled("new-checkout", defaultValue: true) {
-    showNewCheckout()
-}
-```
-
-### `PostHogSDK.isFeatureEnabled(_:defaultValue:sendFeatureFlagEvent:)`
-
-```swift
-@objc(isFeatureEnabledWithKey:defaultValue:sendFeatureFlagEvent:) func isFeatureEnabled(_ key: String, defaultValue: Bool, sendFeatureFlagEvent: Bool) -> Bool
-```
-
-Returns whether a feature flag is enabled, or a default you supply when the flag has no value, and optionally captures a usage event.
-
-#### Parameters
-
-- `key`: The feature flag key.
-- `defaultValue`: The value to return when the flag has no value.
-- `sendFeatureFlagEvent`: Whether to capture `$feature_flag_called` for this lookup.
-
-#### Return Value
-
-`true` when the flag is enabled, `false` when it is disabled, otherwise `defaultValue`.
-
-#### Discussion
-
-`defaultValue` has no implicit value, and `sendFeatureFlagEvent` overrides `PostHogConfig.sendFeatureFlagEvent` for this call.
-
-The default is returned when flags have not loaded yet, the flags request failed with nothing cached, the loaded flags have no flag with this key, or the SDK is not set up. A flag that has a value always wins, including `false` and variant strings, and an empty variant counts as `false`. `$feature_flag_called` never reports the default as the flag’s value.
-
-```swift
-let enabled = PostHogSDK.shared.isFeatureEnabled(
-    "new-checkout",
-    defaultValue: true,
-    sendFeatureFlagEvent: false
-)
-```
-
-### `PostHogSDK.isRageClickActive()`
-
-```swift
-@objc func isRageClickActive() -> Bool
-```
-
-Returns whether rage click autocapture is enabled in local state.
-
-#### Return Value
-
-`true` when the SDK is set up and rage click detection is enabled. This does not verify that the swizzling-backed integration was installed.
-
 ### `PostHogSDK.registerPushNotificationToken(_:)`
 
 ```swift
@@ -1847,19 +1799,6 @@ Use the `appId` overload when relaying a token obtained through another provider
 
 > **Note:** Push registration is available on iOS only in this version.
 
-### `PostHogSDK.screenObjC(_:properties:)`
-
-```swift
-@objc(screenWithTitle:properties:) func screenObjC(_ screenTitle: String, properties: [String : Any]?)
-```
-
-Records a screen view by capturing a `$screen` event from Objective-C.
-
-#### Parameters
-
-- `screenTitle`: The screen name to record. It takes precedence over a `$screen_name` key in `properties`.
-- `properties`: Additional properties to attach to this `$screen` event.
-
 ### `PostHogSDK.setAppLanguage(_:)`
 
 ```swift
@@ -1881,31 +1820,6 @@ By default the SDK sends the localization your app bundle resolved, from `Bundle
 ```swift
 PostHogSDK.shared.setAppLanguage("de")
 ```
-
-### `PostHogSDK.setPersonPropertiesObjC(userPropertiesToSet:userPropertiesToSetOnce:)`
-
-```swift
-@objc(setPersonPropertiesWithUserPropertiesToSet:userPropertiesToSetOnce:) func setPersonPropertiesObjC(userPropertiesToSet: [String : Any]?, userPropertiesToSetOnce: [String : Any]?)
-```
-
-Sets properties on the person profile associated with the current distinct_id from Objective-C.
-
-#### Parameters
-
-- `userPropertiesToSet`: Properties to store about the user. These will overwrite existing values.
-- `userPropertiesToSetOnce`: Properties to store about the user only if not previously set.
-
-#### Discussion
-
-This method sends a `$set` event to PostHog.
-
-### `PostHogSDK.startSession()`
-
-```swift
-@objc func startSession()
-```
-
-Starts or resumes the current analytics session.
 
 ### `PostHogSDK.unregisterPushNotificationToken()`
 
@@ -3197,8 +3111,6 @@ Replaces the event `beforeSend` chain with the provided blocks.
 
 - `blocks`: Ordered callbacks that can mutate or drop events.
 
-#### `PostHogConfig.setBeforeSend(_:)`
-
 ```swift
 func setBeforeSend(_ blocks: [(PostHogEvent) -> PostHogEvent?])
 ```
@@ -3212,20 +3124,6 @@ Replaces the event `beforeSend` chain with blocks from an array typed `[(PostHog
 ##### Discussion
 
 The blocks can run on any thread, so they must be safe to call from any thread.
-
-#### `PostHogConfig.setBeforeSend(_:)`
-
-```swift
-@objc func setBeforeSend(_ blocks: [BoxedBeforeSendBlock])
-```
-
-Replaces the event `beforeSend` chain from Objective-C boxed callbacks.
-
-##### Parameters
-
-- `blocks`: Ordered Objective-C callback boxes.
-
-#### `PostHogConfig.setBeforeSend(_:)`
 
 ```swift
 func setBeforeSend(_ blocks: [BeforeSendBlock])
@@ -4531,8 +4429,6 @@ Replaces the log `beforeSend` chain with the provided blocks.
 
 - `blocks`: Ordered callbacks that can mutate or drop log records.
 
-#### `PostHogLogsConfig.setBeforeSend(_:)`
-
 ```swift
 func setBeforeSend(_ blocks: [PostHogBeforeSendLogBlock])
 ```
@@ -4546,20 +4442,6 @@ Replaces the log `beforeSend` chain with the provided blocks.
 ##### Discussion
 
 Blocks run synchronously in array order before a log is enqueued. Returning `nil` from any block drops the log and skips the remaining blocks.
-
-#### `PostHogLogsConfig.setBeforeSend(_:)`
-
-```swift
-@objc func setBeforeSend(_ blocks: [BoxedBeforeSendLogBlock])
-```
-
-Replaces the log `beforeSend` chain from Objective-C boxed callbacks.
-
-##### Parameters
-
-- `blocks`: Ordered Objective-C callback boxes.
-
-#### `PostHogLogsConfig.setBeforeSend(_:)`
 
 ```swift
 func setBeforeSend(_ blocks: [(PostHogLogRecord) -> PostHogLogRecord?])

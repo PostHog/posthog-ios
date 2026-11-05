@@ -113,6 +113,15 @@ tableOfContents:
   - value: "Unregister"
     url: unregister
     depth: 0
+  - value: "Autocapture"
+    url: autocapture
+    depth: 0
+  - value: "Device ID generator"
+    url: device-id-generator
+    depth: 0
+  - value: "Session manager"
+    url: session-manager
+    depth: 0
   - value: "SDK utils"
     url: sdk-utils
     depth: 0
@@ -419,8 +428,6 @@ Swift-native variant of `captureLog` with default values for every argument exce
 - `spanId`: Optional 16-character lowercase hex W3C span ID.
 - `traceFlags`: Optional W3C trace flags bitfield.
 
-### `PostHogSDK.captureLog(_:level:attributes:traceId:spanId:traceFlags:)`
-
 ```swift
 @objc(captureLogWithBody:level:attributes:traceId:spanId:traceFlags:) func captureLog(_ body: String, level: PostHogLogSeverity, attributes: [String : Any]?, traceId: String?, spanId: String?, traceFlags: NSNumber?)
 ```
@@ -472,8 +479,6 @@ Capture an NSException without additional properties
 
 Convenience overload for Objective-C callers so `properties:` doesn’t need to be passed as `nil`.
 
-### `PostHogSDK.captureException(_:)`
-
 ```swift
 @objc(captureExceptionWithError:) func captureException(_ error: Error)
 ```
@@ -514,8 +519,6 @@ Example:
     [[PostHogSDK shared] captureExceptionWithNSException:exception properties:nil];
 }
 ```
-
-### `PostHogSDK.captureException(_:properties:)`
 
 ```swift
 @objc(captureExceptionWithError:properties:) func captureException(_ error: Error, properties: [String : Any]? = nil)
@@ -687,6 +690,8 @@ Returns a feature flag value and optionally captures a usage event.
 ```swift
 @objc func getFeatureFlagPayload(_ key: String) -> Any?
 ```
+
+> **Deprecated:** Use getFeatureFlagResult(_:) instead which properly tracks feature flag usage
 
 Returns the payload for a feature flag.
 
@@ -902,6 +907,18 @@ A subscription. Call `unsubscribe()` on it to stop receiving updates.
 The callback runs on the main thread. It’s invoked after the SDK loads flags at startup (including from bootstrap values), after `reloadFeatureFlags()`, and after calls that reload flags such as `identify()`, `group()` or `reset()`. If flags have already loaded when you register, it’s also invoked with the current values shortly afterwards.
 
 You can register before `setup()`. Treat each invocation as “flags may have changed”, not as an exactly-once event.
+
+### `PostHogSDK.didReceiveFeatureFlags`
+
+```swift
+@objc static let didReceiveFeatureFlags: Notification.Name
+```
+
+Posted after a feature flag reload finishes and cached flags are updated.
+
+#### Discussion
+
+The notification object is `nil`.
 
 ## Opt in
 
@@ -1436,6 +1453,68 @@ Removes a previously registered super property.
 
 - `key`: The property key to stop attaching to future events.
 
+## Autocapture
+
+### `PostHogSDK.isAutocaptureActive()`
+
+```swift
+@objc func isAutocaptureActive() -> Bool
+```
+
+Returns whether UIKit or SwiftUI element autocapture is enabled in local state.
+
+#### Return Value
+
+`true` when the SDK is set up and either interaction autocapture option is enabled. This does not verify that the swizzling-backed integration was installed.
+
+### `PostHogSDK.isRageClickActive()`
+
+```swift
+@objc func isRageClickActive() -> Bool
+```
+
+Returns whether rage click autocapture is enabled in local state.
+
+#### Return Value
+
+`true` when the SDK is set up and rage click detection is enabled. This does not verify that the swizzling-backed integration was installed.
+
+## Device ID generator
+
+### `PostHogSDK.getDeviceId()`
+
+```swift
+@objc func getDeviceId() -> String
+```
+
+Returns the stable device identifier used for device-level feature flag bucketing.
+
+#### Return Value
+
+The stable device ID, or an empty string when the SDK is not set up.
+
+#### Discussion
+
+This ID persists across `identify()` and `reset()` calls, only changing on a fresh app install, manual cache clearing, or OS-initiated storage cleanup.
+
+## Session manager
+
+### `PostHogSDK.endSession()`
+
+```swift
+@objc func endSession()
+```
+
+Ends the current analytics session.
+
+### `PostHogSDK.startSession()`
+
+```swift
+@objc func startSession()
+```
+
+Starts or resumes the current analytics session.
+
 ## SDK utils
 
 ### `PostHogSDK.captureDeepLink(openURLContexts:)`
@@ -1585,54 +1664,6 @@ Use this when no `UNNotificationResponse` is available — for example when you 
 
 A notification sent by PostHog is captured once: when `payload["posthog"]` carries an `invocation_id`, a repeat with the same `invocation_id` and `action_id` within 5 minutes of the first capture is skipped, whether that first capture came from this method or from the SDK’s automatic capture. Payloads without a `posthog.invocation_id` are always captured. Only the 20 most recently captured notifications are remembered, so a host that reports more than that inside the window can capture a repeat of the oldest. This overload carries no notification identifier, so a rerun of that workflow reported through it inside the window reads as the same tap and is skipped; report a rerun through `capturePushNotificationOpened(response:)`, which can tell the deliveries apart.
 
-### `PostHogSDK.endSession()`
-
-```swift
-@objc func endSession()
-```
-
-Ends the current analytics session.
-
-### `PostHogSDK.getDeviceId()`
-
-```swift
-@objc func getDeviceId() -> String
-```
-
-Returns the stable device identifier used for device-level feature flag bucketing.
-
-#### Return Value
-
-The stable device ID, or an empty string when the SDK is not set up.
-
-#### Discussion
-
-This ID persists across `identify()` and `reset()` calls, only changing on a fresh app install, manual cache clearing, or OS-initiated storage cleanup.
-
-### `PostHogSDK.isAutocaptureActive()`
-
-```swift
-@objc func isAutocaptureActive() -> Bool
-```
-
-Returns whether UIKit or SwiftUI element autocapture is enabled in local state.
-
-#### Return Value
-
-`true` when the SDK is set up and either interaction autocapture option is enabled. This does not verify that the swizzling-backed integration was installed.
-
-### `PostHogSDK.isRageClickActive()`
-
-```swift
-@objc func isRageClickActive() -> Bool
-```
-
-Returns whether rage click autocapture is enabled in local state.
-
-#### Return Value
-
-`true` when the SDK is set up and rage click detection is enabled. This does not verify that the swizzling-backed integration was installed.
-
 ### `PostHogSDK.registerPushNotificationToken(_:)`
 
 ```swift
@@ -1672,14 +1703,6 @@ Use the `appId` overload when relaying a token obtained through another provider
 
 > **Note:** Push registration is available on iOS only in this version.
 
-### `PostHogSDK.startSession()`
-
-```swift
-@objc func startSession()
-```
-
-Starts or resumes the current analytics session.
-
 ### `PostHogSDK.unregisterPushNotificationToken()`
 
 ```swift
@@ -1691,18 +1714,6 @@ Unregisters this device’s push token from PostHog so Workflows stop targeting 
 #### Discussion
 
 Sends a `DELETE /api/push_subscriptions/` for the identity the token was delivered to — the current distinct id when nothing was delivered yet — so the backend unsets the subscription property on the person that actually holds it, and forgets the locally stored token. The delete intent is durable: an offline or failed attempt is retried on `flush()`/next launch until it succeeds or hits a terminal 4xx. Call it directly if you manage push subscriptions yourself. On `reset()` the SDK already moves any registered token to the new anonymous identity (unregister then re-register), independently of `capturePushNotificationSubscriptions` — that flag only gates automatic token subscription at startup.
-
-### `PostHogSDK.didReceiveFeatureFlags`
-
-```swift
-@objc static let didReceiveFeatureFlags: Notification.Name
-```
-
-Posted after a feature flag reload finishes and cached flags are updated.
-
-#### Discussion
-
-The notification object is `nil`.
 
 ### `PostHogSDK.didStartNotification`
 
@@ -2339,6 +2350,8 @@ Create a config with your project token, mutate any options you need, then pass 
 @objc(apiKey:) convenience init(apiKey: String)
 ```
 
+> **Deprecated:** Use init(projectToken:) instead. This will be removed in the next major version.
+
 Creates a configuration using the deprecated `apiKey` name.
 
 ##### Parameters
@@ -2354,6 +2367,8 @@ Creates a configuration using the deprecated `apiKey` name.
 ```swift
 @objc(apiKey:host:) convenience init(apiKey: String, host: String = defaultHost)
 ```
+
+> **Deprecated:** Use init(projectToken:host:) instead. This will be removed in the next major version.
 
 Creates a configuration using the deprecated `apiKey` name and an explicit host.
 
@@ -2396,6 +2411,8 @@ Creates a configuration with an explicit PostHog ingestion host.
 ```swift
 @objc var apiKey: String { get }
 ```
+
+> **Deprecated:** Use projectToken instead. This will be removed in the next major version.
 
 Obsolete alias for `projectToken`.
 
@@ -2625,6 +2642,8 @@ Default: nil (all flags are evaluated)
 @objc var evaluationEnvironments: [String]? { get set }
 ```
 
+> **Deprecated:** Use evaluationContexts instead. This property will continue to work but will be removed in a future version.
+
 Deprecated alias for `evaluationContexts`.
 
 ##### Discussion
@@ -2795,6 +2814,8 @@ This field was formerly named `apiKey`.
 @objc var propertiesSanitizer: PostHogPropertiesSanitizer? { get set }
 ```
 
+> **Deprecated:** Use beforeSend instead
+
 Hook that allows to sanitize the event properties The hook is called before the event is cached or sent over the wire
 
 #### `PostHogConfig.pushIdentityProvider`
@@ -2826,6 +2847,8 @@ Rage click detection configuration.
 ```swift
 @objc var remoteConfig: Bool { get set }
 ```
+
+> **Deprecated:** Remote config is now always loaded. This option is a no-op and will be removed in a future version.
 
 Deprecated no-op for remote config loading.
 
@@ -3021,8 +3044,6 @@ Replaces the event `beforeSend` chain with the provided blocks.
 
 - `blocks`: Ordered callbacks that can mutate or drop events.
 
-#### `PostHogConfig.setBeforeSend(_:)`
-
 ```swift
 func setBeforeSend(_ blocks: [BeforeSendBlock])
 ```
@@ -3036,18 +3057,6 @@ Replaces the event `beforeSend` chain with the provided blocks.
 ##### Discussion
 
 Blocks run synchronously in array order before an event is cached or sent. Returning `nil` from any block drops the event and skips the remaining blocks.
-
-#### `PostHogConfig.setBeforeSend(_:)`
-
-```swift
-@objc func setBeforeSend(_ blocks: [BoxedBeforeSendBlock])
-```
-
-Replaces the event `beforeSend` chain from Objective-C boxed callbacks.
-
-##### Parameters
-
-- `blocks`: Ordered Objective-C callback boxes.
 
 #### `PostHogConfig.defaultHost`
 
@@ -4318,18 +4327,6 @@ OpenTelemetry `service.version` resource attribute. Defaults to the host app’s
 #### `PostHogLogsConfig.setBeforeSend(_:)`
 
 ```swift
-@objc func setBeforeSend(_ blocks: [BoxedBeforeSendLogBlock])
-```
-
-Replaces the log `beforeSend` chain from Objective-C boxed callbacks.
-
-##### Parameters
-
-- `blocks`: Ordered Objective-C callback boxes.
-
-#### `PostHogLogsConfig.setBeforeSend(_:)`
-
-```swift
 func setBeforeSend(_ blocks: [PostHogBeforeSendLogBlock])
 ```
 
@@ -4342,8 +4339,6 @@ Replaces the log `beforeSend` chain with the provided blocks.
 ##### Discussion
 
 Blocks run synchronously in array order before a log is enqueued. Returning `nil` from any block drops the log and skips the remaining blocks.
-
-#### `PostHogLogsConfig.setBeforeSend(_:)`
 
 ```swift
 func setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...)
@@ -4463,6 +4458,8 @@ Manages the active PostHog session ID and session rotation state.
 @objc func setSessionId(_ sessionId: String)
 ```
 
+> **Deprecated:** PostHogSessionManager becomes SDK-internal in PostHog 4.0. Use PostHogSDK.shared.getSessionId(), startSession() and endSession() instead. From 4.0, wrapper SDKs must import PostHog with @_spi(PostHogInternal) to use it.
+
 Overrides the current session ID.
 
 ##### Parameters
@@ -4478,6 +4475,8 @@ Use with care: changing the session ID affects analytics session attribution and
 ```swift
 @objc static var shared: PostHogSessionManager { get }
 ```
+
+> **Deprecated:** PostHogSessionManager becomes SDK-internal in PostHog 4.0. Use PostHogSDK.shared.getSessionId(), startSession() and endSession() instead. From 4.0, wrapper SDKs must import PostHog with @_spi(PostHogInternal) to use it.
 
 Session manager used by `PostHogSDK.shared`.
 
@@ -4553,6 +4552,8 @@ Enable recording touch coordinates in session replay. Screenshot capture is unaf
 @objc var debouncerDelay: TimeInterval { get set }
 ```
 
+> **Deprecated:** Deprecated in favor of 'throttleDelay' which provides identical functionality. Will be removed in the next major release.
+
 Debouncer delay used to reduce the number of snapshots captured and reduce performance impact This is used for capturing the view as a wireframe or screenshot The lower the number more snapshots will be captured but higher the performance impact Defaults to 1s
 
 #### `PostHogSessionReplayConfig.maskAllImages`
@@ -4584,6 +4585,8 @@ Enable masking of all text and text input fields Default: true
 ```swift
 @objc var maskPhotoLibraryImages: Bool
 ```
+
+> **Deprecated:** This property has no effect and will be removed in the next major release. To learn how to manually mask user photos please see our Privacy controls documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS
 
 Deprecated placeholder for photo-library image masking.
 

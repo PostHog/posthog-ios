@@ -322,6 +322,10 @@ jobs:
           path: references/
           if-no-files-found: error
 
+      - name: Warn if the SDK reference didn't regenerate
+        if: failure()
+        run: echo "::warning::The SDK reference didn't regenerate. Run generate-references.yml to retry."
+
   # ghcommit-action is a Docker action, which only runs on Linux runners.
   commit-references:
     name: Commit SDK reference
@@ -359,6 +363,10 @@ jobs:
           file_pattern: references/
         env:
           GITHUB_TOKEN: ${{ steps.releaser.outputs.token }}
+
+      - name: Warn if the SDK reference didn't regenerate
+        if: failure()
+        run: echo "::warning::The SDK reference didn't regenerate. Run generate-references.yml to retry."
 
   publish-cocoapods:
     name: Publish to CocoaPods

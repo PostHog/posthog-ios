@@ -32,8 +32,12 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
         #endif
         static let maxBatchSize: Int = 50
         static let flushIntervalSeconds: TimeInterval = 30
-        static let maxRetries: Int = 3
+        static let pushNotificationSubscriptionMaxRetries: Int = 3
         static let featureFlagRequestMaxRetries: Int = 1
+        static let captureAiMaxQueueSize: Int = 100
+        static let captureAiTimeout: TimeInterval = 60
+        /// PostHog's 8 MiB AI properties limit, plus 64 KiB for the rest of the event.
+        static let captureAiMaxEventBytes: Int = 8 * 1024 * 1024 + 64 * 1024
     }
 
     /// Network connectivity mode required before queued data may be flushed.
@@ -86,7 +90,7 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     /// Use `maxQueueSize` for events and replay, and `logs.maxBufferSize` for logs.
     ///
     /// Default: `3`.
-    @objc public var maxRetries: Int = Defaults.maxRetries
+    @objc public var pushNotificationSubscriptionMaxRetries: Int = Defaults.pushNotificationSubscriptionMaxRetries
 
     /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.
     /// Defaults to 1. Set to 0 to disable feature flag request retries.
@@ -279,6 +283,12 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     /// SPI, not public API: no stability guarantees.
     @_spi(PostHogInternal) public var persistOptOut: Bool = true
 
+    /// Whether the SDK detects `$app_language` from the app bundle. Wrappers that translate outside of
+    /// native resources, such as Flutter, turn this off and report the language they resolved.
+    ///
+    /// SPI, not public API: no stability guarantees.
+    @_spi(PostHogInternal) public var detectAppLanguage: Bool = true
+
     /// Hook used to customize newly generated anonymous IDs.
     ///
     /// The SDK passes its generated UUID v7 and stores the UUID returned by this closure.
@@ -464,7 +474,10 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     @objc public var urlSessionConfiguration: URLSessionConfiguration?
 
     /// Custom headers to send with every request to the PostHog API.
-    /// Useful for reverse-proxy setups that require authentication, e.g. an `Authorization` header.
+    /// Useful for reverse-proxy setups that require authentication, e.g. an `X-Proxy-Token` header.
+    ///
+    /// Event capture requests always send `Authorization: Bearer <projectToken>`, which replaces any
+    /// `Authorization` header set here, so authenticate your proxy with a different header.
     /// Read once when the SDK is set up; changes after setup are ignored.
     @objc public var requestHeaders: [String: String]?
 
@@ -472,9 +485,37 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     ///
     /// Set this to `.none` when the network between the app and PostHog changes or re-encodes
     /// the compressed body, e.g. on a managed work profile, which makes the server reject the request.
+    /// `captureAi` requests use `captureAiCompression` instead.
     ///
     /// Default: `.gzip`.
     @objc public var compression: PostHogCompression = .gzip
+
+    /// How the SDK compresses `captureAi` request bodies, separately from `compression`.
+    ///
+    /// Default: `.gzip`.
+    @objc public var captureAiCompression: PostHogCompression = .gzip
+
+    /// Maximum number of `captureAi` events kept in their on-disk queue before older events are dropped.
+    ///
+    /// AI events can be megabytes, so this is lower than `maxQueueSize`. The queue also keeps at most
+    /// 50 MiB of AI events, whatever this is set to. A value of `0` or less uses the default.
+    /// Default: `100`.
+    @objc public var captureAiMaxQueueSize: Int = Defaults.captureAiMaxQueueSize
+
+    /// How long, in seconds, a `captureAi` request can go without network activity before it times out.
+    ///
+    /// AI requests can carry several MB, so this is longer than for other requests, which time out
+    /// after 10 seconds. A value of `0` or less uses the default.
+    /// Default: `60`.
+    @objc public var captureAiTimeout: TimeInterval = Defaults.captureAiTimeout
+
+    /// Maximum size, in bytes, of a serialized `captureAi` event. The SDK drops a larger event.
+    ///
+    /// Use it to lower the limit. PostHog drops AI events whose properties are over 8 MiB, so the default
+    /// allows 8 MiB plus 64 KiB for the rest of the event. A larger value uses the default and logs a
+    /// warning when `debug` is on. A value of `0` or less uses the default.
+    /// Default: `8454144` (8 MiB + 64 KiB).
+    @objc public var captureAiMaxEventBytes: Int = Defaults.captureAiMaxEventBytes
 
     // only internal
     var disableReachabilityForTesting: Bool = false

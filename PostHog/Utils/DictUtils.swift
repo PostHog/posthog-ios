@@ -77,11 +77,42 @@ private func sanitizeInvalidValue(_ value: Any) -> Any? {
     if let nested = value as? [String: Any] {
         return sanitizeDictionary(nested) ?? [:]
     }
+    if let nested = value as? [AnyHashable: Any] {
+        return sanitizeDictionary(stringKeyed(nested)) ?? [:]
+    }
     if let array = value as? [Any] {
         let sanitized = sanitizeArray(array)
         return sanitized.isEmpty ? nil : sanitized
     }
     return nil
+}
+
+/// Converts a key with a natural string form (number, boolean or `NSNull`) the way a JSON encoder
+/// writes it, and drops only a key with no such form, so the rest of the dictionary is kept.
+private func stringKeyed(_ dict: [AnyHashable: Any]) -> [String: Any] {
+    var result: [String: Any] = [:]
+    for (key, value) in dict {
+        if let string = jsonKeyString(key.base) {
+            result[string] = value
+        }
+    }
+    return result
+}
+
+private func jsonKeyString(_ key: Any) -> String? {
+    switch key {
+    case let string as String:
+        return string
+    case let number as NSNumber:
+        if CFGetTypeID(number) == CFBooleanGetTypeID() {
+            return number.boolValue ? "true" : "false"
+        }
+        return number.stringValue
+    case is NSNull:
+        return "null"
+    default:
+        return nil
+    }
 }
 
 private func sanitizeArray(_ array: [Any]) -> [Any] {
@@ -101,6 +132,14 @@ private func sanitizeArray(_ array: [Any]) -> [Any] {
     }
 
     return sanitized
+}
+
+/// Whether a value is missing or serializes as JSON `null`: `nil`, `NSNull`, or a `nil` optional boxed in `Any`.
+func isNullValue(_ value: Any?) -> Bool {
+    guard let value else { return true }
+    if value is NSNull { return true }
+    let mirror = Mirror(reflecting: value)
+    return mirror.displayStyle == .optional && mirror.children.isEmpty
 }
 
 private func isValidObject(_ object: Any) -> Bool {

@@ -313,6 +313,31 @@ struct ContentView: View {
                     }
                 }
 
+                // Events go to /i/v1/analytics/events; captureAi events go to /i/v1/ai/events.
+                Section("Capture v1") {
+                    Button("Capture with options") {
+                        PostHogSDK.shared.capture("example_event_with_options", properties: [
+                            "source": "example_app",
+                        ], options: [
+                            "process_person_profile": false,
+                        ])
+                    }
+
+                    Button("Capture $ai_generation") {
+                        let uuid = PostHogSDK.shared.captureAi("$ai_generation", properties: [
+                            "$ai_trace_id": UUID().uuidString,
+                            "$ai_provider": "openai",
+                            "$ai_model": "gpt-4o-mini",
+                            "$ai_input": [["role": "user", "content": "Tell me a fun fact about hedgehogs"]],
+                            "$ai_output_choices": [["role": "assistant", "content": "Hedgehogs have about 5,000 spines."]],
+                            "$ai_input_tokens": 12,
+                            "$ai_output_tokens": 9,
+                            "$ai_latency": 0.42,
+                        ])
+                        print("captureAi queued $ai_generation: \(uuid ?? "not queued")")
+                    }
+                }
+
                 // Manual testing of exception steps.
                 Section("Exception steps") {
                     Button("Add 3 exception steps") {

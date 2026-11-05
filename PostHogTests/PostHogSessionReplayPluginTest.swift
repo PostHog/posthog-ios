@@ -153,6 +153,13 @@
                 expected: true
             ),
             IgnoredNetworkRequestCase(
+                name: "ignores capture V1 ingestion on the configured host",
+                requestURL: "https://us.i.posthog.com/i/v1/analytics/events",
+                apiHost: "https://us.i.posthog.com",
+                snapshotEndpoint: "/s/",
+                expected: true
+            ),
+            IgnoredNetworkRequestCase(
                 name: "ignores batch ingestion on the configured host",
                 requestURL: "https://us.i.posthog.com/batch",
                 apiHost: "https://us.i.posthog.com",
@@ -162,6 +169,13 @@
             IgnoredNetworkRequestCase(
                 name: "ignores replay ingestion behind a reverse proxy path",
                 requestURL: "https://app.posthog.com/ingest/s/?ip=1",
+                apiHost: "https://app.posthog.com/ingest",
+                snapshotEndpoint: "/s/",
+                expected: true
+            ),
+            IgnoredNetworkRequestCase(
+                name: "ignores capture V1 ingestion behind a reverse proxy path",
+                requestURL: "https://app.posthog.com/ingest/i/v1/analytics/events",
                 apiHost: "https://app.posthog.com/ingest",
                 snapshotEndpoint: "/s/",
                 expected: true

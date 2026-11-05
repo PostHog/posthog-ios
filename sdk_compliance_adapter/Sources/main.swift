@@ -12,18 +12,74 @@ let adapterStorageHome = (NSTemporaryDirectory() as NSString).appendingPathCompo
 setenv("CFFIXED_USER_HOME", adapterStorageHome, 1)
 setenv("HOME", adapterStorageHome, 1)
 
+/// Records the SDK's log lines for /state and still prints them. The SDK logs with `print`, so
+/// this reads stdout through a pipe and keeps the lines with the SDK's prefix.
+final class SdkLogRecorder {
+    private let lock = NSLock()
+    private var lines: [String] = []
+    private let resetMarker = "[PostHogAdapterLogReset]"
+    private let resetDone = DispatchSemaphore(value: 0)
+
+    func start() {
+        setvbuf(stdout, nil, _IOLBF, 0)
+        let original = dup(STDOUT_FILENO)
+        var fds: [Int32] = [0, 0]
+        pipe(&fds)
+        dup2(fds[1], STDOUT_FILENO)
+        close(fds[1])
+        let source = fds[0]
+
+        Thread.detachNewThread { [self] in
+            var pending = Data()
+            var buffer = [UInt8](repeating: 0, count: 65536)
+            while true {
+                let count = read(source, &buffer, buffer.count)
+                if count <= 0 { return }
+                _ = write(original, buffer, count)
+                pending.append(contentsOf: buffer[0 ..< count])
+                while let newline = pending.firstIndex(of: 0x0A) {
+                    let line = String(decoding: pending[pending.startIndex ..< newline], as: UTF8.self)
+                    pending.removeSubrange(pending.startIndex ... newline)
+                    if line == resetMarker {
+                        lock.withLock { lines = [] }
+                        resetDone.signal()
+                    } else if line.hasPrefix("[PostHog]") {
+                        lock.withLock { lines.append(line) }
+                    }
+                }
+            }
+        }
+    }
+
+    func snapshot() -> [String] {
+        lock.withLock { lines }
+    }
+
+    /// Clears through the pipe, so lines from an earlier test still in it can't reach the next one.
+    func reset() {
+        print(resetMarker)
+        _ = resetDone.wait(timeout: .now() + 2)
+    }
+}
+
+let sdkLogRecorder = SdkLogRecorder()
+sdkLogRecorder.start()
+
 // Global state for the adapter
 class AdapterState {
     var posthogSDK: PostHogSDK?
     var capturedEvents: [[String: Any]] = []
+    var totalEventsCaptured = 0
     var apiKey: String?
     var host: String?
 
     func reset() {
         capturedEvents = []
+        totalEventsCaptured = 0
         apiKey = nil
         host = nil
         RequestInterceptor.reset()
+        sdkLogRecorder.reset()
     }
 }
 
@@ -37,6 +93,22 @@ let state = AdapterState()
 // layout. The SDK recreates the directories it needs on the next setup().
 func clearPostHogStorage() {
     try? FileManager.default.removeItem(atPath: adapterStorageHome)
+}
+
+// Events still on disk in the analytics and AI queues, one file per event. Reading the
+// queue folders reflects what the SDK actually kept: a terminal 4xx removes the batch,
+// and a partial-retry 200 keeps the retried events.
+func pendingQueuedEventCount() -> Int {
+    let fileManager = FileManager.default
+    guard let walker = fileManager.enumerator(atPath: adapterStorageHome) else { return 0 }
+    var count = 0
+    for case let path as String in walker {
+        let name = (path as NSString).lastPathComponent
+        guard name == "posthog.queueFolder.uuid" || name == "posthog.aiFolder" else { continue }
+        let folder = (adapterStorageHome as NSString).appendingPathComponent(path)
+        count += (try? fileManager.contentsOfDirectory(atPath: folder).count) ?? 0
+    }
+    return count
 }
 
 // Configure and create the Vapor application
@@ -53,11 +125,13 @@ app.get("health") { req async throws -> Response in
         "sdk_name": postHogSdkName,
         "sdk_version": postHogVersion,
         "adapter_version": "1.0.0",
-        // Declares which test suites apply. The iOS SDK posts events to /batch
-        // (capture_v0) with gzip; it does not implement the /i/v1/e capture_v1
-        // protocol. Without this, the harness skips the capability-gated capture
-        // suites entirely.
-        "capabilities": ["capture_v0", "encoding_gzip"],
+        // Declares which test suites apply. The iOS SDK posts events to
+        // /i/v1/analytics/events (capture_v1) with gzip. Without this, the
+        // harness skips the capability-gated capture suites entirely.
+        "capabilities": [
+            "capture_v1", "capture_ai_v1", "encoding_gzip", "event_options",
+            "disable_geoip", "generated_payloads", "log_capture", "property_layers", "fail_open",
+        ],
     ]
 
     print("[ADAPTER] GET /health")
@@ -72,6 +146,11 @@ app.post("init") { req async throws -> Response in
         let flushAt: Int?
         let flushIntervalMs: Int?
         let maxRetries: Int?
+        let enableCompression: Bool?
+        let disableGeoip: Bool?
+        let superProperties: [String: AnyCodable]?
+        // Declarative hook: {"set_properties": {...}} sets those keys on every event.
+        let beforeSend: [String: AnyCodable]?
 
         enum CodingKeys: String, CodingKey {
             // Wire field name remains api_key, but it carries the PostHog project token.
@@ -80,16 +159,17 @@ app.post("init") { req async throws -> Response in
             case flushAt = "flush_at"
             case flushIntervalMs = "flush_interval_ms"
             case maxRetries = "max_retries"
+            case enableCompression = "enable_compression"
+            case disableGeoip = "disable_geoip"
+            case superProperties = "super_properties"
+            case beforeSend = "before_send"
         }
     }
 
     let initReq = try req.content.decode(InitRequest.self)
 
-    // Empty token: setup() stays disabled but the singleton is non-nil, hanging a later
-    // reloadFeatureFlags() (callback never fires when disabled). Fail fast.
-    guard !initReq.apiKey.isEmpty else {
-        throw Abort(.badRequest, reason: "Empty project token; SDK would not enable.")
-    }
+    // An empty or personal (phx_) token is passed through as given: setup() leaves the SDK
+    // disabled, so captures send nothing (fail_open).
 
     // Rewrite host.docker.internal to localhost since adapter runs on macOS host
     let host = initReq.host.replacingOccurrences(of: "host.docker.internal", with: "localhost")
@@ -115,7 +195,19 @@ app.post("init") { req async throws -> Response in
     config.flushAt = initReq.flushAt ?? 1
     let defaultFlushIntervalMs = config.flushAt > 1 ? 5000 : 500
     config.flushIntervalSeconds = TimeInterval(initReq.flushIntervalMs ?? defaultFlushIntervalMs) / 1000.0
-    config.maxRetries = initReq.maxRetries ?? config.maxRetries
+    config.pushNotificationSubscriptionMaxRetries = initReq.maxRetries ?? config.pushNotificationSubscriptionMaxRetries
+    if initReq.enableCompression == false {
+        config.compression = .none
+        config.captureAiCompression = .none
+    }
+    config.disableGeoIp = initReq.disableGeoip ?? config.disableGeoIp
+    config.debug = true
+    if let setProperties = initReq.beforeSend?["set_properties"]?.value as? [String: Any] {
+        config.setBeforeSend { event in
+            event.properties.merge(setProperties) { _, new in new }
+            return event
+        }
+    }
 
     // Disable features for testing
     config.captureApplicationLifecycleEvents = false
@@ -123,6 +215,9 @@ app.post("init") { req async throws -> Response in
     config.preloadFeatureFlags = false
     config.sendFeatureFlagEvent = false
     config.enableSwizzling = false
+    // The harness models a server SDK: it never identifies, and expects person
+    // processing on unless an event opts out.
+    config.personProfiles = .always
 
     #if os(iOS)
         config.sessionReplay = false
@@ -139,6 +234,9 @@ app.post("init") { req async throws -> Response in
 
     // Initialize PostHog SDK
     PostHogSDK.shared.setup(config)
+    if let superProperties = initReq.superProperties {
+        PostHogSDK.shared.register(superProperties.mapValues(\.value))
+    }
     state.posthogSDK = PostHogSDK.shared
     state.apiKey = initReq.apiKey
     state.host = host
@@ -167,12 +265,14 @@ app.post("capture") { req async throws -> Response in
         let distinctId: String?
         let properties: [String: AnyCodable]?
         let timestamp: String?
+        let options: [String: AnyCodable]?
 
         enum CodingKeys: String, CodingKey {
             case event
             case distinctId = "distinct_id"
             case properties
             case timestamp
+            case options
         }
     }
 
@@ -195,12 +295,89 @@ app.post("capture") { req async throws -> Response in
     // This ensures the distinct_id is set for THIS event, not globally
     // The harness may send a non-UTC offset; parsing keeps the instant, and the SDK serializes it as UTC.
     let timestamp = captureReq.timestamp.flatMap(parseHarnessTimestamp)
-    sdk.capture(captureReq.event, distinctId: captureReq.distinctId, properties: props, timestamp: timestamp)
+    sdk.capture(
+        captureReq.event,
+        distinctId: captureReq.distinctId,
+        properties: props,
+        timestamp: timestamp,
+        options: captureReq.options?.mapValues(\.value)
+    )
 
+    state.totalEventsCaptured += 1
     print("[ADAPTER] Event captured: \(captureReq.event)")
 
     let result = ["status": "ok"]
     return try await result.encodeResponse(for: req)
+}
+
+// AI capture endpoint: same request as /capture, sent with captureAi to /i/v1/ai/events.
+// AI events can be up to 8 MiB, over Vapor's default 16 KB body limit.
+app.on(.POST, "capture_ai", body: .collect(maxSize: "9mb")) { req async throws -> Response in
+    struct CaptureAiRequest: Content {
+        let event: String
+        let distinctId: String?
+        let properties: [String: AnyCodable]?
+        let timestamp: String?
+        let options: [String: AnyCodable]?
+        let padPropertiesToBytes: Int?
+        let marker: String?
+
+        enum CodingKeys: String, CodingKey {
+            case event
+            case distinctId = "distinct_id"
+            case properties
+            case timestamp
+            case options
+            case padPropertiesToBytes = "pad_properties_to_bytes"
+            case marker
+        }
+    }
+
+    let captureReq = try req.content.decode(CaptureAiRequest.self)
+    print("[ADAPTER] POST /capture_ai - event: \(captureReq.event), distinct_id: \(captureReq.distinctId ?? "nil")")
+
+    guard let sdk = state.posthogSDK else {
+        throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
+    }
+
+    var properties = captureReq.properties?.mapValues(\.value)
+    if let targetBytes = captureReq.padPropertiesToBytes {
+        properties = try paddedProperties(properties ?? [:], toBytes: targetBytes, marker: captureReq.marker ?? "")
+    }
+
+    let uuid = sdk.captureAi(
+        captureReq.event,
+        distinctId: captureReq.distinctId,
+        properties: properties,
+        timestamp: captureReq.timestamp.flatMap(parseHarnessTimestamp),
+        options: captureReq.options?.mapValues(\.value)
+    )
+
+    if uuid != nil {
+        state.totalEventsCaptured += 1
+    }
+
+    var result: [String: Any] = ["success": true]
+    result["uuid"] = uuid
+    return try await result.encodeResponse(for: req)
+}
+
+/// Adds a `$test_padding` string so `properties`, as compact UTF-8 JSON, is exactly `targetBytes`
+/// long (generated_payloads). The padding starts with `marker`.
+func paddedProperties(_ properties: [String: Any], toBytes targetBytes: Int, marker: String) throws -> [String: Any] {
+    // The harness asks for at most ~9 MiB; refuse anything far beyond that instead of allocating it.
+    let maxTargetBytes = 64 * 1024 * 1024
+    guard targetBytes <= maxTargetBytes else {
+        throw Abort(.badRequest, reason: "pad_properties_to_bytes \(targetBytes) is over the \(maxTargetBytes)-byte limit.")
+    }
+    var padded = properties
+    padded["$test_padding"] = marker
+    let baseBytes = try JSONSerialization.data(withJSONObject: padded).count
+    guard baseBytes <= targetBytes else {
+        throw Abort(.badRequest, reason: "Properties are already \(baseBytes) bytes, over \(targetBytes).")
+    }
+    padded["$test_padding"] = marker + String(repeating: "x", count: targetBytes - baseBytes)
+    return padded
 }
 
 func fetchFlagsWithRetry(flagsURL: URL, payload: [String: Any]) async throws -> Data {
@@ -349,7 +526,12 @@ app.get("state") { req async throws -> Response in
     print("[ADAPTER] GET /state")
 
     let stateData: [String: Any] = [
+        "pending_events": pendingQueuedEventCount(),
+        "total_events_captured": state.totalEventsCaptured,
         "total_events_sent": RequestInterceptor.totalEventsSent,
+        "total_retries": RequestInterceptor.trackedRequests.filter { $0.retryAttempt > 0 }.count,
+        "last_error": NSNull(),
+        "log_lines": sdkLogRecorder.snapshot(),
         "requests_made": RequestInterceptor.trackedRequests.map { request in
             [
                 "timestamp_ms": request.timestampMs,

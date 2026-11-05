@@ -15,10 +15,10 @@ class PostHogGeoIpTests {
         server.stop()
     }
 
-    func getSut(disableGeoIp: Bool = false) -> PostHogSDK {
+    func getSut(disableGeoIp: Bool = false, flushAt: Int = 1) -> PostHogSDK {
         // A token per test keeps its storage and requests apart from other suites' SDK instances
         let config = PostHogConfig(projectToken: "geoip_\(UUID().uuidString)", host: "http://localhost:9001")
-        config.flushAt = 1
+        config.flushAt = flushAt
         config.captureApplicationLifecycleEvents = false
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
@@ -59,6 +59,23 @@ class PostHogGeoIpTests {
         let events = getBatchedEvents(server)
         #expect(events.count == 1)
         #expect(events.first?.properties["$geoip_disable"] as? Bool == true)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("registered and caller $geoip_disable values override disableGeoIp")
+    func registeredAndCallerOverrideGeoipDisable() {
+        // flushAt 2 so both events share one batch
+        let sut = getSut(disableGeoIp: true, flushAt: 2)
+
+        sut.register(["$geoip_disable": false])
+        sut.capture("registered")
+        sut.capture("caller", properties: ["$geoip_disable": true])
+
+        let events = getBatchedEvents(server)
+        #expect(events.first { $0.event == "registered" }?.properties["$geoip_disable"] as? Bool == false)
+        #expect(events.first { $0.event == "caller" }?.properties["$geoip_disable"] as? Bool == true)
 
         sut.reset()
         sut.close()

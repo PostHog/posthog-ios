@@ -103,11 +103,12 @@ class RequestInterceptor: URLProtocol {
         // Only intercept requests to the mock server (not to real PostHog endpoints)
         guard let url = request.url else { return false }
 
-        // Intercept /batch and /e/ endpoints, but not /flags/ or /config
+        // Intercept capture endpoints, but not /flags/ or /config
         let urlString = url.absoluteString
-        if urlString.contains("/batch") || urlString.contains("/e/") || urlString.contains("/s/"),
-           !urlString.contains("/flags"),
-           !urlString.contains("/config")
+        if urlString.contains("/i/v1/analytics/events") || urlString.contains("/i/v1/ai/events")
+            || urlString.contains("/e/") || urlString.contains("/s/"),
+            !urlString.contains("/flags"),
+            !urlString.contains("/config")
         {
             print("[INTERCEPTOR] Can handle: \(urlString)")
             return true
@@ -228,7 +229,7 @@ class RequestInterceptor: URLProtocol {
                 }
 
                 if let json = try JSONSerialization.jsonObject(with: decompressed) as? [String: Any] {
-                    // Server SDK format: {"api_key": "...", "batch": [...]} where api_key carries the project token.
+                    // Capture V1 format: {"created_at": "...", "batch": [...]}.
                     if let batch = json["batch"] as? [[String: Any]] {
                         events = batch
                         print("[INTERCEPTOR] Found batch with \(events.count) events")
@@ -248,17 +249,9 @@ class RequestInterceptor: URLProtocol {
             }
         }
 
-        // Extract retry count from URL
-        let retryCount: Int
-        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-           let retryParam = components.queryItems?.first(where: { $0.name == "retry_count" }),
-           let retryValue = retryParam.value,
-           let retry = Int(retryValue)
-        {
-            retryCount = retry
-        } else {
-            retryCount = 0
-        }
+        // Capture v1 numbers each send in `PostHog-Attempt`, starting at 1.
+        let attempt = request.value(forHTTPHeaderField: "PostHog-Attempt").flatMap { Int($0) } ?? 1
+        let retryCount = max(attempt - 1, 0)
 
         let trackedRequest = TrackedRequest(
             timestampMs: Int64(Date().timeIntervalSince1970 * 1000),

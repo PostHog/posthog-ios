@@ -117,7 +117,7 @@
             resetStorage: Bool = true
         ) -> (handler: PostHogPushSubscriptionHandler, storage: PostHogStorage, config: PostHogConfig) {
             let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
-            config.maxRetries = maxRetries
+            config.pushNotificationSubscriptionMaxRetries = maxRetries
             config.disableReachabilityForTesting = true
             let api = PostHogApi(config)
             let storage = PostHogStorage(config)
@@ -726,7 +726,7 @@
             #expect(server.pushSubscriptionRequests.count == 2)
         }
 
-        @Test("gives up after maxRetries, keeps the record, and retries once on relaunch (vector 4)")
+        @Test("gives up after pushNotificationSubscriptionMaxRetries, keeps the record, and retries once on relaunch (vector 4)")
         func givesUpKeepsRecordThenRetriesOnRelaunch() async throws {
             server.pushSubscriptionStatusCode = 500
             let maxRetries = 3

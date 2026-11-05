@@ -25,6 +25,32 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - **Breaking:** remove `PostHogDataMode.cellular` — use `.any`
 - **Breaking:** move `postHogSdkName`, `postHogVersion`, `PostHogConfig.snapshotEndpoint`, `PostHogSessionManager`, `PostHogStorageManager` and `PostHogConfig.storageManager` behind `@_spi(PostHogInternal)` — use `PostHogSDK` session and identity methods
 - **Breaking:** remove `dateToMillis(_:)`, `imageToBase64(_:_:)`, `toISO8601String(_:)`, `toISO8601Date(_:)`, `sanitizeDictionary(_:)`, `deleteSafely(_:)`, `postHogiOSSdkName`, `Gzip`, `GzipError`, `CompressionLevel`, `ReachabilityError`, `ReachabilityChangedNotification`, `UIColor.init(hex:)` and `UIColor.hexDescription(_:)` from the public API
+- **Breaking:** send analytics events to capture V1 (`/i/v1/analytics/events`) with the project token in an `Authorization: Bearer` header, replacing any `Authorization` from `requestHeaders` — serve this path on reverse proxies and self-hosted instances
+- **Breaking:** follow only 307 and 308 redirects to the same origin as `host`, at most 5 times, and drop events on any other redirect
+- **Breaking:** drop an event whose distinct ID is over 200 UTF-8 bytes instead of shortening the ID
+- **Breaking:** disable the SDK at setup when `projectToken` is a personal API key (`phx_...`) — use your project token (`phc_...`)
+- **Breaking:** pause sending for at most 30 seconds on `Retry-After`, including session replay and logs
+- **Breaking:** send `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` as capture options, so PostHog drops an event whose option value it can't read
+- **Breaking:** let registered super properties override SDK properties such as `$os`, and let super and event properties override `$is_identified`, `$process_person_profile`, `$geoip_disable` and the session replay debug values
+- **Breaking:** let `userProperties`, `userPropertiesSetOnce` and `groups` win key by key over `$set`, `$set_once` and `$groups` passed in the same call's properties
+- **Breaking:** rename `maxRetries` to `pushNotificationSubscriptionMaxRetries`
+- **Breaking:** stop sending `$lib` and `$lib_version` as event properties — PostHog sets them from the `PostHog-Sdk-Info` header, so a value set in properties, a super property or `beforeSend` no longer reaches PostHog
+- **Breaking:** send `$session_id` and `$window_id` as top-level `session_id` and `window_id` fields, and drop a value that isn't a string
+- **Breaking:** let PostHog drop an event whose name is over 200 UTF-8 bytes, or whose distinct ID is empty or whitespace-only, instead of rejecting the whole batch
+- **Breaking:** retry a capture request that gets a 404 and keep its events queued, with no fallback to `/batch`, and stop retrying 3xx responses
+- **Breaking:** with `debug` on, log capture failures as one line per batch with counts and PostHog's drop reasons, and stop logging each queued event and PostHog's response body — update log-based alerts
+- **Breaking:** change `$locale` to the device's preferred language with its region, such as `de-CH` instead of `de` — filter on `$app_language` for the language the app shows
+- Add per-event capture options with `capture(..., timestamp:options:)` and `PostHogEvent.options`, also accepted by `screen`, `identify`, `setPersonProperties`, `alias`, `group` and `captureException`
+- Add `captureAi(...)` to send AI events such as `$ai_generation` to `/i/v1/ai/events`, tuned with `captureAiCompression`, `captureAiMaxQueueSize`, `captureAiTimeout` and `captureAiMaxEventBytes`
+- Change the wait after a failed send to double from 1 second up to 30 seconds with jitter, for events, session replay and logs
+- Cap analytics batches at 5 MiB per request and send a larger event on its own
+- Drop an event with an empty name before sending it, including one `beforeSend` renames to `""`
+- Ignore `identify` with a whitespace-only distinct ID
+- Send a nested dictionary's number and boolean keys as strings instead of dropping the whole dictionary
+- Use the current distinct ID for an empty or whitespace-only `distinctId` argument
+- Give each capture its own UUID, even when `beforeSend` returns an event kept from an earlier call
+- Print a warning, also without `debug`, when `setup` leaves the SDK disabled because `projectToken` is empty or a personal API key
+- Add the `$app_language` property with the language the app displays, and `setAppLanguage(_:)` to set it when the app translates some other way
 - Add `SessionReplay`, `CrashReporting` and `Surveys` Swift package traits (on by default) that remove the feature and its public API when turned off
 - Add `isFeatureEnabled(_:defaultValue:)` and `isFeatureEnabled(_:defaultValue:sendFeatureFlagEvent:)` to return a default you choose when a flag has no value
 - Add `PostHogSDK.setSdkName(_:version:)` behind `@_spi(PostHogInternal)`, exposed to Objective-C so wrapper SDKs that can't assign `postHogSdkName` and `postHogVersion`, such as Kotlin Multiplatform, can report their own name and version

@@ -3,7 +3,8 @@
 `xcodebuild docbuild` builds the iOS DocC archive with the DocC that ships in Xcode. Its render JSON
 holds each symbol's declaration, parameters and discussion. Our code walks that JSON, groups symbols
 by the `posthog-capability: <slug>` line in their doc comment, in the PostHog/sdk-specs README's
-order, and writes front matter. Untagged PostHogSDK members go to SDK utils.
+order, and writes front matter. PostHogSDK members listed in UTILS go to SDK utils, and any other
+untagged member fails the run. Symbols obsoleted or unavailable in Swift are left out.
 
     python3 scripts/generate-markdown.py --sdk-specs DIR [--major 4]
 """
@@ -19,14 +20,31 @@ FIRST = ["setup", "capture", "identify"]
 TAG = "posthog-capability:"
 # Public helpers with no place in the reference, and members the compiler synthesizes.
 SKIP = {"Gzip", "GzipError", "CompressionLevel", "ReachabilityError", "BoxedBeforeSendBlock", "BoxedBeforeSendLogBlock"}
+# Untagged PostHogSDK members that belong to no sdk-specs capability, across 3.x and 4.x.
+UTILS = {
+    "shared", "didStartNotification", "setAppLanguage(_:)",
+    "captureDeepLink(openURLContexts:)", "captureDeepLink(url:)", "captureDeepLink(url:options:)",
+    "captureDeepLink(urls:)", "captureDeepLink(userActivity:)",
+    "captureFeatureInteraction(flag:flagVariant:)", "captureFeatureView(flag:flagVariant:)",
+    "capturePushNotificationOpened(response:)", "capturePushNotificationOpened(title:subtitle:body:payload:action:)",
+    "prewarmPushNotificationOpenCapture()", "registerPushNotificationToken(_:)",
+    "registerPushNotificationToken(_:appId:)", "unregisterPushNotificationToken()",
+}
 SYNTHESIZED = {"==(_:_:)", "!=(_:_:)", "hash(into:)", "hashValue", "rawValue", "init(rawValue:)"}
 EXTENDED = ["View", "UIView", "URLSession"]  # extensions of system types, listed under SDK utils
 MDX = str.maketrans({"<": "&lt;", "{": "&#123;", "}": "&#125;"})  # MDX 1 reads these as JSX
 
 
 class Archive:
-    def __init__(self, path: Path):
-        self.data = path / "data"
+    def __init__(self, derived: Path):
+        self.data = next(derived.rglob("PostHog.doccarchive")) / "data"
+        # The render JSON drops Swift-only availability, so read it from the Swift symbol graph.
+        graph = next(p for p in derived.rglob("PostHog.symbols.json") if "swift" in p.parts)
+        self.no_swift = set()
+        for symbol in json.loads(graph.read_text())["symbols"]:
+            for a in symbol.get("availability", []):
+                if a.get("domain") in ("Swift", "*") and ("obsoleted" in a or a.get("isUnconditionallyUnavailable")):
+                    self.no_swift.add(symbol["identifier"]["precise"])
 
     def page(self, url: str) -> dict:
         return json.loads((self.data / f"{url.strip('/')}.json").read_text())
@@ -37,7 +55,12 @@ class Archive:
         for section in page.get("topicSections", []):
             if section["title"] != "Default Implementations":
                 out += [self.page(page["references"][i]["url"]) for i in section["identifiers"]]
-        return [m for m in out if m["metadata"]["title"] not in SYNTHESIZED]
+        return [m for m in out if m["metadata"]["title"] not in SYNTHESIZED and self.callable(m["metadata"])]
+
+    def callable(self, meta: dict) -> bool:
+        """False for symbols Swift code can't call: obsoleted or unavailable in Swift or on iOS."""
+        unavailable = any(p.get("unavailable") for p in meta.get("platforms", []))
+        return not unavailable and meta.get("externalID") not in self.no_swift
 
 
 def inline(nodes: list, refs: dict) -> str:
@@ -89,13 +112,22 @@ def tag(page: dict) -> str | None:
     return None
 
 
-def entry(page: dict, label: str, level: int) -> str:
+def entries(pages: list[dict], prefix: str, level: int) -> list[str]:
+    """Overloads DocC titles alike, such as `captureException(_:)` for Error and NSException, share a heading."""
+    titles = [p["metadata"]["title"] for p in pages]
+    return [entry(p, prefix + t, level, t not in titles[:i]) for i, (p, t) in enumerate(zip(pages, titles))]
+
+
+def entry(page: dict, label: str, level: int, heading: bool = True) -> str:
     refs = page.get("references", {})
-    parts = [f"{'#' * level} `{label}`"]
+    parts = [f"{'#' * level} `{label}`" if heading else ""]
     for section in page.get("primaryContentSections", []):
         if section["kind"] == "declarations":
             tokens = section["declarations"][0]["tokens"]
             parts.append("```swift\n" + "".join(t["text"] for t in tokens) + "\n```")
+    deprecated = " ".join(blocks(page.get("deprecationSummary", []), refs, level))
+    if deprecated or any(p.get("deprecated") for p in page["metadata"].get("platforms", [])):
+        parts.append(f"> **Deprecated:** {deprecated}" if deprecated else "> **Deprecated.**")
     parts.append(inline(page.get("abstract", []), refs))
     for section in page.get("primaryContentSections", []):
         if section["kind"] == "parameters":
@@ -126,25 +158,27 @@ def reference(archive: Archive, caps: dict[str, str]) -> list[str]:
     symbols = archive.members(module)
     by_title = {s["metadata"]["title"]: s for s in symbols}
     sdk = archive.members(by_title["PostHogSDK"])
+    if untagged := [m["metadata"]["title"] for m in sdk if not tag(m) and m["metadata"]["title"] not in UTILS]:
+        raise SystemExit(f"PostHogSDK members with no capability tag, tag them or add them to UTILS: {untagged}")
     out = []
     for slug, title in caps.items():
         if tagged := [m for m in sdk if tag(m) == slug]:
-            out += [f"## {title}", *(entry(m, f"PostHogSDK.{m['metadata']['title']}", 3) for m in tagged)]
+            out += [f"## {title}", *entries(tagged, "PostHogSDK.", 3)]
     found = {tag(m) for m in sdk} - {None} - set(caps)
     if found:
         raise SystemExit(f"unknown capability tags: {sorted(found)}")
-    out += ["## SDK utils", *(entry(m, f"PostHogSDK.{m['metadata']['title']}", 3) for m in sdk if not tag(m))]
+    out += ["## SDK utils", *entries([m for m in sdk if not tag(m)], "PostHogSDK.", 3)]
     for extended in (s for s in symbols if s["metadata"].get("role") == "collection"):
         for t in archive.members(extended):
             if t["metadata"]["title"] in EXTENDED:
-                out += [entry(m, f"{t['metadata']['title']}.{m['metadata']['title']}", 3) for m in archive.members(t)]
+                out += entries(archive.members(t), f"{t['metadata']['title']}.", 3)
     out.append("## Types")
     for t in symbols:
         name, kind = t["metadata"]["title"], t["metadata"].get("symbolKind")
         if name in SKIP or name == "PostHogSDK" or kind not in ("class", "struct", "enum", "protocol", "typealias"):
             continue
         out.append(entry(t, name, 3))
-        out += [entry(m, f"{name}.{m['metadata']['title']}", 4) for m in archive.members(t)]
+        out += entries(archive.members(t), f"{name}.", 4)
     return out
 
 
@@ -193,7 +227,7 @@ def main() -> None:
              "-derivedDataPath", tmp, "-quiet"],
             cwd=ROOT, check=True,
         )
-        archive = Archive(next(Path(tmp).rglob("PostHog.doccarchive")))
+        archive = Archive(Path(tmp))
         body = ["## Getting started", nest((ROOT / "docs/getting-started.md").read_text())]
         body += reference(archive, capabilities(opts.sdk_specs))
     (ROOT / "references").mkdir(exist_ok=True)

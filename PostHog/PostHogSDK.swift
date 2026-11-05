@@ -451,6 +451,8 @@ let maxRetryDelay = 30.0
 
     /// Returns the stable device identifier used for device-level feature flag bucketing.
     ///
+    /// posthog-capability: device-id-generator
+    ///
     /// This ID persists across `identify()` and `reset()` calls, only changing on a fresh
     /// app install, manual cache clearing, or OS-initiated storage cleanup.
     ///
@@ -481,6 +483,8 @@ let maxRetryDelay = 30.0
     }
 
     /// Starts or resumes the current analytics session.
+    ///
+    /// posthog-capability: session-manager
     @objc public func startSession() {
         performWhenEnabled {
             sessionManager.startSession()
@@ -488,6 +492,8 @@ let maxRetryDelay = 30.0
     }
 
     /// Ends the current analytics session.
+    ///
+    /// posthog-capability: session-manager
     @objc public func endSession() {
         performWhenEnabled {
             sessionManager.endSession()
@@ -3262,6 +3268,8 @@ let maxRetryDelay = 30.0
     #if os(iOS) || targetEnvironment(macCatalyst)
         /// Returns whether UIKit or SwiftUI element autocapture is enabled in local state.
         ///
+        /// posthog-capability: autocapture
+        ///
         /// - Returns: `true` when the SDK is set up and either interaction autocapture option is enabled.
         ///   This does not verify that the swizzling-backed integration was installed.
         @objc public func isAutocaptureActive() -> Bool {
@@ -3269,6 +3277,8 @@ let maxRetryDelay = 30.0
         }
 
         /// Returns whether rage click autocapture is enabled in local state.
+        ///
+        /// posthog-capability: autocapture
         ///
         /// - Returns: `true` when the SDK is set up and rage click detection is enabled.
         ///   This does not verify that the swizzling-backed integration was installed.

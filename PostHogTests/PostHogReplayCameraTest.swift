@@ -18,12 +18,41 @@
             }
         }
 
+        private final class PresentationCountingLayer: CALayer {
+            nonisolated(unsafe) static var reads = 0
+
+            override func presentation() -> Self? {
+                PresentationCountingLayer.reads += 1
+                return nil
+            }
+        }
+
+        private final class PresentationCountingView: UIView {
+            override class var layerClass: AnyClass { PresentationCountingLayer.self }
+        }
+
         private func window(root: UIViewController) -> UIWindow {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 300))
             window.rootViewController = root
             window.makeKeyAndVisible()
             root.view.frame = window.bounds
             return window
+        }
+
+        @Test("The structure fingerprint reads no presentation layers in a camera window")
+        func structureFingerprintSkipsPresentationLayers() {
+            let picker = CameraPicker()
+            let window = window(root: picker)
+            defer { window.isHidden = true }
+            let transparent = PresentationCountingView(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
+            transparent.alpha = 0
+            picker.view.addSubview(transparent)
+            #expect(window.hasCameraForReplay())
+
+            PresentationCountingLayer.reads = 0
+            _ = PostHogReplayIntegration.structureFingerprint(of: window)
+
+            #expect(PresentationCountingLayer.reads == 0)
         }
 
         @Test("Camera frames are rejected before masking and by every screenshot renderer")

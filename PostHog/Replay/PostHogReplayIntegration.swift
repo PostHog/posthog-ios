@@ -2061,7 +2061,8 @@
             budget -= 1
 
             hasher.combine(ObjectIdentifier(type(of: view)))
-            let invisible = view.isHidden || !view.hasRenderedOpacity
+            // Model values only: this runs with no camera check, and copying a presentation layer can trap there.
+            let invisible = view.isHidden || view.alpha == 0
             hasher.combine(invisible)
             // A hidden subtree draws nothing, so its churn must not count as a change.
             guard !invisible else { return }

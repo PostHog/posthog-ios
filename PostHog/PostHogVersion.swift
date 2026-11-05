@@ -20,3 +20,17 @@ let postHogiOSSdkName = "posthog-ios"
 ///
 /// - Warning: This is intended for SDK internals and wrapper SDKs. Application code should not mutate it.
 @_spi(PostHogInternal) public var postHogSdkName = postHogiOSSdkName
+
+/// SDK identity hooks for wrapper SDKs.
+public extension PostHogSDK {
+    /// Sets the SDK name and version reported with every request and event, for wrapper SDKs that
+    /// can't assign `postHogSdkName`/`postHogVersion` directly (Objective-C and Kotlin Multiplatform).
+    /// Call it before `setup`.
+    ///
+    /// - Warning: This is intended for wrapper SDKs. Application code should not call it.
+    @_spi(PostHogInternal) @objc(setSdkName:version:)
+    static func setSdkName(_ name: String, version: String) {
+        postHogSdkName = name
+        postHogVersion = version
+    }
+}

@@ -25,6 +25,9 @@
   "isRageClickActive": "autocapture",
   "isSessionReplayActive": "is-session-replay-active",
   "logger": "logs",
+  "next": {
+    "captureAi": "capture-ai"
+  },
   "onFeatureFlags": "on-feature-flags",
   "optIn": "opt-in",
   "optOut": "opt-in",
@@ -50,6 +53,7 @@
     "didStartNotification",
     "prewarmPushNotificationOpenCapture",
     "registerPushNotificationToken",
+    "setAppLanguage",
     "shared",
     "unregisterPushNotificationToken"
   ],

@@ -321,11 +321,6 @@ jobs:
           repository: PostHog/sdk-specs
           path: ${{ runner.temp }}/sdk-specs
 
-      # The reference needs docc from Swift 6.3 or later (Markdown output).
-      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-        with:
-          xcode-version: '26.4'
-
       - name: Generate the reference
         run: python3 scripts/generate-markdown.py --sdk-specs "$RUNNER_TEMP/sdk-specs"
 

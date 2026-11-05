@@ -1,131 +1,163 @@
 """Generate the SDK reference Markdown from the Swift doc comments with DocC, build time only.
 
-xcodebuild's docbuild writes the iOS symbol graph, then `docc convert --enable-experimental-markdown-output`
-(Swift 6.3 or later, or a newer docc through $DOCC) renders one Markdown page per symbol. Our code only
-groups and orders those pages and writes front matter. A `posthog-capability: <slug>` line in a doc comment
-puts a symbol under that PostHog/sdk-specs capability. Untagged PostHogSDK members go to SDK utils.
+`xcodebuild docbuild` builds the iOS DocC archive with the DocC that ships in Xcode. Its render JSON
+holds each symbol's declaration, parameters and discussion. Our code walks that JSON, groups symbols
+by the `posthog-capability: <slug>` line in their doc comment, in the PostHog/sdk-specs README's
+order, and writes front matter. Untagged PostHogSDK members go to SDK utils.
 
     python3 scripts/generate-markdown.py --sdk-specs DIR [--major 4]
 """
 
 import argparse
 import json
-import os
-import re
 import subprocess
 import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FIRST = ["setup", "capture", "identify"]
-KINDS = {"Class", "Structure", "Enumeration", "Protocol", "Type Alias"}
+TAG = "posthog-capability:"
 # Public helpers with no place in the reference, and members the compiler synthesizes.
-SKIP = re.compile(r"^(gzip|gziperror|compressionlevel|reachabilityerror|boxedbeforesend\w*)$")
-SYNTHESIZED = re.compile(r"(-implementations$|^(==|!=|hash|hashvalue|rawvalue)(?![a-z])|^init\(rawvalue:\)$)")
-TAG = re.compile(r"^[ \t]*posthog-capability:[ \t]*([a-z0-9-]+)[ \t]*\n?", re.M)
-HEAD = re.compile(r"^## (Overview|Discussion|Parameters|Return Value)(?=\S)", re.M)
+SKIP = {"Gzip", "GzipError", "CompressionLevel", "ReachabilityError", "BoxedBeforeSendBlock", "BoxedBeforeSendLogBlock"}
+SYNTHESIZED = {"==(_:_:)", "!=(_:_:)", "hash(into:)", "hashValue", "rawValue", "init(rawValue:)"}
+EXTENDED = ["View", "UIView", "URLSession"]  # extensions of system types, listed under SDK utils
+MDX = str.maketrans({"<": "&lt;", "{": "&#123;", "}": "&#125;"})  # MDX 1 reads these as JSX
 
 
-class Page:
-    """One DocC symbol page, with its capability tag stripped from the body."""
-
+class Archive:
     def __init__(self, path: Path):
-        text = path.read_text()
-        meta, _, body = text.partition("\n-->\n")
-        self.meta = json.loads(meta.removeprefix("<!--\n"))
-        self.role = self.meta.get("role", "")
-        self.title = self.meta["title"]
-        self.file = path.stem
-        found = TAG.search(body)
-        self.tag = found.group(1) if found else None
-        body = HEAD.sub(r"## \1\n\n", TAG.sub("", body))
-        self.body = re.sub(r"\n## Discussion\s*(?=\n## |\Z)", "", body).strip()
+        self.data = path / "data"
 
-    def render(self, name: str, level: int) -> str:
-        """The page under a `name` heading at `level`, inner headings one level down."""
-        out, fence = [], False
-        for line in self.body.split("\n")[1:]:
-            if re.match(r"\s*```", line):
-                fence = not fence
-                line = "```swift" if fence and line.strip() == "```" else line
-            elif not fence and line.startswith("## "):
-                line = "#" * (level + 1) + line[2:]
-            out.append(line)
-        return mdx_safe(f"{'#' * level} `{name}`\n" + "\n".join(out))
+    def page(self, url: str) -> dict:
+        return json.loads((self.data / f"{url.strip('/')}.json").read_text())
+
+    def members(self, page: dict) -> list[dict]:
+        """The symbols a page lists in its topic sections, in DocC's order."""
+        out = []
+        for section in page.get("topicSections", []):
+            if section["title"] != "Default Implementations":
+                out += [self.page(page["references"][i]["url"]) for i in section["identifiers"]]
+        return [m for m in out if m["metadata"]["title"] not in SYNTHESIZED]
 
 
-def mdx_safe(markdown: str) -> str:
-    """The site reads Markdown as MDX 1: braces and angle brackets outside code are JSX."""
-    out, fence = [], False
-    for line in markdown.split("\n"):
-        fence ^= bool(re.match(r"\s*```", line))
-        if not fence and not line.startswith("```"):
-            parts = re.split(r"(`[^`]*`)", line)
-            line = "".join(
-                p if i % 2 else re.sub(r"[{}<]", lambda m: "&#" + str(ord(m.group())) + ";", p)
-                for i, p in enumerate(parts)
-            )
-        out.append(line)
-    return "\n".join(out)
+def inline(nodes: list, refs: dict) -> str:
+    out = []
+    for n in nodes:
+        kind = n["type"]
+        if kind == "text":
+            out.append(n["text"].translate(MDX))
+        elif kind == "codeVoice":
+            out.append(f"`{n['code']}`")
+        elif kind == "reference":
+            out.append(f"`{refs.get(n['identifier'], {}).get('title', n['identifier'].split('/')[-1])}`")
+        elif kind in ("emphasis", "strong"):
+            mark = "*" if kind == "emphasis" else "**"
+            out.append(mark + inline(n["inlineContent"], refs) + mark)
+        elif kind == "link":
+            out.append(f"[{n['title']}]({n['destination']})")
+    return "".join(out)
 
 
-def pages(folder: Path) -> list[Page]:
-    return [Page(p) for p in sorted(folder.glob("*.md"))]
+def blocks(nodes: list, refs: dict, level: int) -> list[str]:
+    out = []
+    for n in nodes:
+        kind = n["type"]
+        if kind == "paragraph":
+            text = inline(n["inlineContent"], refs)
+            if not text.lower().startswith(TAG):
+                out.append(text)
+        elif kind == "heading":
+            out.append("#" * (level + n["level"] - 2) + " " + n["text"])
+        elif kind == "codeListing":
+            out.append(f"```{n.get('syntax') or 'swift'}\n" + "\n".join(n["code"]) + "\n```")
+        elif kind in ("unorderedList", "orderedList"):
+            mark = "-" if kind == "unorderedList" else "1."
+            for item in n["items"]:
+                out.append(f"{mark} " + "\n  ".join(blocks(item["content"], refs, level)))
+        elif kind == "aside":
+            body = "\n> ".join(blocks(n["content"], refs, level))
+            out.append(f"> **{n.get('name') or n['style'].title()}:** {body}")
+    return out
+
+
+def tag(page: dict) -> str | None:
+    for section in page.get("primaryContentSections", []):
+        for n in section.get("content", []):
+            text = inline(n.get("inlineContent", []), {}).lower()
+            if n["type"] == "paragraph" and text.startswith(TAG):
+                return text[len(TAG) :].strip()
+    return None
+
+
+def entry(page: dict, label: str, level: int) -> str:
+    refs = page.get("references", {})
+    parts = [f"{'#' * level} `{label}`"]
+    for section in page.get("primaryContentSections", []):
+        if section["kind"] == "declarations":
+            tokens = section["declarations"][0]["tokens"]
+            parts.append("```swift\n" + "".join(t["text"] for t in tokens) + "\n```")
+    parts.append(inline(page.get("abstract", []), refs))
+    for section in page.get("primaryContentSections", []):
+        if section["kind"] == "parameters":
+            rows = [f"- `{p['name']}`: " + " ".join(blocks(p["content"], refs, level + 1)) for p in section["parameters"]]
+            parts.append(f"{'#' * (level + 1)} Parameters\n\n" + "\n".join(rows))
+        elif section["kind"] == "content":
+            body = blocks(section["content"], refs, level + 1)
+            if body and not (len(body) == 1 and body[0].endswith(" Discussion")):
+                parts += body
+    return "\n\n".join(p for p in parts if p)
 
 
 def capabilities(checkout: str) -> dict[str, str]:
     """Each sdk-specs capability's slug and title in sentence case, in the README's order."""
-    readme = (Path(checkout) / "README.md").read_text()
-    rows = re.findall(r"^\| ([^|]+?) \| \[`openspec/specs/([a-z0-9-]+)/spec\.md`\]", readme, re.M)
     acronyms = {"id": "ID", "ai": "AI", "http": "HTTP", "mcp": "MCP"}
-    titles = {s: " ".join(acronyms.get(w.lower(), w.lower()) for w in n.split()) for n, s in rows}
+    titles = {}
+    for line in (Path(checkout) / "README.md").read_text().split("\n"):
+        cells = line.split("|")
+        if len(cells) > 2 and "openspec/specs/" in cells[2]:
+            slug = cells[2].split("openspec/specs/")[1].split("/")[0]
+            titles[slug] = " ".join(acronyms.get(w.lower(), w.lower()) for w in cells[1].split())
     order = [*FIRST, *(s for s in titles if s not in FIRST)]
     return {s: titles[s][0].upper() + titles[s][1:] for s in order if s in titles}
 
 
-def convert(work: Path) -> Path:
-    """docbuild for the iOS symbol graph, then docc to Markdown. Returns the Markdown folder."""
-    subprocess.run(
-        ["xcodebuild", "docbuild", "-scheme", "PostHog", "-destination", "generic/platform=iOS",
-         "-derivedDataPath", str(work / "build")],
-        cwd=ROOT, check=True, stdout=subprocess.DEVNULL,
-    )
-    graphs = next((work / "build").rglob("symbol-graph/swift/*")).parent
-    docc = os.environ.get("DOCC") or subprocess.check_output(["xcrun", "--find", "docc"], text=True).strip()
-    subprocess.run(
-        [docc, "convert", "--additional-symbol-graph-dir", str(graphs), "--fallback-display-name", "PostHog",
-         "--fallback-bundle-identifier", "com.posthog.PostHog", "--enable-experimental-markdown-output",
-         "--no-transform-for-static-hosting", "--output-dir", str(work / "docs")],
-        check=True, stdout=subprocess.DEVNULL,
-    )
-    return work / "docs/data/documentation/posthog"
-
-
-def reference(docs: Path, caps: dict[str, str]) -> list[str]:
-    sdk = pages(docs / "posthogsdk")
-    # Methods keep their DocC order, so overloads stay together under a capability.
+def reference(archive: Archive, caps: dict[str, str]) -> list[str]:
+    module = archive.page("documentation/posthog")
+    symbols = archive.members(module)
+    by_title = {s["metadata"]["title"]: s for s in symbols}
+    sdk = archive.members(by_title["PostHogSDK"])
     out = []
     for slug, title in caps.items():
-        if tagged := [p for p in sdk if p.tag == slug]:
-            out += [f"## {title}", *(p.render(f"PostHogSDK.{p.title}", 3) for p in tagged)]
-    extensions = [p for d in ("swiftuicore/view", "uikit/uiview", "foundation/urlsession") for p in pages(docs / d)]
-    out += ["## SDK utils", *(p.render(f"PostHogSDK.{p.title}", 3) for p in sdk if not p.tag)]
-    out += [p.render(p.title, 3) for p in extensions if p.role != "Extension"]
-    types = [p for p in pages(docs) if p.role in KINDS and p.file != "posthogsdk" and not SKIP.match(p.file)]
+        if tagged := [m for m in sdk if tag(m) == slug]:
+            out += [f"## {title}", *(entry(m, f"PostHogSDK.{m['metadata']['title']}", 3) for m in tagged)]
+    found = {tag(m) for m in sdk} - {None} - set(caps)
+    if found:
+        raise SystemExit(f"unknown capability tags: {sorted(found)}")
+    out += ["## SDK utils", *(entry(m, f"PostHogSDK.{m['metadata']['title']}", 3) for m in sdk if not tag(m))]
+    for extended in (s for s in symbols if s["metadata"].get("role") == "collection"):
+        for t in archive.members(extended):
+            if t["metadata"]["title"] in EXTENDED:
+                out += [entry(m, f"{t['metadata']['title']}.{m['metadata']['title']}", 3) for m in archive.members(t)]
     out.append("## Types")
-    for t in types:
-        out.append(t.render(t.title, 3))
-        members = [m for m in pages(docs / t.file) if not SYNTHESIZED.search(m.file)]
-        out += [m.render(f"{t.title}.{m.title.removeprefix(t.title + '.')}", 4) for m in members]
+    for t in symbols:
+        name, kind = t["metadata"]["title"], t["metadata"].get("symbolKind")
+        if name in SKIP or name == "PostHogSDK" or kind not in ("class", "struct", "enum", "protocol", "typealias"):
+            continue
+        out.append(entry(t, name, 3))
+        out += [entry(m, f"{name}.{m['metadata']['title']}", 4) for m in archive.members(t)]
     return out
+
+
+def anchor(heading: str) -> str:
+    """The github-slugger slug the docs site gives a heading."""
+    return "".join(c for c in heading.lower() if c.isalnum() or c in "-_ ").replace(" ", "-")
 
 
 def front_matter(title: str, sections: list[str]) -> str:
     """The docs site's front matter. Its ToC lists the page's H2 sections only."""
     toc = []
     for heading in [s[3:] for s in sections if s.startswith("## ")]:
-        anchor = re.sub(r"[^\w\- ]", "", heading.lower()).replace(" ", "-")
-        toc.append(f'  - value: "{heading}"\n    url: {anchor}\n    depth: 0')
+        toc.append(f'  - value: "{heading}"\n    url: {anchor(heading)}\n    depth: 0')
     head = [f'title: "{title}"', "sidebar: Docs", "showTitle: true", "contentMaxWidthClass: max-w-full"]
     return "\n".join(["---", *head, "platformLogo: ios", "tableOfContents:", *toc, "---"])
 
@@ -134,8 +166,8 @@ def nest(markdown: str) -> str:
     """Moves each heading down one level and drops the H1. Code stays as written."""
     out, fence = [], False
     for line in markdown.strip().split("\n"):
-        fence ^= bool(re.match(r"\s*```", line))
-        if fence or not re.match(r"#{1,5} ", line):
+        fence ^= line.strip().startswith("```")
+        if fence or not line.startswith("#"):
             out.append(line)
         elif not line.startswith("# "):
             out.append("#" + line)
@@ -152,13 +184,18 @@ def main() -> None:
     args.add_argument("--sdk-specs", required=True, help="PostHog/sdk-specs checkout")
     args.add_argument("--major", type=int, help="target major, defaults to the declared one")
     opts = args.parse_args()
-    version = re.search(r'postHogVersion = "(\d+)', (ROOT / "PostHog/PostHogVersion.swift").read_text())
-    declared = int(version.group(1))
+    version = next(l for l in (ROOT / "PostHog/PostHogVersion.swift").read_text().split("\n") if "postHogVersion = " in l)
+    declared = int(version.split('"')[1].split(".")[0])
     major = opts.major or declared
     with tempfile.TemporaryDirectory() as tmp:
-        docs = convert(Path(tmp))
-        body = ["## Getting started", nest((ROOT / "docs/getting-started.md").read_text()),
-                *reference(docs, capabilities(opts.sdk_specs))]
+        subprocess.run(
+            ["xcodebuild", "docbuild", "-scheme", "PostHog", "-destination", "generic/platform=iOS",
+             "-derivedDataPath", tmp, "-quiet"],
+            cwd=ROOT, check=True,
+        )
+        archive = Archive(next(Path(tmp).rglob("PostHog.doccarchive")))
+        body = ["## Getting started", nest((ROOT / "docs/getting-started.md").read_text())]
+        body += reference(archive, capabilities(opts.sdk_specs))
     (ROOT / "references").mkdir(exist_ok=True)
     title = f"PostHog iOS SDK {major}.x" + ("" if declared >= major else " (experimental)")
     write(f"posthog-ios-{major}.md", [front_matter(title, body), *body])

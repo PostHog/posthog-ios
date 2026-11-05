@@ -1,5 +1,23 @@
 ## Next
 
+## 3.93.6
+
+### Patch Changes
+
+- 9551567: Fix session replay recording touches inside views masked with `ph-no-capture` or `postHogMask()`. These touches are now dropped. Touches on views masked only by `maskAllTextInputs` or `maskAllImages` are still recorded.
+
+## 3.93.5
+
+### Patch Changes
+
+- d10bb5f: Stop emitting `$feature_flag_called` for survey flags whose keys start with `survey-targeting-`, matching the browser SDK while preserving usage tracking for ordinary linked flags.
+
+## 3.93.4
+
+### Patch Changes
+
+- 0ccda7e: A `beforeSend` hook that calls `reset()` or `identify()` no longer gives the event's `userProperties` to the next user's feature flag evaluation.
+
 ## 3.93.3
 
 ### Patch Changes

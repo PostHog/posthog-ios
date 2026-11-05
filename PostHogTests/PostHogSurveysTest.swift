@@ -1624,6 +1624,72 @@ enum PostHogSurveysTest {
             #expect(matchedSurveys.map(\.id) == ["active_id"])
         }
 
+        @Test("survey targeting flag reads do not emit usage events", arguments: [
+            "linked_flag_key", "targeting_flag_key", "internal_targeting_flag_key", "feature_flag_keys",
+        ], [true, false])
+        func surveyTargetingFlagsDoNotEmitUsageEvents(field: String, enabled: Bool) async throws {
+            let key = "survey-targeting-test"
+            server.featureFlags?[key] = enabled
+            var survey = try #require(try parseSurveys(activeSurvey).first)
+            if field == "feature_flag_keys" {
+                survey[field] = [["key": "test", "value": key]]
+            } else {
+                survey[field] = key
+            }
+            let sut = getSut(surveys: [])
+            sut.updateSurveyCache(sut.decodeSurveys(from: ["surveys": [survey]]), events: [:])
+            await withCheckedContinuation { continuation in
+                postHog.remoteConfig?.reloadFeatureFlags { _ in continuation.resume() }
+            }
+            server.reset(batchCount: 1)
+
+            let matched: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys { continuation.resume(returning: $0) }
+            }
+            #expect(matched.map(\.id) == (enabled ? ["active_id"] : []))
+            postHog.capture("survey-check-complete")
+            postHog.flush()
+            let events = try await getServerEvents(server)
+            #expect(events.contains { $0.event == "survey-check-complete" })
+            #expect(!events.contains { $0.event == "$feature_flag_called" })
+        }
+
+        @Test("ordinary linked flags retain usage tracking and variant matching", arguments: [
+            ("linked-flag", "blue", "blue", true),
+            ("linked-flag", "blue", "red", false),
+            ("my-survey-targeting-flag", "blue", "blue", true),
+        ], [true, false])
+        func linkedFlagsRetainUsageTracking(
+            flag: (key: String, value: String, variant: String, matches: Bool),
+            sendEvents: Bool
+        ) async throws {
+            postHog.config.sendFeatureFlagEvent = sendEvents
+            server.featureFlags?[flag.key] = flag.value
+            var survey = try #require(try parseSurveys(activeSurvey).first)
+            survey["linked_flag_key"] = flag.key
+            survey["conditions"] = ["linkedFlagVariant": flag.variant]
+            let sut = getSut(surveys: [])
+            sut.updateSurveyCache(sut.decodeSurveys(from: ["surveys": [survey]]), events: [:])
+            await withCheckedContinuation { continuation in
+                postHog.remoteConfig?.reloadFeatureFlags { _ in continuation.resume() }
+            }
+            server.reset(batchCount: 1)
+
+            let matched: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys { continuation.resume(returning: $0) }
+            }
+            #expect(matched.map(\.id) == (flag.matches ? ["active_id"] : []))
+            postHog.capture("survey-check-complete")
+            postHog.flush()
+            let events = try await getServerEvents(server)
+            let flagEvents = events.filter { $0.event == "$feature_flag_called" }
+            #expect(flagEvents.count == (sendEvents ? 1 : 0))
+            if sendEvents {
+                #expect(flagEvents.first?.properties["$feature_flag"] as? String == flag.key)
+                #expect(flagEvents.first?.properties["$feature_flag_response"] as? String == flag.value)
+            }
+        }
+
         @Test("returns only surveys with enabled feature flags")
         func returnsOnlySurveysWithEnabledFeatureFlags() async throws {
             let sut = getSut(surveys: [surveysWithFeatureFlags])

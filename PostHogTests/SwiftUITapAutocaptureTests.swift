@@ -507,6 +507,7 @@
 
     private final class TapTestPublisher: ApplicationEventPublishing {
         var subscriberCount = 0
+        let onApplicationEventWillDispatch = PostHogMulticastCallback<ApplicationEventData>()
         lazy var onApplicationEvent = PostHogMulticastCallback<ApplicationEventData> { [weak self] count in
             self?.subscriberCount = count
         }

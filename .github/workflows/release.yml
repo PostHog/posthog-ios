@@ -296,7 +296,7 @@ jobs:
     name: Update SDK reference
     needs: create-github-release
     runs-on: macos-26
-    # Best-effort: the reference is regenerated on the next release if this fails.
+    # Best-effort: a failure never blocks the release. Run generate-references.yml to retry.
     continue-on-error: true
     if: always() && needs.create-github-release.result == 'success'
     permissions:

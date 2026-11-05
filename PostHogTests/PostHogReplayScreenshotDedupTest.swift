@@ -407,4 +407,55 @@
             #expect(sdk.sessionManager.getSessionId(readOnly: true) == original)
         }
     }
+
+    @Suite("Unchanged frames across windows", .serialized)
+    @MainActor
+    struct PostHogReplayWindowSwitchDedupTests {
+        @Test("returning to an unchanged window after another window sends its frame again")
+        func returningWindowResendsFrame() {
+            let server = MockPostHogServer()
+            server.start()
+            defer { server.stop() }
+
+            let lock = NSLock()
+            var snapshots = 0
+            let config = PostHogConfig(projectToken: "phc_replayWindowSwitch", host: "http://localhost:9001")
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.captureApplicationLifecycleEvents = false
+            config.setBeforeSend { event in
+                if event.event == "$snapshot" {
+                    lock.withLock { snapshots += 1 }
+                }
+                return nil
+            }
+            let sdk = PostHogSDK.with(config)
+            defer { sdk.close() }
+            let integration = PostHogReplayIntegration()
+            let screen = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let overlay = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+
+            func sendFrame(_ window: UIWindow, text: String) {
+                let wireframe = RRWireframe()
+                wireframe.type = "text"
+                wireframe.text = text
+                integration.captureSnapshot(
+                    wireframe,
+                    window: window,
+                    windowSize: window.bounds.size,
+                    screenName: nil,
+                    postHog: sdk,
+                    timestampDate: Date()
+                )
+                PostHogReplayIntegration.dispatchQueue.sync {}
+            }
+
+            sendFrame(screen, text: "Screen")
+            sendFrame(screen, text: "Screen")
+            #expect(lock.withLock { snapshots } == 1)
+            sendFrame(overlay, text: "Overlay")
+            sendFrame(screen, text: "Screen")
+            #expect(lock.withLock { snapshots } == 3)
+        }
+    }
 #endif

@@ -45,6 +45,8 @@
         private var applicationForegroundedToken: RegistrationToken?
         private var captureOpportunityToken: RegistrationToken?
         private let captureBackoff = PostHogReplayCaptureBackoff()
+        // Confined to dispatchQueue.
+        private weak var lastSentSnapshotStatus: ViewTreeSnapshotStatus?
         private var remoteConfigLoadedToken: RegistrationToken?
         private var featureFlagsLoadedToken: RegistrationToken?
         private var sessionIdChangedToken: RegistrationToken?
@@ -843,9 +845,10 @@
                     snapshotStatus.metaEventSize = CGSize(width: width, height: height)
                 }
 
-                // Re-arm the hash on an episode's first frame so a recurring
-                // native screen always re-sends its opening frame.
-                if episodeFirstFrame {
+                // Re-arm the hash on an episode's first frame so a recurring native screen always
+                // re-sends its opening frame, and when another window sent the last frame, since
+                // the replay is showing that window and not this one's stored hash.
+                if episodeFirstFrame || self?.lastSentSnapshotStatus !== snapshotStatus {
                     snapshotStatus.lastImageHash = nil
                 }
                 let verdict = PostHogReplayIntegration.frameVerdict(
@@ -858,6 +861,7 @@
                     return
                 }
                 snapshotStatus.lastImageHash = verdict.hash
+                self?.lastSentSnapshotStatus = snapshotStatus
                 self?.captureBackoff.noteFrame(unchanged: false)
 
                 var wireframes: [Any] = []

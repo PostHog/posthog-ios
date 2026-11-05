@@ -350,4 +350,51 @@
             #expect(fingerprint(root, nodeLimit: 2) != withLabel)
         }
     }
+
+    @Suite("Replay frames and session inactivity", .serialized)
+    @MainActor
+    struct PostHogReplayIdleSessionTests {
+        @Test("a frame on an idle screen doesn't rotate an inactive session")
+        func idleFrameKeepsSession() throws {
+            let mockNow = MockDate()
+            let previousNow = now
+            now = { mockNow.date }
+            defer { now = previousNow }
+            let lifecycle = MockApplicationLifecyclePublisher()
+            let previousLifecycle = DI.main.appLifecyclePublisher
+            DI.main.appLifecyclePublisher = lifecycle
+            defer { DI.main.appLifecyclePublisher = previousLifecycle }
+
+            let config = PostHogConfig(projectToken: "phc_replayIdleSession")
+            config.disableReachabilityForTesting = true
+            PostHogReplayIntegration.clearInstalls()
+            let sdk = PostHogSDK.with(config)
+            let integration = PostHogReplayIntegration()
+            _ = integration.install(sdk)
+            defer {
+                integration.uninstall(sdk)
+                sdk.close()
+            }
+
+            lifecycle.simulateAppDidBecomeActive()
+            let original = try #require(sdk.sessionManager.getNextSessionId())
+            sdk.sessionManager.touchSession()
+            mockNow.date.addTimeInterval(60 * 31)
+
+            let wireframe = RRWireframe()
+            wireframe.type = "screenshot"
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            integration.captureSnapshot(
+                wireframe,
+                window: window,
+                windowSize: window.bounds.size,
+                screenName: nil,
+                postHog: sdk,
+                timestampDate: mockNow.date
+            )
+            PostHogReplayIntegration.dispatchQueue.sync {}
+
+            #expect(sdk.sessionManager.getSessionId(readOnly: true) == original)
+        }
+    }
 #endif

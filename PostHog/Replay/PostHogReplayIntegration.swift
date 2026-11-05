@@ -807,8 +807,9 @@
             }
 
             PostHogReplayIntegration.dispatchQueue.async { [weak self] in
-                // always make sure we have a fresh session id at correct timestamp
-                guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate) else {
+                // Frames keep arriving on an idle screen and aren't user activity, so they can't rotate
+                // an inactive session; the next touch or event does.
+                guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate, keepingInactiveSession: true) else {
                     return
                 }
 

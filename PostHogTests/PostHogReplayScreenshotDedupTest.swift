@@ -310,6 +310,24 @@
             #expect(fingerprint(root) != base)
         }
 
+        @Test("a color-only change on a fixed label changes the fingerprint")
+        func colorChangesChangeFingerprint() {
+            let (root, label) = screen()
+            label.textColor = .black
+            let base = fingerprint(root)
+
+            label.textColor = .red
+            #expect(fingerprint(root) != base)
+            label.textColor = .black
+            #expect(fingerprint(root) == base)
+
+            let background = label.backgroundColor
+            label.backgroundColor = .yellow
+            #expect(fingerprint(root) != base)
+            label.backgroundColor = background
+            #expect(fingerprint(root) == base)
+        }
+
         @Test("churn inside a hidden subtree does not change the fingerprint")
         func hiddenSubtreeIgnored() {
             let (root, label) = screen()

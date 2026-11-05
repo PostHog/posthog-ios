@@ -2066,6 +2066,7 @@
             guard !invisible else { return }
 
             hasher.combine(view.alpha)
+            hasher.combine(view.backgroundColor)
             let frame = view.frame
             hasher.combine(frame.origin.x)
             hasher.combine(frame.origin.y)
@@ -2076,6 +2077,7 @@
             hasher.combine(view.bounds.origin.y)
             if let label = view as? UILabel {
                 hasher.combine(label.text)
+                hasher.combine(label.textColor)
             } else if let imageView = view as? UIImageView {
                 hasher.combine(imageView.image.map(ObjectIdentifier.init))
             }

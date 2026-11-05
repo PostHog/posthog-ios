@@ -119,8 +119,6 @@ let maxRetryDelay = 30.0
 
     /// Logger facade exposing `trace/debug/info/warn/error/fatal(_:attributes:)`.
     /// `nil` before `setup(_:)` is called.
-    ///
-    /// posthog-capability: logs
     @objc public private(set) var logger: PostHogLogger?
 
     #if os(iOS)
@@ -163,8 +161,6 @@ let maxRetryDelay = 30.0
 
     /// Enables or disables SDK debug logging at runtime.
     ///
-    /// posthog-capability: debug
-    ///
     /// - Parameter enabled: Pass `true` to enable verbose logs or `false` to disable them.
     @objc public func debug(_ enabled: Bool = true) {
         if !isEnabled() {
@@ -175,8 +171,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Initializes this SDK instance with the provided configuration.
-    ///
-    /// posthog-capability: setup
     ///
     /// Call this once, as early as possible in app startup. Calls made before setup completes are ignored.
     /// Calling setup again on the same instance logs a warning and has no effect.
@@ -431,8 +425,6 @@ let maxRetryDelay = 30.0
 
     /// Returns the current PostHog distinct ID.
     ///
-    /// posthog-capability: get-distinct-id
-    ///
     /// Before `identify(_:)`, this is the anonymous ID. After identify, this is the identified user's ID.
     ///
     /// - Returns: The current distinct ID, or an empty string when the SDK is not set up.
@@ -442,16 +434,12 @@ let maxRetryDelay = 30.0
 
     /// Returns the anonymous ID generated for this install.
     ///
-    /// posthog-capability: get-anonymous-id
-    ///
     /// - Returns: The anonymous ID, or an empty string when the SDK is not set up.
     @objc public func getAnonymousId() -> String {
         getStorageManagerValue { $0.getAnonymousId() }
     }
 
     /// Returns the stable device identifier used for device-level feature flag bucketing.
-    ///
-    /// posthog-capability: device-id-generator
     ///
     /// This ID persists across `identify()` and `reset()` calls, only changing on a fresh
     /// app install, manual cache clearing, or OS-initiated storage cleanup.
@@ -471,8 +459,6 @@ let maxRetryDelay = 30.0
 
     /// Returns the current session ID without rotating or creating a session.
     ///
-    /// posthog-capability: get-session-id
-    ///
     /// - Returns: The current session ID, or `nil` if no session is active or the SDK is not set up.
     @objc public func getSessionId() -> String? {
         if !isEnabled() {
@@ -483,8 +469,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Starts or resumes the current analytics session.
-    ///
-    /// posthog-capability: session-manager
     @objc public func startSession() {
         performWhenEnabled {
             sessionManager.startSession()
@@ -492,8 +476,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Ends the current analytics session.
-    ///
-    /// posthog-capability: session-manager
     @objc public func endSession() {
         performWhenEnabled {
             sessionManager.endSession()
@@ -862,8 +844,6 @@ let maxRetryDelay = 30.0
 
     /// Trigger an immediate flush of every queue — events, session-replay
     /// snapshots, and structured logs.
-    ///
-    /// posthog-capability: flush
     @objc public func flush() {
         if !isEnabled() {
             return
@@ -897,8 +877,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Resets local identity, super properties, feature flag cache, and session state.
-    ///
-    /// posthog-capability: reset
     ///
     /// Call this when a user logs out. The next captured event will use a new anonymous identity
     /// unless `PostHogConfig.reuseAnonymousId` is enabled. If a push token is registered, it is
@@ -969,8 +947,6 @@ let maxRetryDelay = 30.0
     // register is a reserved word in ObjC
     /// Registers super properties that are included with every subsequent event.
     ///
-    /// posthog-capability: register
-    ///
     /// New values overwrite existing values for the same keys and persist across app restarts
     /// until removed with `unregister(_:)` or cleared by `reset()`.
     ///
@@ -998,8 +974,6 @@ let maxRetryDelay = 30.0
 
     /// Removes a previously registered super property.
     ///
-    /// posthog-capability: unregister
-    ///
     /// - Parameter key: The property key to stop attaching to future events.
     @objc(unregisterProperties:)
     public func unregister(_ key: String) {
@@ -1019,8 +993,6 @@ let maxRetryDelay = 30.0
 
     /// Identifies the current user with a stable distinct ID.
     ///
-    /// posthog-capability: identify
-    ///
     /// By default, the first successful identify call links prior anonymous events to the provided ID.
     /// If `PostHogConfig.reuseAnonymousId` is `true`, prior anonymous events are not linked.
     /// Empty IDs and configurations with `personProfiles == .never` are ignored.
@@ -1033,8 +1005,6 @@ let maxRetryDelay = 30.0
 
     /// Identifies the current user and sets person properties.
     ///
-    /// posthog-capability: identify
-    ///
     /// - Parameters:
     ///   - distinctId: Stable user identifier from your application.
     ///   - userProperties: Properties to set on the person profile. Existing values are overwritten.
@@ -1046,8 +1016,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Identifies the current user and sets person properties.
-    ///
-    /// posthog-capability: identify
     ///
     /// - Parameters:
     ///   - distinctId: Stable user identifier from your application.
@@ -1177,8 +1145,6 @@ let maxRetryDelay = 30.0
 
     /// Sets properties on the person profile associated with the current distinct_id.
     ///
-    /// posthog-capability: set-person-properties
-    ///
     /// Updates user properties that are stored with the person profile in PostHog.
     /// If `personProfiles` is set to `never`, this call will be ignored.
     ///
@@ -1194,8 +1160,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Sets properties on the person profile associated with the current distinct_id.
-    ///
-    /// posthog-capability: set-person-properties
     ///
     /// Updates user properties that are stored with the person profile in PostHog.
     /// If `personProfiles` is set to `never`, this call will be ignored.
@@ -1344,16 +1308,12 @@ let maxRetryDelay = 30.0
 
     /// Captures a custom event for the current user.
     ///
-    /// posthog-capability: capture
-    ///
     /// - Parameter event: Event name to capture.
     @objc public func capture(_ event: String) {
         capture(event, distinctId: nil, properties: nil, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
     }
 
     /// Captures a custom event with event properties.
-    ///
-    /// posthog-capability: capture
     ///
     /// - Parameters:
     ///   - event: Event name to capture.
@@ -1366,8 +1326,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Captures a custom event and updates person properties.
-    ///
-    /// posthog-capability: capture
     ///
     /// - Parameters:
     ///   - event: Event name to capture.
@@ -1382,8 +1340,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Captures a custom event and updates person properties.
-    ///
-    /// posthog-capability: capture
     ///
     /// - Parameters:
     ///   - event: Event name to capture.
@@ -1400,8 +1356,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Captures a custom event with group context.
-    ///
-    /// posthog-capability: capture
     ///
     /// - Parameters:
     ///   - event: Event name to capture.
@@ -1420,8 +1374,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Captures a custom event for an explicit distinct ID.
-    ///
-    /// posthog-capability: capture
     ///
     /// - Parameters:
     ///   - event: Event name to capture.
@@ -1448,8 +1400,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Captures a custom event for an explicit distinct ID and timestamp.
-    ///
-    /// posthog-capability: capture
     ///
     /// - Parameters:
     ///   - event: Event name to capture.
@@ -1485,8 +1435,6 @@ let maxRetryDelay = 30.0
 
     /// Capture a structured log record at `.info` severity.
     ///
-    /// posthog-capability: logs
-    ///
     /// Log records ship to PostHog via a separate `/i/v1/logs` endpoint and
     /// are persisted to disk so they survive app restarts. The call performs
     /// a **synchronous disk write on the calling thread**, then the network
@@ -1504,8 +1452,6 @@ let maxRetryDelay = 30.0
 
     /// Capture a structured log record at the given severity.
     ///
-    /// posthog-capability: logs
-    ///
     /// - Parameters:
     ///   - body: The log message. Required and non-empty.
     ///   - level: Severity. Use `.trace`/`.debug` for diagnostic detail,
@@ -1516,8 +1462,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Capture a structured log record with caller-supplied attributes.
-    ///
-    /// posthog-capability: logs
     ///
     /// - Parameters:
     ///   - body: The log message. Required and non-empty.
@@ -1533,8 +1477,6 @@ let maxRetryDelay = 30.0
     /// Capture a structured log record with W3C trace context. Intended for
     /// callers correlating logs with distributed traces; most apps should use
     /// the simpler overload.
-    ///
-    /// posthog-capability: logs
     ///
     /// - Parameters:
     ///   - body: The log message. Required and non-empty.
@@ -1558,8 +1500,6 @@ let maxRetryDelay = 30.0
     /// Swift-native variant of `captureLog` with default values for every
     /// argument except `body`. Most call sites can write `captureLog("...")`
     /// or `captureLog("...", level: .warn, attributes: [...])`.
-    ///
-    /// posthog-capability: logs
     ///
     /// - Parameters:
     ///   - body: The log message. Required and non-empty.
@@ -1761,16 +1701,12 @@ let maxRetryDelay = 30.0
 
     /// Records a screen view by capturing a `$screen` event.
     ///
-    /// posthog-capability: screen
-    ///
     /// - Parameter screenTitle: The screen name to record.
     @objc public func screen(_ screenTitle: String) {
         screen(screenTitle, properties: nil)
     }
 
     /// Records a screen view by capturing a `$screen` event with `screenTitle`.
-    ///
-    /// posthog-capability: screen
     ///
     /// The title is also cached and automatically attached as `$screen_name` to
     /// every subsequent event (until `reset()` or `close()` clears it).
@@ -1912,8 +1848,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Assigns an additional distinct ID to the current user.
-    ///
-    /// posthog-capability: alias
     ///
     /// Use alias when a user should be connected to another identifier that was previously used
     /// to track them. This sends a `$create_alias` event.
@@ -2102,8 +2036,6 @@ let maxRetryDelay = 30.0
 
     /// Associates subsequent events with a group.
     ///
-    /// posthog-capability: group
-    ///
     /// - Parameters:
     ///   - type: Group type, such as `"company"` or `"organization"`.
     ///   - key: Group key from your application.
@@ -2113,8 +2045,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Associates subsequent events with a group and optionally updates group properties.
-    ///
-    /// posthog-capability: group
     ///
     /// This sends a `$groupidentify` event and reloads feature flags if the group value changed.
     /// The call is ignored if `type` or `key` is empty.
@@ -2154,8 +2084,6 @@ let maxRetryDelay = 30.0
 
     /// Sets person properties that will be included in feature flag evaluation requests.
     ///
-    /// posthog-capability: set-person-properties-for-flags
-    ///
     /// This method allows you to override server-side person properties for immediate feature flag evaluation,
     /// solving the race condition where person properties from `identify()` calls may not have been processed
     /// by the server yet.
@@ -2187,8 +2115,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Sets person properties that will be included in feature flag evaluation requests.
-    ///
-    /// posthog-capability: set-person-properties-for-flags
     ///
     /// This method allows you to override server-side person properties for immediate feature flag evaluation,
     /// solving the race condition where person properties from `identify()` calls may not have been processed
@@ -2256,8 +2182,6 @@ let maxRetryDelay = 30.0
 
     /// Resets all person properties that were set for feature flag evaluation.
     ///
-    /// posthog-capability: reset-person-properties-for-flags
-    ///
     /// After calling this method, feature flag evaluation will only use server-side person properties
     /// and will not include any locally overridden properties.
     ///
@@ -2274,8 +2198,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Resets all person properties that were set for feature flag evaluation.
-    ///
-    /// posthog-capability: reset-person-properties-for-flags
     ///
     /// After calling this method, feature flag evaluation will only use server-side person properties
     /// and will not include any locally overridden properties.
@@ -2308,8 +2230,6 @@ let maxRetryDelay = 30.0
     /// These properties supplement the standard group information sent to PostHog for flag evaluation,
     /// providing additional context that can be used in flag targeting conditions.
     ///
-    /// posthog-capability: set-group-properties-for-flags
-    ///
     /// ## Example Usage
     /// ```swift
     /// PostHogSDK.shared.setGroupPropertiesForFlags("organization", properties: [
@@ -2332,8 +2252,6 @@ let maxRetryDelay = 30.0
     /// Sets properties for a specific group type to include when evaluating feature flags.
     /// These properties supplement the standard group information sent to PostHog for flag evaluation,
     /// providing additional context that can be used in flag targeting conditions.
-    ///
-    /// posthog-capability: set-group-properties-for-flags
     ///
     /// ## Example Usage
     /// ```swift
@@ -2368,8 +2286,6 @@ let maxRetryDelay = 30.0
 
     /// Clears all group properties for feature flag evaluation.
     ///
-    /// posthog-capability: reset-group-properties-for-flags
-    ///
     /// ## Example Usage
     /// ```swift
     /// // Clear all group properties
@@ -2380,8 +2296,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Clears all group properties for feature flag evaluation.
-    ///
-    /// posthog-capability: reset-group-properties-for-flags
     ///
     /// ## Example Usage
     /// ```swift
@@ -2397,8 +2311,6 @@ let maxRetryDelay = 30.0
 
     /// Clears group properties for feature flag evaluation for a specific group type.
     ///
-    /// posthog-capability: reset-group-properties-for-flags
-    ///
     /// ## Example Usage
     /// ```swift
     /// // Clear properties for specific group type
@@ -2412,8 +2324,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Clears group properties for feature flag evaluation for a specific group type.
-    ///
-    /// posthog-capability: reset-group-properties-for-flags
     ///
     /// ## Example Usage
     /// ```swift
@@ -2443,8 +2353,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Reloads feature flags for the current user and group context.
-    ///
-    /// posthog-capability: reload-feature-flags
     @objc public func reloadFeatureFlags() {
         reloadFeatureFlags {
             // No use case
@@ -2452,8 +2360,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Reloads feature flags and invokes a callback when finished.
-    ///
-    /// posthog-capability: reload-feature-flags
     ///
     /// - Parameter callback: Invoked when the reload finishes, or immediately if the reload
     ///   is skipped (SDK disabled/opted-out, or no remote config available).
@@ -2475,8 +2381,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Registers a callback that's invoked whenever feature flags are loaded or updated.
-    ///
-    /// posthog-capability: on-feature-flags
     ///
     /// The callback runs on the main thread. It's invoked after the SDK loads flags at startup
     /// (including from bootstrap values), after `reloadFeatureFlags()`, and after calls that reload
@@ -2596,8 +2500,6 @@ let maxRetryDelay = 30.0
 
     /// Returns the feature flag result containing the flag value, variant, and payload.
     ///
-    /// posthog-capability: get-feature-flag-result
-    ///
     /// This is the recommended method for retrieving feature flags as it provides
     /// all flag information in a single call and properly tracks flag usage.
     ///
@@ -2609,8 +2511,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Returns the feature flag result and optionally captures a usage event.
-    ///
-    /// posthog-capability: get-feature-flag-result
     ///
     /// - Parameters:
     ///   - key: The feature flag key.
@@ -2643,8 +2543,6 @@ let maxRetryDelay = 30.0
 
     /// Returns a feature flag value.
     ///
-    /// posthog-capability: get-feature-flag
-    ///
     /// Boolean flags return `Bool`. Multivariate flags return their variant `String`.
     ///
     /// - Parameter key: The feature flag key.
@@ -2654,8 +2552,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Returns a feature flag value and optionally captures a usage event.
-    ///
-    /// posthog-capability: get-feature-flag
     ///
     /// - Parameters:
     ///   - key: The feature flag key.
@@ -2673,8 +2569,6 @@ let maxRetryDelay = 30.0
 
     /// Returns whether a feature flag is enabled.
     ///
-    /// posthog-capability: is-feature-enabled
-    ///
     /// Multivariate flags are considered enabled when a variant string is returned.
     ///
     /// - Parameter key: The feature flag key.
@@ -2684,8 +2578,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Returns whether a feature flag is enabled and optionally captures a usage event.
-    ///
-    /// posthog-capability: is-feature-enabled
     ///
     /// - Parameters:
     ///   - key: The feature flag key.
@@ -2702,8 +2594,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Returns all currently loaded feature flags as structured results.
-    ///
-    /// posthog-capability: get-feature-flags
     ///
     /// Each `PostHogFeatureFlagResult` carries the flag's `key`, `enabled` state,
     /// `variant` (for multivariate flags), and decoded `payload`. Flags become available
@@ -2725,8 +2615,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Returns the payload for a feature flag.
-    ///
-    /// posthog-capability: get-feature-flag-payload
     ///
     /// - Parameter key: The feature flag key.
     /// - Returns: The flag payload, or `nil` if the flag or payload is unavailable.
@@ -2883,8 +2771,6 @@ let maxRetryDelay = 30.0
 
     /// Opts the current user back into data capture.
     ///
-    /// posthog-capability: opt-in
-    ///
     /// This persists the opt-in state, unless opt-out persistence is disabled, and installs
     /// integrations that were disabled while opted out. Session replay restarts in a new session if the app
     /// wanted it on at `optOut()`: `config.sessionReplay` is enabled or `startSessionRecording()` was called,
@@ -2957,8 +2843,6 @@ let maxRetryDelay = 30.0
 
     /// Opts the current user out of data capture.
     ///
-    /// posthog-capability: opt-in
-    ///
     /// This persists the opt-out state, unless opt-out persistence is disabled, stops integrations,
     /// and causes future capture calls to be ignored.
     /// It also unregisters this device's push subscription, so Workflows stop sending it notifications.
@@ -2994,8 +2878,6 @@ let maxRetryDelay = 30.0
 
     /// Returns whether this SDK instance is currently opted out.
     ///
-    /// posthog-capability: is-opt-out
-    ///
     /// - Returns: `true` when opted out or when the SDK is not set up.
     @objc public func isOptOut() -> Bool {
         if !isEnabled() {
@@ -3006,8 +2888,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Shuts down this SDK instance and clears its in-memory state.
-    ///
-    /// posthog-capability: shutdown
     ///
     /// Starts sending queued events, session replay snapshots, and logs (up to one batch each) and returns without
     /// waiting for delivery. Anything not sent, for example while offline, stays on disk and is sent after the next
@@ -3076,8 +2956,6 @@ let maxRetryDelay = 30.0
         /**
          Starts session recording.
 
-         posthog-capability: start-session-recording
-
          This method will have no effect if PostHog is not enabled, or if session replay is disabled in your project settings.
 
          Ingestion controls are not overridden when calling this method. The recording will not start if:
@@ -3095,8 +2973,6 @@ let maxRetryDelay = 30.0
 
         /**
          Starts session recording.
-
-         posthog-capability: start-session-recording
 
          This method will have no effect if PostHog is not enabled, or if session replay is disabled in your project settings.
 
@@ -3154,8 +3030,6 @@ let maxRetryDelay = 30.0
 
         /**
          Stops the current session recording if one is in progress.
-
-         posthog-capability: stop-session-recording
 
          With `config.sessionReplay = false`, this also cancels a pending `startSessionRecording()` call, so
          remote config loads, event triggers and session changes will not start recording until the app
@@ -3234,8 +3108,6 @@ let maxRetryDelay = 30.0
 
     /// Creates and sets up an additional SDK instance.
     ///
-    /// posthog-capability: setup
-    ///
     /// - Parameter config: Configuration for the new instance.
     /// - Returns: A configured `PostHogSDK` instance.
     @objc public static func with(_ config: PostHogConfig) -> PostHogSDK {
@@ -3246,8 +3118,6 @@ let maxRetryDelay = 30.0
 
     #if os(iOS)
         /// Returns whether session replay is currently recording.
-        ///
-        /// posthog-capability: is-session-replay-active
         ///
         /// - Returns: `true` only when replay is active, a session ID exists, and remote config allows recording.
         @objc public func isSessionReplayActive() -> Bool {
@@ -3268,8 +3138,6 @@ let maxRetryDelay = 30.0
     #if os(iOS) || targetEnvironment(macCatalyst)
         /// Returns whether UIKit or SwiftUI element autocapture is enabled in local state.
         ///
-        /// posthog-capability: autocapture
-        ///
         /// - Returns: `true` when the SDK is set up and either interaction autocapture option is enabled.
         ///   This does not verify that the swizzling-backed integration was installed.
         @objc public func isAutocaptureActive() -> Bool {
@@ -3277,8 +3145,6 @@ let maxRetryDelay = 30.0
         }
 
         /// Returns whether rage click autocapture is enabled in local state.
-        ///
-        /// posthog-capability: autocapture
         ///
         /// - Returns: `true` when the SDK is set up and rage click detection is enabled.
         ///   This does not verify that the swizzling-backed integration was installed.
@@ -3290,8 +3156,6 @@ let maxRetryDelay = 30.0
     // MARK: - Error Tracking
 
     /// Capture a Swift Error or NSError
-    ///
-    /// posthog-capability: capture-exception
     ///
     /// Captures an error as a `$exception` event with full stack trace and error chain information.
     /// The error will be marked as handled by default.
@@ -3327,8 +3191,6 @@ let maxRetryDelay = 30.0
 
     /// Capture a Swift Error or NSError without additional properties
     ///
-    /// posthog-capability: capture-exception
-    ///
     /// Convenience overload for Objective-C callers so `properties:` doesn't need to be passed as `nil`.
     ///
     /// - Parameter error: The error to capture (can be any Error or NSError)
@@ -3341,8 +3203,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Capture an NSException
-    ///
-    /// posthog-capability: capture-exception
     ///
     /// Captures an NSException as a `$exception` event with full stack trace.
     /// This is useful for Objective-C code that uses NSException.
@@ -3378,8 +3238,6 @@ let maxRetryDelay = 30.0
 
     /// Capture an NSException without additional properties
     ///
-    /// posthog-capability: capture-exception
-    ///
     /// Convenience overload for Objective-C callers so `properties:` doesn't need to be passed as `nil`.
     ///
     /// - Parameter exception: The NSException to capture
@@ -3392,8 +3250,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Record an exception step (breadcrumb-style context record).
-    ///
-    /// posthog-capability: exception-steps
     ///
     /// Steps accumulate in a session-scoped buffer and are attached to **every** captured `$exception`
     /// as `$exception_steps`, giving the error tracking UI a timeline of recent activity before each
@@ -3448,8 +3304,6 @@ let maxRetryDelay = 30.0
     }
 
     /// Record an exception step without additional properties.
-    ///
-    /// posthog-capability: exception-steps
     ///
     /// Convenience overload for Objective-C callers so `properties:` doesn't need to be passed as `nil`.
     ///

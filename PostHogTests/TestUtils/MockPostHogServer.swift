@@ -690,21 +690,13 @@ class MockPostHogServer {
     }
 
     /// Decodes the events of a capture V1 request. It puts
-    /// back what the server injects (`$session_id`, `$window_id`, `$lib`,
-    /// `$lib_version` and the legacy property of each known option), so event
-    /// assertions don't depend on the transport. V1 events keep `options` too.
+    /// back what the server injects (`$session_id`, `$window_id` and the legacy
+    /// property of each known option), so event assertions don't depend on the
+    /// transport. V1 events keep `options` too.
     func parsePostHogEvents(_ context: URLRequest) -> [PostHogEvent] {
         let data = parseRequest(context)
         guard let batchEvents = data?["batch"] as? [[String: Any]] else {
             return []
-        }
-
-        var sdkInfo: (lib: String, version: String)?
-        if Self.isCaptureV1(context),
-           let header = context.value(forHTTPHeaderField: "PostHog-Sdk-Info"),
-           let slash = header.lastIndex(of: "/")
-        {
-            sdkInfo = (String(header[..<slash]), String(header[header.index(after: slash)...]))
         }
 
         var events = [PostHogEvent]()
@@ -714,10 +706,6 @@ class MockPostHogServer {
                 var properties = event["properties"] as? [String: Any] ?? [:]
                 properties["$session_id"] = event["session_id"]
                 properties["$window_id"] = event["window_id"]
-                if let sdkInfo {
-                    properties["$lib"] = sdkInfo.lib
-                    properties["$lib_version"] = sdkInfo.version
-                }
                 let options = event["options"] as? [String: Any] ?? [:]
                 for (property, option) in PostHogApi.legacyOptionProperties {
                     properties[property] = options[option]

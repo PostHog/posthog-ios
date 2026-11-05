@@ -34,7 +34,6 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - **Breaking:** let registered super properties override SDK properties such as `$os`, and let super and event properties override `$is_identified`, `$process_person_profile`, `$geoip_disable` and the session replay debug values
 - **Breaking:** let `userProperties`, `userPropertiesSetOnce` and `groups` win key by key over `$set`, `$set_once` and `$groups` passed in the same call's properties
 - **Breaking:** rename `maxRetries` to `pushNotificationSubscriptionMaxRetries`
-- **Breaking:** stop sending `$lib` and `$lib_version` as event properties — PostHog sets them from the `PostHog-Sdk-Info` header, so a value set in properties, a super property or `beforeSend` no longer reaches PostHog
 - **Breaking:** send `$session_id` and `$window_id` as top-level `session_id` and `window_id` fields, and drop a value that isn't a string
 - **Breaking:** let PostHog drop an event whose name is over 200 UTF-8 bytes, or whose distinct ID is empty or whitespace-only, instead of rejecting the whole batch
 - **Breaking:** retry a capture request that gets a 404 and keep its events queued, with no fallback to `/batch`, and stop retrying 3xx responses

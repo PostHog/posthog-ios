@@ -1104,8 +1104,6 @@ Call this when a user logs out. The next captured event will use a new anonymous
 
 Clears all group properties for feature flag evaluation.
 
-#### Discussion
-
 #### Example Usage
 
 ```swift
@@ -1124,8 +1122,6 @@ Clears group properties for feature flag evaluation for a specific group type.
 #### Parameters
 
 - `groupType`: The group type to clear properties for
-
-#### Discussion
 
 #### Example Usage
 
@@ -1147,8 +1143,6 @@ Clears group properties for feature flag evaluation for a specific group type.
 - `groupType`: The group type to clear properties for
 - `reloadFeatureFlags`: Whether to automatically reload feature flags after clearing properties for this group type.
 
-#### Discussion
-
 #### Example Usage
 
 ```swift
@@ -1167,8 +1161,6 @@ Clears all group properties for feature flag evaluation.
 #### Parameters
 
 - `reloadFeatureFlags`: Whether to automatically reload feature flags after clearing all group properties.
-
-#### Discussion
 
 #### Example Usage
 
@@ -1276,8 +1268,6 @@ Sets properties for a specific group type to include when evaluating feature fla
 - `groupType`: The group type identifier (e.g., “organization”, “team”)
 - `properties`: Dictionary of properties to set for this group type
 
-#### Discussion
-
 #### Example Usage
 
 ```swift
@@ -1305,8 +1295,6 @@ Sets properties for a specific group type to include when evaluating feature fla
 - `groupType`: The group type identifier (e.g., “organization”, “team”)
 - `properties`: Dictionary of properties to set for this group type
 - `reloadFeatureFlags`: Whether to automatically reload feature flags after setting properties
-
-#### Discussion
 
 #### Example Usage
 

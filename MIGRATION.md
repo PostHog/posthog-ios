@@ -9,7 +9,7 @@ This guide covers what you need to change when you upgrade an app from PostHog i
 5. [Package traits](#package-traits): leaving out session replay, crash reporting or surveys.
 6. [Upgrade checklist](#upgrade-checklist).
 
-For the full list of changes, see the [changelog](CHANGELOG.md).
+For the full list of changes, see the [changelog](https://github.com/PostHog/posthog-ios/blob/main/CHANGELOG.md).
 
 ## Before you upgrade
 

@@ -853,6 +853,31 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("captured events leave a flag with an empty variant out of $active_feature_flags")
+    func emptyVariantIsNotActiveOnEvents() throws {
+        server.flagsResponseHandler = { _ in
+            HTTPStubsResponse(
+                jsonObject: ["flags": [
+                    "on": ["key": "on", "enabled": true],
+                    "empty-variant": ["key": "empty-variant", "enabled": true, "variant": ""],
+                ]],
+                statusCode: 200,
+                headers: nil
+            )
+        }
+        let sut = getSut(preloadFeatureFlags: true)
+        waitForFeatureFlagsLoaded(server, sut)
+
+        sut.capture("event")
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.properties["$feature/empty-variant"] as? String == "")
+        #expect(event.properties["$active_feature_flags"] as? [String] == ["on"])
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("isFeatureEnabled does not report the default in the feature flag event")
     func isFeatureEnabledDoesNotReportDefault() throws {
         let sut = getSut(preloadFeatureFlags: true)

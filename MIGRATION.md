@@ -99,7 +99,9 @@ If an app's last 3.x launch cached a bootstrapped string payload, got no `/flags
 
 ### Apps updating straight from 2.x
 
-If an app updates from a 2.x SDK straight to 4.0, events still queued on disk by 2.x are deleted instead of sent. Distinct ID, anonymous ID, groups and cached feature flags still carry over. Updates from 3.x aren't affected.
+If an app updates from a 2.x SDK straight to 4.0, events still queued on disk by 2.x are deleted instead of sent. Distinct ID, anonymous ID, groups and cached feature flags still carry over. Events created by 3.x aren't affected.
+
+If 3.x copied a 2.x event into its queue and it's still unsent, 4.0 sends it but ignores its top-level `$set` and `message_id`: those person properties aren't set, and the event gets a new uuid unless it has a `uuid` field.
 
 ### `$locale` and `$app_language`
 

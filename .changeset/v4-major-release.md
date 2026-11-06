@@ -12,6 +12,7 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - **Breaking:** mark `reloadFeatureFlags(_:)`, `setBeforeSend(_:)`, `getAnonymousId`, `pushIdentityProvider` and `logSanitizer` callbacks `@Sendable`, fixing a crash in Swift 6 apps
 - **Breaking:** rename `PostHogLogLevel` to `PostHogConsoleLogLevel` and `PostHogLogEntry` to `PostHogConsoleLogEntry`
 - **Breaking:** return `nil` instead of the raw string for a malformed, empty or whitespace-only feature flag payload
+- **Breaking:** treat a feature flag whose variant is an empty string as disabled in `isFeatureEnabled`, `getFeatureFlagResult(_:).enabled` and `PostHogFeatureFlagsLoaded`
 - **Breaking:** stop decoding string payloads in `PostHogBootstrapConfig.featureFlagPayloads` a second time, so a bootstrapped `"123"` stays a `String`
 - **Breaking:** delete events still queued on disk by a 2.x SDK instead of sending them, and ignore a top-level `$set` and `message_id` in queued events
 - **Breaking:** remove `version` and `build` from `Application Installed`, `Application Updated` and `Application Opened` events — use `$app_version` and `$app_build`
@@ -56,6 +57,5 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - Use the current distinct ID for an empty or whitespace-only `distinctId` argument
 - Give each capture its own UUID, even when `beforeSend` returns an event kept from an earlier call
 - Print a warning, also without `debug`, when `setup` leaves the SDK disabled because `projectToken` is empty or a personal API key
-- Fix `isFeatureEnabled` returning `true` for an empty variant string
 - Fix session replay recording nothing for apps whose window root is a SwiftUI view
 - Fix secure-entry text fields being unmasked inside a `postHogNoMask()` or `ph-no-mask` subtree

@@ -15,7 +15,7 @@ This guide covers what you need to change when you upgrade an app from PostHog i
 5. [Package traits](#package-traits): leaving out session replay, crash reporting or surveys.
 6. [Upgrade checklist](#upgrade-checklist).
 
-For the full list of changes, see the [changelog](CHANGELOG.md).
+For the full list of changes, see the [changelog](https://github.com/PostHog/posthog-ios/blob/main/CHANGELOG.md).
 
 ## Before you upgrade
 
@@ -93,6 +93,7 @@ Secure-entry text fields now stay masked inside a `.postHogNoMask()` or `ph-no-m
 
 - A malformed, empty or whitespace-only payload now reads as `nil` from `getFeatureFlagResult(_:)` and `getAllFeatureFlags()`. In 3.x you got the raw string. The flag's value and enabled state don't change.
 - Bootstrapped string payloads in `PostHogBootstrapConfig.featureFlagPayloads` stay strings. In 3.x, a bootstrapped `"123"` or `"true"` was decoded a second time and read back as a number or `Bool`.
+- `isFeatureEnabled(_:)` returns `false` for a flag whose variant is an empty string. In 3.x it returned `true`.
 
 If your code relied on getting the raw string back, make the payload valid JSON in PostHog.
 
@@ -104,7 +105,9 @@ If an app's last 3.x launch cached a bootstrapped string payload, got no `/flags
 
 ### Apps updating straight from 2.x
 
-If an app updates from a 2.x SDK straight to 4.0, events still queued on disk by 2.x are deleted instead of sent. Distinct ID, anonymous ID, groups and cached feature flags still carry over. Updates from 3.x aren't affected.
+If an app updates from a 2.x SDK straight to 4.0, events still queued on disk by 2.x are deleted instead of sent. Distinct ID, anonymous ID, groups and cached feature flags still carry over. Events created by 3.x aren't affected.
+
+If 3.x copied a 2.x event into its queue and it's still unsent, 4.0 sends it but ignores its top-level `$set` and `message_id`: those person properties aren't set, and the event gets a new uuid unless it has a `uuid` field.
 
 ### `$locale` and `$app_language`
 
@@ -136,12 +139,12 @@ You need to change code if your app does any of these:
 
 - sends events to a self-hosted PostHog or a reverse proxy that doesn't serve `/i/v1/analytics/events`
 - authenticates its proxy with an `Authorization` header in `requestHeaders`
+- sends events through a reverse proxy set up from PostHog's proxy guides before 29 October 2026, which strips `Authorization`
 - sends events through a proxy that redirects capture requests, other than with a 307 or 308 to the same origin as `host`
 - captures events with an empty event name, or with an event name or distinct ID over 200 bytes
 - sets an empty distinct ID in `beforeSend`
 - replaces `event.options` in `beforeSend`, or returns an event kept from an earlier call (see [Event options](#event-options))
 - sets `projectToken` to a personal API key (`phx_...`)
-- sets `$lib` or `$lib_version` and expects PostHog to store that value
 - reads `$session_id` or `$window_id` from the raw request body, for example in a proxy
 - registers a super property, or passes an event property, with the same key as one the SDK sets, such as `$os`, `$is_identified` or `$geoip_disable`, and expects the SDK's value to win
 - sets `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` to a value PostHog can't read, such as `"maybe"`
@@ -178,7 +181,7 @@ If you send events through your own reverse proxy, update it before you upgrade:
 - Pass PostHog's response body through unchanged. A 2xx response whose body isn't PostHog's `{"results": {...}}` drops the events instead of retrying them.
 - Accept request bodies up to 20 MB. AI requests are often larger than 1 MB, the default limit in nginx and ingress-nginx. On a `413` from the proxy, the SDK splits the batch and drops any event that is still too large on its own.
 
-PostHog's managed reverse proxy already does this. See the [proxy guides](https://posthog.com/docs/advanced/proxy).
+PostHog's managed reverse proxy already does this and needs no change. A proxy set up from PostHog's [proxy guides](https://posthog.com/docs/advanced/proxy) before 29 October 2026 strips `Authorization`, so PostHog answers `401` and the events are dropped. Update it from the current guide.
 
 The SDK doesn't fall back to `/batch`. A 404 is retried, so events stay queued until the route is served. Other error statuses that aren't retried, such as 403 or 405, drop the events.
 
@@ -215,13 +218,6 @@ In 3.x, an empty event name or distinct ID made legacy capture reject the whole 
 
 The distinct ID can come from `identify(_:)`, the `distinctId` argument of `capture` or `beforeSend`.
 If you identify users with a long ID, such as a JWT or a long email address, shorten or hash it before you upgrade. Otherwise every event for that user is dropped.
-
-### SDK identity
-
-PostHog sets `$lib` and `$lib_version` from the `PostHog-Sdk-Info` request header, for example `posthog-ios/4.0.0`.
-The SDK removes `$lib` and `$lib_version` from the properties it sends to capture v1.
-A value you set in properties, in a super property or in `beforeSend` doesn't reach PostHog.
-The SDK removes them when it sends the event, so `beforeSend` still sees them.
 
 ### Property precedence
 
@@ -407,7 +403,7 @@ In Objective-C, call `[[PostHogSDK shared] onFeatureFlags:^(PostHogFeatureFlagsL
 
 ### Callbacks are `@Sendable`
 
-Callbacks the SDK can call off the main thread are now `@Sendable`: `reloadFeatureFlags(_:)`, the blocks passed to `setBeforeSend(_:)` on `PostHogConfig` and `PostHogLogsConfig`, `getAnonymousId`, `pushIdentityProvider` and its `completion`, and `sessionReplayConfig.captureLogsConfig.logSanitizer`.
+Callbacks the SDK can call off the main thread are now `@Sendable`: `reloadFeatureFlags(_:)`, the blocks passed to `setBeforeSend(_:)` on `PostHogConfig` and `PostHogLogsConfig`, `getAnonymousId`, `pushIdentityProvider` and its `completion`, and `sessionReplayConfig.captureLogsConfig.logSanitizer`. The `BeforeSendBlock` and `PostHogBeforeSendLogBlock` type aliases are `@Sendable` too.
 
 In Swift 6 mode, a closure that reads or writes main-actor state no longer compiles (Swift 5 mode warns). For `reloadFeatureFlags(_:)` and `pushIdentityProvider`, hop to the main actor:
 
@@ -433,8 +429,8 @@ These were public only for PostHog's own React Native and Flutter SDKs, or by ac
 | `PostHogSessionManager` | `getSessionId()`, `startSession()` and `endSession()` on `PostHogSDK` |
 | `postHogSdkName`, `postHogVersion`, `config.snapshotEndpoint` | No longer public. A wrapper SDK that must read or set them can use `@_spi(PostHogInternal) import PostHog`, with no stability guarantees. |
 | ObjC: `[PostHogSessionManager shared]`, `setSessionId:`, `config.snapshotEndpoint` | No longer exposed to Objective-C. `[[PostHogSDK shared] getSessionId]`, `startSession` and `endSession` replace the session calls. |
-| `dateToMillis(_:)` | `Int64(date.timeIntervalSince1970 * 1000)` |
-| `imageToBase64(_:_:)`, `toISO8601String(_:)`, `toISO8601Date(_:)`, `sanitizeDictionary(_:)`, `deleteSafely(_:)`, `postHogiOSSdkName`, `Gzip`, `GzipError`, `CompressionLevel`, `UIColor(hex:)`, `UIColor.hexDescription(_:)` | No longer public. Copy the code you need into your app. |
+| `dateToMillis(_:)`, `imageToBase64(_:_:)` | No longer public. For `dateToMillis(_:)`, use `Int64(date.timeIntervalSince1970 * 1000)`; for `imageToBase64(_:_:)`, copy the code you need into your app. A wrapper SDK can still use both through `@_spi(PostHogInternal) import PostHog`, with no stability guarantees. |
+| `toISO8601String(_:)`, `toISO8601Date(_:)`, `sanitizeDictionary(_:)`, `deleteSafely(_:)`, `postHogiOSSdkName`, `Gzip`, `GzipError`, `CompressionLevel`, `UIColor(hex:)`, `UIColor.hexDescription(_:)` | No longer public. Copy the code you need into your app. |
 | `ReachabilityError`, `ReachabilityChangedNotification` | Removed. Use `NWPathMonitor` if your app needs reachability. |
 
 ## Package traits

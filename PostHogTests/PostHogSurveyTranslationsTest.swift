@@ -5,7 +5,7 @@
 //  Created by PostHog Code on 2026-05-13.
 //
 
-#if os(iOS) || TESTING
+#if (os(iOS) || TESTING) && (!SWIFT_PACKAGE || Surveys)
 
     import Foundation
     @testable import PostHog
@@ -566,9 +566,7 @@
                 @Test("changing the language person property re-translates the active survey")
                 func languageChangeRetranslatesActiveSurvey() async throws {
                     let spy = SpySurveysDelegate()
-                    // Use the backing property directly: the public `surveysConfig` accessor is
-                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
-                    postHog.config._surveysConfig.surveysDelegate = spy
+                    postHog.config.surveysConfig.surveysDelegate = spy
                     let integration = try getSurveyIntegration(postHog)
 
                     integration.setShownSurvey(translatedSurvey(), language: nil)
@@ -584,9 +582,7 @@
                 @Test("re-resolving the same language does not push an update")
                 func sameLanguageIsNoop() async throws {
                     let spy = SpySurveysDelegate()
-                    // Use the backing property directly: the public `surveysConfig` accessor is
-                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
-                    postHog.config._surveysConfig.surveysDelegate = spy
+                    postHog.config.surveysConfig.surveysDelegate = spy
                     let integration = try getSurveyIntegration(postHog)
 
                     // Already showing the French translation
@@ -613,9 +609,7 @@
 
                 @Test("delegate without updateSurvey keeps the rendered language")
                 func delegateWithoutUpdateSurveyKeepsState() async throws {
-                    // Use the backing property directly: the public `surveysConfig` accessor is
-                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
-                    postHog.config._surveysConfig.surveysDelegate = NoLiveUpdateSurveysDelegate()
+                    postHog.config.surveysConfig.surveysDelegate = NoLiveUpdateSurveysDelegate()
                     let integration = try getSurveyIntegration(postHog)
 
                     integration.setShownSurvey(translatedSurvey(), language: nil)
@@ -629,9 +623,7 @@
                 @Test("resetting person properties reverts the active survey language")
                 func resetRevertsActiveSurveyLanguage() async throws {
                     let spy = SpySurveysDelegate()
-                    // Use the backing property directly: the public `surveysConfig` accessor is
-                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
-                    postHog.config._surveysConfig.surveysDelegate = spy
+                    postHog.config.surveysConfig.surveysDelegate = spy
                     let integration = try getSurveyIntegration(postHog)
 
                     integration.setShownSurvey(translatedSurvey(), language: nil)
@@ -650,9 +642,7 @@
                 @Test("no active survey means no update is pushed")
                 func noActiveSurveyIsNoop() async throws {
                     let spy = SpySurveysDelegate()
-                    // Use the backing property directly: the public `surveysConfig` accessor is
-                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
-                    postHog.config._surveysConfig.surveysDelegate = spy
+                    postHog.config.surveysConfig.surveysDelegate = spy
                     _ = try getSurveyIntegration(postHog)
 
                     postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)

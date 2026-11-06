@@ -14,31 +14,34 @@ import Foundation
 @objc public class PostHogErrorTrackingConfig: NSObject {
     // MARK: - Crash Reporting
 
-    /// Enable crash autocapture
-    ///
-    /// When enabled, the SDK will capture the following crash types:
-    /// - Mach exceptions (e.g., `EXC_BAD_ACCESS`, `EXC_CRASH`)
-    /// - POSIX signals (e.g., `SIGSEGV`, `SIGABRT`, `SIGBUS`)
-    /// - Uncaught `NSException`s
-    ///
-    /// Crashes are persisted to disk and sent as `$exception` events with level "fatal" **on the next app launch**
-    ///
-    /// - Note: Crash reporting is automatically disabled when a debugger is attached,
-    ///   as the debugger intercepts signals before the crash handler can process them.
-    ///
-    /// Default: false
-    private var _autoCapture: Bool = false
+    #if !SWIFT_PACKAGE || CrashReporting
+        /// Enable crash autocapture
+        ///
+        /// When enabled, the SDK will capture the following crash types:
+        /// - Mach exceptions (e.g., `EXC_BAD_ACCESS`, `EXC_CRASH`)
+        /// - POSIX signals (e.g., `SIGSEGV`, `SIGABRT`, `SIGBUS`)
+        /// - Uncaught `NSException`s
+        ///
+        /// Crashes are persisted to disk and sent as `$exception` events with level "fatal" **on the next app launch**
+        ///
+        /// - Note: Crash reporting is automatically disabled when a debugger is attached,
+        ///   as the debugger intercepts signals before the crash handler can process them.
+        ///
+        /// Default: false
+        private var _autoCapture: Bool = false
 
-    /// Whether crash autocapture is enabled.
-    ///
-    /// When enabled, fatal crashes are persisted and sent as `$exception` events on the next launch.
-    /// Default: `false`.
-    @available(watchOS, unavailable, message: "Crash autocapture is not available on watchOS")
-    @available(visionOS, unavailable, message: "Crash autocapture is not available on visionOS")
-    @objc public var autoCapture: Bool {
-        get { _autoCapture }
-        set { _autoCapture = newValue }
-    }
+        /// Whether crash autocapture is enabled.
+        ///
+        /// When enabled, fatal crashes are persisted and sent as `$exception` events on the next launch.
+        /// With Swift Package Manager, this is only available with the `CrashReporting` package trait, which is enabled by default.
+        /// Default: `false`.
+        @available(watchOS, unavailable, message: "Crash autocapture is not available on watchOS")
+        @available(visionOS, unavailable, message: "Crash autocapture is not available on visionOS")
+        @objc public var autoCapture: Bool {
+            get { _autoCapture }
+            set { _autoCapture = newValue }
+        }
+    #endif
 
     // MARK: - In-App Detection Configuration
 

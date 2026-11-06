@@ -5,11 +5,10 @@
 //  Created by Ioannis Josephides on 11/03/2025.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
 
     import SwiftUI
 
-    @available(iOS 15.0, *)
     struct SurveyButtonStyle: ButtonStyle {
         @Environment(\.surveyAppearance) private var appearance
         @Environment(\.isEnabled) private var isEnabled

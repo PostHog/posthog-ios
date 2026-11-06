@@ -13,7 +13,7 @@ import Foundation
 ///
 /// - Parameter record: The log record about to be queued.
 /// - Returns: The record to queue, or `nil` to drop it.
-public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRecord?
+public typealias PostHogBeforeSendLogBlock = @Sendable (PostHogLogRecord) -> PostHogLogRecord?
 
 /// Configuration for the PostHog logs subsystem. Mutate fields on `config.logs`
 /// before calling `PostHogSDK.setup(_:)`.
@@ -99,13 +99,24 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
         setBeforeSend(blocks)
     }
 
+    /// Replaces the log `beforeSend` chain with blocks from an array typed
+    /// `[(PostHogLogRecord) -> PostHogLogRecord?]`.
+    ///
+    /// The blocks can run on any thread, so they must be safe to call from any thread.
+    ///
+    /// - Parameter blocks: Ordered callbacks that can mutate or drop log records.
+    @_disfavoredOverload
+    public func setBeforeSend(_ blocks: [(PostHogLogRecord) -> PostHogLogRecord?]) {
+        setBeforeSend(BeforeSendChain<PostHogLogRecord>.wrapping(blocks))
+    }
+
     /// Replaces the log `beforeSend` chain from Objective-C boxed callbacks.
     ///
     /// - Parameter blocks: Ordered Objective-C callback boxes.
     @available(swift, obsoleted: 1.0, message: "Use setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) instead")
     @objc public func setBeforeSend(_ blocks: [BoxedBeforeSendLogBlock]) {
         setBeforeSend(blocks.map { box in
-            { record in box.invokeSafely(with: record) }
+            { @Sendable record in box.invokeSafely(with: record) }
         })
     }
 

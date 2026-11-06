@@ -1,6 +1,6 @@
 import Foundation
 
-#if os(iOS) || TESTING
+#if (os(iOS) || TESTING) && (!SWIFT_PACKAGE || Surveys)
     struct SurveyProgress: Codable {
         var version = 2
         let resetEpoch: String

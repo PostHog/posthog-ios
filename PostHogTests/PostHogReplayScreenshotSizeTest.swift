@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     @testable import PostHog
     import Testing
     import UIKit
@@ -24,7 +24,7 @@
         }
 
         private func uploaded(_ image: UIImage, masks: [CGRect], pixelScale: CGFloat = 1) throws -> CGImage {
-            let wireframe = RRWireframe()
+            let wireframe = RRScreenshotFrame()
             wireframe.type = "screenshot"
             wireframe.image = image
             wireframe.maskableWidgets = masks
@@ -47,7 +47,7 @@
             }
         }
 
-        private func decode(_ wireframe: RRWireframe) throws -> CGImage {
+        private func decode(_ wireframe: RRScreenshotFrame) throws -> CGImage {
             let base64 = try #require(wireframe.toDict()["base64"] as? String)
             let encoded = try #require(base64.split(separator: ",").last.map(String.init))
             let data = try #require(Data(base64Encoded: encoded))
@@ -96,7 +96,7 @@
             let window = try window()
             defer { window.isHidden = true }
             let image = try #require(window.toImage(preferFidelityRenderer: false))
-            let wireframe = RRWireframe()
+            let wireframe = RRScreenshotFrame()
             wireframe.type = "image"
             wireframe.image = image
             let uploaded = try decode(wireframe)
@@ -201,7 +201,7 @@
             let image = solidImage(.red, size: CGSize(width: 200, height: 300), scale: 3)
             // At 3 pixels per point these edges land on pixels 120.3 and 419.7.
             let mask = CGRect(x: 40.1, y: 60, width: 99.8, height: 80)
-            let masked = try #require(RRWireframe.maskImage(image, maskableWidgets: [mask], pixelScale: 3)?.cgImage)
+            let masked = try #require(RRScreenshotFrame.maskImage(image, maskableWidgets: [mask], pixelScale: 3)?.cgImage)
             let row = CGFloat(300)
             #expect(try isBlack(rgb(masked, at: CGPoint(x: 120, y: row))))
             #expect(try isBlack(rgb(masked, at: CGPoint(x: 419, y: row))))
@@ -215,8 +215,8 @@
             defer { window.isHidden = true }
             let image = try #require(window.toImage(preferFidelityRenderer: false))
             let native = pixelScale(screenshotScale: 1, on: window)
-            #expect(RRWireframe.unmaskedScreenshot(image, pixelScale: native) === image)
-            #expect(RRWireframe.unmaskedScreenshot(image, pixelScale: 1) !== image)
+            #expect(RRScreenshotFrame.unmaskedScreenshot(image, pixelScale: native) === image)
+            #expect(RRScreenshotFrame.unmaskedScreenshot(image, pixelScale: 1) !== image)
         }
 
         @Test("downsampling keeps a one-pixel line whichever source pixel it falls on")
@@ -233,7 +233,7 @@
                     context.fill(CGRect(x: CGFloat(column * 3 + phase) / 3, y: 0, width: 1.0 / 3, height: size.height))
                 }
             }
-            let downsampled = try #require(RRWireframe.unmaskedScreenshot(image, pixelScale: 1).cgImage)
+            let downsampled = try #require(RRScreenshotFrame.unmaskedScreenshot(image, pixelScale: 1).cgImage)
             for column in 10 ... 12 {
                 let pixel = try rgb(downsampled, at: CGPoint(x: column, y: 15))
                 #expect(!isWhite(pixel), "column \(column) lost its line: \(pixel)")
@@ -252,7 +252,7 @@
                 UIColor.red.setFill()
                 context.fill(secret)
             }
-            let masked = try #require(RRWireframe.maskImage(image, maskableWidgets: [secret], pixelScale: pixelScale)?.cgImage)
+            let masked = try #require(RRScreenshotFrame.maskImage(image, maskableWidgets: [secret], pixelScale: pixelScale)?.cgImage)
             var rgba = [UInt8](repeating: 0, count: masked.width * masked.height * 4)
             let context = try #require(CGContext(
                 data: &rgba, width: masked.width, height: masked.height, bitsPerComponent: 8, bytesPerRow: masked.width * 4,

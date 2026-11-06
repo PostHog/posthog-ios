@@ -19,8 +19,10 @@ final class PostHogOptOutPersistenceTest {
         config.disableFlushOnBackgroundForTesting = true
         config.captureApplicationLifecycleEvents = false
         config.captureScreenViews = false
-        config.errorTrackingConfig.autoCapture = false
-        #if os(iOS)
+        #if !SWIFT_PACKAGE || CrashReporting
+            config.errorTrackingConfig.autoCapture = false
+        #endif
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
             config.sessionReplay = false
         #endif
         config.optOut = optOut

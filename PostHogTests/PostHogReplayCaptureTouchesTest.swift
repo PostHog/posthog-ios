@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import Testing
@@ -101,7 +101,6 @@
         private func makeSut(captureTouches: Bool? = nil, maskAllTextInputs: Bool = true) throws -> (PostHogSDK, PostHogReplayIntegration, Snapshots) {
             let config = PostHogConfig(projectToken: UUID().uuidString)
             config.sessionReplay = true
-            config.sessionReplayConfig.screenshotMode = true
             config.sessionReplayConfig.captureNetworkTelemetry = false
             if let captureTouches {
                 config.sessionReplayConfig.captureTouches = captureTouches
@@ -374,7 +373,7 @@
             defer { window.isHidden = true }
             // drawHierarchy has no window scene in this hostless bundle and failed draws are dropped, so render
             // through the presentation tree and hand the frame to the emission step the bridge would reach.
-            let wireframe = RRWireframe()
+            let wireframe = RRScreenshotFrame()
             wireframe.type = "screenshot"
             wireframe.image = try #require(window.toImage(preferFidelityRenderer: false))
             integration.captureSnapshot(

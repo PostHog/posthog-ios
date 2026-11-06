@@ -115,7 +115,7 @@
         }
 
         func toImage(afterScreenUpdates: Bool = false, preferFidelityRenderer: Bool = true) -> UIImage? {
-            // Background capture also enters here; controller traversal belongs on main.
+            // Replay callers render on main; the sync is defensive, since controller traversal belongs on main.
             let hasCamera = {
                 (self as? UIWindow ?? self.window)?.hasCameraForReplay() ?? false
             }
@@ -171,8 +171,7 @@
 
         /// Mask geometry only. During a CA animation the model layer parks at the destination
         /// while the presentation layer holds the in-flight position the screenshot renders, so
-        /// mask rects have to come from the presentation tree. Wireframe geometry is a separate
-        /// consumer with no pixels to agree with and stays on `toAbsoluteRect`.
+        /// mask rects have to come from the presentation tree.
         /// `outsets` grows the rect past the bounds, for content drawn outside them.
         func toPresentationRect(_ window: UIWindow?, outsets: UIEdgeInsets = .zero) -> CGRect {
             guard layer.presentation() != nil else {

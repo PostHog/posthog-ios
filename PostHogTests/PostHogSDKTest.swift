@@ -821,8 +821,8 @@ final class PostHogSDKTests {
         sut.close()
     }
 
-    @Test("isFeatureEnabled treats an empty variant as disabled and ignores the default", arguments: [true, false])
-    func isFeatureEnabledEmptyVariantIsDisabled(defaultValue: Bool) {
+    @Test("an empty variant reads as disabled, ignoring the isFeatureEnabled default", arguments: [true, false])
+    func emptyVariantIsDisabled(defaultValue: Bool) {
         server.flagsResponseHandler = { _ in
             HTTPStubsResponse(
                 jsonObject: ["flags": ["empty-variant": ["key": "empty-variant", "enabled": true, "variant": ""]]],
@@ -834,13 +834,45 @@ final class PostHogSDKTests {
 
         let group = DispatchGroup()
         group.enter()
-        sut.reloadFeatureFlags { _ in
+        var loaded: PostHogFeatureFlagsLoaded?
+        sut.reloadFeatureFlags { result in
+            loaded = result
             group.leave()
         }
         group.wait()
 
         #expect(sut.isFeatureEnabled("empty-variant") == false)
         #expect(sut.isFeatureEnabled("empty-variant", defaultValue: defaultValue) == false)
+        let result = sut.getFeatureFlagResult("empty-variant")
+        #expect(result?.enabled == false)
+        #expect(result?.variant == "")
+        #expect(loaded?.flags.contains("empty-variant") == false)
+        #expect(loaded?.variants["empty-variant"] == nil)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("captured events leave a flag with an empty variant out of $active_feature_flags")
+    func emptyVariantIsNotActiveOnEvents() throws {
+        server.flagsResponseHandler = { _ in
+            HTTPStubsResponse(
+                jsonObject: ["flags": [
+                    "on": ["key": "on", "enabled": true],
+                    "empty-variant": ["key": "empty-variant", "enabled": true, "variant": ""],
+                ]],
+                statusCode: 200,
+                headers: nil
+            )
+        }
+        let sut = getSut(preloadFeatureFlags: true)
+        waitForFeatureFlagsLoaded(server, sut)
+
+        sut.capture("event")
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.properties["$feature/empty-variant"] as? String == "")
+        #expect(event.properties["$active_feature_flags"] as? [String] == ["on"])
 
         sut.reset()
         sut.close()

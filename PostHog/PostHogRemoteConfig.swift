@@ -1119,7 +1119,7 @@ class PostHogRemoteConfig {
         let variant: String?
 
         if let stringValue = flagValue as? String {
-            isEnabled = true
+            isEnabled = !stringValue.isEmpty
             variant = stringValue
         } else if let boolValue = flagValue as? Bool {
             isEnabled = boolValue

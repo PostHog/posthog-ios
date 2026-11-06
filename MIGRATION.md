@@ -87,7 +87,7 @@ Secure-entry text fields now stay masked inside a `.postHogNoMask()` or `ph-no-m
 
 - A malformed, empty or whitespace-only payload now reads as `nil` from `getFeatureFlagResult(_:)` and `getAllFeatureFlags()`. In 3.x you got the raw string. The flag's value and enabled state don't change.
 - Bootstrapped string payloads in `PostHogBootstrapConfig.featureFlagPayloads` stay strings. In 3.x, a bootstrapped `"123"` or `"true"` was decoded a second time and read back as a number or `Bool`.
-- `isFeatureEnabled(_:)` returns `false` for a flag whose variant is an empty string. In 3.x it returned `true`.
+- A flag whose variant is an empty string reads as disabled. `isFeatureEnabled(_:)` returns `false`, with or without `defaultValue`, `enabled` is `false` in `getFeatureFlagResult(_:)` and `getAllFeatureFlags()`, `PostHogFeatureFlagsLoaded` leaves the flag out of `flags` and `variants`, and captured events leave it out of `$active_feature_flags`. In 3.x, `isFeatureEnabled(_:)` and `enabled` returned `true` and events listed the flag. `variant`, `getFeatureFlag(_:)` and the event's `$feature/<key>` property still return `""`.
 
 If your code relied on getting the raw string back, make the payload valid JSON in PostHog.
 

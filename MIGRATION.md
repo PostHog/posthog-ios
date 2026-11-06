@@ -131,6 +131,7 @@ You need to change code if your app does any of these:
 
 - sends events to a self-hosted PostHog or a reverse proxy that doesn't serve `/i/v1/analytics/events`
 - authenticates its proxy with an `Authorization` header in `requestHeaders`
+- sends events through a reverse proxy set up from PostHog's proxy guides before 29 October 2026, which strips `Authorization`
 - sends events through a proxy that redirects capture requests, other than with a 307 or 308 to the same origin as `host`
 - captures events with an empty event name, or with an event name or distinct ID over 200 bytes
 - sets an empty distinct ID in `beforeSend`
@@ -172,7 +173,7 @@ If you send events through your own reverse proxy, update it before you upgrade:
 - Pass PostHog's response body through unchanged. A 2xx response whose body isn't PostHog's `{"results": {...}}` drops the events instead of retrying them.
 - Accept request bodies up to 20 MB. AI requests are often larger than 1 MB, the default limit in nginx and ingress-nginx. On a `413` from the proxy, the SDK splits the batch and drops any event that is still too large on its own.
 
-PostHog's managed reverse proxy already does this. See the [proxy guides](https://posthog.com/docs/advanced/proxy).
+PostHog's managed reverse proxy already does this and needs no change. A proxy set up from PostHog's [proxy guides](https://posthog.com/docs/advanced/proxy) before 29 October 2026 strips `Authorization`, so PostHog answers `401` and the events are dropped. Update it from the current guide.
 
 The SDK doesn't fall back to `/batch`. A 404 is retried, so events stay queued until the route is served. Other error statuses that aren't retried, such as 403 or 405, drop the events.
 

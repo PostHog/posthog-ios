@@ -2034,16 +2034,22 @@
     // MARK: - Structure fingerprint
 
     extension PostHogReplayIntegration {
-        /// Bounds the walk so a huge tree cannot stall main on every backed-off opportunity. Changes past
-        /// the limit go unseen until the next idle render.
+        /// Bounds the walk, shared by views and viewless layers, so a huge tree cannot stall main on every
+        /// backed-off opportunity. Changes past the limit go unseen until the next idle render.
         static let structureFingerprintNodeLimit = 1000
+        /// Stops a pathologically nested branch early, leaving node budget for its siblings.
+        static let structureFingerprintDepthLimit = 64
 
-        /// Render-free summary of what the view tree would draw. Compare only within one process (`Hasher` is seeded).
-        static func structureFingerprint(of window: UIView, nodeLimit: Int = structureFingerprintNodeLimit) -> Int {
+        /// Render-free summary of what the view and layer tree would draw. Compare only within one process (`Hasher` is seeded).
+        static func structureFingerprint(
+            of window: UIView,
+            nodeLimit: Int = structureFingerprintNodeLimit,
+            depthLimit: Int = structureFingerprintDepthLimit
+        ) -> Int {
             var hasher = Hasher()
             hasher.combine(ObjectIdentifier(window))
             var budget = nodeLimit
-            hashStructure(window, into: &hasher, budget: &budget)
+            hashStructure(window, into: &hasher, budget: &budget, depthRemaining: depthLimit)
             return hasher.finalize()
         }
 
@@ -2051,8 +2057,8 @@
             UIApplication.getCurrentWindow().map { structureFingerprint(of: $0) }
         }
 
-        private static func hashStructure(_ view: UIView, into hasher: inout Hasher, budget: inout Int) {
-            guard budget > 0 else { return }
+        private static func hashStructure(_ view: UIView, into hasher: inout Hasher, budget: inout Int, depthRemaining: Int) {
+            guard budget > 0, depthRemaining > 0 else { return }
             budget -= 1
 
             hasher.combine(ObjectIdentifier(type(of: view)))
@@ -2079,10 +2085,38 @@
                 hasher.combine(imageView.image.map(ObjectIdentifier.init))
             }
 
+            hashLayerContent(view.layer, into: &hasher, budget: &budget, depthRemaining: depthRemaining)
+
             let subviews = view.subviews
             hasher.combine(subviews.count)
             for subview in subviews {
-                hashStructure(subview, into: &hasher, budget: &budget)
+                hashStructure(subview, into: &hasher, budget: &budget, depthRemaining: depthRemaining - 1)
+            }
+        }
+
+        /// SwiftUI updates reach the screen through layers without touching any `UIView` property.
+        /// Layers a view owns are left to `hashStructure`. `animationKeys()` is excluded because a
+        /// running animation must not leave backoff.
+        private static func hashLayerContent(_ layer: CALayer, into hasher: inout Hasher, budget: inout Int, depthRemaining: Int) {
+            hasher.combine(layer.backgroundColor)
+            hasher.combine((layer.contents as AnyObject?).map(ObjectIdentifier.init))
+
+            for sublayer in layer.sublayers ?? [] where !(sublayer.delegate is UIView) {
+                guard budget > 0, depthRemaining > 1 else { return }
+                budget -= 1
+
+                hasher.combine(sublayer.isHidden)
+                guard !sublayer.isHidden else { continue }
+
+                hasher.combine(sublayer.opacity)
+                let bounds = sublayer.bounds
+                hasher.combine(bounds.origin.x)
+                hasher.combine(bounds.origin.y)
+                hasher.combine(bounds.size.width)
+                hasher.combine(bounds.size.height)
+                hasher.combine(sublayer.position.x)
+                hasher.combine(sublayer.position.y)
+                hashLayerContent(sublayer, into: &hasher, budget: &budget, depthRemaining: depthRemaining - 1)
             }
         }
     }

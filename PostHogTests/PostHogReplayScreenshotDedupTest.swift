@@ -285,8 +285,19 @@
             return (root, label)
         }
 
-        private func fingerprint(_ view: UIView, nodeLimit: Int = PostHogReplayIntegration.structureFingerprintNodeLimit) -> Int {
-            PostHogReplayIntegration.structureFingerprint(of: view, nodeLimit: nodeLimit)
+        private func fingerprint(
+            _ view: UIView,
+            nodeLimit: Int = PostHogReplayIntegration.structureFingerprintNodeLimit,
+            depthLimit: Int = PostHogReplayIntegration.structureFingerprintDepthLimit
+        ) -> Int {
+            PostHogReplayIntegration.structureFingerprint(of: view, nodeLimit: nodeLimit, depthLimit: depthLimit)
+        }
+
+        private func withoutImplicitAnimations(_ body: () -> Void) {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            body()
+            CATransaction.commit()
         }
 
         @Test("a toast appearing and leaving changes the fingerprint each time")
@@ -347,6 +358,99 @@
             label.text = "Done"
             label.addSubview(UIView())
             #expect(fingerprint(root) == base)
+        }
+
+        @Test("a change that only reaches a view's layer changes the fingerprint")
+        func viewLayerChangesChangeFingerprint() {
+            let (root, label) = screen()
+            let base = fingerprint(root)
+
+            let drawn = UIGraphicsImageRenderer(size: CGSize(width: 1, height: 1)).image { _ in }
+            withoutImplicitAnimations { label.layer.contents = drawn.cgImage }
+            #expect(fingerprint(root) != base)
+
+            withoutImplicitAnimations { label.layer.contents = nil }
+            #expect(fingerprint(root) == base)
+        }
+
+        @Test("a layer with no view changes the fingerprint when it appears or changes")
+        func viewlessLayerChangesChangeFingerprint() {
+            let (root, _) = screen()
+            let idle = fingerprint(root)
+
+            let layer = CALayer()
+            layer.frame = CGRect(x: 0, y: 0, width: 240, height: 48)
+            withoutImplicitAnimations { root.layer.addSublayer(layer) }
+            let added = fingerprint(root)
+            #expect(added != idle)
+
+            withoutImplicitAnimations { layer.backgroundColor = UIColor.magenta.cgColor }
+            let colored = fingerprint(root)
+            #expect(colored != added)
+
+            withoutImplicitAnimations { layer.backgroundColor = UIColor.cyan.cgColor }
+            #expect(fingerprint(root) != colored)
+            withoutImplicitAnimations { layer.backgroundColor = UIColor(red: 1, green: 0, blue: 0.99, alpha: 1).cgColor }
+            #expect(fingerprint(root) != colored)
+            withoutImplicitAnimations { layer.backgroundColor = UIColor.magenta.cgColor }
+            #expect(fingerprint(root) == colored)
+
+            withoutImplicitAnimations { layer.position.y += 10 }
+            #expect(fingerprint(root) != colored)
+
+            withoutImplicitAnimations { layer.removeFromSuperlayer() }
+            #expect(fingerprint(root) == idle)
+        }
+
+        @Test("a running animation does not change the fingerprint")
+        func runningAnimationIgnored() {
+            let (root, _) = screen()
+            let layer = CALayer()
+            layer.frame = CGRect(x: 0, y: 0, width: 240, height: 48)
+            withoutImplicitAnimations { root.layer.addSublayer(layer) }
+            let base = fingerprint(root)
+
+            let move = CABasicAnimation(keyPath: "position.x")
+            move.fromValue = 0
+            move.toValue = 200
+            move.duration = 60
+            layer.add(move, forKey: "move")
+
+            #expect(fingerprint(root) == base)
+        }
+
+        @Test("churn inside a hidden layer does not change the fingerprint")
+        func hiddenLayerIgnored() {
+            let (root, _) = screen()
+            let layer = CALayer()
+            withoutImplicitAnimations {
+                layer.isHidden = true
+                root.layer.addSublayer(layer)
+            }
+            let base = fingerprint(root)
+
+            withoutImplicitAnimations {
+                layer.backgroundColor = UIColor.magenta.cgColor
+                layer.addSublayer(CALayer())
+            }
+            #expect(fingerprint(root) == base)
+        }
+
+        @Test("the walk stops at the depth limit")
+        func walkDepthIsBounded() {
+            let (root, _) = screen()
+            let parent = CALayer()
+            let child = CALayer()
+            withoutImplicitAnimations {
+                parent.addSublayer(child)
+                root.layer.addSublayer(parent)
+            }
+            let shallow = fingerprint(root, depthLimit: 2)
+            let deep = fingerprint(root, depthLimit: 3)
+
+            withoutImplicitAnimations { child.backgroundColor = UIColor.magenta.cgColor }
+            #expect(fingerprint(root, depthLimit: 2) == shallow)
+            #expect(fingerprint(root, depthLimit: 3) != deep)
         }
 
         @Test("the walk stops at the node limit")

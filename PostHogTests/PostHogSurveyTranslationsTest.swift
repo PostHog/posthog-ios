@@ -207,6 +207,7 @@
         class TestSurveyLanguageEventProperty {
             let server: MockPostHogServer
             let postHog: PostHogSDK
+            let integrations = TestIntegrationLifetime()
 
             init() {
                 let projectToken = UUID().uuidString
@@ -221,6 +222,7 @@
             deinit {
                 // Tear down in deinit so a `#require` throwing in a test body can't leak the SDK
                 // (and its person-property subscription) into the next serialized test.
+                integrations.stopAll()
                 let storage = PostHogStorage(postHog.config)
                 postHog.close()
                 deleteSafely(storage.appFolderUrl)
@@ -247,7 +249,7 @@
                 let integration = PostHogSurveyIntegration()
                 let installResult = integration.install(postHog)
                 try #require(installResult == .installed)
-                return integration
+                return integrations.track(integration)
             }
 
             private func minimalSurvey() -> PostHogSurvey {
@@ -418,6 +420,7 @@
             class TestLiveTranslationUpdate {
                 let server: MockPostHogServer
                 let postHog: PostHogSDK
+                let integrations = TestIntegrationLifetime()
 
                 init() {
                     let projectToken = UUID().uuidString
@@ -432,6 +435,7 @@
                 deinit {
                     // Tear down in deinit so a `#require` throwing in a test body can't leak the SDK
                     // (and its person-property subscription) into the next serialized test.
+                    integrations.stopAll()
                     let storage = PostHogStorage(postHog.config)
                     postHog.close()
                     deleteSafely(storage.appFolderUrl)
@@ -458,7 +462,7 @@
                     let integration = PostHogSurveyIntegration()
                     let installResult = integration.install(postHog)
                     try #require(installResult == .installed)
-                    return integration
+                    return integrations.track(integration)
                 }
 
                 private func translatedSurvey() -> PostHogSurvey {
@@ -556,13 +560,6 @@
                     )
                 }
 
-                /// Lets the main-queue work scheduled by the refresh run before asserting.
-                private func drainMainQueue() async {
-                    await withCheckedContinuation { continuation in
-                        DispatchQueue.main.async { continuation.resume() }
-                    }
-                }
-
                 @Test("changing the language person property re-translates the active survey")
                 func languageChangeRetranslatesActiveSurvey() async throws {
                     let spy = SpySurveysDelegate()
@@ -573,7 +570,7 @@
 
                     integration.setShownSurvey(translatedSurvey(), language: nil)
                     postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
-                    await drainMainQueue()
+                    await drainMain()
 
                     #expect(integration.testActiveSurveyLanguage == "fr")
                     #expect(spy.updatedSurveys.count == 1)
@@ -605,7 +602,7 @@
                     )
 
                     postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
-                    await drainMainQueue()
+                    await drainMain()
 
                     #expect(integration.testActiveSurveyLanguage == "fr")
                     #expect(spy.updatedSurveys.isEmpty)
@@ -620,7 +617,7 @@
 
                     integration.setShownSurvey(translatedSurvey(), language: nil)
                     postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
-                    await drainMainQueue()
+                    await drainMain()
 
                     // Internal state must not advance past what was actually rendered.
                     #expect(integration.testActiveSurveyLanguage == nil)
@@ -636,11 +633,11 @@
 
                     integration.setShownSurvey(translatedSurvey(), language: nil)
                     postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
-                    await drainMainQueue()
+                    await drainMain()
                     try #require(integration.testActiveSurveyLanguage == "fr")
 
                     postHog.resetPersonPropertiesForFlags(reloadFeatureFlags: false)
-                    await drainMainQueue()
+                    await drainMain()
 
                     #expect(integration.testActiveSurveyLanguage == nil)
                     #expect(spy.updatedSurveys.count == 2)
@@ -656,7 +653,7 @@
                     _ = try getSurveyIntegration(postHog)
 
                     postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
-                    await drainMainQueue()
+                    await drainMain()
 
                     #expect(spy.updatedSurveys.isEmpty)
                 }
@@ -674,13 +671,13 @@
                     // controller this update is dropped (nothing displayed yet); the tracked language
                     // still advances to `fr`.
                     postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
-                    await drainMainQueue()
+                    await drainMain()
                     try #require(integration.testActiveSurveyLanguage == "fr")
                     let updatesBeforeShow = spy.updatedSurveys.count
 
                     // When the survey is finally shown, the missed translation is reconciled.
                     integration.testHandleSurveyShown(survey: translatedSurvey().toDisplaySurvey())
-                    await drainMainQueue()
+                    await drainMain()
 
                     #expect(spy.updatedSurveys.count == updatesBeforeShow + 1)
                     #expect(spy.updatedSurveys.last?.name == "Bonjour")
@@ -695,7 +692,7 @@
 
                     integration.setShownSurvey(translatedSurvey(), language: nil)
                     integration.testHandleSurveyShown(survey: translatedSurvey().toDisplaySurvey())
-                    await drainMainQueue()
+                    await drainMain()
 
                     #expect(spy.updatedSurveys.isEmpty)
                 }
@@ -711,7 +708,7 @@
 
                     // Switch language mid-survey, then answer the remaining question.
                     postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
-                    await drainMainQueue()
+                    await drainMain()
                     try #require(integration.testActiveSurveyLanguage == "fr")
 
                     let next = try #require(integration.getNextQuestion(index: 1, response: .openEnded("a2")))
@@ -737,7 +734,7 @@
                     integration.setShownSurvey(twoQuestionTranslatedSurvey(), language: "en")
                     _ = integration.getNextQuestion(index: 0, response: .openEnded("a1"))
                     postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
-                    await drainMainQueue()
+                    await drainMain()
                     try #require(integration.testActiveSurveyLanguage == "fr")
 
                     integration.testHandleSurveyClosed(survey: twoQuestionTranslatedSurvey().toDisplaySurvey())

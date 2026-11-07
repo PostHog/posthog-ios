@@ -43,7 +43,10 @@
         private var applicationEventToken: RegistrationToken?
         private var applicationBackgroundedToken: RegistrationToken?
         private var applicationForegroundedToken: RegistrationToken?
-        private var viewLayoutToken: RegistrationToken?
+        private var captureOpportunityToken: RegistrationToken?
+        private let captureBackoff = PostHogReplayCaptureBackoff()
+        // Confined to dispatchQueue.
+        private weak var lastSentSnapshotStatus: ViewTreeSnapshotStatus?
         private var remoteConfigLoadedToken: RegistrationToken?
         private var featureFlagsLoadedToken: RegistrationToken?
         private var sessionIdChangedToken: RegistrationToken?
@@ -324,17 +327,12 @@
             }
 
             // flutter captures snapshots, so we don't need to capture them here
-            if isNotFlutter() {
-                let interval = postHog.config.sessionReplayConfig.throttleDelay
-                viewLayoutToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: interval, trailing: true) { [weak self] in
-                    // called on main thread
-                    self?.snapshot()
-                }
-            }
+            if isNotFlutter() { startCaptureScheduler(postHog: postHog) }
 
             // Before dispatch, so a touch handler can't hide a masked view ahead of the mask check
             let applicationEventPublisher = DI.main.applicationEventPublisher
             applicationEventToken = applicationEventPublisher.onApplicationEventWillDispatch.subscribe { [weak self] event, date in
+                self?.captureBackoff.wake()
                 self?.handleApplicationEvent(event: event, date: date)
             }
 
@@ -367,6 +365,9 @@
 
             // Start listening to application foreground events and resume all plugins
             applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
+                // The screen has almost certainly changed while the app was away, so the first frame
+                // back must not wait out an idle interval accrued before backgrounding.
+                self?.captureBackoff.wake()
                 self?.resumeAllPlugins()
             }
 
@@ -411,8 +412,8 @@
             // stop listening to Application lifecycle events
             applicationBackgroundedToken = nil
             applicationForegroundedToken = nil
-            // stop listening to `UIView.layoutSubviews` events
-            viewLayoutToken = nil
+            // drop replay's demand on the shared run-loop publisher
+            stopCaptureScheduler()
             // stop plugins
             let pluginsToStop = installedPluginsLock.withLock {
                 defer { installedPlugins = [] }
@@ -504,6 +505,8 @@
             // Always reset views on session change
             if isEnabled {
                 resetViews()
+                // An idle interval accrued in the previous session must not delay this one's first frame.
+                captureBackoff.wake()
             }
 
             // Reset minimum duration buffering state for the new session
@@ -796,9 +799,10 @@
                 return status
             }
 
-            PostHogReplayIntegration.dispatchQueue.async {
-                // always make sure we have a fresh session id at correct timestamp
-                guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate) else {
+            PostHogReplayIntegration.dispatchQueue.async { [weak self] in
+                // Frames keep arriving on an idle screen and aren't user activity, so they can't rotate
+                // an inactive session; the next touch or event does.
+                guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate, keepingInactiveSession: true) else {
                     return
                 }
 
@@ -832,20 +836,24 @@
                     snapshotStatus.metaEventSize = CGSize(width: width, height: height)
                 }
 
-                // Re-arm the hash on an episode's first frame so a recurring
-                // native screen always re-sends its opening frame.
-                if episodeFirstFrame {
+                // Re-arm the hash on an episode's first frame so a recurring native screen always
+                // re-sends its opening frame, and when another window sent the last frame, since
+                // the replay is showing that window and not this one's stored hash.
+                if episodeFirstFrame || self?.lastSentSnapshotStatus !== snapshotStatus {
                     snapshotStatus.lastImageHash = nil
                 }
-                let imageHash = (wireframeDict["base64"] as? String)?.hashValue
-                if PostHogReplayIntegration.shouldSkipUnchangedScreenshot(
-                    imageHash: imageHash,
+                let verdict = PostHogReplayIntegration.frameVerdict(
+                    wireframeDict: wireframeDict,
                     lastImageHash: snapshotStatus.lastImageHash,
                     hasPendingSnapshotData: !snapshotsData.isEmpty
-                ) {
+                )
+                if verdict.unchanged {
+                    self?.captureBackoff.noteFrame(unchanged: true)
                     return
                 }
-                snapshotStatus.lastImageHash = imageHash
+                snapshotStatus.lastImageHash = verdict.hash
+                self?.lastSentSnapshotStatus = snapshotStatus
+                self?.captureBackoff.noteFrame(unchanged: false)
 
                 var wireframes: [Any] = []
                 wireframes.append(wireframeDict)
@@ -1893,6 +1901,13 @@
             (config?.sessionReplayConfig.screenshotMode == true || postHogSdkName == "posthog-flutter") ? "screenshot" : "wireframe"
         }
 
+        /// Clamps the host-set `throttleDelay`. A non-positive interval makes the trailing throttle re-dispatch
+        /// to main on every opportunity, so an idle app never sleeps. Non-finite values fall back to 1.
+        static func captureInterval(throttleDelay: TimeInterval) -> TimeInterval {
+            guard throttleDelay.isFinite else { return 1 }
+            return max(throttleDelay, PostHogReplayCaptureBackoff.minimumBaseInterval)
+        }
+
         /// Shared by `$sdk_debug_replay_linked_flag_trigger_status` and `$sdk_debug_replay_event_trigger_status`.
         static func triggerStatus(isConfigured: Bool, isActivated: Bool) -> String {
             !isConfigured ? "trigger_disabled" : (isActivated ? "trigger_activated" : "trigger_pending")
@@ -2013,6 +2028,192 @@
             if migrateBufferIfMinimumDurationMet(replayQueue) {
                 notifyRecordingStatusChanged()
             }
+        }
+    }
+
+    // MARK: - Structure fingerprint
+
+    extension PostHogReplayIntegration {
+        /// Bounds the walk, shared by views and viewless layers, so a huge tree cannot stall main on every
+        /// backed-off opportunity. Changes past the limit go unseen until the next idle render.
+        static let structureFingerprintNodeLimit = 1000
+        /// Stops a pathologically nested branch early, leaving node budget for its siblings.
+        static let structureFingerprintDepthLimit = 64
+
+        /// Render-free summary of what the view and layer tree would draw. Compare only within one process (`Hasher` is seeded).
+        static func structureFingerprint(
+            of window: UIView,
+            nodeLimit: Int = structureFingerprintNodeLimit,
+            depthLimit: Int = structureFingerprintDepthLimit
+        ) -> Int {
+            var hasher = Hasher()
+            hasher.combine(ObjectIdentifier(window))
+            var budget = nodeLimit
+            hashStructure(window, into: &hasher, budget: &budget, depthRemaining: depthLimit)
+            return hasher.finalize()
+        }
+
+        static func currentStructureFingerprint() -> Int? {
+            UIApplication.getCurrentWindow().map { structureFingerprint(of: $0) }
+        }
+
+        private static func hashStructure(_ view: UIView, into hasher: inout Hasher, budget: inout Int, depthRemaining: Int) {
+            guard budget > 0, depthRemaining > 0 else { return }
+            budget -= 1
+
+            hasher.combine(ObjectIdentifier(type(of: view)))
+            // Model values only: this runs with no camera check, and copying a presentation layer can trap there.
+            let invisible = view.isHidden || view.alpha == 0
+            hasher.combine(invisible)
+            // A hidden subtree draws nothing, so its churn must not count as a change.
+            guard !invisible else { return }
+
+            hasher.combine(view.alpha)
+            hasher.combine(view.backgroundColor)
+            let frame = view.frame
+            hasher.combine(frame.origin.x)
+            hasher.combine(frame.origin.y)
+            hasher.combine(frame.size.width)
+            hasher.combine(frame.size.height)
+            // Scroll offset lives in bounds, not frame.
+            hasher.combine(view.bounds.origin.x)
+            hasher.combine(view.bounds.origin.y)
+            if let label = view as? UILabel {
+                hasher.combine(label.text)
+                hasher.combine(label.textColor)
+            } else if let imageView = view as? UIImageView {
+                hasher.combine(imageView.image.map(ObjectIdentifier.init))
+            }
+
+            hashLayerContent(view.layer, into: &hasher, budget: &budget, depthRemaining: depthRemaining)
+
+            let subviews = view.subviews
+            hasher.combine(subviews.count)
+            for subview in subviews {
+                hashStructure(subview, into: &hasher, budget: &budget, depthRemaining: depthRemaining - 1)
+            }
+        }
+
+        /// SwiftUI updates reach the screen through layers without touching any `UIView` property.
+        /// Layers a view owns are left to `hashStructure`. `animationKeys()` is excluded because a
+        /// running animation must not leave backoff.
+        private static func hashLayerContent(_ layer: CALayer, into hasher: inout Hasher, budget: inout Int, depthRemaining: Int) {
+            hasher.combine(layer.backgroundColor)
+            hasher.combine((layer.contents as AnyObject?).map(ObjectIdentifier.init))
+
+            for sublayer in layer.sublayers ?? [] where !(sublayer.delegate is UIView) {
+                guard budget > 0, depthRemaining > 1 else { return }
+                budget -= 1
+
+                hasher.combine(sublayer.isHidden)
+                guard !sublayer.isHidden else { continue }
+
+                hasher.combine(sublayer.opacity)
+                let bounds = sublayer.bounds
+                hasher.combine(bounds.origin.x)
+                hasher.combine(bounds.origin.y)
+                hasher.combine(bounds.size.width)
+                hasher.combine(bounds.size.height)
+                hasher.combine(sublayer.position.x)
+                hasher.combine(sublayer.position.y)
+                hashLayerContent(sublayer, into: &hasher, budget: &budget, depthRemaining: depthRemaining - 1)
+            }
+        }
+    }
+
+    // MARK: - Frame change verdict
+
+    extension PostHogReplayIntegration {
+        /// One frame's change verdict, in the exact order the capture path applies it, so the backoff
+        /// gets a real answer in both capture modes.
+        static func frameVerdict(
+            wireframeDict: [String: Any],
+            lastImageHash: Int?,
+            hasPendingSnapshotData: Bool
+        ) -> (hash: Int?, unchanged: Bool) {
+            let hash = frameHash(for: wireframeDict)
+            let unchanged = shouldSkipUnchangedScreenshot(
+                imageHash: hash,
+                lastImageHash: lastImageHash,
+                hasPendingSnapshotData: hasPendingSnapshotData
+            )
+            return (hash, unchanged)
+        }
+
+        /// Screenshot mode hashes the encoded image. Wireframe mode - the default - never populates
+        /// `base64`, so it hashes the serialised tree instead; without that there is no change verdict
+        /// at all and the idle backoff can never engage.
+        static func frameHash(for wireframeDict: [String: Any]) -> Int? {
+            if let base64 = wireframeDict["base64"] as? String {
+                return base64.hashValue
+            }
+            var hasher = Hasher()
+            hashWireframeNode(wireframeDict, into: &hasher)
+            return hasher.finalize()
+        }
+
+        /// `id` is excluded at every depth. It is `UIView.hash`, a pointer-derived identity that changes
+        /// whenever a view is recreated - cell reuse, a rebuilt subtree - while the screen looks
+        /// identical, so including it would pin the verdict at "changed" forever. Nothing else
+        /// `RRWireframe.toDict()` emits is time- or sequence-derived, so nothing else needs excluding.
+        ///
+        /// Order-stable by construction: keys are visited in sorted order, so the digest never depends
+        /// on `Dictionary` iteration order, and child arrays keep their index order, which is draw order
+        /// and part of what the frame looks like. `Hasher` is seeded per process, which is enough - the
+        /// value is only ever compared against the previous frame's hash inside the same process.
+        private static func hashWireframeNode(_ node: [String: Any], into hasher: inout Hasher) {
+            for key in node.keys.sorted() where key != "id" {
+                hasher.combine(key)
+                hashWireframeValue(node[key], into: &hasher)
+            }
+        }
+
+        private static func hashWireframeValue(_ value: Any?, into hasher: inout Hasher) {
+            switch value {
+            case let node as [String: Any]:
+                hashWireframeNode(node, into: &hasher)
+            case let children as [Any]:
+                hasher.combine(children.count)
+                for child in children {
+                    hashWireframeValue(child, into: &hasher)
+                }
+            case let string as String:
+                hasher.combine(string)
+            case let number as NSNumber:
+                hasher.combine(number)
+            case .none:
+                hasher.combine(0)
+            case let other?:
+                hasher.combine(String(describing: other))
+            }
+        }
+    }
+
+    // MARK: - Capture scheduling
+
+    private extension PostHogReplayIntegration {
+        var captureScheduler: RunLoopOpportunityPublishing {
+            DI.main.runLoopPublisher
+        }
+
+        /// Replay owns its capture cadence: the shared run-loop publisher supplies the opportunities and
+        /// the throttle stays on the multicast, so the interval stays replay's to change.
+        func startCaptureScheduler(postHog: PostHogSDK) {
+            let interval = PostHogReplayIntegration.captureInterval(throttleDelay: postHog.config.sessionReplayConfig.throttleDelay)
+            captureBackoff.setBaseInterval(interval)
+            // The token is the demand: holding it installs the shared observer, dropping it in
+            // stop() removes it unless another product still subscribes.
+            // `trailing: true` is load-bearing: its `main.asyncAfter` wake supplies the next opportunity, so an
+            // idle screen keeps being offered frames.
+            captureOpportunityToken = captureScheduler.onOpportunity.subscribe(throttle: interval, trailing: true) { [weak self] in
+                // called on main thread
+                guard let self, captureBackoff.shouldCapture(structure: PostHogReplayIntegration.currentStructureFingerprint) else { return }
+                snapshot()
+            }
+        }
+
+        func stopCaptureScheduler() {
+            captureOpportunityToken = nil
         }
     }
 
@@ -2195,6 +2396,23 @@
         extension PostHogReplayIntegration {
             static func clearInstalls() {
                 integrationInstallState.clear()
+            }
+
+            /// Set synchronously, unlike the scheduler's observer, which is installed on the main thread.
+            var hasCaptureSubscription: Bool {
+                captureOpportunityToken != nil
+            }
+
+            /// Whether this integration's own capture subscription has reached the shared observer.
+            /// The token is read first, so another product keeping the shared observer installed cannot
+            /// make an unsubscribed integration report true. Main-confined, like
+            /// `ApplicationRunLoopPublisher.isObserving`.
+            var isCaptureSchedulerObserving: Bool {
+                captureOpportunityToken != nil && captureScheduler.isObserving
+            }
+
+            var captureBackoffForTesting: PostHogReplayCaptureBackoff {
+                captureBackoff
             }
         }
     #endif

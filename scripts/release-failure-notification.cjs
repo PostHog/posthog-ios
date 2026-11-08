@@ -61,11 +61,7 @@ module.exports = async function releaseFailureNotification({ github, context, ch
 
     const releaseCreated = jobs.some(job => job.name === 'Tag and create GitHub release' && job.conclusion === 'success');
     const releasedNotification = jobs.find(job => job.name === 'Notify Slack - Released');
-    const podsStatusDelivered = releasedNotification?.steps?.some(step =>
-        step.name === 'Notify Slack - CocoaPods status' && step.conclusion === 'success');
-    const problems = failedJobs
-        .filter(job => !(releaseCreated && podsStatusDelivered && job.name === 'Publish to CocoaPods'))
-        .map(job => `• <${job.html_url}|${job.name}>: ${job.conclusion}`);
+    const problems = failedJobs.map(job => `• <${job.html_url}|${job.name}>: ${job.conclusion}`);
 
     if (releaseCreated && (!releasedNotification || releasedNotification.conclusion === 'skipped')) {
         problems.push('• The released Slack notification did not run.');
@@ -82,7 +78,6 @@ module.exports = async function releaseFailureNotification({ github, context, ch
                 ? `⚠️ GitHub/SPM released; follow-up problems for \`${context.repo.owner}/${context.repo.repo}\` (attempt ${run.run_attempt}).`
                 : `❌ Release process failed or was cancelled for \`${context.repo.owner}/${context.repo.repo}\` (attempt ${run.run_attempt}).`,
             ...problems,
-            ...(releaseCreated ? ['The GitHub/SPM release exists. CocoaPods publishing is best-effort.'] : []),
             `<${run.html_url}|View release logs> (run: ${run.conclusion})`,
         ].join('\n'),
         unfurl_links: false,

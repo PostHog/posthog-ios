@@ -132,6 +132,41 @@ enum PostHogSessionManagerTest {
             #expect(newSessionId != originalSessionId)
         }
 
+        @Test("A read keeping an inactive session doesn't rotate it, but the next ordinary read does")
+        func keepingInactiveSessionSkipsInactivityRotation() throws {
+            let mockNow = MockDate()
+            now = { mockNow.date }
+            let posthog = getSut()
+
+            let originalSessionId = posthog.getSessionManager()?.getNextSessionId()
+            mockAppLifecycle.simulateAppDidBecomeActive()
+            try #require(originalSessionId != nil)
+            posthog.getSessionManager()?.touchSession()
+
+            mockNow.date.addTimeInterval(60 * 31)
+
+            #expect(posthog.getSessionManager()?.getSessionId(keepingInactiveSession: true) == originalSessionId)
+            #expect(posthog.getSessionManager()?.getSessionId() != originalSessionId)
+        }
+
+        @Test("A read keeping an inactive session still rotates past max session length")
+        func keepingInactiveSessionHonorsMaxLength() throws {
+            let mockNow = MockDate()
+            now = { mockNow.date }
+            let posthog = getSut()
+
+            let originalSessionId = posthog.getSessionManager()?.getNextSessionId()
+            mockAppLifecycle.simulateAppDidBecomeActive()
+            try #require(originalSessionId != nil)
+            posthog.getSessionManager()?.touchSession()
+
+            mockNow.date.addTimeInterval(60 * 60 * 24 + 60)
+
+            let newSessionId = posthog.getSessionManager()?.getSessionId(keepingInactiveSession: true)
+            #expect(newSessionId != nil)
+            #expect(newSessionId != originalSessionId)
+        }
+
         @Test("Session id is rotated after max session length is reached")
         func sessionRotatedWhenPastMaxSessionLength() throws {
             let mockNow = MockDate()

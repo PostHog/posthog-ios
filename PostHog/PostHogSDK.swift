@@ -4680,6 +4680,12 @@ let maxRetryDelay = 30.0
             }
         #endif
 
+        #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
+            func getSurveysIntegration() -> PostHogSurveyIntegration? {
+                getIntegration()
+            }
+        #endif
+
         #if os(iOS) || os(macOS) || os(tvOS)
             func getErrorTrackingIntegration() -> PostHogErrorTrackingAutoCaptureIntegration? {
                 getIntegration()

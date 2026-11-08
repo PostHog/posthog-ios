@@ -19,6 +19,9 @@ class PostHogIntegrationInstallationTest {
         #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
             PostHogReplayIntegration.clearInstalls()
         #endif
+        #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
+            PostHogSurveyIntegration.clearInstalls()
+        #endif
         #if os(iOS) || targetEnvironment(macCatalyst)
             PostHogAutocaptureIntegration.clearInstalls()
         #endif
@@ -43,6 +46,7 @@ class PostHogIntegrationInstallationTest {
     private func getSut(
         projectToken: String,
         sessionReplay: Bool = false,
+        surveys: Bool = false,
         captureApplicationLifecycleEvents: Bool = false,
         captureScreenViews: Bool = false,
         captureElementInteractions: Bool = false,
@@ -61,6 +65,9 @@ class PostHogIntegrationInstallationTest {
 
         #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
             config.sessionReplay = sessionReplay
+        #endif
+        #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
+            config._surveys = surveys
         #endif
 
         #if os(iOS) || targetEnvironment(macCatalyst)
@@ -95,6 +102,16 @@ class PostHogIntegrationInstallationTest {
 
             first.close()
             second.close()
+        }
+    #endif
+
+    #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
+        @Test("surveys integration installs even when swizzling is disabled")
+        func surveysIntegrationInstalledWithoutSwizzling() {
+            let sut = getSut(projectToken: "test_project_token", surveys: true, enableSwizzling: false)
+            defer { sut.close() }
+
+            #expect(sut.getSurveysIntegration() != nil)
         }
     #endif
 

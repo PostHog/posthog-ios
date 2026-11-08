@@ -13,7 +13,7 @@
     #endif
 
     final class PostHogSurveyIntegration: PostHogIntegration {
-        var requiresSwizzling: Bool { true }
+        var requiresSwizzling: Bool { false }
 
         private static let integrationInstallState = PostHogIntegrationInstallState()
 
@@ -45,7 +45,7 @@
         #endif
 
         private var didBecomeActiveToken: RegistrationToken?
-        private var didLayoutViewToken: RegistrationToken?
+        private var runLoopOpportunityToken: RegistrationToken?
         private var eventCapturedToken: RegistrationToken?
         private var personPropertiesChangedToken: RegistrationToken?
         var remoteConfigLoadedToken: RegistrationToken?
@@ -102,7 +102,7 @@
                     self?.onEvent(event: event)
                 }
                 // TODO: listen to screen view events
-                didLayoutViewToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: 5) { [weak self] in
+                runLoopOpportunityToken = DI.main.runLoopPublisher.onOpportunity.subscribe(throttle: 5) { [weak self] in
                     self?.showNextSurvey()
                 }
                 didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
@@ -114,7 +114,7 @@
         func stop() {
             eventCapturedToken = nil
             didBecomeActiveToken = nil
-            didLayoutViewToken = nil
+            runLoopOpportunityToken = nil
             personPropertiesChangedToken = nil
             clearActiveSurvey()
             unsubscribeFromRemoteConfigUpdates()

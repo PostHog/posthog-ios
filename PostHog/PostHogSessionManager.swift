@@ -99,12 +99,16 @@ import Foundation
         - readOnly: When true, bypasses all session management logic and returns
                    the current session id without modifications.
                    Defaults to false.
+        - keepingInactiveSession: When true, an inactive foreground session stays current, for
+                   reads that aren't user activity. The maximum session length still applies.
+                   Defaults to false.
 
      - Returns: Returns the existing session id, or a new one after performing validity checks
      */
     func getSessionId(
         at timeNow: Date = now(),
-        readOnly: Bool = false
+        readOnly: Bool = false,
+        keepingInactiveSession: Bool = false
     ) -> String? {
         let timestamp = timeNow.timeIntervalSince1970
         let (currentSessionId, lastActive, sessionStart, isBackgrounded) = sessionLock.withLock {
@@ -122,7 +126,7 @@ import Foundation
         }
 
         // Check if session has passed maximum inactivity length
-        if let lastActive, isExpired(timestamp, lastActive, sessionActivityThreshold) {
+        if let lastActive, isBackgrounded || !keepingInactiveSession, isExpired(timestamp, lastActive, sessionActivityThreshold) {
             return isBackgrounded
                 ? clearSession(reason: .sessionTimeout)
                 : rotateSession(at: timeNow, reason: .sessionTimeout)

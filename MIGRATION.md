@@ -115,6 +115,12 @@ Update cohorts, insights and actions that match `$locale`: a filter on `$locale 
 
 Feature flags aren't affected: the SDK doesn't send `$locale` or `$app_language` with flag requests, so flags only see these if you set them as person properties yourself.
 
+### Survey wait period and popup delay
+
+A survey's wait period (`seenSurveyWaitPeriodInDays`) now runs from when a survey is shown. 3.x restarted it when the survey was submitted or dismissed, so the next survey can now appear slightly sooner after one is answered.
+
+A survey that closes before it appears, for example while its popup delay counts down, now sends no `survey dismissed` event and isn't marked seen, so it can show later. `reset()` also cancels a survey that is still waiting out its popup delay. Expect fewer `survey dismissed` events from apps that close surveys before they appear.
+
 ### Network reachability
 
 4.0 detects connectivity with `NWPathMonitor`:

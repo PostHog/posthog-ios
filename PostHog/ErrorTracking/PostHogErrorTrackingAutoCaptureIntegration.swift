@@ -125,9 +125,12 @@ import Foundation
                 // written to disk. Mark the context instead; the next install drops a marked report.
                 if postHog.config.optOut {
                     crashCustomData?.markOptedOut()
+                    // Keep the saved context: its marker is what drops this process's memory diagnostic on a later launch.
+                    processContextStore?.close()
+                } else {
+                    processContextStore?.removeAll()
                 }
                 crashCustomData = nil
-                processContextStore?.removeAll()
                 processContextStore = nil
                 crashReporter = nil
                 self.postHog = nil

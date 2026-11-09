@@ -70,6 +70,14 @@ final class PostHogProcessContextStore {
         }
     }
 
+    /// Writes any pending context now, then ignores later writes. Unlike `removeAll()` the saved
+    /// files stay, so a memory diagnostic delivered on a later launch can still be matched to them.
+    func close() {
+        pendingLock.withLock { isClosed = true }
+        // `isClosed` only blocks new writes; drain one that may already be queued.
+        queue.sync {}
+    }
+
     /// Returns and removes the context saved by `pid`.
     ///
     /// Process IDs get reused, so a context written after `latest` belongs to a later process

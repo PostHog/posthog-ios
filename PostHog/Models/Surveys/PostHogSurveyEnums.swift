@@ -131,6 +131,70 @@ enum PostHogSurveyAppearancePosition: Decodable, Equatable {
             ]
         ) { .unknown(position: $0) }
     }
+
+    var wireValue: String {
+        switch self {
+        case .topLeft: return "top_left"
+        case .topCenter: return "top_center"
+        case .topRight: return "top_right"
+        case .middleLeft: return "middle_left"
+        case .middleCenter: return "middle_center"
+        case .middleRight: return "middle_right"
+        case .left: return "left"
+        case .right: return "right"
+        case .center: return "center"
+        case let .unknown(position): return position
+        }
+    }
+}
+
+enum SurveyVerticalEdge: Equatable {
+    case top
+    case middle
+    case bottom
+}
+
+enum SurveyHorizontalEdge: Equatable {
+    case leading
+    case center
+    case trailing
+}
+
+struct SurveyPlacement: Equatable {
+    let vertical: SurveyVerticalEdge
+    let horizontal: SurveyHorizontalEdge
+
+    /// Bottom-center keeps the system sheet. Every other anchor is a card.
+    var usesBottomSheet: Bool {
+        vertical == .bottom && horizontal == .center
+    }
+
+    private static let bottomCenter = SurveyPlacement(vertical: .bottom, horizontal: .center)
+
+    private static let placementsByWire: [String: SurveyPlacement] = [
+        "top_left": SurveyPlacement(vertical: .top, horizontal: .leading),
+        "top_center": SurveyPlacement(vertical: .top, horizontal: .center),
+        "top_right": SurveyPlacement(vertical: .top, horizontal: .trailing),
+        "middle_left": SurveyPlacement(vertical: .middle, horizontal: .leading),
+        "middle_center": SurveyPlacement(vertical: .middle, horizontal: .center),
+        "middle_right": SurveyPlacement(vertical: .middle, horizontal: .trailing),
+        "left": SurveyPlacement(vertical: .bottom, horizontal: .leading),
+        "center": bottomCenter,
+        "right": SurveyPlacement(vertical: .bottom, horizontal: .trailing),
+    ]
+
+    static func resolve(_ position: PostHogSurveyAppearancePosition?) -> SurveyPlacement {
+        resolve(wire: position?.wireValue)
+    }
+
+    static func resolve(wire: String?) -> SurveyPlacement {
+        guard let wire, !wire.isEmpty else { return bottomCenter }
+        let normalized = wire.replacingOccurrences(of: "-", with: "_")
+        let stripped = normalized.hasPrefix("bottom_")
+            ? String(normalized.dropFirst("bottom_".count))
+            : normalized
+        return placementsByWire[stripped] ?? bottomCenter
+    }
 }
 
 enum PostHogSurveyAppearanceWidgetType: Decodable, Equatable {

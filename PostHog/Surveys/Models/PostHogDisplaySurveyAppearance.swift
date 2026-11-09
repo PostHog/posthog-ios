@@ -73,6 +73,12 @@ import Foundation
     /// Optional text for the button that advances past the intro screen
     public let introScreenButtonText: String?
 
+    /// Anchor from `appearance.position`.
+    /// `top_*` sits on the top edge, `middle_*` sits in the vertical middle,
+    /// and `left`, `center`, and `right` sit on the bottom edge.
+    /// Nil keeps the bottom-center sheet.
+    public let position: String?
+
     init(
         fontFamily: String?,
         backgroundColor: String?,
@@ -97,7 +103,8 @@ import Foundation
         introScreenHeader: String? = nil,
         introScreenDescription: String? = nil,
         introScreenDescriptionContentType: PostHogDisplaySurveyTextContentType? = nil,
-        introScreenButtonText: String? = nil
+        introScreenButtonText: String? = nil,
+        position: String? = nil
     ) {
         self.fontFamily = fontFamily
         self.backgroundColor = backgroundColor
@@ -123,6 +130,7 @@ import Foundation
         self.introScreenDescription = introScreenDescription
         self.introScreenDescriptionContentType = introScreenDescriptionContentType
         self.introScreenButtonText = introScreenButtonText
+        self.position = position
         super.init()
     }
 }

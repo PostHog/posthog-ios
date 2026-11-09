@@ -2381,10 +2381,11 @@ enum PostHogSurveysTest {
             introScreenHeader: String? = nil,
             introScreenDescription: String? = nil,
             introScreenDescriptionContentType: PostHogSurveyTextContentType? = nil,
-            introScreenButtonText: String? = nil
+            introScreenButtonText: String? = nil,
+            position: PostHogSurveyAppearancePosition? = nil
         ) -> PostHogSurveyAppearance {
             PostHogSurveyAppearance(
-                position: nil, fontFamily: nil, backgroundColor: nil,
+                position: position, fontFamily: nil, backgroundColor: nil,
                 submitButtonColor: nil, submitButtonText: nil, submitButtonTextColor: nil,
                 textColor: nil, descriptionTextColor: nil, ratingButtonColor: nil,
                 ratingButtonActiveColor: nil, ratingButtonHoverColor: nil,
@@ -2464,6 +2465,30 @@ enum PostHogSurveysTest {
             #expect(displaySurvey.appearance?.displayIntroScreen == false)
             #expect(displaySurvey.appearance?.introScreenHeader == nil)
             #expect(displaySurvey.appearance?.introScreenButtonText == nil)
+        }
+
+        @Test("maps appearance.position onto the display survey")
+        func mapsAppearancePositionToDisplaySurvey() {
+            let survey = PostHogSurvey.testInstance(
+                name: "position-mapped",
+                appearance: makeAppearance(delay: nil, position: .topCenter)
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+
+            #expect(displaySurvey.appearance?.position == "top_center")
+        }
+
+        @Test("leaves display position nil when the survey has none")
+        func leavesDisplayPositionNilWhenMissing() {
+            let survey = PostHogSurvey.testInstance(
+                name: "position-missing",
+                appearance: makeAppearance(delay: nil)
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+
+            #expect(displaySurvey.appearance?.position == nil)
         }
 
         @Test(

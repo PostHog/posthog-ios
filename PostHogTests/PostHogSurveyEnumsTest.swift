@@ -396,4 +396,43 @@ struct PostHogSurveyEnumsTest {
             throw TestError("Expected unknown branching type")
         }
     }
+
+    @Test(
+        "anchors a survey to the edge appearance.position names",
+        arguments: [
+            (PostHogSurveyAppearancePosition?.some(.topLeft), SurveyVerticalEdge.top, SurveyHorizontalEdge.leading),
+            (.some(.topCenter), .top, .center),
+            (.some(.topRight), .top, .trailing),
+            (.some(.middleLeft), .middle, .leading),
+            (.some(.middleCenter), .middle, .center),
+            (.some(.middleRight), .middle, .trailing),
+            (.some(.left), .bottom, .leading),
+            (.some(.center), .bottom, .center),
+            (.some(.right), .bottom, .trailing),
+            (.none, .bottom, .center),
+            (.some(.unknown(position: "future")), .bottom, .center),
+            (.some(.unknown(position: "bottom_right")), .bottom, .trailing),
+            (.some(.unknown(position: "top-left")), .top, .leading),
+        ]
+    )
+    func anchorsNamedPosition(
+        position: PostHogSurveyAppearancePosition?,
+        vertical: SurveyVerticalEdge,
+        horizontal: SurveyHorizontalEdge
+    ) {
+        let placement = SurveyPlacement.resolve(position)
+
+        #expect(placement.vertical == vertical)
+        #expect(placement.horizontal == horizontal)
+        #expect(placement.usesBottomSheet == (vertical == .bottom && horizontal == .center))
+    }
+
+    @Test("resolves a wire position the same way as the decoded value")
+    func resolvesWirePosition() {
+        let placement = SurveyPlacement.resolve(wire: "middle_right")
+
+        #expect(placement.vertical == .middle)
+        #expect(placement.horizontal == .trailing)
+        #expect(placement.usesBottomSheet == false)
+    }
 }

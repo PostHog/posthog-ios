@@ -47,7 +47,7 @@ public final class PostHogFeatureFlagsLoaded: NSObject, @unchecked Sendable {
                 if bool {
                     enabled[key] = bool
                 }
-            } else if let string = value as? String {
+            } else if let string = value as? String, !string.isEmpty {
                 enabled[key] = string
             }
         }

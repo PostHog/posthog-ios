@@ -610,13 +610,8 @@ let maxRetryDelay = 30.0
         for (key, value) in flags {
             properties["$feature/\(key)"] = value
 
-            var active = true
-            let boolValue = value as? Bool
-            if boolValue != nil {
-                active = boolValue!
-            } else {
-                active = true
-            }
+            // an empty variant reads as disabled
+            let active = (value as? Bool ?? true) && (value as? String) != ""
 
             if active {
                 keys.append(key)

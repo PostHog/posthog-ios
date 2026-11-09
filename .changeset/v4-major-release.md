@@ -33,6 +33,7 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - **Breaking:** pause sending for at most 30 seconds on `Retry-After`, including session replay and logs
 - **Breaking:** send `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` as capture options, so PostHog drops an event whose option value it can't read
 - **Breaking:** let registered super properties override SDK properties such as `$os`, and let super and event properties override `$is_identified`, `$process_person_profile`, `$geoip_disable` and the session replay debug values
+- **Breaking:** fill `$lib` and `$lib_version` as a pair after your properties, so a `$lib` you pass without `$lib_version` is sent without one and a `$lib_version` without `$lib` is replaced
 - **Breaking:** let `userProperties`, `userPropertiesSetOnce` and `groups` win key by key over `$set`, `$set_once` and `$groups` passed in the same call's properties
 - **Breaking:** rename `maxRetries` to `pushNotificationSubscriptionMaxRetries`
 - **Breaking:** send `$session_id` and `$window_id` as top-level `session_id` and `window_id` fields, and drop a value that isn't a string

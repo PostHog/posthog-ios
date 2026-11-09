@@ -2703,7 +2703,7 @@ Enable method swizzling for SDK functionality that depends on it
 
 ##### Discussion
 
-When disabled, functionality that require swizzling (like autocapture, screen views, session replay, surveys) will not be installed.
+When disabled, functionality that require swizzling (like autocapture, screen views, session replay) will not be installed.
 
 Note: Disabling swizzling will limit session rotation logic to only detect application open and background events. Session rotation will still work, just with reduced granularity for detecting user activity.
 
@@ -3921,7 +3921,7 @@ This is `true` if the flag value is:
 
 - A boolean `true`
 
-- A non-null string (variant)
+- A non-empty string (variant)
 
 #### `PostHogFeatureFlagResult.key`
 

@@ -164,18 +164,11 @@ func droppingNullProperties(_ properties: [String: Any]) -> [String: Any] {
 /// nothing to remove, so unchanged containers are not copied.
 private func droppingNulls(in value: Any) -> Any? {
     if let dict = value as? [String: Any] {
-        var result = dict
-        var changed = false
-        for (key, member) in dict {
-            if let cleaned = droppingNulls(in: member) {
-                result[key] = cleaned
-                changed = true
-            } else if isNullValue(member) {
-                result.removeValue(forKey: key)
-                changed = true
-            }
-        }
-        return changed ? result : nil
+        return droppingNulls(inDictionary: dict)
+    }
+    // Number or boolean keys are stringified later by `sanitizeDictionary`, so clean these too.
+    if let dict = value as? [AnyHashable: Any] {
+        return droppingNulls(inDictionary: dict)
     }
     if let array = value as? [Any] {
         var result = array
@@ -190,6 +183,21 @@ private func droppingNulls(in value: Any) -> Any? {
         return changed ? result : nil
     }
     return nil
+}
+
+private func droppingNulls<Key: Hashable>(inDictionary dict: [Key: Any]) -> [Key: Any]? {
+    var result = dict
+    var changed = false
+    for (key, member) in dict {
+        if let cleaned = droppingNulls(in: member) {
+            result[key] = cleaned
+            changed = true
+        } else if isNullValue(member) {
+            result.removeValue(forKey: key)
+            changed = true
+        }
+    }
+    return changed ? result : nil
 }
 
 /// Whether a value is missing or serializes as JSON `null`: `nil`, `NSNull`, or a `nil` optional boxed in `Any`.

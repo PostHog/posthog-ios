@@ -1511,6 +1511,17 @@ final class PostHogCaptureNullPropertiesTest {
         }
     }
 
+    @Test("a dictionary with non-string keys is written without its null-valued members")
+    func nonStringKeyedDictionaryDropsNulls() throws {
+        let api = PostHogApi(PostHogConfig(projectToken: "phc_null", host: "http://localhost:9001"))
+        let numberKeyed: [Int: Any] = [1: NSNull(), 2: "kept"]
+        let event = PostHogEvent(event: "Number Keys", distinctId: "user", properties: ["numberKeyed": numberKeyed])
+
+        let data = try #require(QueueEndpoint<PostHogEvent>.batch(api: api).encode(event))
+        let stored = try #require(fromJSONData(data)?["properties"] as? [String: Any])
+        #expect(stored["numberKeyed"] as? [String: String] == ["2": "kept"])
+    }
+
     @Test("an event queued with null-valued properties, as older versions stored it, is sent without them")
     func storedNullPropertiesAreDroppedOnSend() async throws {
         let api = PostHogApi(PostHogConfig(projectToken: "phc_null", host: "http://localhost:9001"))

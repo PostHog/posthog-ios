@@ -278,6 +278,87 @@ final class PostHogWrapperEventTest {
         #expect(sut.config.storageManager?.isPersonProcessing() == true)
     }
 
+    @Test("registered options are sent on every event, under the event's own options")
+    func registeredOptionsUnderEventOptions() async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        sut.registerOptionsForWrapper(["cookieless_mode": false, "disable_skew_correction": true])
+
+        server.reset(batchCount: 1)
+        sut.capture("plain")
+        let plain = try #require(try await getServerEvents(server).first)
+        server.reset(batchCount: 1)
+        sut.capture("own", options: ["cookieless_mode": true])
+        let own = try #require(try await getServerEvents(server).first)
+
+        #expect(plain.options["cookieless_mode"] as? Bool == false)
+        #expect(plain.options["disable_skew_correction"] as? Bool == true)
+        #expect(own.event == "own")
+        #expect(own.options["cookieless_mode"] as? Bool == true)
+        #expect(own.options["disable_skew_correction"] as? Bool == true)
+    }
+
+    @Test("a wrapper build carries the registered options, so the wrapper's beforeSend sees them")
+    func buildCarriesRegisteredOptions() throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        sut.registerOptionsForWrapper(["disable_skew_correction": true, "cookieless_mode": false])
+
+        let built = try #require(build(sut))
+
+        #expect(built.options["disable_skew_correction"] as? Bool == true)
+        #expect(built.options["cookieless_mode"] as? Bool == true)
+    }
+
+    @Test("a registered process_person_profile replaces the SDK's personless default")
+    func registeredPersonProcessingOption() async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        sut.registerOptionsForWrapper(["process_person_profile": true])
+
+        server.reset(batchCount: 1)
+        sut.capture("anonymous")
+        let sent = try #require(try await getServerEvents(server).first)
+
+        #expect(sent.options["process_person_profile"] as? Bool == true)
+    }
+
+    @Test("unregister and reset remove registered options")
+    func unregisterAndResetRemoveOptions() throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        sut.registerOptionsForWrapper(["cookieless_mode": true, "disable_skew_correction": true])
+
+        sut.unregisterOptionsForWrapper("cookieless_mode")
+        let afterUnregister = try #require(sut.buildEventForWrapper(event: "e", distinctId: nil, properties: nil, userProperties: nil,
+                                                                    userPropertiesSetOnce: nil, groups: nil, options: nil, ai: false))
+        #expect(afterUnregister.options["cookieless_mode"] == nil)
+        #expect(afterUnregister.options["disable_skew_correction"] as? Bool == true)
+
+        sut.reset()
+        let afterReset = try #require(sut.buildEventForWrapper(event: "e", distinctId: nil, properties: nil, userProperties: nil,
+                                                               userPropertiesSetOnce: nil, groups: nil, options: nil, ai: false))
+        #expect(afterReset.options["disable_skew_correction"] == nil)
+    }
+
+    @Test("registered options persist across setups")
+    func registeredOptionsPersist() throws {
+        let config = PostHogConfig(projectToken: "phc_wrapper_persist_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.preloadFeatureFlags = false
+        config.captureApplicationLifecycleEvents = false
+        let first = PostHogSDK.with(config)
+        first.registerOptionsForWrapper(["cookieless_mode": true])
+        first.close()
+
+        let second = PostHogSDK.with(config)
+        defer { second.close() }
+        let built = try #require(second.buildEventForWrapper(event: "e", distinctId: nil, properties: nil, userProperties: nil,
+                                                             userPropertiesSetOnce: nil, groups: nil, options: nil, ai: false))
+        #expect(built.options["cookieless_mode"] as? Bool == true)
+    }
+
     @Test("an event built before close and setup isn't sent through the new setup")
     func sendAfterReconfigureDrops() throws {
         let sut = makeSDK()

@@ -242,6 +242,7 @@ class PostHogStorage {
         case flags = "posthog.flags"
         case groups = "posthog.groups"
         case registerProperties = "posthog.registerProperties"
+        case registerOptions = "posthog.registerOptions"
         case optOut = "posthog.optOut"
         case sessionReplay = "posthog.sessionReplay"
         case isIdentified = "posthog.isIdentified"
@@ -509,6 +510,7 @@ class PostHogStorage {
             deleteSafely(url(forKey: .enabledFeatureFlagPayloads))
             deleteSafely(url(forKey: .groups))
             deleteSafely(url(forKey: .registerProperties))
+            deleteSafely(url(forKey: .registerOptions))
             deleteSafely(url(forKey: .optOut))
             deleteSafely(url(forKey: .isIdentified))
             deleteSafely(url(forKey: .personProcessingEnabled))

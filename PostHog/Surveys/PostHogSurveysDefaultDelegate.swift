@@ -75,6 +75,11 @@
         }
 
         #if os(iOS)
+            /// Cancels a survey still waiting out its popup delay without touching one already on screen.
+            func cancelPendingSurvey() {
+                dismissPendingSurveyIfNeeded()
+            }
+
             private func setupWindow() {
                 if let activeWindow = UIApplication.getCurrentWindow(), let activeScene = activeWindow.windowScene {
                     let controller = SurveyDisplayController()

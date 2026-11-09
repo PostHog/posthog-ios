@@ -37,6 +37,7 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - **Breaking:** let `userProperties`, `userPropertiesSetOnce` and `groups` win key by key over `$set`, `$set_once` and `$groups` passed in the same call's properties
 - **Breaking:** rename `maxRetries` to `pushNotificationSubscriptionMaxRetries`
 - **Breaking:** send `$session_id` and `$window_id` as top-level `session_id` and `window_id` fields, and drop a value that isn't a string
+- **Breaking:** omit event properties whose value is `NSNull` or a `nil` optional, including in nested dictionaries and dictionaries inside arrays, instead of sending them as `null` — `null` array elements and `$set`, `$set_once` and `$group_set` values are still sent
 - **Breaking:** let PostHog drop an event whose name is over 200 UTF-8 bytes, or whose distinct ID is empty or whitespace-only, instead of rejecting the whole batch
 - **Breaking:** retry a capture request that gets a 404 and keep its events queued, with no fallback to `/batch`, and stop retrying 3xx responses
 - **Breaking:** with `debug` on, log capture failures as one line per batch with counts and PostHog's drop reasons, and stop logging each queued event and PostHog's response body — update log-based alerts
@@ -47,6 +48,7 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - Add `SessionReplay`, `CrashReporting` and `Surveys` Swift package traits (on by default) that remove the feature and its public API when turned off
 - Add `isFeatureEnabled(_:defaultValue:)` and `isFeatureEnabled(_:defaultValue:sendFeatureFlagEvent:)` to return a default you choose when a flag has no value
 - Add `PostHogSDK.setSdkName(_:version:)` behind `@_spi(PostHogInternal)`, exposed to Objective-C so wrapper SDKs that can't assign `postHogSdkName` and `postHogVersion`, such as Kotlin Multiplatform, can report their own name and version
+- Add `registerOptionsForWrapper(_:)` and `unregisterOptionsForWrapper(_:)` behind `@_spi(PostHogInternal)` so wrapper SDKs can register capture options sent with every event
 - Add compile errors that name the replacement, with an Xcode fix-it for renames, when Swift code uses most removed or renamed 3.x APIs
 - Change the wait after a failed send to double from 1 second up to 30 seconds with jitter, for events, session replay and logs
 - Change network reachability detection to `NWPathMonitor`, so a path needing user action counts as reachable, queues pause while cellular data is off for the app, and early events may omit `$network_wifi` and `$network_cellular`

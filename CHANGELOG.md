@@ -1,5 +1,11 @@
 ## Next
 
+## 3.94.2
+
+### Patch Changes
+
+- 2856428: Fix surveys so `seenSurveyWaitPeriodInDays` counts from when a survey was shown rather than when it was closed, and a survey closed before it appears (for example during `surveyPopupDelaySeconds` or after `reset()`) is no longer marked seen or reported as `survey dismissed`.
+
 ## 3.94.1
 
 ### Patch Changes

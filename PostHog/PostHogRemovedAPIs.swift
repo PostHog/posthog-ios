@@ -36,6 +36,13 @@ public extension PostHogConfig {
         self.init(projectToken: apiKey, host: host)
     }
 
+    /// Removed in PostHog 4.0. Use `pushNotificationSubscriptionMaxRetries` instead.
+    @available(*, unavailable, renamed: "pushNotificationSubscriptionMaxRetries", message: "Renamed in PostHog 4.0. It only ever limited push-notification subscription retries.")
+    var maxRetries: Int {
+        get { pushNotificationSubscriptionMaxRetries }
+        set { pushNotificationSubscriptionMaxRetries = newValue }
+    }
+
     /// Removed in PostHog 4.0. Use `evaluationContexts` instead.
     @available(*, unavailable, renamed: "evaluationContexts", message: "Renamed in PostHog 4.0.")
     var evaluationEnvironments: [String]? {

@@ -333,6 +333,98 @@
         }
     }
 
+    extension PostHogSurveyIntegration {
+        /// Returns next question index
+        /// - Parameters:
+        ///   - survey: The survey which contains the question
+        ///   - questionIndex: The current question index
+        ///   - response: The current question response
+        /// - Returns: The next question `.index()` if found, or `.end` survey reach the end
+        func getNextSurveyStep(
+            survey: PostHogSurvey,
+            questionIndex: Int,
+            response: PostHogSurveyResponse
+        ) -> NextSurveyQuestion {
+            let question = survey.questions[questionIndex]
+            let nextQuestionIndex = min(questionIndex + 1, survey.questions.count - 1)
+
+            guard let branching = question.branching else {
+                return questionIndex == survey.questions.count - 1 ? .end : .index(nextQuestionIndex)
+            }
+
+            switch branching {
+            case .end:
+                return .end
+
+            case let .specificQuestion(index):
+                return .index(min(index, survey.questions.count - 1))
+
+            case let .responseBased(responseValues):
+                return getResponseBasedNextQuestionIndex(
+                    survey: survey,
+                    question: question,
+                    response: response,
+                    responseValues: responseValues
+                ) ?? (questionIndex == survey.questions.count - 1 ? .end : .index(nextQuestionIndex))
+
+            case .next, .unknown:
+                return questionIndex == survey.questions.count - 1 ? .end : .index(nextQuestionIndex)
+            }
+        }
+
+        /// Returns next question index based on response value (from responseValues dictionary)
+        ///
+        /// - Parameters:
+        ///   - survey: The survey which contains the question
+        ///   - question: The current question
+        ///   - response: The response to the current question
+        ///   - responseValues: The response values dictionary
+        /// - Returns: The next index if found in the `responseValues`
+        private func getResponseBasedNextQuestionIndex(
+            survey: PostHogSurvey,
+            question: PostHogSurveyQuestion,
+            response: PostHogSurveyResponse?,
+            responseValues: [String: Any]
+        ) -> NextSurveyQuestion? {
+            guard let response else {
+                hedgeLog("[Surveys] Got response based branching, but missing the actual response.")
+                return nil
+            }
+
+            switch (question, response.type) {
+            case let (.singleChoice(singleChoiceQuestion), .singleChoice):
+                let singleChoiceResponse = response.selectedOptions?.first
+                var responseIndex = singleChoiceQuestion.choices.firstIndex(of: singleChoiceResponse ?? "")
+
+                if responseIndex == nil, singleChoiceQuestion.hasOpenChoice == true {
+                    // if the response is not found in the choices, it must be the open choice, which is always the last choice
+                    responseIndex = singleChoiceQuestion.choices.count - 1
+                }
+
+                if let responseIndex, let nextIndex = responseValues["\(responseIndex)"] {
+                    return processBranchingStep(nextIndex: nextIndex, totalQuestions: survey.questions.count)
+                }
+
+                hedgeLog("[Surveys] Could not find response index for specific question.")
+                return nil
+
+            case let (.rating(ratingQuestion), .rating):
+                if let responseInt = response.ratingValue,
+                   let ratingBucket = getRatingBucketForResponseValue(scale: ratingQuestion.scale, value: responseInt),
+                   let nextIndex = responseValues[ratingBucket]
+                {
+                    return processBranchingStep(nextIndex: nextIndex, totalQuestions: survey.questions.count)
+                }
+                hedgeLog("[Surveys] Could not get response bucket for rating question.")
+                return nil
+
+            default:
+                hedgeLog("[Surveys] Got response based branching for an unsupported question type.")
+                return nil
+            }
+        }
+    }
+
     #if TESTING
         extension PostHogSurveyMatchType {
             var matchFunction: (_ targets: [String], _ value: String) -> Bool {

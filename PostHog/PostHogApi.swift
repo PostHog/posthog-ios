@@ -407,7 +407,8 @@ class PostHogApi {
             json["window_id"] = windowId
         }
         json["options"] = options
-        json["properties"] = properties
+        // Also covers events queued before null properties were dropped at encode time.
+        json["properties"] = droppingNullProperties(properties)
         return json
     }
 

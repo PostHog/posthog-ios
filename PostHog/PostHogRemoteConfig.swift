@@ -509,7 +509,7 @@ class PostHogRemoteConfig {
 
                     // quota-limited /flags carries no config; re-arm from the cached remote config
                     #if os(iOS)
-                        self.processSessionRecordingConfig(nil, featureFlags: cachedFeatureFlags)
+                        self.processSessionRecordingConfig(nil, featureFlags: cachedFeatureFlags, generation: generation)
                     #endif
                     self.processErrorTrackingConfig(nil)
 
@@ -541,7 +541,7 @@ class PostHogRemoteConfig {
 
                 // /flags carries no config; re-arm from the cached remote config
                 #if os(iOS)
-                    self.processSessionRecordingConfig(nil, featureFlags: featureFlags)
+                    self.processSessionRecordingConfig(nil, featureFlags: featureFlags, generation: generation)
                 #endif
                 self.processErrorTrackingConfig(nil)
 
@@ -613,7 +613,10 @@ class PostHogRemoteConfig {
     }
 
     #if os(iOS)
-        private func processSessionRecordingConfig(_ data: [String: Any]?, featureFlags: [String: Any]) {
+        /// `generation` is the reset generation of the `/flags` load that supplied `featureFlags`. It is
+        /// re-checked under `sessionReplayLock`: reset() bumps it before clearing replay state, so a load
+        /// that reset() discarded can't apply the previous identity's linked flag to the new one.
+        private func processSessionRecordingConfig(_ data: [String: Any]?, featureFlags: [String: Any], generation: Int? = nil) {
             let cachedRemoteConfig = remoteConfigLock.withLock { getCachedRemoteConfig() }
             // fall back to the cached remote config (survives reset()) so replay re-arms; only Bool false disables
             var sessionRecording: Any? = data?["sessionRecording"] ?? cachedRemoteConfig?["sessionRecording"]
@@ -627,6 +630,7 @@ class PostHogRemoteConfig {
             var exposureValue: Any?
             if let sessionRecording = sessionRecording as? Bool {
                 sessionReplayLock.withLock {
+                    if let generation, isStaleFeatureFlagsLoad(generation) { return }
                     sessionReplayFlagActive = sessionRecording
                     sessionReplayLinkedFlagConfigured = false
                 }
@@ -635,11 +639,12 @@ class PostHogRemoteConfig {
                 if let endpoint = sessionRecording["endpoint"] as? String {
                     config.snapshotEndpoint = endpoint
                 }
-                let exposure = sessionReplayLock.withLock {
-                    applySessionRecordingConfigLocked(sessionRecording, featureFlags: featureFlags)
+                let exposure = sessionReplayLock.withLock { () -> (flagKey: String?, flagValue: Any?)? in
+                    if let generation, isStaleFeatureFlagsLoad(generation) { return nil }
+                    return applySessionRecordingConfigLocked(sessionRecording, featureFlags: featureFlags)
                 }
-                exposureKey = exposure.flagKey
-                exposureValue = exposure.flagValue
+                exposureKey = exposure?.flagKey
+                exposureValue = exposure?.flagValue
             }
             // `$feature_flag_called` reads replay state under sessionReplayLock. Report after releasing it.
             reportLinkedFlagExposure(flagKey: exposureKey, flagValue: exposureValue)

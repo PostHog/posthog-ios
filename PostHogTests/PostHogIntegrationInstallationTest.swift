@@ -520,6 +520,25 @@ class PostHogIntegrationInstallationTest {
             #expect(exception.properties["crash_time_prop"] as? String == "kept")
             #expect(exception.properties["$exception_list"] != nil)
         }
+
+        #if os(iOS) && !targetEnvironment(macCatalyst) && compiler(>=6.4)
+            @Test("opting out keeps this process's saved context, reduced to the opted-out marker, for a later memory diagnostic")
+            func optOutKeepsMarkedProcessContext() throws {
+                guard #available(iOS 27.0, *) else { return }
+                let sut = getCrashReportingSut()
+                defer { sut.close() }
+                let contextFile = try #require(sut.storage).appFolderUrl
+                    .appendingPathComponent(PostHogProcessContextStore.directoryName)
+                    .appendingPathComponent("\(ProcessInfo.processInfo.processIdentifier).json")
+
+                sut.optOut()
+
+                let saved = try #require(fromJSONData(try Data(contentsOf: contextFile)))
+                #expect(saved[PostHogCrashCustomDataWriter.optedOutKey] as? Bool == true)
+                #expect(saved["distinct_id"] == nil)
+                #expect(saved["event_properties"] == nil)
+            }
+        #endif
     #endif
 
     #if os(iOS) || os(macOS)

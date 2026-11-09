@@ -636,16 +636,19 @@ let maxRetryDelay = 30.0
         )
     }
 
-    /// Adds `process_person_profile: false` when the SDK doesn't process person profiles for this
-    /// event, unless the caller set that option or the legacy `$process_person_profile` property.
-    /// Nothing is added otherwise: PostHog processes person profiles by default. `personProcessingPending`
-    /// counts a person-processing change a wrapper build defers to its send.
-    private func personProcessingOptions(_ options: [String: Any]?, properties: [String: Any], personProcessingPending: Bool = false) -> [String: Any]? {
-        guard !hasPersonProcessing(), !(personProcessingPending && config.personProfiles != .never) else { return options }
+    /// The event's options over the wrapper-registered ones, plus `process_person_profile: false` when
+    /// the SDK doesn't process person profiles for this event, unless an option or the legacy
+    /// `$process_person_profile` property already says otherwise. Nothing is added otherwise: PostHog
+    /// processes person profiles by default. `personProcessingPending` counts a person-processing
+    /// change a wrapper build defers to its send.
+    private func optionsForEvent(_ options: [String: Any]?, properties: [String: Any], personProcessingPending: Bool = false) -> [String: Any]? {
+        let registered = getRegisteredOptions()
+        let merged = registered.isEmpty ? options : registered.merging(options ?? [:]) { _, event in event }
+        guard !hasPersonProcessing(), !(personProcessingPending && config.personProfiles != .never) else { return merged }
         if !isNullValue(properties["$process_person_profile"]) {
-            return options
+            return merged
         }
-        var options = options ?? [:]
+        var options = merged ?? [:]
         if isNullValue(options["process_person_profile"]) {
             options["process_person_profile"] = false
         }
@@ -1049,6 +1052,50 @@ let maxRetryDelay = 30.0
         notifyContextDidChange()
     }
 
+    private func getRegisteredOptions() -> [String: Any] {
+        storage?.getDictionary(forKey: .registerOptions) as? [String: Any] ?? [:]
+    }
+
+    /// For wrapper SDKs only (such as posthog-flutter); not for app code.
+    ///
+    /// Registers capture options sent with every later event, under each event's own options. New values
+    /// overwrite existing ones for the same keys and persist across app restarts until removed with
+    /// `unregisterOptionsForWrapper(_:)` or cleared by `reset()`.
+    @_spi(PostHogInternal) public func registerOptionsForWrapper(_ options: [String: Any]) {
+        if !isEnabled() {
+            return
+        }
+
+        guard let sanitizedOptions = sanitizeDictionary(options) else {
+            return
+        }
+
+        personPropsLock.withLock {
+            let merged = getRegisteredOptions().merging(sanitizedOptions) { _, new in new }
+            storage?.setDictionary(forKey: .registerOptions, contents: merged)
+        }
+
+        // Crash events are sent with the options saved in the crash context.
+        notifyContextDidChange()
+    }
+
+    /// For wrapper SDKs only (such as posthog-flutter); not for app code.
+    ///
+    /// Removes an option registered with `registerOptionsForWrapper(_:)`.
+    @_spi(PostHogInternal) public func unregisterOptionsForWrapper(_ key: String) {
+        if !isEnabled() {
+            return
+        }
+
+        personPropsLock.withLock {
+            var options = getRegisteredOptions()
+            options.removeValue(forKey: key)
+            storage?.setDictionary(forKey: .registerOptions, contents: options)
+        }
+
+        notifyContextDidChange()
+    }
+
     /// Sets the `$app_language` property: the language your app displays, sent with every event.
     ///
     /// Call it at startup and whenever the language changes, because the value is kept in memory only.
@@ -1187,7 +1234,7 @@ let maxRetryDelay = 30.0
                     event: eventName,
                     distinctId: distinctId,
                     properties: properties,
-                    options: personProcessingOptions(sanitizeDictionary(options), properties: properties)
+                    options: optionsForEvent(sanitizeDictionary(options), properties: properties)
                 ) else {
                     return
                 }
@@ -1964,7 +2011,7 @@ let maxRetryDelay = 30.0
         // one saved with their crash context.
         let eventOptions = skipBuildProperties || isSnapshotEvent
             ? sanitizeDictionary(options)
-            : personProcessingOptions(sanitizeDictionary(options), properties: finalProperties, personProcessingPending: forWrapper && hasPersonData)
+            : optionsForEvent(sanitizeDictionary(options), properties: finalProperties, personProcessingPending: forWrapper && hasPersonData)
 
         let posthogEvent = makeEvent(
             event: event,
@@ -2347,7 +2394,7 @@ let maxRetryDelay = 30.0
             event: eventName,
             distinctId: distinctId,
             properties: properties,
-            options: personProcessingOptions(sanitizeDictionary(options), properties: properties),
+            options: optionsForEvent(sanitizeDictionary(options), properties: properties),
             timestamp: Date()
         )
         return PreparedScreen(event: event, screenName: cleaned, screenNameChanged: screenNameChanged)
@@ -2446,7 +2493,7 @@ let maxRetryDelay = 30.0
 
         let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: personProcessingOptions(nil, properties: properties)) else {
+        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: optionsForEvent(nil, properties: properties)) else {
             return
         }
 
@@ -2507,7 +2554,7 @@ let maxRetryDelay = 30.0
             event: eventName,
             distinctId: distinctId,
             properties: properties,
-            options: personProcessingOptions(sanitizeDictionary(options), properties: properties)
+            options: optionsForEvent(sanitizeDictionary(options), properties: properties)
         ) else {
             return
         }
@@ -2578,7 +2625,7 @@ let maxRetryDelay = 30.0
             event: eventName,
             distinctId: distinctId,
             properties: properties,
-            options: personProcessingOptions(sanitizeDictionary(options), properties: properties)
+            options: optionsForEvent(sanitizeDictionary(options), properties: properties)
         ) else {
             return
         }
@@ -4297,7 +4344,7 @@ let maxRetryDelay = 30.0
         if config.disableGeoIp {
             context["event_properties"] = ["$geoip_disable": true]
         }
-        if let options = personProcessingOptions(nil, properties: [:]) {
+        if let options = optionsForEvent(nil, properties: [:]) {
             context["options"] = options
         }
         return context
@@ -4343,8 +4390,8 @@ let maxRetryDelay = 30.0
             "distinct_id": distinctId,
             "event_properties": eventProperties,
         ]
-        // Person processing is an option, not a property (see `personProcessingOptions`).
-        if let options = personProcessingOptions(nil, properties: eventProperties) {
+        // Person processing is an option, not a property (see `optionsForEvent`).
+        if let options = optionsForEvent(nil, properties: eventProperties) {
             context["options"] = options
         }
 

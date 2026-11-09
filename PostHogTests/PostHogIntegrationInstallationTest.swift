@@ -469,6 +469,18 @@ class PostHogIntegrationInstallationTest {
             #expect(after["event_properties"] == nil)
         }
 
+        @Test("closing while opted in leaves the crash context unmarked")
+        func closeWhileOptedInKeepsCrashContext() throws {
+            let sut = getCrashReportingSut()
+            let reporter = try #require(sut.getErrorTrackingIntegration()?.crashReporterForTesting)
+
+            sut.close()
+
+            let after = try crashCustomData(reporter)
+            #expect(after[PostHogCrashCustomDataWriter.optedOutKey] == nil)
+            #expect(after["distinct_id"] != nil)
+        }
+
         @Test("a pending crash report recorded while opted out is dropped on opt-in")
         func optInDropsCrashReportRecordedWhileOptedOut() throws {
             let sut = getCrashReportingSut()

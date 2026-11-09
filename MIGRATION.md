@@ -76,6 +76,8 @@ To mask an exempt image, tag its image view with `ph-no-capture`. `ph-no-capture
 
 Secure-entry text fields now stay masked inside a `.postHogNoMask()` or `ph-no-mask` subtree. If you upgrade from a version before 3.93.1, masking also covers content a masked view draws outside its bounds (unclipped images, layer shadows, button titles) and image attachments in labels and text views when `maskAllImages` is on, with the same UIKit exceptions.
 
+Known limitation: if a masked view sits inside a view backed by your app's own `CALayer` subclass, such as a Lottie animation view, the SDK can't safely read where the masked view is on screen, so it masks the whole window for that frame. Fast scrolling on a screen that holds such a layer may also drop replay frames.
+
 ### Replay screen names
 
 - The screen name shown for a recording comes from the screen that is visible. SwiftUI screens report their view name.
@@ -83,7 +85,7 @@ Secure-entry text fields now stay masked inside a `.postHogNoMask()` or `ph-no-m
 
 `$screen` events are named as in 3.x.
 
-### Feature flag payloads
+### Feature flag payloads and empty variants
 
 - A malformed, empty or whitespace-only payload now reads as `nil` from `getFeatureFlagResult(_:)` and `getAllFeatureFlags()`. In 3.x you got the raw string. The flag's value and enabled state don't change.
 - Bootstrapped string payloads in `PostHogBootstrapConfig.featureFlagPayloads` stay strings. In 3.x, a bootstrapped `"123"` or `"true"` was decoded a second time and read back as a number or `Bool`.
@@ -123,13 +125,13 @@ Feature flags aren't affected: the SDK doesn't send `$locale` or `$app_language`
 
 ## Capture v1
 
-4.0 sends analytics events to capture v1 (`/i/v1/analytics/events`) instead of `/batch`. Most apps upgrade without code changes, and nothing here produces a compile error. Read the checklist first, then the sections that apply to you.
+4.0 sends analytics events to capture v1 (`/i/v1/analytics/events`) instead of `/batch`. Most apps upgrade without code changes, and only the `maxRetries` rename (see [Retries](#retries)) produces a compile error. Read the checklist first, then the sections that apply to you.
 
 For the changes every capture v1 SDK shares, such as event options, limits and per-event results, see [Upgrading to capture v1 SDKs](https://posthog.com/docs/libraries/capture-v1).
 
 ### Checklist
 
-You need to change code if your app does any of these:
+You need to change your code, proxy or PostHog setup if your app does any of these:
 
 - sends events to a self-hosted PostHog or a reverse proxy that doesn't serve `/i/v1/analytics/events`
 - authenticates its proxy with an `Authorization` header in `requestHeaders`
@@ -335,7 +337,7 @@ Removed and renamed APIs fail to build. For most of them Xcode names the replace
 | `config.propertiesSanitizer`, `PostHogPropertiesSanitizer` | `config.setBeforeSend(_:)` (see below) |
 | `config.dataMode = .cellular`<br>ObjC: `PostHogDataModeCellular` | `.any`<br>ObjC: `PostHogDataModeAny`. `PostHogDataMode(rawValue: 1)` now returns `nil`. |
 | `config.maxRetries` | `config.pushNotificationSubscriptionMaxRetries`. It only ever limited push-notification subscription retries. |
-| `config.storageManager`, `PostHogStorageManager` | `identify(_:)`, `getDistinctId()` and `reset()` on `PostHogSDK` |
+| `config.storageManager`, `PostHogStorageManager` | `identify(_:)`, `getDistinctId()`, `getAnonymousId()`, `getDeviceId()` and `reset()` on `PostHogSDK`. There's no public way to supply your own storage manager or set the IDs directly. |
 
 Replacing `propertiesSanitizer`:
 
@@ -411,8 +413,12 @@ PostHogSDK.shared.reloadFeatureFlags { result in
 
 The other callbacks must return right away, so don't read main-actor state in them.
 
-An array of plain closures stored in a variable still works with `setBeforeSend(_:)`, so you don't need to retype it as `[BeforeSendBlock]`.
-In Swift 5 mode, an array literal with a single closure variable, such as `config.setBeforeSend([sanitize])`, fails with "ambiguous use of 'setBeforeSend'". Pass the closure directly instead: `config.setBeforeSend(sanitize)`. The same applies to `config.logs.setBeforeSend(_:)`.
+A closure written inline in the call, such as `config.setBeforeSend { event in ... }`, works in both modes. A closure stored in a variable, or a method reference, depends on the language mode:
+
+- Swift 6 mode: `config.setBeforeSend(sanitize)` fails with "converting non-Sendable function value to '@Sendable ...' may introduce data races". Declare the closure as `BeforeSendBlock` (`let sanitize: BeforeSendBlock = { ... }`), or pass it in an array: `config.setBeforeSend([sanitize])`.
+- Swift 5 mode: `config.setBeforeSend([sanitize])` fails with "ambiguous use of 'setBeforeSend'". Pass the closure directly instead: `config.setBeforeSend(sanitize)`, or declare it as `BeforeSendBlock`.
+
+An array of closures stored in a variable works in both modes, so you don't need to retype it as `[BeforeSendBlock]`. The same applies to `config.logs.setBeforeSend(_:)`, with `PostHogBeforeSendLogBlock`.
 
 ### Internal and utility APIs
 
@@ -420,7 +426,7 @@ These were public only for PostHog's own React Native and Flutter SDKs, or by ac
 
 | 3.x | 4.0 |
 | --- | --- |
-| `PostHogSessionManager` | `getSessionId()`, `startSession()` and `endSession()` on `PostHogSDK` |
+| `PostHogSessionManager` | `getSessionId()`, `startSession()` and `endSession()` on `PostHogSDK`. Custom session IDs (`setSessionId(_:)`) have no public replacement in 4.0. |
 | `postHogSdkName`, `postHogVersion`, `config.snapshotEndpoint` | No longer public. A wrapper SDK that must read or set them can use `@_spi(PostHogInternal) import PostHog`, with no stability guarantees. |
 | ObjC: `[PostHogSessionManager shared]`, `setSessionId:`, `config.snapshotEndpoint` | No longer exposed to Objective-C. `[[PostHogSDK shared] getSessionId]`, `startSession` and `endSession` replace the session calls. |
 | `dateToMillis(_:)`, `imageToBase64(_:_:)` | No longer public. For `dateToMillis(_:)`, use `Int64(date.timeIntervalSince1970 * 1000)`; for `imageToBase64(_:_:)`, copy the code you need into your app. A wrapper SDK can still use both through `@_spi(PostHogInternal) import PostHog`, with no stability guarantees. |
@@ -468,7 +474,7 @@ SwiftPM turns a trait on if any package in your dependency graph depends on post
 - [ ] If your app is SwiftUI-rooted and has replay on, expect recordings to start, and check quota and consent.
 - [ ] Update insights, cohorts and actions that use `version` or `build` on lifecycle events, or `wireframe` in `$sdk_debug_replay_capture_mode`.
 - [ ] Update cohorts, insights and actions that match `$locale`, which now includes the region. Use `$app_language` for the language your app shows, which can also include a region or script, such as `pt-BR`.
-- [ ] Check code that reads feature flag payloads and could get `nil` for a malformed one.
+- [ ] Check code that reads feature flag payloads and could get `nil` for a malformed one, and flags whose variant is an empty string, which now read as disabled.
 - [ ] Work through the [capture v1 checklist](#checklist), especially reverse proxies, self-hosted instances and long distinct IDs.
-- [ ] Fix the compile errors using the tables above, including `reloadFeatureFlags` closures.
-- [ ] If you use package traits, list every trait you want to keep.
+- [ ] Fix the compile errors using the tables above, including `reloadFeatureFlags` closures, `maxRetries`, and `@Sendable` callbacks such as `setBeforeSend` in Swift 6 mode.
+- [ ] If you leave features out with package traits, list every trait you want to keep.

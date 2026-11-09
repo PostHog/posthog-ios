@@ -125,11 +125,13 @@ import Foundation
         )
     }
 
-    func toJSON() -> [String: Any] {
+    /// - Parameter dropNulls: Removes null-valued property members, for the analytics and AI
+    ///   queues. Replay snapshots keep their properties as built.
+    func toJSON(droppingNullProperties dropNulls: Bool = false) -> [String: Any] {
         var json: [String: Any] = [
             "event": event,
             "distinct_id": distinctId,
-            "properties": properties,
+            "properties": dropNulls ? droppingNullProperties(properties) : properties,
             "timestamp": toISO8601String(timestamp),
             "uuid": uuid.postHogUuidString,
         ]

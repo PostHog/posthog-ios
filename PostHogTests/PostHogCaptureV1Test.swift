@@ -1386,3 +1386,159 @@ final class PostHogCaptureAiTest {
         #expect(server.aiRequests.map { server.parsePostHogEvents($0).count } == [1, 1])
     }
 }
+
+/// sdk-specs capture "Capture drops null-valued object properties" and capture-ai "AI capture drops null-valued object properties".
+@Suite("Capture V1 null properties", .serialized, .resetsGlobalState)
+final class PostHogCaptureNullPropertiesTest {
+    private let server: MockPostHogServer
+
+    /// The spec scenario's input, `{"test":null,"nested":{"drop":null},"items":["1",null,2,{"drop":null},[null]],...}`.
+    private static let nullableProperties: [String: Any] = [
+        "test": NSNull(),
+        "nested": ["drop": NSNull()] as [String: Any],
+        "items": ["1", NSNull(), 2, ["drop": NSNull()] as [String: Any], [NSNull()]] as [Any],
+        "empty": "",
+        "zero": 0,
+        "enabled": false,
+        "literal": "null",
+        "emptyArray": [] as [Any],
+    ]
+
+    /// The spec scenario's expected output.
+    private static let cleanedProperties: NSDictionary = [
+        "nested": [String: Any](),
+        "items": ["1", NSNull(), 2, [String: Any](), [NSNull()]] as [Any],
+        "empty": "",
+        "zero": 0,
+        "enabled": false,
+        "literal": "null",
+        "emptyArray": [] as [Any],
+    ]
+
+    init() {
+        deleteSafely(applicationSupportDirectoryURL())
+        server = MockPostHogServer()
+        server.start(batchCount: 0)
+    }
+
+    deinit {
+        server.stop()
+    }
+
+    private func makeSDK(beforeSend: BeforeSendBlock? = nil) -> PostHogSDK {
+        let config = PostHogConfig(projectToken: "phc_null_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.flushAt = 1
+        config.preloadFeatureFlags = false
+        config.sendFeatureFlagEvent = false
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
+        config.captureApplicationLifecycleEvents = false
+        if let beforeSend {
+            config.setBeforeSend(beforeSend)
+        }
+        server.batchProjectToken = config.projectToken
+        return PostHogSDK.with(config)
+    }
+
+    /// The wire properties of the first event in `request`.
+    private func sentProperties(_ request: URLRequest) throws -> [String: Any] {
+        let body = try #require(server.parseRequest(request))
+        let event = try #require((body["batch"] as? [[String: Any]])?.first)
+        return try #require(event["properties"] as? [String: Any])
+    }
+
+    /// The spec payload's keys of `properties`, leaving out SDK properties.
+    private func custom(_ properties: [String: Any]) -> NSDictionary {
+        NSDictionary(dictionary: properties.filter { Self.nullableProperties[$0.key] != nil })
+    }
+
+    @Test("capture omits null-valued properties, keeps null array elements and emptied objects, and leaves falsy values")
+    func captureDropsNullProperties() async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+
+        sut.capture("Nullable Properties", properties: Self.nullableProperties)
+        await waitUntil { self.server.batchRequests.count == 1 }
+
+        let properties = try sentProperties(try #require(server.batchRequests.first))
+        #expect(properties.keys.contains("test") == false)
+        #expect(custom(properties) == Self.cleanedProperties)
+        #expect(properties["$lib"] as? String == postHogSdkName)
+    }
+
+    @Test("captureAi omits null-valued properties on the AI endpoint")
+    func captureAiDropsNullProperties() async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+
+        let uuid = sut.captureAi("$ai_generation", distinctId: "user", properties: Self.nullableProperties)
+        #expect(uuid != nil)
+        await waitUntil { self.server.aiRequests.count == 1 }
+
+        let properties = try sentProperties(try #require(server.aiRequests.first))
+        #expect(properties.keys.contains("test") == false)
+        #expect(custom(properties) == Self.cleanedProperties)
+    }
+
+    @Test("null-valued properties added by beforeSend are omitted")
+    func beforeSendNullsAreOmitted() async throws {
+        let sut = makeSDK { event in
+            event.properties["hookNull"] = NSNull()
+            event.properties["hookItems"] = [NSNull(), ["drop": NSNull()] as [String: Any]] as [Any]
+            return event
+        }
+        defer { sut.close() }
+
+        sut.capture("Hook Properties")
+        await waitUntil { self.server.batchRequests.count == 1 }
+
+        let properties = try sentProperties(try #require(server.batchRequests.first))
+        #expect(properties.keys.contains("hookNull") == false)
+        #expect(properties["hookItems"] as? NSArray == [NSNull(), [String: Any]()] as NSArray)
+    }
+
+    @Test("the analytics and AI queues write events to disk without null-valued properties")
+    func queuesWriteWithoutNullProperties() throws {
+        let api = PostHogApi(PostHogConfig(projectToken: "phc_null", host: "http://localhost:9001"))
+        let event = PostHogEvent(event: "Persisted Properties", distinctId: "user", properties: Self.nullableProperties)
+
+        for endpoint in [QueueEndpoint<PostHogEvent>.batch(api: api), .ai(api: api)] {
+            let data = try #require(endpoint.encode(event))
+            let stored = try #require(fromJSONData(data)?["properties"] as? [String: Any])
+            #expect(stored.keys.contains("test") == false)
+            #expect(custom(stored) == Self.cleanedProperties)
+        }
+    }
+
+    @Test("an event queued with null-valued properties, as older versions stored it, is sent without them")
+    func storedNullPropertiesAreDroppedOnSend() async throws {
+        let api = PostHogApi(PostHogConfig(projectToken: "phc_null", host: "http://localhost:9001"))
+        let event = PostHogEvent(event: "Persisted Properties", distinctId: "user", properties: Self.nullableProperties)
+
+        _ = await withCheckedContinuation { continuation in
+            api.captureV1(events: [event]) { continuation.resume(returning: $0) }
+        }
+
+        let properties = try sentProperties(try #require(server.batchRequests.first))
+        #expect(properties.keys.contains("test") == false)
+        #expect(custom(properties) == Self.cleanedProperties)
+    }
+
+    @Test("null person and group property values in $set, $set_once and $group_set are sent as given")
+    func personAndGroupNullsAreKept() async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+
+        sut.capture("event", userProperties: ["plan": NSNull()], userPropertiesSetOnce: ["first_plan": NSNull()])
+        await waitUntil { self.server.batchRequests.count == 1 }
+        sut.group(type: "company", key: "acme", groupProperties: ["tier": NSNull()])
+        await waitUntil { self.server.batchRequests.count == 2 }
+
+        let properties = try sentProperties(server.batchRequests[0])
+        #expect((properties["$set"] as? [String: Any])?["plan"] is NSNull)
+        #expect((properties["$set_once"] as? [String: Any])?["first_plan"] is NSNull)
+        let groupProperties = try sentProperties(server.batchRequests[1])
+        #expect((groupProperties["$group_set"] as? [String: Any])?["tier"] is NSNull)
+    }
+}

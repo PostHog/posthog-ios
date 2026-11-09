@@ -36,6 +36,7 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - **Breaking:** let `userProperties`, `userPropertiesSetOnce` and `groups` win key by key over `$set`, `$set_once` and `$groups` passed in the same call's properties
 - **Breaking:** rename `maxRetries` to `pushNotificationSubscriptionMaxRetries`
 - **Breaking:** send `$session_id` and `$window_id` as top-level `session_id` and `window_id` fields, and drop a value that isn't a string
+- **Breaking:** omit event properties whose value is `NSNull`, including in nested dictionaries and dictionaries inside arrays, instead of sending them as `null` — `null` array elements and `$set`, `$set_once` and `$group_set` values are still sent
 - **Breaking:** let PostHog drop an event whose name is over 200 UTF-8 bytes, or whose distinct ID is empty or whitespace-only, instead of rejecting the whole batch
 - **Breaking:** retry a capture request that gets a 404 and keep its events queued, with no fallback to `/batch`, and stop retrying 3xx responses
 - **Breaking:** with `debug` on, log capture failures as one line per batch with counts and PostHog's drop reasons, and stop logging each queued event and PostHog's response body — update log-based alerts

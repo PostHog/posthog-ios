@@ -115,6 +115,10 @@ Update cohorts, insights and actions that match `$locale`: a filter on `$locale 
 
 Feature flags aren't affected: the SDK doesn't send `$locale` or `$app_language` with flag requests, so flags only see these if you set them as person properties yourself.
 
+### Null event properties
+
+An event property set to `NSNull()` is now left out of the event instead of being sent as `null`, also inside nested dictionaries and dictionaries in arrays, and also when `beforeSend` sets it. An array keeps a `null` element at its position, and a dictionary left empty is sent as `{}`. `false`, `0`, `""` and empty arrays are sent as before. You can still pass `NSNull()`. To clear a person or group property, `$set`, `$set_once` and `$group_set` still send `null` values. A `$feature_flag_called` event for a flag with no value now has no `$feature_flag_response` instead of `null`.
+
 ### Network reachability
 
 4.0 detects connectivity with `NWPathMonitor`:

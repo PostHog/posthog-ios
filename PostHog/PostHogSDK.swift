@@ -2701,23 +2701,23 @@ let maxRetryDelay = 30.0
         let userPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]
         // Presence, not content: sanitizing can empty a non-empty input (a `UUID` or `Data` value
         // is dropped), and that empty `$set` is still queued, so it needs a marker too.
-        // A personless event doesn't update the person, so it neither marks nor matches a hash.
+        // An update that may be personless never matches a hash, and clears the stored one: PostHog
+        // might still apply it, so a later update back to the previous properties must be sent.
         if event.event == PostHogKnownUnsafeEditableEvent.set.rawValue || event.event == PostHogKnownUnsafeEditableEvent.identify.rawValue,
            userProperties != nil || userPropertiesSetOnce != nil,
-           Self.surelyProcessesPersonProfile(event),
            let storageManager = config.storageManager
         {
-            let hash = getPersonPropertiesHash(
+            let hash = Self.surelyProcessesPersonProfile(event) ? getPersonPropertiesHash(
                 distinctId: event.distinctId,
                 userPropertiesToSet: userProperties,
                 userPropertiesToSetOnce: userPropertiesSetOnce
-            )
+            ) : nil
             // Check and enqueue under the same lock so concurrent calls cannot enqueue duplicates.
             let (isDuplicate, stored) = cachedPersonPropertiesLock.withLock { () -> (Bool, Bool) in
-                if deduplicatePersonProperties, storageManager.getPersonPropertiesHash() == hash {
+                if deduplicatePersonProperties, let hash, storageManager.getPersonPropertiesHash() == hash {
                     return (true, false)
                 }
-                // Only a stored event marks the properties as sent, so a failed write is retried.
+                // Only a stored event updates the hash, so a failed write is retried.
                 let stored = queue.add(event)
                 if stored {
                     storageManager.setPersonPropertiesHash(hash)

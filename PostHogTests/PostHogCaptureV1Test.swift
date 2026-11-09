@@ -808,6 +808,20 @@ final class PostHogCaptureV1OptionsTest {
         #expect(events.last?.options["process_person_profile"] == nil)
     }
 
+    @Test("an update that may be personful clears the stored hash, so going back to the previous properties is sent")
+    func maybePersonfulSetClearsHash() async throws {
+        let sut = makeSDK(personProfiles: .always, flushAt: 3)
+        defer { sut.close() }
+
+        server.reset(batchCount: 1)
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "a"])
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "b"], options: ["process_person_profile": "true"])
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "a"])
+        let events = try await getServerEvents(server)
+
+        #expect(events.compactMap { ($0.properties["$set"] as? [String: Any])?["plan"] as? String } == ["a", "b", "a"])
+    }
+
     @Test("an explicit true option beats a legacy false, so the same properties set later are deduplicated")
     func explicitTrueOptionDeduplicates() async throws {
         let sut = makeSDK(personProfiles: .always, flushAt: 2, beforeSend: Self.editFirstSet {

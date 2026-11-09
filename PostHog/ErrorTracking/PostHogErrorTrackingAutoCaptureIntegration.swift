@@ -121,6 +121,11 @@ import Foundation
                 remoteConfigLoadedToken = nil
                 contextChangedToken = nil
                 exceptionStepsChangedToken = nil
+                // The native handler can't be torn down once enabled, so a crash after opt-out is still
+                // written to disk. Mark the context instead; the next install drops a marked report.
+                if postHog.config.optOut {
+                    crashCustomData?.markOptedOut()
+                }
                 crashCustomData = nil
                 processContextStore?.removeAll()
                 processContextStore = nil
@@ -261,6 +266,11 @@ import Foundation
                     crashSteps = decoded[PostHogExceptionStepFields.stepsKey] as? [[String: Any]] ?? []
                 }
 
+                if savedContext[PostHogCrashCustomDataWriter.optedOutKey] as? Bool == true {
+                    hedgeLog("Crash report dropped: it was recorded while opted out")
+                    return
+                }
+
                 // Extract identity and event properties from saved context
                 let crashDistinctId = savedContext["distinct_id"] as? String
                 let crashEventProperties = savedContext["event_properties"] as? [String: Any] ?? [:]
@@ -301,6 +311,11 @@ import Foundation
         }
     }
 
+    #if TESTING
+        extension PostHogErrorTrackingAutoCaptureIntegration {
+            var crashReporterForTesting: PHPLCrashReporter? { crashReporter }
+        }
+    #endif
 #else
     // watchOS/visionOS stub - crash reporting is not available on these platforms
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {

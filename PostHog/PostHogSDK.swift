@@ -1062,7 +1062,7 @@ let maxRetryDelay = 30.0
     /// Registers capture options sent with every later event, under each event's own options. New values
     /// overwrite existing ones for the same keys and persist across app restarts until removed with
     /// `unregisterOptionsForWrapper(_:)` or cleared by `reset()`.
-    @_spi(PostHogInternal) public func registerOptionsForWrapper(_ options: [String: Any]) {
+    @_spi(PostHogInternal) @objc(registerOptionsForWrapper:) public func registerOptionsForWrapper(_ options: [String: Any]) {
         if !isEnabled() {
             return
         }
@@ -1083,7 +1083,7 @@ let maxRetryDelay = 30.0
     /// For wrapper SDKs only (such as posthog-flutter); not for app code.
     ///
     /// Removes an option registered with `registerOptionsForWrapper(_:)`.
-    @_spi(PostHogInternal) public func unregisterOptionsForWrapper(_ key: String) {
+    @_spi(PostHogInternal) @objc(unregisterOptionsForWrapper:) public func unregisterOptionsForWrapper(_ key: String) {
         if !isEnabled() {
             return
         }

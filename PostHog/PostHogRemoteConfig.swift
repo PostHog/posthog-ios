@@ -68,6 +68,10 @@ class PostHogRemoteConfig {
     // In-memory and reset each launch (matching posthog-js), so a returning user still reports
     // $used_bootstrap_value true while served bootstrap values until this session's own /flags.
     private var flagsLoadedFromRemote = false
+    /// Bumped by `clear()` (on `reset()`) under `featureFlagsLock`. A `/flags` load, or a flags-loaded
+    /// notification, from an earlier generation carries the discarded identity's flags, so it is
+    /// dropped: it doesn't write the cache or reach `onFeatureFlagsLoaded`.
+    private var featureFlagsResetGeneration = 0
 
     private let personPropertiesForFlagsLock = NSLock()
     private var personPropertiesForFlags: [String: Any] = [:]
@@ -305,7 +309,9 @@ class PostHogRemoteConfig {
             return
         }
 
-        let groups = featureFlagsLock.withLock { getGroups() }
+        // Read the generation before the identity: reset() swaps the identity before bumping the
+        // generation, so a load that sees the bumped generation also sees the new identity.
+        let (generation, groups) = featureFlagsLock.withLock { (featureFlagsResetGeneration, getGroups()) }
         let distinctId = storageManager.getDistinctId()
         let anonymousId = config.reuseAnonymousId == false ? storageManager.getAnonymousId() : nil
         let deviceId = storageManager.getDeviceId()
@@ -315,6 +321,7 @@ class PostHogRemoteConfig {
             anonymousId: anonymousId,
             deviceId: deviceId.isEmpty ? nil : deviceId,
             groups: groups,
+            generation: generation,
             callback: callback,
             surveyCompletion: surveyCompletion,
             coalesceWithCurrentRequest: surveyCompletion != nil && callback == nil
@@ -422,10 +429,12 @@ class PostHogRemoteConfig {
         anonymousId: String?,
         deviceId: String? = nil,
         groups: [String: String],
+        generation: Int? = nil,
         callback: ((FeatureFlagsLoadResult) -> Void)? = nil,
         surveyCompletion: (([String: Any]?) -> Void)? = nil,
         coalesceWithCurrentRequest: Bool = false
     ) {
+        let generation = generation ?? featureFlagsLock.withLock { featureFlagsResetGeneration }
         let shouldStart: Bool = loadingFeatureFlagsLock.withLock {
             let requestContext: [String: Any] = [
                 "distinctId": distinctId,
@@ -433,6 +442,7 @@ class PostHogRemoteConfig {
                 "deviceId": deviceId ?? NSNull(),
                 "groups": groups,
                 "evaluationContextVersion": self.featureFlagsEvaluationContextVersion,
+                "resetGeneration": generation,
             ]
             if let surveyCompletion {
                 self.surveyFeatureFlagsWaiters.append(surveyCompletion)
@@ -447,12 +457,18 @@ class PostHogRemoteConfig {
                     // Satisfied by the request already in flight; resolved via surveyFeatureFlagsWaiters.
                     return false
                 }
+                // A request that read its identity before a reset() never replaces the post-reset one.
+                if let pending = self.pendingFeatureFlagsRequest, pending.generation > generation {
+                    self.pendingFeatureFlagsRequest = callback.map { pending.appending($0) } ?? pending
+                    return false
+                }
                 let callbacks = (self.pendingFeatureFlagsRequest?.callbacks ?? []) + [callback].compactMap { $0 }
                 self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
                     distinctId: distinctId,
                     anonymousId: anonymousId,
                     deviceId: deviceId,
                     groups: groups,
+                    generation: generation,
                     callbacks: callbacks
                 )
                 return false
@@ -474,6 +490,12 @@ class PostHogRemoteConfig {
                   groupProperties: groupProperties.isEmpty ? nil : groupProperties)
         { data, _ in
             self.dispatchQueue.async {
+                // reset() ran while this request was in flight: drop the previous identity's response.
+                if self.isStaleFeatureFlagsLoad(generation) {
+                    self.releaseStaleFeatureFlagsLoad(callback: callback)
+                    return
+                }
+
                 // Check for quota limitation first
                 if let quotaLimited = data?["quotaLimited"] as? [String],
                    quotaLimited.contains("feature_flags")
@@ -491,7 +513,7 @@ class PostHogRemoteConfig {
                     #endif
                     self.processErrorTrackingConfig(nil)
 
-                    self.notifyFeatureFlagsAndRelease(cachedFeatureFlags)
+                    self.notifyFeatureFlagsAndRelease(cachedFeatureFlags, generation: generation)
                     callback?(FeatureFlagsLoadResult(featureFlags: cachedFeatureFlags, lastKnownFeatureFlags: cachedFeatureFlags))
                     return
                 }
@@ -500,7 +522,7 @@ class PostHogRemoteConfig {
                 guard var data = data else {
                     hedgeLog("Error: Flags response data is nil")
                     let result = self.failedLoadResult()
-                    self.notifyFeatureFlagsAndRelease(nil)
+                    self.notifyFeatureFlagsAndRelease(nil, generation: generation)
                     callback?(result)
                     return
                 }
@@ -514,7 +536,7 @@ class PostHogRemoteConfig {
                 else {
                     hedgeLog("Error: Flags response missing correct featureFlags format")
                     let result = self.failedLoadResult()
-                    self.notifyFeatureFlagsAndRelease(nil)
+                    self.notifyFeatureFlagsAndRelease(nil, generation: generation)
                     callback?(result)
                     return
                 }
@@ -531,7 +553,10 @@ class PostHogRemoteConfig {
                 let errorsWhileComputingFlags = data["errorsWhileComputingFlags"] as? Bool ?? false
                 var loadedFeatureFlags: [String: Any]?
 
-                self.featureFlagsLock.withLock {
+                let isStale = self.featureFlagsLock.withLock { () -> Bool in
+                    // Re-checked under the cache lock, so a reset() since the check above can't be undone.
+                    guard self.featureFlagsResetGeneration == generation else { return true }
+
                     if let requestId {
                         self.setCachedRequestId(requestId)
                     }
@@ -575,9 +600,15 @@ class PostHogRemoteConfig {
                     // from remote. $used_bootstrap_value is a global "a remote response has been
                     // received" marker, set after any 200 (matches posthog-js), not per-key.
                     self.setFlagsLoadedFromRemoteLocked()
+                    return false
                 }
 
-                self.notifyFeatureFlagsAndRelease(loadedFeatureFlags)
+                if isStale {
+                    self.releaseStaleFeatureFlagsLoad(callback: callback)
+                    return
+                }
+
+                self.notifyFeatureFlagsAndRelease(loadedFeatureFlags, generation: generation)
                 callback?(FeatureFlagsLoadResult(featureFlags: loadedFeatureFlags, lastKnownFeatureFlags: loadedFeatureFlags ?? [:]))
             }
         }
@@ -786,8 +817,11 @@ class PostHogRemoteConfig {
     }
 
     /// `nil` reports a failed load. Bootstrap notifications leave the latest load outcome unchanged.
-    private func notifyFeatureFlags(_ featureFlags: [String: Any]?, isBootstrap: Bool = false) {
+    private func notifyFeatureFlags(_ featureFlags: [String: Any]?, isBootstrap: Bool = false, generation: Int? = nil) {
+        let generation = generation ?? featureFlagsLock.withLock { featureFlagsResetGeneration }
         DispatchQueue.main.async {
+            // A reset() since this was sent discarded these flags; the post-reset load notifies instead.
+            guard !self.isStaleFeatureFlagsLoad(generation) else { return }
             if !isBootstrap {
                 self.latestFeatureFlagsLoadFailed = featureFlags == nil
             }
@@ -801,32 +835,67 @@ class PostHogRemoteConfig {
         return FeatureFlagsLoadResult(featureFlags: nil, lastKnownFeatureFlags: cached)
     }
 
-    private func notifyFeatureFlagsAndRelease(_ featureFlags: [String: Any]?) {
-        let (pending, surveyWaiters): (PendingFeatureFlagsRequest?, [([String: Any]?) -> Void]) = loadingFeatureFlagsLock.withLock {
+    private func isStaleFeatureFlagsLoad(_ generation: Int) -> Bool {
+        featureFlagsLock.withLock { featureFlagsResetGeneration != generation }
+    }
+
+    /// Ends a load that reset() discarded without writing the cache or notifying listeners. Its callback
+    /// is moved onto the queued post-reset load, so the caller gets that load's result instead.
+    private func releaseStaleFeatureFlagsLoad(callback: ((FeatureFlagsLoadResult) -> Void)?) {
+        hedgeLog("Dropping a feature flags response requested before reset()")
+        let (pending, surveyWaiters) = takeNextFeatureFlagsLoad(staleCallback: callback)
+        if let pending {
+            startPendingFeatureFlagsLoad(pending)
+        } else {
+            for waiter in surveyWaiters {
+                waiter(nil)
+            }
+            callback?(failedLoadResult())
+        }
+    }
+
+    /// Marks the current load finished and takes the queued one, if any. Without a queued load it
+    /// takes the survey waiters instead. A `staleCallback` is appended to the queued load's callbacks.
+    private func takeNextFeatureFlagsLoad(
+        staleCallback: ((FeatureFlagsLoadResult) -> Void)? = nil
+    ) -> (PendingFeatureFlagsRequest?, [([String: Any]?) -> Void]) {
+        loadingFeatureFlagsLock.withLock {
             self.loadingFeatureFlags = false
             self.activeFeatureFlagsRequestContext = nil
-            let req = self.pendingFeatureFlagsRequest
+            var req = self.pendingFeatureFlagsRequest
+            if let pending = req, let staleCallback {
+                req = pending.appending(staleCallback)
+            }
             self.pendingFeatureFlagsRequest = nil
             guard req == nil else { return (req, []) }
             let waiters = self.surveyFeatureFlagsWaiters
             self.surveyFeatureFlagsWaiters = []
             return (nil, waiters)
         }
+    }
+
+    private func startPendingFeatureFlagsLoad(_ pending: PendingFeatureFlagsRequest) {
+        loadFeatureFlags(
+            distinctId: pending.distinctId,
+            anonymousId: pending.anonymousId,
+            deviceId: pending.deviceId,
+            groups: pending.groups,
+            generation: pending.generation,
+            callback: { result in pending.callbacks.forEach { $0(result) } }
+        )
+    }
+
+    private func notifyFeatureFlagsAndRelease(_ featureFlags: [String: Any]?, generation: Int) {
+        let (pending, surveyWaiters) = takeNextFeatureFlagsLoad()
 
         if let pending {
-            loadFeatureFlags(
-                distinctId: pending.distinctId,
-                anonymousId: pending.anonymousId,
-                deviceId: pending.deviceId,
-                groups: pending.groups,
-                callback: { result in pending.callbacks.forEach { $0(result) } }
-            )
+            startPendingFeatureFlagsLoad(pending)
         } else {
             for waiter in surveyWaiters {
                 waiter(featureFlags)
             }
         }
-        notifyFeatureFlags(featureFlags)
+        notifyFeatureFlags(featureFlags, generation: generation)
     }
 
     func getFeatureFlags() -> [String: Any]? {
@@ -1245,6 +1314,8 @@ class PostHogRemoteConfig {
             bootstrappedFlags = [:]
             bootstrappedPayloads = [:]
             flagsLoadedFromRemote = false
+            // Drop any /flags load still in flight for the previous identity (see loadFeatureFlags).
+            featureFlagsResetGeneration += 1
         }
 
         sessionReplayLock.withLock {
@@ -1323,7 +1394,20 @@ private struct PendingFeatureFlagsRequest {
     let anonymousId: String?
     let deviceId: String?
     let groups: [String: String]
+    /// The reset generation read with this identity, so a reset() before the load starts drops it.
+    let generation: Int
     let callbacks: [(FeatureFlagsLoadResult) -> Void]
+
+    func appending(_ callback: @escaping (FeatureFlagsLoadResult) -> Void) -> PendingFeatureFlagsRequest {
+        PendingFeatureFlagsRequest(
+            distinctId: distinctId,
+            anonymousId: anonymousId,
+            deviceId: deviceId,
+            groups: groups,
+            generation: generation,
+            callbacks: callbacks + [callback]
+        )
+    }
 }
 
 /// The outcome of one feature flags load, captured once when it completes so every coalesced

@@ -59,3 +59,4 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - Print a warning, also without `debug`, when `setup` leaves the SDK disabled because `projectToken` is empty or a personal API key
 - Fix session replay recording nothing for apps whose window root is a SwiftUI view
 - Fix secure-entry text fields being unmasked inside a `postHogNoMask()` or `ph-no-mask` subtree
+- Fix `onFeatureFlags` listeners and flag getters briefly getting the previous user's flags when a flag load was in flight during `reset()`

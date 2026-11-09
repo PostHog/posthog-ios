@@ -23,15 +23,16 @@
         private let kSurveyResponseKey = "$survey_response"
 
         var postHog: PostHogSDK?
-        private var config: PostHogConfig? { postHog?.config }
+        var config: PostHogConfig? { postHog?.config }
         private var storage: PostHogStorage? { postHog?.storage }
         private var remoteConfig: PostHogRemoteConfig? { postHog?.remoteConfig }
 
         private var allSurveysLock = NSLock()
         private var allSurveys: [PostHogSurvey]?
 
-        private var eventsToSurveysLock = NSLock()
-        private var eventsToSurveys: [String: [(surveyId: String, condition: PostHogEventCondition)]] = [:]
+        var eventsToSurveysLock = NSLock()
+        var eventsToSurveys: [String: [(surveyId: String, condition: PostHogEventCondition)]] = [:]
+        var cancelEventsToSurveys: [String: [(surveyId: String, condition: PostHogEventCondition)]] = [:]
 
         let eventActivatedSurveysLock = NSLock()
         var eventActivatedSurveys: [String: [PostHogEventCondition]] = [:]
@@ -51,9 +52,9 @@
         var remoteConfigLoadedToken: RegistrationToken?
         var featureFlagsLoadedToken: RegistrationToken?
 
-        private var activeSurveyLock = NSLock()
-        private var activeSurvey: PostHogSurvey?
-        private var activeSurveyAttemptId: UUID?
+        var activeSurveyLock = NSLock()
+        var activeSurvey: PostHogSurvey?
+        var activeSurveyAttemptId: UUID?
         private var activeSurveyGeneration: String?
         /// Whether the delegate reported this attempt on screen. A survey closed before then (for example
         /// while its popup delay runs) was never shown, so it is not marked seen or reported dismissed.
@@ -76,6 +77,7 @@
         private var activeSurveyResponseQuestionText: [String: String] = [:]
         private var activeSurveyCompleted: Bool = false
         private var activeSurveyQuestionIndex: Int = 0
+        var activeSurveyWasShown: Bool = false
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
             installIfNeeded(using: Self.integrationInstallState) {
@@ -180,6 +182,7 @@
         }
 
         private func onEvent(event: PostHogEvent) {
+            cancelSurveys(matching: event)
             let candidates = eventsToSurveysLock.withLock { eventsToSurveys[event.event] } ?? []
             guard !candidates.isEmpty else { return }
 
@@ -266,10 +269,11 @@
 
         func updateSurveyCache(
             _ surveys: [PostHogSurvey],
-            events: [String: [(surveyId: String, condition: PostHogEventCondition)]]
+            events: [String: [(surveyId: String, condition: PostHogEventCondition)]],
+            cancelEvents: [String: [(surveyId: String, condition: PostHogEventCondition)]] = [:]
         ) {
             allSurveysLock.withLock { allSurveys = surveys }
-            eventsToSurveysLock.withLock { eventsToSurveys = events }
+            storeSurveyEvents(events, cancelEvents: cancelEvents)
             reconcileEventActivations(with: surveys)
             progressStore?.reconcile(surveys)
         }
@@ -481,7 +485,7 @@
 
         /// Checks if the given event properties satisfy all property filters.
         /// Returns true if propertyFilters is nil or empty (no filters = match all).
-        private func matchPropertyFilters(
+        func matchPropertyFilters(
             _ propertyFilters: [String: PostHogPropertyFilter]?,
             eventProperties: [String: Any]
         ) -> Bool {
@@ -545,6 +549,7 @@
                 if activeSurvey.hasEvents {
                     eventActivatedSurveysLock.withLock { _ = eventActivatedSurveys.removeValue(forKey: activeSurvey.id) }
                 }
+                activeSurveyWasShown = true
                 return (activeSurvey, generation)
             }
             guard let shown else { return }
@@ -653,7 +658,7 @@
         }
 
         /// Handle a survey dismiss
-        private func handleSurveyClosed(survey: PostHogDisplaySurvey, attemptId: UUID?) {
+        func handleSurveyClosed(survey: PostHogDisplaySurvey, attemptId: UUID?) {
             let capture: (() -> Void)? = withActiveSurveyAttempt(attemptId) { generation in
                 let activeSurvey = self.activeSurvey
                 let completed = activeSurveyCompleted
@@ -924,7 +929,9 @@
             #endif
         }
 
-        private func clearActiveSurvey() {
+        // Internal so the cancel-event extension, in another file, can drop a survey that was
+        // never rendered. `private` would hide it from that file.
+        func clearActiveSurvey() {
             activeSurveyLock.withLock { clearActiveSurveyLocked() }
         }
 
@@ -944,6 +951,7 @@
             activeSurveyResponseQuestionText = [:]
             activeSurveyResponseLanguage = nil
             activeSurveyQuestionIndex = 0
+            activeSurveyWasShown = false
         }
 
         private func resolveDisplayLanguage() -> String? {

@@ -7,6 +7,12 @@
 
 #if os(iOS)
     import UIKit
+
+    enum SurveyPresentationCancel {
+        case notPresented
+        case cancelledPending
+        case dismissed
+    }
 #else
     import Foundation
 #endif
@@ -135,6 +141,23 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
 
             pendingDisplayWorkItem = workItem
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+        }
+
+        /// Cancel a survey that is waiting out its display delay, or dismiss one already on screen.
+        /// A pending cancel does not call the closed handler: the survey never rendered.
+        func cancelSurveyIfPresented(_ surveyId: String) -> SurveyPresentationCancel {
+            if pendingSurvey?.id == surveyId {
+                pendingDisplayWorkItem?.cancel()
+                pendingDisplayWorkItem = nil
+                pendingSurvey = nil
+                pendingSurveyClosedHandler = nil
+                return .cancelledPending
+            }
+            if #available(iOS 15.0, *), displayController?.displayedSurvey?.id == surveyId {
+                displayController?.dismissSurvey()
+                return .dismissed
+            }
+            return .notPresented
         }
 
         private func dismissPendingSurveyIfNeeded() {

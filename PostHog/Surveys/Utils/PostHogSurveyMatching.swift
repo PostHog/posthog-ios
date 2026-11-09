@@ -55,18 +55,24 @@
             let loadedSurveys: [PostHogSurvey] = decodeSurveys(from: remoteConfig)
             guard beforeCacheUpdate?(loadedSurveys) != false else { return }
 
-            let eventMap = loadedSurveys.reduce(into: [String: [(surveyId: String, condition: PostHogEventCondition)]]()) { result, current in
-                if let surveyEvents = current.conditions?.events?.values {
-                    for eventCondition in surveyEvents {
-                        result[eventCondition.name, default: []].append(
-                            (surveyId: current.id, condition: eventCondition)
-                        )
-                    }
+            let eventMap = eventConditionsByName(in: loadedSurveys) { $0.conditions?.events?.values }
+            let cancelMap = eventConditionsByName(in: loadedSurveys) { $0.conditions?.cancelEvents?.values }
+
+            updateSurveyCache(loadedSurveys, events: eventMap, cancelEvents: cancelMap)
+            callback(loadedSurveys)
+        }
+
+        private func eventConditionsByName(
+            in surveys: [PostHogSurvey],
+            values: (PostHogSurvey) -> [PostHogEventCondition]?
+        ) -> [String: [(surveyId: String, condition: PostHogEventCondition)]] {
+            surveys.reduce(into: [:]) { result, survey in
+                for eventCondition in values(survey) ?? [] {
+                    result[eventCondition.name, default: []].append(
+                        (surveyId: survey.id, condition: eventCondition)
+                    )
                 }
             }
-
-            updateSurveyCache(loadedSurveys, events: eventMap)
-            callback(loadedSurveys)
         }
 
         func decodeSurveys(from remoteConfig: [String: Any]) -> [PostHogSurvey] {

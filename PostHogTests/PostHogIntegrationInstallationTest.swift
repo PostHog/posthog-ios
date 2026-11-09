@@ -9,7 +9,7 @@
 import Testing
 import XCTest
 
-#if os(iOS) || os(macOS) || os(tvOS)
+#if (os(iOS) || os(macOS) || os(tvOS)) && (!SWIFT_PACKAGE || CrashReporting)
     import PHPLCrashReporter
 #endif
 

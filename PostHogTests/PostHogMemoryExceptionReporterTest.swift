@@ -90,6 +90,17 @@ import Testing
             return try! JSONSerialization.data(withJSONObject: json)
         }
 
+        @available(iOS 27.0, *)
+        private static func memoryException(end: Date) throws -> (MemoryExceptionDiagnostic, DiagnosticReport) {
+            let report = try JSONDecoder().decode(DiagnosticReport.self, from: reportJSON(end: end))
+            guard case let .memoryException(diagnostic) = report.result else {
+                throw TestError.unexpectedResult("\(report.result)")
+            }
+            return (diagnostic, report)
+        }
+
+        private enum TestError: Error { case unexpectedResult(String) }
+
         @Test("captures an OutOfMemory $exception in the killed process's session")
         func capturesInKilledSession() throws {
             guard #available(iOS 27.0, *) else { return }
@@ -102,11 +113,7 @@ import Testing
                 PostHogExceptionStepFields.stepsKey: [[PostHogExceptionStepFields.message: "opened gallery"]],
             ]))
 
-            let report = try JSONDecoder().decode(DiagnosticReport.self, from: Self.reportJSON(end: Date().addingTimeInterval(60)))
-            guard case let .memoryException(diagnostic) = report.result else {
-                Issue.record("expected a memory exception, got \(report.result)")
-                return
-            }
+            let (diagnostic, report) = try Self.memoryException(end: Date().addingTimeInterval(60))
             PostHogMemoryExceptionReporter(postHog: sut, contextStore: store).capture(diagnostic, report: report)
 
             let event = try #require(getBatchedEvents(server).first { $0.event == "$exception" })
@@ -132,17 +139,37 @@ import Testing
             sut.close()
         }
 
+        @Test("drops a report whose saved context was recorded while opted out")
+        func dropsReportRecordedWhileOptedOut() throws {
+            guard #available(iOS 27.0, *) else { return }
+            let sut = getSut()
+            let store = PostHogProcessContextStore(directory: directory, currentPid: Self.killedPid)
+            store.write(try JSONSerialization.data(withJSONObject: [
+                PostHogCrashCustomDataWriter.optedOutKey: true,
+                PostHogExceptionStepFields.stepsKey: [],
+            ]))
+
+            let (diagnostic, report) = try Self.memoryException(end: Date().addingTimeInterval(60))
+            PostHogMemoryExceptionReporter(postHog: sut, contextStore: store).capture(diagnostic, report: report)
+
+            // Any `$exception` would be queued, and flushed, before this event.
+            sut.capture("after report")
+            let events = getBatchedEvents(server)
+            #expect(events.contains { $0.event == "after report" })
+            #expect(!events.contains { $0.event == "$exception" })
+            #expect(store.takeContext(pid: Self.killedPid, notAfter: .distantFuture) == nil)
+
+            sut.reset()
+            sut.close()
+        }
+
         @Test("without a saved context, still captures with device, SDK and app version properties")
         func capturesWithoutContext() throws {
             guard #available(iOS 27.0, *) else { return }
             let sut = getSut()
             let store = PostHogProcessContextStore(directory: directory, currentPid: 1)
 
-            let report = try JSONDecoder().decode(DiagnosticReport.self, from: Self.reportJSON(end: Date()))
-            guard case let .memoryException(diagnostic) = report.result else {
-                Issue.record("expected a memory exception")
-                return
-            }
+            let (diagnostic, report) = try Self.memoryException(end: Date())
             PostHogMemoryExceptionReporter(postHog: sut, contextStore: store).capture(diagnostic, report: report)
 
             let event = try #require(getBatchedEvents(server).first { $0.event == "$exception" })

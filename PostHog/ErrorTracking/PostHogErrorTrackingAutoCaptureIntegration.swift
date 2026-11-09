@@ -116,8 +116,16 @@ import Foundation
                 remoteConfigLoadedToken = nil
                 contextChangedToken = nil
                 exceptionStepsChangedToken = nil
+                // The native handler can't be torn down once enabled, so a crash after opt-out is still
+                // written to disk. Mark the context instead; the next install drops a marked report.
+                if postHog.config.optOut {
+                    crashCustomData?.markOptedOut()
+                    // Keep the saved context: its marker is what drops this process's memory diagnostic on a later launch.
+                    processContextStore?.close()
+                } else {
+                    processContextStore?.removeAll()
+                }
                 crashCustomData = nil
-                processContextStore?.removeAll()
                 processContextStore = nil
                 crashReporter = nil
                 self.postHog = nil
@@ -256,6 +264,11 @@ import Foundation
                     crashSteps = decoded[PostHogExceptionStepFields.stepsKey] as? [[String: Any]] ?? []
                 }
 
+                if savedContext[PostHogCrashCustomDataWriter.optedOutKey] as? Bool == true {
+                    hedgeLog("Crash report dropped: it was recorded while opted out")
+                    return
+                }
+
                 // Steps alone don't count as a saved context: customData always carries the steps key.
                 if savedContext["event_properties"] == nil {
                     savedContext.merge(postHog.crashContextFallback()) { _, fallback in fallback }
@@ -302,6 +315,11 @@ import Foundation
         }
     }
 
+    #if TESTING
+        extension PostHogErrorTrackingAutoCaptureIntegration {
+            var crashReporterForTesting: PHPLCrashReporter? { crashReporter }
+        }
+    #endif
 #else
     // Stub for watchOS/visionOS, where crash reporting is not available, and for SPM builds
     // with the `CrashReporting` trait disabled, where PHPLCrashReporter is not linked.

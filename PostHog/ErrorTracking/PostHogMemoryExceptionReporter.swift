@@ -46,6 +46,12 @@ import Foundation
         func capture(_ diagnostic: MemoryExceptionDiagnostic, report: DiagnosticReport) {
             guard let postHog else { return }
 
+            let saved = report.environment.pid.flatMap { contextStore.takeContext(pid: $0, notAfter: report.timeRange.end) }
+            if saved?[PostHogCrashCustomDataWriter.optedOutKey] as? Bool == true {
+                hedgeLog("Memory exception report dropped: it was recorded while opted out")
+                return
+            }
+
             var properties = PostHogMemoryExceptionProcessor.processFrames(
                 Self.frames(from: diagnostic.callStackTree),
                 config: postHog.config.errorTrackingConfig
@@ -53,9 +59,7 @@ import Foundation
 
             var distinctId: String?
             var options: [String: Any]?
-            if let pid = report.environment.pid,
-               let saved = contextStore.takeContext(pid: pid, notAfter: report.timeRange.end)
-            {
+            if let saved {
                 distinctId = saved["distinct_id"] as? String
                 options = saved["options"] as? [String: Any]
                 let eventProperties = saved["event_properties"] as? [String: Any] ?? [:]

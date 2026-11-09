@@ -642,7 +642,8 @@ let maxRetryDelay = 30.0
     /// processes person profiles by default. `personProcessingPending` counts a person-processing
     /// change a wrapper build defers to its send.
     private func optionsForEvent(_ options: [String: Any]?, properties: [String: Any], personProcessingPending: Bool = false) -> [String: Any]? {
-        let registered = getRegisteredOptions()
+        // Storage writes aren't atomic, so a read racing a registration could see a partial file.
+        let registered = personPropsLock.withLock { getRegisteredOptions() }
         let merged = registered.isEmpty ? options : registered.merging(options ?? [:]) { _, event in event }
         guard !hasPersonProcessing(), !(personProcessingPending && config.personProfiles != .never) else { return merged }
         if !isNullValue(properties["$process_person_profile"]) {

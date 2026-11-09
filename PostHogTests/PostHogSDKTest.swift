@@ -890,7 +890,7 @@ final class PostHogSDKTests {
         #expect(events.count == 1)
         #expect(event.event == "$feature_flag_called")
         #expect(event.properties["$feature_flag"] as? String == "missing")
-        #expect(event.properties["$feature_flag_response"] is NSNull)
+        #expect(event.properties.keys.contains("$feature_flag_response") == false)
 
         sut.reset()
         sut.close()

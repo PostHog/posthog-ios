@@ -913,7 +913,7 @@
                 guard cancelled else { return }
                 let cancelDisplay = { [weak self] in
                     // A newer attempt rendered since reset has already replaced the pending display.
-                    guard let self, self.canShowNextSurvey(), let delegate = self.config?.surveysConfig.surveysDelegate else { return }
+                    guard let self, self.canShowNextSurvey(), let delegate = self.config?._surveysConfig.surveysDelegate else { return }
                     if let defaultDelegate = delegate as? PostHogSurveysDefaultDelegate {
                         defaultDelegate.cancelPendingSurvey()
                     } else {

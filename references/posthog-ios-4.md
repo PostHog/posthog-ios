@@ -133,6 +133,12 @@ tableOfContents:
 ## Getting started
 
 
+The iOS SDK runs in iOS and other Apple platform apps.
+
+To send your first event, add the package, then call `setup` once at app startup with your project token and host from your [project settings](https://app.posthog.com/project/settings).
+
+After `setup`, PostHog captures app lifecycle events, such as `Application Opened`, by itself. Use `capture` for your own events.
+
 ### Install
 
 PostHog 4.x is published with Swift Package Manager only. In Xcode, choose **File > Add Package Dependencies…** and enter `https://github.com/PostHog/posthog-ios`, or add it to your `Package.swift`:

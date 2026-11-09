@@ -1,5 +1,12 @@
 ## Next
 
+## 3.94.1
+
+### Patch Changes
+
+- 9e17a63: A crash report written by the native crash reporter after `optOut()` is no longer sent as `$exception` after the next `optIn()`. The native crash handler cannot be removed once installed, so at opt-out the SDK replaces the crash context with an opted-out marker and drops a pending report that carries it. A crash recorded while opted in is still delivered after `optIn()`. Reports written by SDK versions before this change carry no marker and are still sent. Out-of-memory terminations reported through MetricKit on iOS 27 are not covered by this change.
+- 9e17a63: On iOS 27+, an out-of-memory termination recorded after `optOut()` is no longer sent as `$exception` after the next `optIn()`. One from a session that was opted in is still delivered, and one with no saved context carries no consent signal and is still sent.
+
 ## 3.94.0
 
 ### Minor Changes

@@ -6,21 +6,13 @@
     ///
     /// The mask walk measures views where they sit. A portal that shows its source in place puts its pixels there
     /// too; one that shows it at its own position (SwiftUI's Liquid Glass text) puts them where the portal is, so the
-    /// masks found under the source are moved there with the same map the mirror placed the pixels with.
+    /// whole portal is masked unless the source is shown to be clean.
     struct PostHogPortalSource {
         let view: UIView
-        /// Set when the portal shows the source somewhere other than where it sits.
-        let elsewhere: Elsewhere?
-        /// False when the portal was walked first and hides the source, so no copy of it is drawn where it sits.
-        var hasInPlaceCopy = true
-
-        struct Elsewhere {
-            /// Maps window points where the source sits to where the portal shows them; nil when that couldn't be
-            /// computed, which masks the whole portal instead.
-            let map: CGAffineTransform?
-            /// The portal's bounds in window coordinates.
-            let portalRect: CGRect
-        }
+        let portal: CALayer
+        /// The portal's bounds in window coordinates, set when the portal shows the source somewhere other than where
+        /// it sits.
+        let portalRect: CGRect?
 
         /// How a portal places its source's subtree, or nil for a portal the mirror leaves out.
         enum Placement {
@@ -31,13 +23,17 @@
         }
 
         /// Only portals from the capturing window's render context, which are both matched or both unmatched in
-        /// position and transform, are drawn: what the others show can't be placed with certainty. `root` is the
-        /// window's layer.
+        /// position and transform, are drawn: what the others show can't be placed with certainty. A matched portal is
+        /// also left out when its own or the source's superlayer transforms or flips its sublayers, when either's place
+        /// can only be read from a moving model, or when the placement isn't affine. `root` is the window's layer.
         static func placement(of portal: CALayer, source: CALayer, root: CALayer) -> Placement? {
             guard isWindowContext(portal, root: root), let superlayer = source.superlayer else { return nil }
             switch (portal.value(forKey: "matchesPosition") as? Bool, portal.value(forKey: "matchesTransform") as? Bool) {
             case (true, true):
-                return affineTransform(from: superlayer, to: portal).map(Placement.inPlace)
+                // `convert` leaves out what the superlayer applies to its sublayers, which the mask rects include, and
+                // what the portal applies to its own, which the portal's copy applies again.
+                guard !transformsSublayers(superlayer), !transformsSublayers(portal) else { return nil }
+                return inPlaceTransform(from: superlayer, to: portal).map(Placement.inPlace)
             case (false, false):
                 return .atPortal
             default:
@@ -45,25 +41,25 @@
             }
         }
 
-        /// Where an `.atPortal` portal shows `source`, for the mask walk. `root` is the window's layer. Measured on the
-        /// presentation tree, as the mirror draws it and the mask rects are measured (mid-animation the model layers
-        /// already sit at the destination), unless one of the layers can't be asked for its presentation copy.
-        static func elsewhere(source: CALayer, portal: CALayer, root: CALayer) -> Elsewhere {
-            let layers = [source, portal, root]
-            guard layers.allSatisfy({ PostHogGPUMirrorCapture.isPresentationSafe(type(of: $0)) }) else {
-                return measure(source: source, portal: portal, root: root)
-            }
-            let presented = layers.map { $0.presentation() ?? $0 }
-            return measure(source: presented[0], portal: presented[1], root: presented[2])
+        private static func transformsSublayers(_ layer: CALayer) -> Bool {
+            let presented = PostHogGPUMirrorCapture.isPresentationSafe(type(of: layer)) ? layer.presentation() : nil
+            return [layer, presented].compactMap { $0 }.contains { !CATransform3DIsIdentity($0.sublayerTransform) || $0.isGeometryFlipped }
         }
 
-        private static func measure(source: CALayer, portal: CALayer, root: CALayer) -> Elsewhere {
-            let offset = CGPoint(x: portal.bounds.minX - source.bounds.minX, y: portal.bounds.minY - source.bounds.minY)
-            func move(_ point: CGPoint) -> CGPoint {
-                let inSource = source.convert(point, from: root)
-                return root.convert(CGPoint(x: inSource.x + offset.x, y: inSource.y + offset.y), from: portal)
+        /// Measured where each layer is presented, as the mirror draws the source's subtree and the mask rects are
+        /// measured. Nil when that place is read from a moving model (see `CALayer.presentationAnchor`).
+        private static func inPlaceTransform(from superlayer: CALayer, to portal: CALayer) -> CGAffineTransform? {
+            guard let from = superlayer.presentationAnchor(), !from.isMoving, let to = portal.presentationAnchor(), !to.isMoving else { return nil }
+            return affineTransform { point in
+                portal.convert(to.presented.convert(superlayer.convert(point, to: from.layer), from: from.presented), from: to.layer)
             }
-            return Elsewhere(map: affineTransform { move($0) }, portalRect: root.convert(portal.bounds, from: portal))
+        }
+
+        /// An `.atPortal` portal's bounds in window coordinates, for the mask walk. `root` is the window's layer.
+        /// Measured on the presentation tree, as the mirror draws it and the mask rects are measured (mid-animation the
+        /// model layers already sit at the destination).
+        static func portalRect(of portal: CALayer, root: CALayer) -> CGRect {
+            portal.presentedRect(in: root).rect
         }
 
         /// UIKit leaves the source context unset (0); SwiftUI sets it to the window's own. Unreadable means skipped.
@@ -75,11 +71,6 @@
                   let windowContextID = (context.value(forKey: "contextId") as? NSNumber)?.uint32Value
             else { return false }
             return contextID == windowContextID
-        }
-
-        /// Maps `source`'s bounds coordinates to `target`'s; nil when that isn't finite.
-        static func affineTransform(from source: CALayer, to target: CALayer) -> CGAffineTransform? {
-            affineTransform { target.convert($0, from: source) }
         }
 
         /// The affine transform `apply` performs, sampled at three points; nil when it isn't finite or a fourth point

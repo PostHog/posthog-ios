@@ -23,6 +23,55 @@
         override class var layerClass: AnyClass { CAMetalLayer.self }
     }
 
+    private final class TransformLayerView: UIView {
+        override class var layerClass: AnyClass { CATransformLayer.self }
+    }
+
+    private final class AppAnimatableLayer: CALayer {
+        @objc var progress: CGFloat = 0
+
+        override init() {
+            super.init()
+        }
+
+        override init(layer: Any) {
+            super.init(layer: layer)
+            progress = (layer as? AppAnimatableLayer)?.progress ?? 0
+        }
+
+        required init?(coder: NSCoder) {
+            super.init(coder: coder)
+        }
+    }
+
+    private final class AppLayerView: UIView {
+        override class var layerClass: AnyClass { AppAnimatableLayer.self }
+    }
+
+    /// An app layer with its own designated `init()` and no `init(layer:)`: Core Animation copying it for its
+    /// presentation traps.
+    private final class TrappingLayer: CALayer {
+        var tag: Int
+
+        override init() {
+            tag = 1
+            super.init()
+        }
+
+        required init?(coder: NSCoder) {
+            tag = 1
+            super.init(coder: coder)
+        }
+    }
+
+    private final class TrappingImageView: UIImageView {
+        override class var layerClass: AnyClass { TrappingLayer.self }
+    }
+
+    private final class TrappingView: UIView {
+        override class var layerClass: AnyClass { TrappingLayer.self }
+    }
+
     @Suite("Replay GPU capture", .serialized)
     @MainActor
     struct PostHogGPUCaptureTest: GPUCaptureTesting {
@@ -33,8 +82,7 @@
             window.layoutIfNeeded()
             let frame = try #require(mirror.build(window: window, scale: scale))
             #expect(frame.scale == scale)
-            let rects = try #require(integration.collectMaskableRects(in: window, culledLayers: frame.culledLayers,
-                                                                      portalSources: frame.portalSources))
+            let rects = try #require(integration.maskableRects(for: frame, in: window).rects)
             frame.freeze()
             #expect(frame.encode())
             let image = await withCheckedContinuation { continuation in
@@ -42,6 +90,50 @@
             }
             frame.release()
             return try (#require(image), rects)
+        }
+
+        /// What a frame does with a masked view's magenta pixels.
+        private enum FrameOutcome {
+            /// Drawn, every pixel under a mask rect.
+            case drawn
+            /// Left out of a frame that still uploads.
+            case hidden
+            /// The frame is dropped for one from the default capture path.
+            case fallback
+        }
+
+        /// One GPU frame through `render`'s steps, expecting `outcome` and no magenta outside its mask rects.
+        private func expectNoUnmaskedMagenta(_ window: UIWindow, mirror: PostHogGPUMirrorCapture,
+                                             integration: PostHogReplayIntegration = PostHogReplayIntegration(),
+                                             expect outcome: FrameOutcome = .drawn,
+                                             sourceLocation: SourceLocation = #_sourceLocation) async throws
+        {
+            window.layoutIfNeeded()
+            let frame = try #require(mirror.build(window: window, scale: 1), sourceLocation: sourceLocation)
+            let walk = integration.maskableRects(for: frame, in: window)
+            guard let rects = walk.rects else {
+                frame.release()
+                #expect(outcome == .fallback && walk == .fallback, "frame \(walk), expected \(outcome)", sourceLocation: sourceLocation)
+                return
+            }
+            #expect(outcome != .fallback, "frame drawn, mask rects \(rects)", sourceLocation: sourceLocation)
+            frame.freeze()
+            #expect(frame.encode(), sourceLocation: sourceLocation)
+            let image = await withCheckedContinuation { continuation in
+                frame.readback(on: .global()) { continuation.resume(returning: $0) }
+            }
+            frame.release()
+            let cgImage = try #require(image, sourceLocation: sourceLocation)
+            let drawn = try Pixels(cgImage).points(where: Self.isMagenta).count
+            switch outcome {
+            case .drawn: #expect(drawn > 0, "no magenta drawn, so nothing was shown masked", sourceLocation: sourceLocation)
+            case .hidden: #expect(drawn == 0, "\(drawn) magenta pixels drawn, expected none", sourceLocation: sourceLocation)
+            case .fallback: break
+            }
+            // maskImage returns nil for no rects, when every magenta pixel is unmasked.
+            let unmasked = try (rects.isEmpty ? Pixels(cgImage) : maskedPixels(cgImage, rects)).points(where: Self.isMagenta)
+            let box = unmasked.reduce(CGRect.null) { $0.union(CGRect(origin: $1, size: CGSize(width: 1, height: 1))) }
+            #expect(unmasked.count == 0, "magenta pixels unmasked in \(box), mask rects \(rects)", sourceLocation: sourceLocation)
         }
 
         // MARK: - Mask walk
@@ -156,17 +248,37 @@
             try expectMagentaMasked(UIImage(cgImage: image), rects)
         }
 
-        /// One capture's pixels and mask rects, through the GPU mirror or the default path's presentation-tree render.
+        /// One capture's pixels and mask rects, through the GPU mirror or the default path's renderer for motion.
         private func capture(_ window: UIWindow, gpu: Bool, mirror: PostHogGPUMirrorCapture,
-                             integration: PostHogReplayIntegration) async throws -> (UIImage, [CGRect])
+                             integration: PostHogReplayIntegration) async throws -> (UIImage, [CGRect])?
         {
             if gpu {
                 let (image, rects) = try await render(window, with: mirror, integration: integration)
                 return (UIImage(cgImage: image), rects)
             }
             window.layoutIfNeeded()
-            let rects = try #require(integration.collectMaskableRects(in: window))
-            return try (#require(window.toImage(preferFidelityRenderer: false)), rects)
+            // nil: the default path skips the frame, which uploads nothing.
+            guard let motion = try motionCapture(window, integration: integration) else { return nil }
+            return (motion.image, motion.rects)
+        }
+
+        /// The default path's pixels and mask rects for a settled capture in the motion band, nil when it skips the frame.
+        private func motionCapture(_ window: UIWindow, integration: PostHogReplayIntegration = PostHogReplayIntegration()) throws
+            -> (image: UIImage, rects: [CGRect], renderer: PostHogScreenshotRenderer)?
+        {
+            try settledCapture(window, band: .motion, integration: integration)
+        }
+
+        /// The default path's pixels and mask rects for a settled capture in `band`, nil when it skips the frame.
+        private func settledCapture(_ window: UIWindow, band: PostHogReplayIntegration.SettleBand,
+                                    integration: PostHogReplayIntegration = PostHogReplayIntegration()) throws
+            -> (image: UIImage, rects: [CGRect], renderer: PostHogScreenshotRenderer)?
+        {
+            let regions = try #require(integration.collectMaskedRegions(in: window))
+            guard let rendering = PostHogReplayIntegration.settledRendering(of: window, band: band, inflatedRects: nil, regions: regions) else {
+                return nil
+            }
+            return try (#require(window.toImage(renderer: rendering.renderer)), #require(rendering.rects), rendering.renderer)
         }
 
         @Test("A layer rotated in 3D about an anchor off its plane has its mask over its pixels")
@@ -181,6 +293,31 @@
             perspective.m34 = -1 / 400
             field.layer.transform = CATransform3DRotate(perspective, 0.6, 0, 1, 0)
             field.layer.anchorPointZ = 80
+
+            let (image, rects) = try await render(window, with: mirror)
+            try expectMagentaMasked(image, rects)
+        }
+
+        @Test("A masked view lifted off a rotated transform layer's plane keeps its 3D place, where its mask is", arguments: [false, true])
+        func transformLayerKeepsSublayersIn3D(nested: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(frame: CGRect(x: 0, y: 0, width: 300, height: 400))
+            await prewarm(mirror, for: window)
+
+            let container = UIView(frame: CGRect(x: 50, y: 100, width: 200, height: 200))
+            container.layer.sublayerTransform.m34 = -1 / 500
+            window.addSubview(container)
+            var host: UIView = container
+            let rotations = [CATransform3DMakeRotation(55 * .pi / 180, 0, 1, 0), CATransform3DMakeRotation(35 * .pi / 180, 1, 0, 0)]
+            for rotation in rotations.prefix(nested ? 2 : 1) {
+                let transformView = TransformLayerView(frame: host.bounds)
+                transformView.layer.transform = rotation
+                host.addSubview(transformView)
+                host = transformView
+            }
+            let secret = noCaptureView(CGRect(x: 60, y: 60, width: 80, height: 80))
+            secret.layer.zPosition = 40
+            host.addSubview(secret)
 
             let (image, rects) = try await render(window, with: mirror)
             try expectMagentaMasked(image, rects)
@@ -207,11 +344,141 @@
             try expectMagentaMasked(image, rects)
         }
 
+        // MARK: - Default capture renderer for motion
+
+        @Test("A window holding a layer whose presentation can't be copied skips the motion frame, without copying that layer",
+              arguments: [false, true])
+        func motionFrameIsSkippedForUncopyableTree(animating: Bool) async throws {
+            let window = makeWindow()
+            try #require(!PostHogGPUMirrorCapture.isPresentationSafe(TrappingLayer.self))
+            let view = TrappingView(frame: CGRect(x: 20, y: 20, width: 100, height: 100))
+            view.backgroundColor = .magenta
+            window.addSubview(view)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            if animating {
+                try await hold(view.layer, keyPath: "opacity", at: Float(1))
+            }
+
+            #expect(try motionCapture(window) == nil)
+            // Still settled: the frame is drawn, with drawHierarchy.
+            #expect(try settledCapture(window, band: .still)?.renderer == .fidelity)
+        }
+
+        @Test("A motion frame isn't drawn when a view is presented away from its model in a window holding a layer whose presentation can't be copied")
+        func motionFrameIsSkippedWhenPresentedAwayFromModel() async throws {
+            let window = makeWindow()
+            window.addSubview(TrappingView(frame: CGRect(x: 150, y: 250, width: 40, height: 40)))
+            let field = secretField(CGRect(x: 20, y: 20, width: 120, height: 60))
+            window.addSubview(field)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            try await hold(field.layer, keyPath: "position", at: NSValue(cgPoint: CGPoint(x: 80, y: 200)))
+
+            #expect(try motionCapture(window) == nil)
+        }
+
+        private struct MaskedMagentaContent: View {
+            var body: some View {
+                VStack(alignment: .leading, spacing: 0) {
+                    Color(red: 1, green: 0, blue: 1).frame(width: 120, height: 60).postHogMask()
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(20)
+                .background(Color.white)
+            }
+        }
+
+        @Test("A postHogMask view presented collapsed but laid out full size keeps its mask, and its motion frame isn't drawn from the model")
+        func collapsedReporterKeepsItsMask() async throws {
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            let host = UIHostingController(rootView: MaskedMagentaContent())
+            window.rootViewController = host
+            window.addSubview(TrappingView(frame: CGRect(x: 150, y: 250, width: 40, height: 40)))
+            window.layoutIfNeeded()
+            try await Task.sleep(nanoseconds: 300_000_000)
+            let integration = PostHogReplayIntegration()
+            try #require(try !#require(integration.collectMaskableRects(in: window)).isEmpty)
+
+            try await hold(host.view.layer, keyPath: "transform", at: NSValue(caTransform3D: CATransform3DMakeScale(0, 0, 1)))
+            try #require(CATransform3DIsIdentity(host.view.layer.transform))
+            // Kept in both samples, the collapsed reporter pairs with itself rather than reading as motion.
+            let samples = (integration.collectMaskedRegions(in: window), integration.collectMaskedRegions(in: window))
+            #expect(PostHogReplayIntegration.settleVerdict(before: samples.0, after: samples.1).band == .still)
+            #expect(try !#require(samples.1).isEmpty, "the collapsed reporter's mask was dropped")
+            #expect(try motionCapture(window, integration: integration) == nil)
+        }
+
+        /// Runs `pendingLayout` the next time it lays out.
+        private final class RelayoutView: UIView {
+            var pendingLayout: ((RelayoutView) -> Void)?
+            private(set) var layoutCount = 0
+
+            override func layoutSubviews() {
+                super.layoutSubviews()
+                layoutCount += 1
+                pendingLayout?(self)
+                pendingLayout = nil
+            }
+        }
+
+        /// A secret field at y 20, committed, in a container whose pending layout moves it to y 160, or adds a second
+        /// secret field there instead.
+        private func fieldWithPendingRelayout(in window: UIWindow, adds: Bool = false) async throws -> (container: RelayoutView, field: UIView) {
+            let container = RelayoutView(frame: CGRect(x: 0, y: 0, width: 200, height: 240))
+            let field = secretField(CGRect(x: 20, y: 20, width: 120, height: 60))
+            container.addSubview(field)
+            window.addSubview(container)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            let target = CGRect(x: 20, y: 160, width: 120, height: 60)
+            let added = secretField(target)
+            container.pendingLayout = { container in
+                if adds {
+                    container.addSubview(added)
+                } else {
+                    field.frame = target
+                }
+            }
+            container.setNeedsLayout()
+            return (container, field)
+        }
+
+        @Test("A skipped motion frame runs no pending layout", arguments: [false, true])
+        func skippedMotionFrameLeavesAPendingLayoutPending(adds: Bool) async throws {
+            let window = makeWindow()
+            window.addSubview(TrappingView(frame: CGRect(x: 150, y: 250, width: 40, height: 40)))
+            let (container, field) = try await fieldWithPendingRelayout(in: window, adds: adds)
+
+            #expect(try motionCapture(window) == nil)
+            #expect(container.pendingLayout != nil)
+            #expect(field.frame.minY == 20)
+        }
+
+        @Test("A layout pending when masks are measured stays pending through the presentation-tree and fidelity renders, which draw what was measured",
+              arguments: [false, true])
+        func presentedRenderersLeaveAPendingLayoutPending(fidelity: Bool) async throws {
+            let window = makeWindow()
+            let (container, field) = try await fieldWithPendingRelayout(in: window)
+            let layouts = container.layoutCount
+
+            let (image, rects, renderer) = try #require(try settledCapture(window, band: fidelity ? .still : .motion))
+            #expect(renderer == (fidelity ? .fidelity : .presentationTree))
+            #expect(container.layoutCount == layouts)
+            #expect(field.frame.minY == 20)
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
         // MARK: - Masks of uncommitted changes
 
         /// Moves `layer` down by `distance` over a long linear animation, so its presentation stays near the start while
-        /// the model already sits at the end.
-        private func animateDown(_ layer: CALayer, by distance: CGFloat) async throws {
+        /// the model already sits at the end. `checksPresentation` false for a layer whose presentation can't be copied.
+        private func animateDown(_ layer: CALayer, by distance: CGFloat, checksPresentation: Bool = true) async throws {
             let start = layer.position
             CATransaction.begin()
             CATransaction.setDisableActions(true)
@@ -225,6 +492,7 @@
             layer.add(animation, forKey: "position")
             CATransaction.flush()
             try await Task.sleep(nanoseconds: 50_000_000)
+            guard checksPresentation else { return }
             let presented = try #require(layer.presentation()?.position)
             #expect(abs(presented.y - start.y) < 1)
         }
@@ -245,7 +513,7 @@
             try #require(field.layer.presentation() == nil)
             let expected = try #require(parent.layer.presentation()).convert(field.frame, to: window.layer)
 
-            let (image, rects) = try await capture(window, gpu: gpu, mirror: mirror, integration: PostHogReplayIntegration())
+            let (image, rects) = try #require(try await capture(window, gpu: gpu, mirror: mirror, integration: PostHogReplayIntegration()))
             #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(expected) })
             if gpu {
                 try expectMagentaMasked(image, rects)
@@ -277,14 +545,866 @@
             // No run-loop turn in between: the layer still holds the old text's bitmap.
             label.text = ""
 
-            let (image, rects) = try await capture(window, gpu: gpu, mirror: mirror, integration: integration)
-            #expect(rects.contains(label.frame))
             if gpu {
-                // `freeze` commits before the render, which can redraw the label first.
-                #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+                // `build` commits first, which redraws the label without the text.
+                try await expectNoUnmaskedMagenta(window, mirror: mirror, integration: integration, expect: .hidden)
             } else {
+                let (image, rects) = try #require(try await capture(window, gpu: false, mirror: mirror, integration: integration))
+                #expect(rects.contains(label.frame))
                 try expectMagentaMasked(image, rects)
             }
+        }
+
+        @Test("A sensitive image view cleared since its last commit stays masked while its layer still shows the old image",
+              arguments: [true, false])
+        func clearedImageViewStaysMaskedUntilCommitted(gpu: Bool) async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, _) = try makeSut()
+            defer { sut.close() }
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let size = CGSize(width: 160, height: 80)
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            let photo = UIGraphicsImageRenderer(size: size, format: format).image { context in
+                UIColor.white.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+                UIColor.magenta.setFill()
+                context.fill(CGRect(x: 10, y: 10, width: 140, height: 60))
+            }
+            let imageView = UIImageView(image: photo)
+            imageView.frame = CGRect(x: 20, y: 40, width: 160, height: 80)
+            window.addSubview(imageView)
+            let symbol = UIImageView(image: UIImage(systemName: "star.fill"))
+            symbol.frame = CGRect(x: 20, y: 200, width: 40, height: 40)
+            window.addSubview(symbol)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            try #require(imageView.layer.presentation()?.contents != nil)
+            let rects = try #require(integration.collectMaskableRects(in: window))
+            try #require(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(imageView.frame) })
+            // Committed and unchanged, a symbol stays unmasked.
+            #expect(!rects.contains { $0.intersects(symbol.frame) })
+
+            // No run-loop turn in between: the presentation layer still holds the photo.
+            imageView.image = nil
+
+            try await expectClearedContentMasked(window, gpu: gpu, mirror: mirror, integration: integration)
+        }
+
+        /// Content cleared this turn: `build` commits first, so the GPU frame no longer draws it, while the default
+        /// path's render of the presentation tree still does, under its masks.
+        private func expectClearedContentMasked(_ window: UIWindow, gpu: Bool, mirror: PostHogGPUMirrorCapture,
+                                                integration: PostHogReplayIntegration) async throws
+        {
+            if gpu {
+                try await expectNoUnmaskedMagenta(window, mirror: mirror, integration: integration, expect: .hidden)
+            } else {
+                let (image, rects) = try #require(try await capture(window, gpu: false, mirror: mirror, integration: integration))
+                try expectMagentaMasked(image, rects)
+            }
+        }
+
+        @Test("An unclipped centered image view cleared since its last commit keeps the larger old image it still draws masked",
+              arguments: [true, false])
+        func clearedOverflowingImageStaysMaskedWhereItDraws(gpu: Bool) async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, _) = try makeSut()
+            defer { sut.close() }
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let size = CGSize(width: 160, height: 160)
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            let photo = UIGraphicsImageRenderer(size: size, format: format).image { context in
+                UIColor.white.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+                UIColor.magenta.setFill()
+                context.fill(CGRect(x: 10, y: 10, width: 140, height: 140))
+            }
+            try #require(!photo.isSymbolImage)
+            let imageView = UIImageView(image: photo)
+            imageView.contentMode = .center
+            imageView.clipsToBounds = false
+            imageView.frame = CGRect(x: 80, y: 100, width: 40, height: 40)
+            window.addSubview(imageView)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            try #require(imageView.layer.presentation()?.contents != nil)
+            // Committed, the mask covers the whole drawn photo.
+            let drawn = CGRect(x: 20, y: 40, width: 160, height: 160)
+            try #require(try #require(integration.collectMaskableRects(in: window)).contains { $0.insetBy(dx: -1, dy: -1).contains(drawn) })
+
+            // No run-loop turn in between: the presentation layer still holds the photo.
+            imageView.image = nil
+
+            try await expectClearedContentMasked(window, gpu: gpu, mirror: mirror, integration: integration)
+        }
+
+        @Test("The mask walk never copies an image view's presentation when its app layer class can't be copied, and masks it whenever images are",
+              arguments: [false, true])
+        func imageViewWithUncopyableLayerIsWalkedWithoutItsPresentation(maskAllImages: Bool) async throws {
+            let (sut, integration, _) = try makeScreenshotReplaySut {
+                $0.screenshotModeGPUCapture = false
+                $0.maskAllImages = maskAllImages
+            }
+            defer { sut.close() }
+            let window = makeWindow()
+            try #require(!PostHogGPUMirrorCapture.isPresentationSafe(TrappingLayer.self))
+            // A symbol, which an image view whose presentation can be read leaves unmasked.
+            let view = TrappingImageView(image: UIImage(systemName: "star.fill"))
+            view.frame = CGRect(x: 20, y: 40, width: 40, height: 40)
+            window.addSubview(view)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            // An animation puts the layer in the presentation tree, so presentation() would copy it.
+            let animation = CABasicAnimation(keyPath: "opacity")
+            animation.fromValue = 1
+            animation.toValue = 1
+            animation.duration = 1000
+            view.layer.add(animation, forKey: "opacity")
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+
+            // Whether the image it still shows was replaced since the last commit can't be read, so it's masked.
+            let rects = try #require(integration.collectMaskableRects(in: window))
+            #expect(rects.contains { $0.contains(view.frame) } == maskAllImages)
+            #expect(maskAllImages || !rects.contains { $0.intersects(view.frame) })
+        }
+
+        @Test("An unclipped image view whose app layer class can't be copied, its image cleared this turn, stays masked as far as an image can reach")
+        func clearedOverflowingImageViewWithUncopyableLayerStaysMasked() async throws {
+            let (sut, integration, _) = try makeScreenshotReplaySut {
+                $0.screenshotModeGPUCapture = false
+                $0.maskAllImages = true
+            }
+            defer { sut.close() }
+            let window = makeWindow()
+            try #require(!PostHogGPUMirrorCapture.isPresentationSafe(TrappingLayer.self))
+            let photo = try magentaImage(CGSize(width: 160, height: 160))
+            try #require(!photo.isSymbolImage)
+            let imageView = TrappingImageView(image: photo)
+            imageView.contentMode = .center
+            imageView.clipsToBounds = false
+            imageView.frame = CGRect(x: 80, y: 100, width: 40, height: 40)
+            window.addSubview(imageView)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            // A 160x160 image centered on the 40x40 bounds at (80,100).
+            let drawn = CGRect(x: 20, y: 40, width: 160, height: 160)
+
+            // No run-loop turn in between: the presentation layer may still hold the photo.
+            imageView.image = nil
+
+            let rects = try #require(integration.collectMaskableRects(in: window))
+            #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(drawn) }, "\(rects)")
+        }
+
+        /// A `pixels`-sized magenta bitmap at 1x.
+        private func magentaImage(_ pixels: CGSize, orientation: UIImage.Orientation = .up) throws -> UIImage {
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            let image = UIGraphicsImageRenderer(size: pixels, format: format).image { context in
+                UIColor.magenta.setFill()
+                context.fill(CGRect(origin: .zero, size: pixels))
+            }
+            return try UIImage(cgImage: #require(image.cgImage), scale: 1, orientation: orientation)
+        }
+
+        /// Shows `image` in an unclipped image view, commits it, then clears it in this turn: the presentation layer
+        /// still holds it, and the default capture still draws it.
+        private func clearedImageView(_ image: UIImage, frame: CGRect, contentMode: UIView.ContentMode, in window: UIWindow,
+                                      beforeClearing: (UIImageView) async throws -> Void = { _ in }) async throws -> UIImageView
+        {
+            let imageView = UIImageView(image: image)
+            imageView.contentMode = contentMode
+            imageView.clipsToBounds = false
+            imageView.frame = frame
+            window.addSubview(imageView)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            try await beforeClearing(imageView)
+            try #require(imageView.layer.presentation()?.contents != nil)
+            imageView.image = nil
+            return imageView
+        }
+
+        @Test("An oriented image replaced since the last commit is masked where its rotated pixels land")
+        func replacedOrientedImageIsMaskedWhereItLands() async throws {
+            let (sut, integration, _) = try makeSut(gpuCapture: false)
+            defer { sut.close() }
+            let window = makeWindow()
+            // Stored 200x100, drawn 100x200.
+            let image = try magentaImage(CGSize(width: 200, height: 100), orientation: .right)
+            try #require(image.size == CGSize(width: 100, height: 200))
+            let imageView = try await clearedImageView(image, frame: CGRect(x: 50, y: 100, width: 100, height: 60), contentMode: .center, in: window)
+            let drawn = CGRect(x: 50, y: 30, width: 100, height: 200)
+
+            let rects = try #require(integration.collectMaskableRects(in: window))
+            #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(drawn) }, "\(rects)")
+            #expect(imageView.replacedImageExtent != nil)
+        }
+
+        @Test("An image replaced since the last commit is masked from the bounds it's presented with, not the model's")
+        func replacedImageIsMeasuredFromPresentedBounds() async throws {
+            let (sut, integration, _) = try makeSut(gpuCapture: false)
+            defer { sut.close() }
+            let window = makeWindow()
+            let image = try magentaImage(CGSize(width: 160, height: 160))
+            // Presented smaller than the model, so the image hangs further past the presented bounds.
+            let presentedBounds = CGRect(x: 0, y: 0, width: 40, height: 40)
+            let imageView = try await clearedImageView(image, frame: CGRect(x: 50, y: 50, width: 100, height: 100), contentMode: .topLeft,
+                                                       in: window)
+            { imageView in
+                try await hold(imageView.layer, keyPath: "bounds", at: NSValue(cgRect: presentedBounds))
+            }
+            let presented = try #require(imageView.layer.presentation())
+            try #require(presented.bounds == presentedBounds)
+            let windowPresented = try #require(window.layer.presentation())
+            let drawn = CGRect(origin: windowPresented.convert(presented.bounds.origin, from: presented), size: CGSize(width: 160, height: 160))
+
+            let rects = try #require(integration.collectMaskableRects(in: window))
+            #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(drawn) }, "\(rects)")
+        }
+
+        /// A masked field under a container whose app layer class can't be copied, committed and settled. Converting a
+        /// copy of the field's presentation would copy the container's too.
+        private func fieldUnderUncopyableContainer(in window: UIWindow) async throws -> (container: UIView, field: UIView) {
+            try #require(!PostHogGPUMirrorCapture.isPresentationSafe(TrappingLayer.self))
+            let container = TrappingView(frame: CGRect(x: 20, y: 20, width: 160, height: 160))
+            let field = secretField(CGRect(x: 10, y: 10, width: 120, height: 60))
+            container.addSubview(field)
+            window.addSubview(container)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            return (container, field)
+        }
+
+        @Test("A masked view under a static app layer that can't be copied is masked where it sits, without copying that layer",
+              arguments: [false, true])
+        func maskedViewUnderStaticUncopyableContainer(gpu: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+            let (_, field) = try await fieldUnderUncopyableContainer(in: window)
+
+            if gpu {
+                try await expectNoUnmaskedMagenta(window, mirror: mirror)
+            } else {
+                let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window))
+                #expect(rects.contains(field.convert(field.bounds, to: window)))
+            }
+        }
+
+        @Test("A masked view under a moving app layer that can't be copied is masked over the whole window, even inside a smaller ancestor",
+              arguments: [false, true])
+        func maskedViewUnderMovingUncopyableContainerFailsClosed(insideSmallerAncestor: Bool) async throws {
+            let window = makeWindow()
+            let (container, field) = try await fieldUnderUncopyableContainer(in: window)
+            if insideSmallerAncestor {
+                let holder = UIView(frame: CGRect(x: 10, y: 10, width: 100, height: 100))
+                window.addSubview(holder)
+                holder.addSubview(container)
+            }
+            try await animateDown(container.layer, by: 150, checksPresentation: false)
+
+            let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window))
+            #expect(rects.contains { $0.contains(window.bounds) && $0.contains(field.convert(field.bounds, to: window)) })
+        }
+
+        @Test("A layer under a static app layer is measured where Core Animation places it, through transforms, flips and anchor points",
+              arguments: [false, true])
+        func layerUnderStaticAppLayerIsMeasuredAsPlaced(perspective: Bool) async throws {
+            let window = makeWindow()
+            let app = try appLayerView()
+            window.addSubview(app)
+            let middle = CALayer()
+            middle.bounds = CGRect(x: 7, y: -5, width: 90, height: 70)
+            middle.position = CGPoint(x: 60, y: 50)
+            middle.anchorPoint = CGPoint(x: 0.3, y: 0.8)
+            middle.transform = CATransform3DMakeAffineTransform(CGAffineTransform(rotationAngle: 0.4).scaledBy(x: 1.2, y: 0.7))
+            middle.isGeometryFlipped = true
+            middle.sublayerTransform = CATransform3DTranslate(CATransform3DMakeScale(0.9, 1.1, 1), 4, -3, 0)
+            let leaf = CALayer()
+            leaf.bounds = CGRect(x: 3, y: 2, width: 30, height: 20)
+            leaf.position = CGPoint(x: 20, y: 25)
+            if perspective {
+                middle.sublayerTransform.m34 = -1 / 500
+                middle.anchorPointZ = 15
+                leaf.transform = CATransform3DMakeRotation(0.5, 0, 1, 0)
+                leaf.anchorPointZ = 10
+                leaf.zPosition = 5
+            }
+            app.layer.addSublayer(middle)
+            middle.addSublayer(leaf)
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            try #require(leaf.presentation() != nil)
+
+            let measured = leaf.presentedRect(in: window.layer)
+            let placed = leaf.convert(leaf.bounds, to: window.layer)
+            #expect(measured.isExact)
+            #expect([measured.rect.minX - placed.minX, measured.rect.minY - placed.minY, measured.rect.maxX - placed.maxX,
+                     measured.rect.maxY - placed.maxY].allSatisfy { abs($0) < 0.01 }, "\(measured.rect) vs \(placed)")
+        }
+
+        @Test("An app layer moved since its last commit, without an animation, keeps what the screen shows masked through the settle check",
+              arguments: [20, 150] as [CGFloat])
+        func uncommittedAppLayerMoveStaysMaskedThroughTheSettleCheck(distance: CGFloat) async throws {
+            let window = makeWindow()
+            let integration = PostHogReplayIntegration()
+            let container = try appLayerView()
+            let field = secretField(CGRect(x: 10, y: 10, width: 120, height: 60))
+            container.addSubview(field)
+            window.addSubview(container)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            let committed = field.convert(field.bounds, to: window)
+            let sentinel = integration.collectMaskedRegions(in: window)
+
+            // No run-loop turn in between: the model moves, the screen still shows the last commit.
+            container.frame.origin.y += distance
+            try #require(container.layer.animationKeys() == nil)
+            let regions = integration.collectMaskedRegions(in: window)
+            let verdict = PostHogReplayIntegration.settleVerdict(before: sentinel, after: regions)
+            let rendering = PostHogReplayIntegration.settledRendering(of: window, band: verdict.band, inflatedRects: verdict.inflatedRects,
+                                                                      regions: regions)
+            if distance > PostHogReplayIntegration.driftBudgetPoints {
+                // Motion in a window holding the app layer: the frame is skipped.
+                #expect(rendering == nil)
+            } else {
+                let rendering = try #require(rendering)
+                let rects = try #require(rendering.rects)
+                // drawHierarchy, which shows the last commit.
+                #expect(rendering.renderer == .fidelity)
+                #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(committed) }, "\(rects)")
+            }
+        }
+
+        @Test("A masked view moving under a static app layer, inside a smaller ancestor, is masked where it's presented",
+              arguments: [false, true])
+        func movingViewUnderStaticAppLayerIsMaskedWherePresented(gpu: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+            let holder = UIView(frame: CGRect(x: 20, y: 20, width: 100, height: 100))
+            let app = try appLayerView()
+            app.frame = CGRect(x: 10, y: 10, width: 80, height: 80)
+            let field = secretField(CGRect(x: 5, y: 5, width: 60, height: 30))
+            app.addSubview(field)
+            holder.addSubview(app)
+            window.addSubview(holder)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            // Presented far below the holder, the model still inside it.
+            try await hold(field.layer, keyPath: "position", at: NSValue(cgPoint: CGPoint(x: 35, y: 220)))
+            try #require(app.layer.animationKeys() == nil)
+
+            if gpu {
+                try await expectNoUnmaskedMagenta(window, mirror: mirror)
+            } else {
+                let presented = CGRect(x: 35, y: 235, width: 60, height: 30)
+                let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window))
+                #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(presented) }, "\(rects)")
+            }
+        }
+
+        @Test("A sensitive text field or text view cleared since its last commit stays masked while it still shows the old text",
+              arguments: [false, true])
+        func clearedTextInputStaysMaskedUntilCommitted(textView: Bool) async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, _) = try makeSut()
+            defer { sut.close() }
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let frame = CGRect(x: 20, y: 40, width: 160, height: 80)
+            let font = UIFont.boldSystemFont(ofSize: 48)
+            let input: UIView
+            let clear: () -> Void
+            if textView {
+                let view = UITextView(frame: frame)
+                view.text = "SECRET"
+                view.font = font
+                view.textColor = .magenta
+                input = view
+                clear = { view.text = "" }
+            } else {
+                let field = UITextField(frame: frame)
+                field.text = "SECRET"
+                field.font = font
+                field.textColor = .magenta
+                input = field
+                clear = { field.text = "" }
+            }
+            window.addSubview(input)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            let (before, rects) = try await render(window, with: mirror, integration: integration)
+            try #require(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(input.frame) })
+            try expectMagentaMasked(before, rects)
+
+            // No run-loop turn in between: the presentation layers still hold the old text.
+            clear()
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror, integration: integration, expect: .hidden)
+        }
+
+        /// A view whose layer, like Lottie's, is an app class with its own `init(layer:)`: the mirror copies it from its
+        /// model, since it never calls `presentation()` on app classes, and leaves it out while it moves.
+        private func appLayerView() throws -> UIView {
+            try #require(!PostHogGPUMirrorCapture.isPresentationSafe(AppAnimatableLayer.self))
+            let view = AppLayerView(frame: CGRect(x: 20, y: 20, width: 160, height: 100))
+            view.backgroundColor = .lightGray
+            return view
+        }
+
+        @Test("A masked view under an animating app layer is left out with it, leaving no magenta unmasked")
+        func maskedViewUnderAnimatingAppLayerIsNotExposed() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let view = try appLayerView()
+            view.addSubview(secretField(CGRect(x: 10, y: 10, width: 120, height: 60)))
+            window.addSubview(view)
+            CATransaction.flush()
+            try await animateDown(view.layer, by: 150)
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror, expect: .hidden)
+        }
+
+        @Test("An animating app layer is left out of the frame with its subtree, as culled")
+        func animatingAppLayerIsLeftOutWithItsSubtree() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let view = try appLayerView()
+            let marker = UIView(frame: CGRect(x: 10, y: 10, width: 120, height: 60))
+            marker.backgroundColor = .blue
+            view.addSubview(marker)
+            window.addSubview(view)
+            CATransaction.flush()
+            try await animateDown(view.layer, by: 150)
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            #expect(frame.culledLayers.contains(ObjectIdentifier(view.layer)))
+            frame.release()
+            let (image, rects) = try await render(window, with: mirror)
+            #expect(rects.isEmpty)
+            #expect(try Pixels(image).points(where: { $0 == .blue }).isEmpty)
+        }
+
+        @Test("An animating app sublayer of a masked view, drawn at its model geometry away from the mask, leaves no magenta unmasked")
+        func animatingAppSublayerOfMaskedViewIsNotExposed() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let field = noCaptureView(CGRect(x: 20, y: 40, width: 120, height: 60), color: .clear)
+            let secret = AppAnimatableLayer()
+            secret.frame = CGRect(x: 10, y: 10, width: 100, height: 40)
+            secret.backgroundColor = UIColor.magenta.cgColor
+            field.layer.addSublayer(secret)
+            window.addSubview(field)
+            CATransaction.flush()
+            try #require(!PostHogGPUMirrorCapture.isPresentationSafe(AppAnimatableLayer.self))
+            // The presentation stays inside the field, the model already sits 150pt below it.
+            try await animateDown(secret, by: 150)
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror, expect: .hidden)
+        }
+
+        @Test("A masked view under an app layer moved since its last commit, without an animation, is drawn where its mask is")
+        func maskedViewUnderUncommittedAppLayerMoveIsDrawnMasked() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let container = try appLayerView()
+            container.addSubview(secretField(CGRect(x: 10, y: 10, width: 120, height: 60)))
+            window.addSubview(container)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            try #require(container.layer.presentation() != nil)
+
+            // No run-loop turn in between: the model moves, the presentation stays.
+            container.frame.origin.y += 150
+            try #require(container.layer.animationKeys() == nil)
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror)
+        }
+
+        private final class ViewBox {
+            var view: UIView?
+        }
+
+        /// An app-layer view with magenta inset in it, as a Lottie view wrapped for SwiftUI.
+        private struct AppLayerRepresentable: UIViewRepresentable {
+            let box: ViewBox
+            /// Also draws magenta past its bottom edge, unclipped.
+            let overflows: Bool
+
+            func makeUIView(context _: Context) -> UIView {
+                let view = AppLayerView(frame: CGRect(x: 0, y: 0, width: 120, height: 60))
+                view.backgroundColor = .clear
+                let secret = UIView(frame: CGRect(x: 5, y: 5, width: 110, height: overflows ? 120 : 50))
+                secret.backgroundColor = .magenta
+                view.addSubview(secret)
+                box.view = view
+                return view
+            }
+
+            func updateUIView(_: UIView, context _: Context) {}
+        }
+
+        private struct MaskedAppLayerContent: View {
+            let box: ViewBox
+            var overflows = false
+
+            var body: some View {
+                VStack(alignment: .leading, spacing: 0) {
+                    AppLayerRepresentable(box: box, overflows: overflows).frame(width: 120, height: 60).postHogMask()
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(20)
+                .background(Color.white)
+            }
+        }
+
+        @Test("An animating app layer in postHogMask content, drawn at its model geometry away from the reporter's mask, leaves no magenta unmasked")
+        func animatingAppLayerInPostHogMaskContentIsNotExposed() async throws {
+            let mirror = try makeMirror()
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            await prewarm(mirror, for: window)
+            let content = try await hostMaskedAppLayerContent(in: window, mirror: mirror)
+
+            // The presentation stays under the reporter, the model already sits 150pt below it.
+            try await animateDown(content.layer, by: 150)
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror, expect: .hidden)
+        }
+
+        /// A window in the test host's scene, which SwiftUI content needs to lay out. Close it with `closeSceneWindow`.
+        private func makeSceneWindow() -> UIWindow {
+            let window = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first.map(UIWindow.init(windowScene:)) ?? makeWindow()
+            window.frame = CGRect(x: 0, y: 0, width: 200, height: 300)
+            window.backgroundColor = .white
+            window.isHidden = false
+            return window
+        }
+
+        private func closeSceneWindow(_ window: UIWindow) {
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+
+        /// Hosts `MaskedAppLayerContent` in `window` and returns its app-layer view, laid out and masked by its
+        /// reporter sibling.
+        private func hostMaskedAppLayerContent(in window: UIWindow, mirror: PostHogGPUMirrorCapture, overflows: Bool = false) async throws -> UIView {
+            let box = ViewBox()
+            window.rootViewController = UIHostingController(rootView: MaskedAppLayerContent(box: box, overflows: overflows))
+            window.layoutIfNeeded()
+            try await Task.sleep(nanoseconds: 300_000_000)
+            let content = try #require(box.view)
+            try #require(content.window === window)
+            try #require(!PostHogGPUMirrorCapture.isPresentationSafe(type(of: content.layer)))
+            let contentRect = content.convert(content.bounds, to: window)
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            let initial = try #require(PostHogReplayIntegration().maskableRects(for: frame, in: window).rects)
+            frame.release()
+            try #require(initial.contains { $0.insetBy(dx: -1, dy: -1).contains(contentRect) })
+            // The reporter is the content's sibling, not its ancestor.
+            var ancestor = content.superview
+            while let current = ancestor {
+                try #require(!(current is PostHogMaskReporterUIView))
+                ancestor = current.superview
+            }
+            return content
+        }
+
+        @Test("A motion frame isn't drawn while an app layer in postHogMask content animates away from its reporter")
+        func motionFrameSkippedForAppLayerMovingUnderReporter() async throws {
+            let mirror = try makeMirror()
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            await prewarm(mirror, for: window)
+            let content = try await hostMaskedAppLayerContent(in: window, mirror: mirror)
+            try await animateDown(content.layer, by: 150)
+            // Skipped: the model tree would draw the content away from its reporter's mask.
+            #expect(try motionCapture(window) == nil)
+        }
+
+        @Test("A motion frame isn't drawn while postHogMask content under a static app layer animates away from its reporter")
+        func motionFrameSkippedForContentMovingUnderStaticAppLayer() async throws {
+            let mirror = try makeMirror()
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            await prewarm(mirror, for: window)
+            let content = try await hostMaskedAppLayerContent(in: window, mirror: mirror)
+            let secret = try #require(content.subviews.first)
+            try await animateDown(secret.layer, by: 150)
+            #expect(try motionCapture(window) == nil)
+        }
+
+        @Test("postHogMask content with a copyable app layer animating away is masked on the presentation tree")
+        func copyableAppLayerMovingUnderReporterIsMaskedOnPresentationTree() async throws {
+            let mirror = try makeMirror()
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            await prewarm(mirror, for: window)
+            let content = try await hostMaskedAppLayerContent(in: window, mirror: mirror)
+            try await animateDown(content.layer, by: 150)
+            // AppAnimatableLayer implements init(layer:), so main's presentation-tree render doesn't trap on it.
+            let regions = try #require(PostHogReplayIntegration().collectMaskedRegions(in: window))
+            let image = try #require(window.toImage(renderer: .presentationTree))
+            try expectMagentaMasked(image, regions.map(\.rect))
+        }
+
+        @Test("postHogMask content animating away under a static app layer is masked in the GPU mirror")
+        func contentMovingUnderStaticAppLayerIsMaskedInMirror() async throws {
+            let mirror = try makeMirror()
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            await prewarm(mirror, for: window)
+            let content = try await hostMaskedAppLayerContent(in: window, mirror: mirror)
+            let secret = try #require(content.subviews.first)
+            try await animateDown(secret.layer, by: 150)
+            try await expectNoUnmaskedMagenta(window, mirror: mirror)
+        }
+
+        @Test("A static app layer in postHogMask content is drawn under the reporter's mask")
+        func staticAppLayerInPostHogMaskContentIsDrawn() async throws {
+            let mirror = try makeMirror()
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            await prewarm(mirror, for: window)
+            _ = try await hostMaskedAppLayerContent(in: window, mirror: mirror)
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror)
+        }
+
+        @Test("What an animating app layer in postHogMask content draws past its bounds is left out with it")
+        func unclippedDescendantOfAnimatingAppLayerInPostHogMaskContentIsLeftOut() async throws {
+            let mirror = try makeMirror()
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            await prewarm(mirror, for: window)
+            let content = try await hostMaskedAppLayerContent(in: window, mirror: mirror, overflows: true)
+
+            try await animateDown(content.layer, by: 150)
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror, expect: .hidden)
+        }
+
+        @Test("An app layer in postHogMask content presented out of its ancestor, its model still under the reporter, is left out")
+        func appLayerAnimatingOutOfItsAncestorInPostHogMaskContentIsLeftOut() async throws {
+            let mirror = try makeMirror()
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            await prewarm(mirror, for: window)
+            let content = try await hostMaskedAppLayerContent(in: window, mirror: mirror)
+
+            var outside = content.layer.position
+            outside.y += 180
+            try await hold(content.layer, keyPath: "position", at: NSValue(cgPoint: outside))
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror, expect: .hidden)
+        }
+
+        @Test("A full-window cover under a static app layer, with a postHogMask reporter in it, is drawn instead of skipping the frame")
+        func coverUnderStaticAppLayerWithReporterIsDrawn() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let presenter = CoveredController()
+            window.rootViewController = presenter
+            defer { window.rootViewController = nil }
+            presenter.view.frame = window.bounds
+            presenter.view.addSubview(secretField(CGRect(x: 20, y: 200, width: 120, height: 60)))
+            let container = try appLayerView()
+            container.frame = window.bounds
+            let cover = UIViewController()
+            cover.view.frame = container.bounds
+            cover.view.backgroundColor = .white
+            let secret = UIView(frame: CGRect(x: 20, y: 40, width: 120, height: 60))
+            secret.backgroundColor = .magenta
+            // Larger than the secret: masks are drawn with rounded corners.
+            let reporter = PostHogMaskReporterUIView(frame: secret.frame.insetBy(dx: -8, dy: -8))
+            cover.view.addSubview(secret)
+            cover.view.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            container.addSubview(cover.view)
+            presenter.cover = cover
+            window.addSubview(container)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try #require(PostHogPresentationCover.frontmostFullWindowCover(in: window) === cover.view)
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror)
+        }
+
+        @available(iOS 26.0, *)
+        @Test("SwiftUI text, a bare layer, under a static app layer is drawn where its mask is")
+        func swiftUITextUnderStaticAppLayerIsDrawn() async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, _) = try makeSut()
+            defer { sut.close() }
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            await prewarm(mirror, for: window)
+
+            let root = UIViewController()
+            root.view = try appLayerView()
+            root.view.backgroundColor = .white
+            let text = Text("SECRET").font(.system(size: 44, weight: .heavy)).foregroundColor(Color(UIColor.magenta))
+            let host = UIHostingController(rootView: text)
+            host.view.backgroundColor = .clear
+            root.addChild(host)
+            root.view.addSubview(host.view)
+            host.didMove(toParent: root)
+            window.rootViewController = root
+            root.view.frame = window.bounds
+            host.view.frame = CGRect(x: 10, y: 40, width: 180, height: 80)
+            window.layoutIfNeeded()
+            try await Task.sleep(nanoseconds: 300_000_000)
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror, integration: integration)
+        }
+
+        @Test("A masked view under an app layer animating only its opacity is drawn where its masks are, not hidden")
+        func maskedViewUnderAppLayerAnimatingOpacityStillDraws() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let view = try appLayerView()
+            view.addSubview(secretField(CGRect(x: 10, y: 10, width: 120, height: 60)))
+            window.addSubview(view)
+            CATransaction.flush()
+            try await hold(view.layer, keyPath: "opacity", at: Float(1))
+
+            let (image, rects) = try await render(window, with: mirror)
+            try expectMagentaMasked(image, rects)
+        }
+
+        /// Holds `layer`'s `keyPath` at `value` for the whole capture, whatever the model says.
+        private func hold(_ layer: CALayer, keyPath: String, at value: Any) async throws {
+            let animation = CABasicAnimation(keyPath: keyPath)
+            animation.fromValue = value
+            animation.toValue = value
+            animation.duration = 1000
+            animation.beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) - 1
+            layer.add(animation, forKey: keyPath)
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+
+        /// Reports a cover as presented without presenting it, which a window outside a scene can't.
+        private final class CoveredController: UIViewController {
+            var cover: UIViewController?
+            override var presentedViewController: UIViewController? { cover }
+        }
+
+        /// A full-window cover whose app layer the mirror leaves out as it moves, over a presenter with a masked view.
+        private func animatingAppLayerCover(in window: UIWindow) async throws -> UIView {
+            let presenter = CoveredController()
+            window.rootViewController = presenter
+            presenter.view.frame = window.bounds
+            presenter.view.addSubview(secretField(CGRect(x: 20, y: 200, width: 120, height: 60)))
+            let cover = UIViewController()
+            cover.view = try appLayerView()
+            // Taller than the window, so it still covers the window from where the model has moved to.
+            cover.view.frame = window.bounds.insetBy(dx: 0, dy: -30)
+            cover.view.addSubview(secretField(CGRect(x: 20, y: 70, width: 120, height: 60)))
+            presenter.cover = cover
+            window.addSubview(cover.view)
+            CATransaction.flush()
+            let presented = cover.view.layer.position
+            cover.view.layer.position.y += 20
+            try await hold(cover.view.layer, keyPath: "position", at: NSValue(cgPoint: presented))
+            try #require(PostHogPresentationCover.frontmostFullWindowCover(in: window, trustingModels: true) === cover.view)
+            // Its presentation can't be read while it animates, so the mask walk doesn't trust it to hide the presenter.
+            #expect(PostHogPresentationCover.frontmostFullWindowCover(in: window) == nil)
+            window.layoutIfNeeded()
+            return cover.view
+        }
+
+        @Test("A full-window cover drawn by an animating app layer falls back to the default capture instead of dropping the cover")
+        func animatingAppLayerCoverFallsBack() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+            defer { window.rootViewController = nil }
+            let cover = try await animatingAppLayerCover(in: window)
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            #expect(frame.culledLayers.contains(ObjectIdentifier(cover.layer)))
+            frame.release()
+            try await expectNoUnmaskedMagenta(window, mirror: mirror, expect: .fallback)
+        }
+
+        @Test("A full-window cover under a far-culled container falls back to the default capture instead of exposing the presenter")
+        func farCulledCoverFallsBack() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let presenter = CoveredController()
+            window.rootViewController = presenter
+            defer { window.rootViewController = nil }
+            presenter.view.frame = window.bounds
+            presenter.view.addSubview(secretField(CGRect(x: 20, y: 200, width: 120, height: 60)))
+            let offset = window.bounds.height * 10
+            let container = UIView(frame: window.bounds.offsetBy(dx: 0, dy: offset))
+            let cover = UIViewController()
+            cover.view.frame = window.bounds.offsetBy(dx: 0, dy: -offset)
+            cover.view.backgroundColor = .white
+            cover.view.addSubview(secretField(CGRect(x: 20, y: 40, width: 120, height: 60)))
+            container.addSubview(cover.view)
+            presenter.cover = cover
+            window.addSubview(container)
+            window.layoutIfNeeded()
+            try #require(PostHogPresentationCover.frontmostFullWindowCover(in: window) === cover.view)
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            defer { frame.release() }
+            try #require(frame.culledLayers.contains(ObjectIdentifier(container.layer)))
+            #expect(PostHogReplayIntegration().maskableRects(for: frame, in: window) == .fallback)
+        }
+
+        @Test("A masked view whose shadow is fading out, the model already at no shadow, keeps the shadow it still draws masked")
+        func fadingShadowOfMaskedViewIsMasked() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let field = secretField(CGRect(x: 20, y: 40, width: 120, height: 60))
+            field.layer.shadowColor = UIColor.magenta.cgColor
+            field.layer.shadowRadius = 0
+            field.layer.shadowOffset = CGSize(width: 0, height: 100)
+            field.layer.shadowOpacity = 0
+            window.addSubview(field)
+            CATransaction.flush()
+            try await hold(field.layer, keyPath: "shadowOpacity", at: Float(1))
+            try #require(field.layer.presentation()?.shadowOpacity == 1)
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror)
         }
 
         @available(iOS 26.0, *)
@@ -753,7 +1873,7 @@
 
             let frame = try #require(mirror.build(window: window, scale: 1))
             #expect(frame.culledLayers.contains(ObjectIdentifier(field.layer)))
-            #expect(frame.portalSources.contains { $0.view === field && $0.elsewhere == nil })
+            #expect(frame.portalSources.contains { $0.view === field && $0.portalRect == nil })
             frame.release()
 
             let (image, rects) = try await render(window, with: mirror)
@@ -838,8 +1958,8 @@
             try Pixels(#require(RRWireframe.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
         }
 
-        @Test("A lens portal draws its source on the portal, and masked text in it is masked there and where it sits")
-        func lensPortalMovesItsMasks() async throws {
+        @Test("A lens portal draws its source on the portal, and masked text in it masks the whole portal and where it sits")
+        func lensPortalWithMaskedTextMasksWholePortal() async throws {
             let mirror = try makeMirror()
             let window = makeWindow()
             await prewarm(mirror, for: window)
@@ -859,7 +1979,7 @@
             // Hidden where it sits, drawn on the portal at the field's offset in the source.
             #expect(count(pixels, in: CGRect(x: 35, y: 35, width: 90, height: 30), where: Self.isMagenta) == 0)
             #expect(count(pixels, in: CGRect(x: 55, y: 195, width: 90, height: 30), where: Self.isMagenta) > 90 * 30 * 9 / 10)
-            #expect(rects.contains(CGRect(x: 50, y: 190, width: 100, height: 40)))
+            #expect(rects.contains(portalRect))
 
             #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
         }
@@ -902,8 +2022,56 @@
             #expect(rects.contains(window.layer.convert(portal.bounds, from: portal)))
         }
 
-        @Test("A lens portal whose placement isn't affine masks the whole portal when its source has masks")
-        func lensPortalWithoutExactMapMasksWholePortal() async throws {
+        @Test("A postHogMask reporter under a lens portal's source collapsed to scale 0 still masks the whole portal")
+        func lensPortalOverCollapsedSourceWithReporterMasksWholePortal() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let secret = UIView(frame: CGRect(x: 20, y: 15, width: 60, height: 30))
+            secret.backgroundColor = .magenta
+            let reporter = PostHogMaskReporterUIView(frame: secret.frame.insetBy(dx: -8, dy: -8))
+            source.addSubview(secret)
+            source.addSubview(reporter)
+            window.addSubview(source)
+            defer { reporter.removeFromSuperview() }
+            source.transform = CGAffineTransform(scaleX: 0, y: 0)
+            let portalRect = CGRect(x: 40, y: 180, width: 120, height: 60)
+            window.layer.addSublayer(try makeLensPortal(showing: source, frame: portalRect))
+
+            let (image, rects) = try await render(window, with: mirror)
+            #expect(reporter.hasCompletedFirstLayout)
+            #expect(rects.contains(portalRect))
+            try expectMagentaMasked(image, rects)
+        }
+
+        @Test("A lens portal whose source sits in a masked secure text field masks the whole portal")
+        func lensPortalSourceInSecureFieldMasksWholePortal() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let field = UITextField(frame: CGRect(x: 10, y: 10, width: 180, height: 100))
+            field.isSecureTextEntry = true
+            field.text = "hunter2"
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            let secret = UIView(frame: CGRect(x: 20, y: 15, width: 60, height: 30))
+            secret.backgroundColor = .magenta
+            source.addSubview(secret)
+            field.addSubview(source)
+            window.addSubview(field)
+            let portalRect = CGRect(x: 40, y: 180, width: 120, height: 60)
+            window.layer.addSublayer(try makeLensPortal(showing: source, frame: portalRect))
+
+            let (image, rects) = try await render(window, with: mirror)
+            #expect(rects.contains(field.frame))
+            #expect(rects.contains(portalRect))
+            try expectMagentaMasked(image, rects)
+        }
+
+        @Test("A lens portal under a perspective transform masks the whole portal when its source has masks")
+        func lensPortalWithPerspectiveMasksWholePortal() async throws {
             let mirror = try makeMirror()
             let window = makeWindow()
             await prewarm(mirror, for: window)
@@ -944,12 +2112,6 @@
             window.addSubview(source)
             let portal = try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 180, width: 60, height: 40))
             portal.masksToBounds = false
-            if !reporter {
-                // No exact map for the masks under the source, so the whole portal is masked instead.
-                var perspective = CATransform3DIdentity
-                perspective.m34 = -1 / 200
-                portal.transform = CATransform3DRotate(perspective, 0.4, 0, 1, 0)
-            }
             window.layer.addSublayer(portal)
 
             let (image, rects) = try await render(window, with: mirror)
@@ -1084,6 +2246,181 @@
             #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
         }
 
+        @Test("A matched portal whose source's parent is mid-animation draws the source where its masks are measured")
+        func matchedPortalUnderAnimatingParentFollowsPresentation() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let parent = UIView(frame: CGRect(x: 20, y: 20, width: 160, height: 100))
+            let field = secretField(CGRect(x: 10, y: 10, width: 120, height: 60))
+            parent.addSubview(field)
+            window.addSubview(parent)
+            // Over the whole window, so the source shows wherever the portal places it.
+            window.layer.addSublayer(try makePortal(showing: field.layer, frame: window.bounds))
+            CATransaction.flush()
+            try await animateDown(parent.layer, by: 150)
+
+            let (image, rects) = try await render(window, with: mirror)
+            // Where the parent's presentation holds it: 20 + 10 + 5 down.
+            #expect(try count(Pixels(image), in: CGRect(x: 35, y: 35, width: 110, height: 50), where: Self.isMagenta) > 110 * 50 * 9 / 10)
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
+        @Test("A matched portal whose source's superlayer has a sublayer transform is left out instead of drawn off its masks")
+        func matchedPortalUnderSublayerTransformIsLeftOut() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let container = UIView(frame: window.bounds)
+            container.layer.sublayerTransform = CATransform3DMakeScale(0.5, 0.5, 1)
+            let field = secretField(CGRect(x: 20, y: 20, width: 120, height: 60))
+            container.addSubview(field)
+            window.addSubview(container)
+            window.layer.addSublayer(try makePortal(showing: field.layer, frame: window.bounds))
+            window.layoutIfNeeded()
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            #expect(!frame.portalSources.contains { $0.view === field })
+            frame.release()
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror)
+        }
+
+        @Test("A matched portal that transforms or flips its own sublayers is left out instead of drawn off its masks",
+              arguments: [false, true])
+        func matchedPortalTransformingItsSublayersIsLeftOut(flipped: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let field = secretField(CGRect(x: 20, y: 20, width: 120, height: 60))
+            window.addSubview(field)
+            let portal = try makePortal(showing: field.layer, frame: window.bounds)
+            if flipped {
+                portal.isGeometryFlipped = true
+            } else {
+                portal.sublayerTransform = CATransform3DMakeScale(0.5, 0.5, 1)
+            }
+            window.layer.addSublayer(portal)
+            window.layoutIfNeeded()
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            #expect(!frame.portalSources.contains { $0.view === field })
+            frame.release()
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror)
+        }
+
+        @Test("A lens portal that transforms or flips its own sublayers keeps what it draws inside its mask",
+              arguments: [false, true])
+        func lensPortalTransformingItsSublayersStaysMasked(flipped: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            source.addSubview(secretField(CGRect(x: 10, y: 10, width: 100, height: 40)))
+            window.addSubview(source)
+            let portalRect = CGRect(x: 40, y: 180, width: 120, height: 60)
+            let portal = try makeLensPortal(showing: source, frame: portalRect)
+            if flipped {
+                portal.isGeometryFlipped = true
+            } else {
+                portal.sublayerTransform = CATransform3DMakeTranslation(60, 30, 0)
+            }
+            window.layer.addSublayer(portal)
+            window.layoutIfNeeded()
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            #expect(frame.portalSources.contains { $0.view === source && $0.portalRect == portalRect })
+            frame.release()
+
+            // Clipped to the portal, which is masked whole.
+            try await expectNoUnmaskedMagenta(window, mirror: mirror)
+        }
+
+        @Test("A matched portal whose source's superlayer is an app layer moved since its last commit draws the source where its mask is")
+        func matchedPortalOverUncommittedAppSuperlayerDrawsSourceMasked() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let container = try appLayerView()
+            container.frame = CGRect(x: 0, y: 0, width: 200, height: 120)
+            container.backgroundColor = .clear
+            let field = secretField(CGRect(x: 20, y: 20, width: 120, height: 60))
+            container.addSubview(field)
+            window.addSubview(container)
+            window.layer.addSublayer(try makePortal(showing: field.layer, frame: window.bounds))
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            try #require(container.layer.presentation() != nil)
+
+            // No run-loop turn in between, no animation: the model moves, the presentation stays.
+            container.frame.origin.y += 150
+            try #require(container.layer.animationKeys() == nil)
+
+            // `build` commits the move, so the portal places the source where its mask is measured.
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            #expect(frame.portalSources.contains { $0.view === field })
+            frame.release()
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror)
+        }
+
+        @Test("A lens portal under an animating app layer is left out with it, and its source is drawn where it sits, masked")
+        func lensPortalUnderAnimatingAppLayerIsLeftOut() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            source.addSubview(secretField(CGRect(x: 10, y: 10, width: 100, height: 40)))
+            window.addSubview(source)
+            let container = try appLayerView()
+            container.frame = CGRect(x: 20, y: 100, width: 160, height: 80)
+            container.backgroundColor = .clear
+            window.addSubview(container)
+            container.layer.addSublayer(try makeLensPortal(showing: source, frame: CGRect(x: 20, y: 10, width: 120, height: 60)))
+            CATransaction.flush()
+            try await animateDown(container.layer, by: 100)
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            #expect(frame.culledLayers.contains(ObjectIdentifier(container.layer)))
+            #expect(frame.portalSources.isEmpty)
+            frame.release()
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror)
+        }
+
+        @Test("A lens portal whose bounds origin is mid-animation draws its source where its masks are measured")
+        func lensPortalWithAnimatingBoundsOriginFollowsPresentation() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
+            source.addSubview(secretField(CGRect(x: 10, y: 10, width: 100, height: 40)))
+            window.addSubview(source)
+            // Taller than the source, so it would still show the source moved down by the model's origin.
+            let portal = try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 150, width: 120, height: 140))
+            window.layer.addSublayer(portal)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            portal.bounds.origin.y = 60
+            CATransaction.commit()
+            try await hold(portal, keyPath: "bounds.origin", at: NSValue(cgPoint: .zero))
+            try #require(portal.presentation()?.bounds.origin == .zero)
+
+            let (image, rects) = try await render(window, with: mirror)
+            // On the portal at the field's offset in the source: 150 + 10 + 5 down.
+            #expect(try count(Pixels(image), in: CGRect(x: 55, y: 165, width: 90, height: 30), where: Self.isMagenta) > 90 * 30 * 9 / 10)
+            #expect(try maskedPixels(image, rects).points(where: Self.isMagenta).isEmpty)
+        }
+
         @Test("A portal inside another portal's source draws nothing through the outer portal")
         func nestedPortalIsNotDrawnThroughOuterPortal() async throws {
             let mirror = try makeMirror()
@@ -1151,19 +2488,20 @@
             parent.alpha = 0
             let source = UIView(frame: CGRect(x: 20, y: 20, width: 120, height: 60))
             source.backgroundColor = .magenta
-            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 10, width: 60, height: 30))
-            source.addSubview(reporter)
             parent.addSubview(source)
             window.addSubview(parent)
-            defer { reporter.removeFromSuperview() }
             let portal = lens
                 ? try makeLensPortal(showing: source, frame: CGRect(x: 40, y: 180, width: 120, height: 60))
                 : try makePortal(showing: source.layer, frame: CGRect(x: 20, y: 20, width: 120, height: 60))
             window.layer.addSublayer(portal)
-            try #require(!reporter.hasCompletedFirstLayout)
 
             let frame = try #require(mirror.build(window: window, scale: 1))
             defer { frame.release() }
+            // `build` commits, which lays out any reporter already there: this one arrives after it.
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 10, width: 60, height: 30))
+            source.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            try #require(!reporter.hasCompletedFirstLayout)
             let rects = try #require(PostHogReplayIntegration().collectMaskableRects(in: window, culledLayers: frame.culledLayers,
                                                                                      portalSources: frame.portalSources))
             #expect(rects.contains(lens ? window.layer.convert(portal.bounds, from: portal) : source.frame))
@@ -1229,6 +2567,30 @@
             #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1))
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
             #expect(integration.isScreenshotRenderInFlightForTesting)
+
+            await waitForCaptureToFinish(integration)
+            #expect(!mirror.hasAttachedFrameForTesting)
+            #expect(snapshots.screenshots.count == 1)
+        }
+
+        @Test("A capture whose mirror leaves out the full-window cover uploads one screenshot from the default path")
+        func culledCoverCaptureFallsBackAndUploads() async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, snapshots) = try makeSut()
+            integration.gpuMirror = mirror
+            defer { sut.close() }
+            let mockLifecycle = MockApplicationLifecyclePublisher()
+            DI.main.appLifecyclePublisher = mockLifecycle
+            defer { DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared }
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+            defer { window.rootViewController = nil }
+            _ = try await animatingAppLayerCover(in: window)
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            try #require(integration.maskableRects(for: frame, in: window) == .fallback)
+            frame.release()
+
+            #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
 
             await waitForCaptureToFinish(integration)
             #expect(!mirror.hasAttachedFrameForTesting)
@@ -1485,6 +2847,51 @@
             #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1))
         }
 
+        @Test("A memory warning while a capture waits on the warm-up ends that capture, without starting another warm-up")
+        func purgeWhileCaptureWaitsOnWarmUpDoesNotWarmUpAgain() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            PostHogReplayIntegration.prewarmWindowForTesting = window
+            defer { PostHogReplayIntegration.prewarmWindowForTesting = nil }
+            let (sut, integration, _) = try makeSut()
+            integration.gpuMirror = mirror
+            defer { sut.close() }
+            let scale = integration.gpuPixelScale(window)
+            // Let any warm-up the SDK's setup started finish, then start from an empty cache.
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            mirror.purge()
+            try #require(mirror.needsPrewarm(for: window.bounds.size, scale: scale))
+
+            #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
+            mirror.purge()
+            await waitForCaptureToFinish(integration)
+            // Long enough for a second warm-up, had one started, to finish.
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: scale))
+        }
+
+        @Test("A shape layer's dash phase and miter limit are mirrored")
+        func shapeDashPhaseAndMiterLimitAreMirrored() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+            let shape = CAShapeLayer()
+            shape.frame = CGRect(x: 20, y: 20, width: 100, height: 100)
+            shape.path = CGPath(rect: CGRect(x: 0, y: 0, width: 100, height: 100), transform: nil)
+            shape.strokeColor = UIColor.black.cgColor
+            shape.lineDashPattern = [6, 4]
+            shape.lineDashPhase = 3
+            shape.miterLimit = 2
+            window.layer.addSublayer(shape)
+            CATransaction.flush()
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            defer { frame.release() }
+            let copy = try #require(mirror.copiesForTesting.allObjects.compactMap { $0 as? CAShapeLayer }.first { $0.lineDashPattern == [6, 4] })
+            #expect(copy.lineDashPhase == 3)
+            #expect(copy.miterLimit == 2)
+        }
+
         @Test("No GPU warm-up runs while the app is in the background, and one runs once it becomes active")
         func noWarmUpInBackground() async throws {
             let mirror = try makeMirror()
@@ -1636,6 +3043,13 @@
             let contents = AddressTypedContents()
             try #require(CFGetTypeID(contents) > CFTypeID(UInt32.max))
             #expect(try !copyShares(contents, in: mirror, window: window))
+        }
+    }
+
+    private extension PostHogReplayIntegration.GPUMaskWalk {
+        var rects: [CGRect]? {
+            guard case let .rects(rects) = self else { return nil }
+            return rects
         }
     }
 

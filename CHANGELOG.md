@@ -1,5 +1,68 @@
 ## Next
 
+## 3.94.3
+
+### Patch Changes
+
+- 6d7e886: A `/flags` load still in flight when `reset()` runs no longer writes the previous user's flags into the cache, calls `onFeatureFlags` listeners, posts `didReceiveFeatureFlags`, or is replayed to a listener registered later. The reload `reset()` starts still runs, and a `reloadFeatureFlags` callback waiting on the dropped load is called when that reload finishes.
+
+## 3.94.2
+
+### Patch Changes
+
+- 2856428: Fix surveys so `seenSurveyWaitPeriodInDays` counts from when a survey was shown rather than when it was closed, and a survey closed before it appears (for example during `surveyPopupDelaySeconds` or after `reset()`) is no longer marked seen or reported as `survey dismissed`.
+
+## 3.94.1
+
+### Patch Changes
+
+- 9e17a63: A crash report written by the native crash reporter after `optOut()` is no longer sent as `$exception` after the next `optIn()`. The native crash handler cannot be removed once installed, so at opt-out the SDK replaces the crash context with an opted-out marker and drops a pending report that carries it. A crash recorded while opted in is still delivered after `optIn()`. Reports written by SDK versions before this change carry no marker and are still sent. Out-of-memory terminations reported through MetricKit on iOS 27 are not covered by this change.
+- 9e17a63: On iOS 27+, an out-of-memory termination recorded after `optOut()` is no longer sent as `$exception` after the next `optIn()`. One from a session that was opted in is still delivered, and one with no saved context carries no consent signal and is still sent.
+
+## 3.94.0
+
+### Minor Changes
+
+- d927501: Session replay and surveys no longer swizzle `UIView.layoutSublayers(of:)`. Capture is now scheduled from an observer on the main run loop, and session replay skips rendering while the screen keeps producing identical frames. Wireframe mode now skips unchanged frames too, so idle screens send fewer `$snapshot` events. Surveys no longer require swizzling, so apps that set `enableSwizzling` to `false` now get surveys instead of having the integration skipped.
+
+## 3.93.6
+
+### Patch Changes
+
+- 9551567: Fix session replay recording touches inside views masked with `ph-no-capture` or `postHogMask()`. These touches are now dropped. Touches on views masked only by `maskAllTextInputs` or `maskAllImages` are still recorded.
+
+## 3.93.5
+
+### Patch Changes
+
+- d10bb5f: Stop emitting `$feature_flag_called` for survey flags whose keys start with `survey-targeting-`, matching the browser SDK while preserving usage tracking for ordinary linked flags.
+
+## 3.93.4
+
+### Patch Changes
+
+- 0ccda7e: A `beforeSend` hook that calls `reset()` or `identify()` no longer gives the event's `userProperties` to the next user's feature flag evaluation.
+
+## 3.93.3
+
+### Patch Changes
+
+- 23cf425: Skip a session replay screenshot when `drawHierarchy` reports it could not render the window, instead of uploading a blank frame.
+- 23cf425: Clear the session replay screenshot bitmap before drawing, so a failed or partial render can no longer upload leftover memory in a snapshot.
+- 6af1bbd: Update the user's identity and reload feature flags when `identify()` is called while opted out, matching the other PostHog SDKs. No events are captured while opted out.
+
+## 3.93.2
+
+### Patch Changes
+
+- c6057bc: Fix missing background events and incorrect cold opens after late setup or opt-in.
+
+## 3.93.1
+
+### Patch Changes
+
+- 9b7e911: Fix `screenshotMode` session replay leaving masked content visible where it is drawn outside its view (unclipped images, layer shadows, button titles) and image attachments in text unmasked when `maskAllImages` is on.
+
 ## 3.93.0
 
 ### Minor Changes

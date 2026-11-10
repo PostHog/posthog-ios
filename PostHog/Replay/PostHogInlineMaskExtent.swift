@@ -210,22 +210,6 @@
             return hole.isNull || hole.isEmpty ? nil : hole
         }
 
-        /// A reporter left to the rect pass can't mask what a portal shows elsewhere of a source it covers, so each such
-        /// portal is masked whole. A source with no copy where it sits is masked for any reporter, since the extent pass
-        /// can't reach the portal's copy.
-        static func wholePortals(coveredBy rects: [CGRect], orWithoutInPlaceCopy allRects: [CGRect],
-                                 of sources: [PostHogPortalSource]) -> [PostHogReplayIntegration.MaskedRegion]
-        {
-            guard !allRects.isEmpty else { return [] }
-            return sources.compactMap { source in
-                guard let elsewhere = source.elsewhere else { return nil }
-                let sourceRect = source.view.toPresentationRect(source.view.window)
-                let covering = source.hasInPlaceCopy ? rects : allRects
-                guard covering.contains(where: { $0.intersects(sourceRect) }) else { return nil }
-                return PostHogReplayIntegration.MaskedRegion(source.view, rect: elsewhere.portalRect, inline: .rectOnly)
-            }
-        }
-
         /// A shadow can show the shape of what casts it, from outside the extent.
         static func dropShadow(of entry: ExtentEntry, castInto rect: CGRect) {
             guard entry.shadow?.intersects(rect) == true, entry.copy.shadowOpacity != 0 else { return }

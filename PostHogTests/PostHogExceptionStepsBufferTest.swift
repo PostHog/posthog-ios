@@ -231,4 +231,21 @@ struct PostHogCrashCustomDataWriterTest {
         #expect(decoded.context["distinct_id"] as? String == "kept")
         #expect(decoded.steps.isEmpty)
     }
+
+    @Test("marking opted out replaces the payload with the marker and ignores later updates")
+    func markOptedOutIsTerminal() {
+        var written = Data()
+        let writer = PostHogCrashCustomDataWriter(write: { written = $0 })
+        writer.setContext(["distinct_id": "user-42"])
+        writer.setSteps([makeStep("one")])
+
+        writer.markOptedOut()
+        writer.setContext(["distinct_id": "late"])
+        writer.setSteps([makeStep("late")])
+
+        let decoded = decode(written)
+        #expect(decoded.context[PostHogCrashCustomDataWriter.optedOutKey] as? Bool == true)
+        #expect(decoded.context["distinct_id"] == nil)
+        #expect(decoded.steps.isEmpty)
+    }
 }

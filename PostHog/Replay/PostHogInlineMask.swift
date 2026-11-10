@@ -305,14 +305,9 @@
             #if TESTING
                 lastInlineRegionCountForTesting = regions.count - remaining.count
             #endif
-            let rectReporters = remaining.filter { $0.inline == .extent }.map(\.rect)
-            // A portal the walk already masks whole, for a reporter inside its source, isn't added again.
-            let allReporters = frame.portalSources.contains { !$0.hasInPlaceCopy }
-                ? regions.filter { $0.inline == .extent }.map(\.rect) : rectReporters
-            let portals = Self.wholePortals(coveredBy: rectReporters, orWithoutInPlaceCopy: allReporters, of: frame.portalSources).filter { portal in
-                !remaining.contains { $0.owner == portal.owner && $0.rect == portal.rect }
-            }
-            return remaining + portals
+            // A portal that shows a source elsewhere is already masked whole by the walk whenever a mask sits under or
+            // over that source (`maskedRegions(shownThrough:)`), so nothing more is added for it here.
+            return remaining
         }
 
         private func kind(of layer: CALayer, tag: (AnyClass?, AnyClass) -> Tag) -> Kind {

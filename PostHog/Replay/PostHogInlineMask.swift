@@ -410,6 +410,10 @@
 
             /// How a copy is redacted: text layers, whose strings aren't read, are `*` rows; anything else by its source.
             func kind(of copy: CALayer, source: CALayer?) -> Kind {
+                // A `ph-no-capture` view nested in a masked view is still one black block, as on the default path.
+                if let source, let view = source.delegate as? UIView, view.layer === source, view.isNoCapture() {
+                    return .blocked
+                }
                 if copy is CATextLayer {
                     return .unreadableText(source.flatMap(PostHogGlassStandIn.nearestView)?.traitCollection ?? UITraitCollection.current)
                 }
@@ -639,11 +643,20 @@
         /// ruby annotations (which draw their own unmasked text), so the text wraps or clips as the view would.
         static func masked(_ text: NSAttributedString, keepingWhitespace: Bool, lineBreakMode: NSLineBreakMode) -> NSAttributedString {
             let result = NSMutableAttributedString()
+            // One colour for all the `*`: per-run colours, highlights and decorations would show what each run says
+            // (a red "-1,234" next to a green "+5,678").
+            let color = text.length > 0 ? text.attribute(.foregroundColor, at: 0, effectiveRange: nil) : nil
             text.enumerateAttributes(in: NSRange(location: 0, length: text.length)) { attributes, range, _ in
                 var kept = attributes
                 kept[.attachment] = nil
                 kept[.shadow] = nil
                 kept[NSAttributedString.Key(kCTRubyAnnotationAttributeName as String)] = nil
+                for key: NSAttributedString.Key in [.backgroundColor, .underlineStyle, .underlineColor, .strikethroughStyle,
+                                                    .strikethroughColor, .strokeColor, .strokeWidth, .link]
+                {
+                    kept[key] = nil
+                }
+                kept[.foregroundColor] = color
                 let style = ((attributes[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
                 style.lineBreakMode = lineBreakMode
                 kept[.paragraphStyle] = style

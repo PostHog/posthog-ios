@@ -297,7 +297,7 @@
         private typealias MaskedRegion = PostHogReplayIntegration.MaskedRegion
 
         private func region(_ owner: AnyObject, _ rect: CGRect) -> MaskedRegion {
-            MaskedRegion(owner, rect: rect)
+            MaskedRegion(owner, rect: rect, inline: .owned)
         }
 
         @Test("displacement exactly at tolerance settles")

@@ -26,7 +26,7 @@
             /// See `InlineMasking`.
             let inline: InlineMasking
 
-            init(_ object: AnyObject, rect: CGRect, inline: InlineMasking = .owned) {
+            init(_ object: AnyObject, rect: CGRect, inline: InlineMasking) {
                 owner = ObjectIdentifier(object)
                 self.object = object
                 self.rect = rect
@@ -34,11 +34,11 @@
             }
 
             init(_ view: UIView, in window: UIWindow?) {
-                self.init(view, rect: view.toPresentationRect(window))
+                self.init(view, rect: view.toPresentationRect(window), inline: .owned)
             }
 
             init(_ layer: CALayer, in window: UIWindow?) {
-                self.init(layer, rect: layer.toPresentationRect(window))
+                self.init(layer, rect: layer.toPresentationRect(window), inline: .owned)
             }
         }
 

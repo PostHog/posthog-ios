@@ -1820,7 +1820,7 @@
             guard let elsewhere = source.elsewhere else { return regions }
             let hasReporter = hasUnsettledReporter || reporters.contains { ($0.object as? UIView)?.isDescendant(of: source.view) == true }
             if let map = elsewhere.map, !hasReporter {
-                return regions + regions.map { MaskedRegion($0.object, rect: $0.rect.applying(map)) }
+                return regions + regions.map { MaskedRegion($0.object, rect: $0.rect.applying(map), inline: $0.inline) }
             }
             if hasReporter || !regions.isEmpty {
                 regions.append(MaskedRegion(source.view, rect: elsewhere.portalRect, inline: .rectOnly))

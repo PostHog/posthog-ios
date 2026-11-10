@@ -969,5 +969,55 @@
             print("INLINE-COST turn1 ms median: walk+freeze \(median(off)), walk+inline+freeze cold \(median(cold)), warm \(median(warm))")
             print("INLINE-COST turn1 ms min: walk+freeze \(off.min() ?? 0), walk+inline+freeze cold \(cold.min() ?? 0), warm \(warm.min() ?? 0)")
         }
+
+        // MARK: - ph-no-capture under masked views, and run styling
+
+        @Test("A ph-no-capture view inside a masked image view is a black block")
+        func noCaptureUnderMaskedImageViewIsBlocked() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let image = try UIImageView(image: checkerboard(CGSize(width: 180, height: 200)))
+            image.frame = CGRect(x: 10, y: 20, width: 180, height: 200)
+            let blocked = noCaptureView(CGRect(x: 20, y: 20, width: 100, height: 100), color: .magenta)
+            image.addSubview(blocked)
+            fixture.window.addSubview(image)
+            let result = try await capture(fixture)
+            let gpuMagenta = try Pixels(result.image).count(where: Self.isMagenta)
+            #expect(gpuMagenta == 0)
+        }
+
+        @Test("A ph-no-capture view inside a masked button is a black block")
+        func noCaptureUnderMaskedButtonIsBlocked() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let button = UIButton(type: .system)
+            button.frame = CGRect(x: 10, y: 20, width: 180, height: 120)
+            button.setTitle("Pay", for: .normal)
+            let blocked = noCaptureView(CGRect(x: 10, y: 50, width: 100, height: 60), color: .magenta)
+            button.addSubview(blocked)
+            fixture.window.addSubview(button)
+            let result = try await capture(fixture)
+            let gpuMagenta = try Pixels(result.image).count(where: Self.isMagenta)
+            #expect(gpuMagenta == 0)
+        }
+
+        @Test("Masked attributed text draws its `*` in one colour, without highlights")
+        func maskedTextDropsPerRunStyling() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let label = UILabel(frame: CGRect(x: 10, y: 40, width: 180, height: 50))
+            let text = NSMutableAttributedString(string: "-1234", attributes: [.foregroundColor: UIColor.red, .font: UIFont.boldSystemFont(ofSize: 28)])
+            text.append(NSAttributedString(string: " +5678", attributes: [.foregroundColor: UIColor.green, .font: UIFont.boldSystemFont(ofSize: 28),
+                                                                          .backgroundColor: UIColor.yellow]))
+            label.attributedText = text
+            fixture.window.addSubview(label)
+
+            let pixels = try await Pixels(captureStars(fixture, color: nil).image)
+            let red = pixels.count(in: label.frame) { $0.red > 200 && $0.green < 60 && $0.blue < 60 }
+            let green = pixels.count(in: label.frame) { $0.green > 200 && $0.red < 60 && $0.blue < 60 }
+            let yellow = pixels.count(in: label.frame) { $0.red > 200 && $0.green > 200 && $0.blue < 60 }
+            #expect(red == 0 || green == 0)
+            #expect(yellow == 0)
+        }
     }
 #endif

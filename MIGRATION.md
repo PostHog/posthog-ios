@@ -239,6 +239,10 @@ If you also pass `$set`, `$set_once` or `$groups` in the properties, the per-cal
 In 3.x, the SDK's own values won over super properties, and `$is_identified`, `$process_person_profile`, `$geoip_disable` and the session replay debug properties also won over the properties you pass.
 In 4.0 a value you register or pass wins, for example `capture("signed_up", properties: ["$geoip_disable": false])` sends that event with GeoIP enabled even when `disableGeoIp` is on.
 
+`$lib` and `$lib_version` are the exception: the SDK fills them as a pair after all of the above, before `beforeSend`.
+If `$lib` is missing or empty, the SDK sets both, replacing a `$lib_version` you passed on its own.
+If `$lib` names another library, the SDK leaves both as you set them and doesn't add its own version.
+
 #### Session and window IDs
 
 Capture v1 sends `$session_id` and `$window_id` as top-level `session_id` and `window_id` fields, not as properties.

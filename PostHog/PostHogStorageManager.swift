@@ -231,11 +231,15 @@ import Foundation
 
     /// Persists the hash of the last queued person properties update.
     ///
-    /// - Parameter hash: New hash to store.
-    func setPersonPropertiesHash(_ hash: String) {
+    /// - Parameter hash: New hash to store, or `nil` to clear it.
+    func setPersonPropertiesHash(_ hash: String?) {
         personPropertiesHashLock.withLock {
             personPropertiesHash = hash
-            storage.setString(forKey: .personPropertiesHash, contents: hash)
+            if let hash {
+                storage.setString(forKey: .personPropertiesHash, contents: hash)
+            } else {
+                storage.remove(key: .personPropertiesHash)
+            }
         }
     }
 

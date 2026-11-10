@@ -769,6 +769,96 @@ final class PostHogCaptureV1OptionsTest {
         #expect(events.last?.options["process_person_profile"] == nil)
     }
 
+    /// `beforeSend` edits only the first `$set`, tagged with `first`, and removes the tag so both
+    /// updates hash the same.
+    private static func editFirstSet(_ edit: @escaping @Sendable (PostHogEvent) -> Void) -> BeforeSendBlock {
+        { event in
+            guard var set = event.properties["$set"] as? [String: Any], set.removeValue(forKey: "first") != nil else { return event }
+            event.properties["$set"] = set
+            edit(event)
+            return event
+        }
+    }
+
+    @Test("a $set whose legacy or non-Boolean setting may be personless doesn't suppress the same properties later",
+          arguments: ["registered false", "string false option", "legacy false under a null option"])
+    func maybePersonlessSetDoesNotDeduplicate(setup: String) async throws {
+        let legacyFalse = Self.editFirstSet {
+            $0.properties["$process_person_profile"] = false
+            $0.options["process_person_profile"] = NSNull()
+        }
+        let sut = makeSDK(personProfiles: .always, flushAt: 2, beforeSend: setup == "legacy false under a null option" ? legacyFalse : nil)
+        defer { sut.close() }
+
+        server.reset(batchCount: 1)
+        switch setup {
+        case "registered false":
+            sut.register(["$process_person_profile": false])
+            sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"])
+            sut.unregister("$process_person_profile")
+        case "string false option":
+            sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"], options: ["process_person_profile": "false"])
+        default:
+            sut.setPersonProperties(userPropertiesToSet: ["plan": "pro", "first": true])
+        }
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"])
+        let events = try await getServerEvents(server)
+
+        #expect(events.map(\.event) == ["$set", "$set"])
+        #expect(events.last?.options["process_person_profile"] == nil)
+    }
+
+    @Test("an update that may be personful clears the stored hash, so going back to the previous properties is sent")
+    func maybePersonfulSetClearsHash() async throws {
+        let sut = makeSDK(personProfiles: .always, flushAt: 3)
+        defer { sut.close() }
+
+        server.reset(batchCount: 1)
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "a"])
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "b"], options: ["process_person_profile": "true"])
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "a"])
+        let events = try await getServerEvents(server)
+
+        #expect(events.compactMap { ($0.properties["$set"] as? [String: Any])?["plan"] as? String } == ["a", "b", "a"])
+    }
+
+    @Test("an explicit true option beats a legacy false, so the same properties set later are deduplicated")
+    func explicitTrueOptionDeduplicates() async throws {
+        let sut = makeSDK(personProfiles: .always, flushAt: 2, beforeSend: Self.editFirstSet {
+            $0.properties["$process_person_profile"] = false
+            $0.options["process_person_profile"] = true
+        })
+        defer { sut.close() }
+
+        server.reset(batchCount: 1)
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "pro", "first": true])
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"])
+        sut.capture("after")
+        let events = try await getServerEvents(server)
+
+        #expect(events.map(\.event) == ["$set", "after"])
+    }
+
+    @Test("the SDK fills $lib and $lib_version as a pair after the caller's properties",
+          arguments: [
+              ([:], postHogSdkName, postHogVersion),
+              (["$lib": "custom-lib", "$lib_version": "9.9.9"], "custom-lib", "9.9.9"),
+              (["$lib": "custom-lib"], "custom-lib", nil),
+              (["$lib": "", "$lib_version": "9.9.9"], postHogSdkName, postHogVersion),
+              (["$lib_version": "9.9.9"], postHogSdkName, postHogVersion),
+              (["$lib": postHogSdkName], postHogSdkName, postHogVersion),
+          ] as [([String: String], String, String?)])
+    func libraryIdentityPair(properties: [String: String], lib: String, version: String?) async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+
+        let sent = try await captureAndSend(sut) { $0.capture("test", properties: properties) }
+
+        let sentProperties = try #require(sent["properties"] as? [String: Any])
+        #expect(sentProperties["$lib"] as? String == lib)
+        #expect(sentProperties["$lib_version"] as? String == version)
+    }
+
     @Test("a blank distinctId argument uses the current distinct ID", arguments: ["", "  "])
     func blankDistinctIdFallsBack(distinctId: String) async throws {
         let sut = makeSDK()

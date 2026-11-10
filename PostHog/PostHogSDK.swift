@@ -687,6 +687,28 @@ let maxRetryDelay = 30.0
         value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// Whether the event is sure to update the person profile. The setting is read as it is sent: a
+    /// non-null option wins over the legacy `$process_person_profile` property. Only a missing setting
+    /// or a Boolean `true` counts, so a value PostHog might read as false never records a hash.
+    private static func surelyProcessesPersonProfile(_ event: PostHogEvent) -> Bool {
+        let option = event.options["process_person_profile"]
+        let value = isNullValue(option) ? event.properties["$process_person_profile"] : option
+        return isNullValue(value) || value as? Bool == true
+    }
+
+    /// Fills the SDK's own `$lib` and `$lib_version` as a pair, so another library's `$lib` never
+    /// gets this SDK's version and a `$lib_version` without a `$lib` is replaced.
+    private static func fillLibraryIdentity(_ props: inout [String: Any], sdkInfo: [String: Any]) {
+        guard let sdkLib = sdkInfo["$lib"] as? String else { return }
+        let lib = props["$lib"] as? String
+        if lib.isNilOrEmpty {
+            props["$lib"] = sdkLib
+            props["$lib_version"] = sdkInfo["$lib_version"]
+        } else if lib == sdkLib, (props["$lib_version"] as? String).isNilOrEmpty {
+            props["$lib_version"] = sdkInfo["$lib_version"]
+        }
+    }
+
     private static func isReplayDebugEvent(_ event: String?) -> Bool {
         guard let event else { return false }
         return event.hasPrefix("$")
@@ -796,11 +818,6 @@ let maxRetryDelay = 30.0
             }
         }
 
-        let sdkInfo = context?.sdkInfo()
-        if sdkInfo != nil {
-            props = props.merging(sdkInfo ?? [:]) { current, _ in current }
-        }
-
         if let sessionId {
             if propSessionId.isNilOrEmpty {
                 props["$session_id"] = sessionId
@@ -898,6 +915,11 @@ let maxRetryDelay = 30.0
             }
         }
         props.merge(callerProps) { _, new in new }
+
+        // The SDK's own library identity fills last, after every caller layer.
+        if let sdkInfo = context?.sdkInfo() {
+            Self.fillLibraryIdentity(&props, sdkInfo: sdkInfo)
+        }
 
         return props
     }
@@ -2732,23 +2754,23 @@ let maxRetryDelay = 30.0
         let userPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]
         // Presence, not content: sanitizing can empty a non-empty input (a `UUID` or `Data` value
         // is dropped), and that empty `$set` is still queued, so it needs a marker too.
-        // A personless event doesn't update the person, so it neither marks nor matches a hash.
+        // An update that may be personless never matches a hash, and clears the stored one: PostHog
+        // might still apply it, so a later update back to the previous properties must be sent.
         if event.event == PostHogKnownUnsafeEditableEvent.set.rawValue || event.event == PostHogKnownUnsafeEditableEvent.identify.rawValue,
            userProperties != nil || userPropertiesSetOnce != nil,
-           event.options["process_person_profile"] as? Bool != false,
            let storageManager = config.storageManager
         {
-            let hash = getPersonPropertiesHash(
+            let hash = Self.surelyProcessesPersonProfile(event) ? getPersonPropertiesHash(
                 distinctId: event.distinctId,
                 userPropertiesToSet: userProperties,
                 userPropertiesToSetOnce: userPropertiesSetOnce
-            )
+            ) : nil
             // Check and enqueue under the same lock so concurrent calls cannot enqueue duplicates.
             let (isDuplicate, stored) = cachedPersonPropertiesLock.withLock { () -> (Bool, Bool) in
-                if deduplicatePersonProperties, storageManager.getPersonPropertiesHash() == hash {
+                if deduplicatePersonProperties, let hash, storageManager.getPersonPropertiesHash() == hash {
                     return (true, false)
                 }
-                // Only a stored event marks the properties as sent, so a failed write is retried.
+                // Only a stored event updates the hash, so a failed write is retried.
                 let stored = queue.add(event)
                 if stored {
                     storageManager.setPersonPropertiesHash(hash)

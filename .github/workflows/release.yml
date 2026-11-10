@@ -52,6 +52,26 @@ jobs:
       slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
       posthog_project_api_key: ${{ secrets.POSTHOG_PROJECT_API_KEY }}
 
+  preserve-slack-thread:
+    name: Preserve Slack thread
+    needs: notify-approval-needed
+    if: needs.notify-approval-needed.outputs.slack_ts != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - name: Save approval thread timestamp
+        env:
+          THREAD_TS: ${{ needs.notify-approval-needed.outputs.slack_ts }}
+        run: printf '%s' "$THREAD_TS" > thread-ts.txt
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-slack-thread-${{ github.run_attempt }}
+          path: thread-ts.txt
+          retention-days: 30
+          if-no-files-found: error
+
   version-bump:
     name: Bump version and commit to main
     needs: [check-changesets, notify-approval-needed]
@@ -67,7 +87,7 @@ jobs:
     steps:
       - name: Notify Slack - Approved
         continue-on-error: true
-        uses: PostHog/.github/.github/actions/slack-thread-reply@cb0979b67dcd585828b61ac45927eef4da8f6287 # main
+        uses: PostHog/.github/.github/actions/slack-thread-reply@cc755983073d8c8d9e94d8b84ff761e6451d287f # main
         with:
           slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
           slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
@@ -152,17 +172,6 @@ jobs:
               "alertContext": "The version bump/changelog step failed before packages were published."
             }
 
-      - name: Notify Slack - Failed
-        continue-on-error: true
-        if: ${{ failure() && needs.notify-approval-needed.outputs.slack_ts != '' }}
-        uses: PostHog/.github/.github/actions/slack-thread-reply@cb0979b67dcd585828b61ac45927eef4da8f6287 # main
-        with:
-          slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
-          slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
-          thread_ts: ${{ needs.notify-approval-needed.outputs.slack_ts }}
-          message: '❌ Failed to bump version for `posthog-ios@v${{ steps.apply-changesets.outputs.new-version }}`! <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View logs>'
-          emoji_reaction: 'x'
-
   notify-rejected:
     name: Notify Slack - Rejected
     needs: [version-bump, notify-approval-needed]
@@ -195,7 +204,7 @@ jobs:
       - name: Notify Slack - Rejected
         if: steps.check-rejection.outputs.was_rejected == 'true'
         continue-on-error: true
-        uses: PostHog/.github/.github/actions/slack-thread-reply@cb0979b67dcd585828b61ac45927eef4da8f6287 # main
+        uses: PostHog/.github/.github/actions/slack-thread-reply@cc755983073d8c8d9e94d8b84ff761e6451d287f # main
         with:
           slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
           slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
@@ -283,24 +292,18 @@ jobs:
               "alertContext": "The GitHub release creation step failed."
             }
 
-      - name: Notify Slack - Failed
-        continue-on-error: true
-        if: ${{ failure() && needs.notify-approval-needed.outputs.slack_ts != '' }}
-        uses: PostHog/.github/.github/actions/slack-thread-reply@cb0979b67dcd585828b61ac45927eef4da8f6287 # main
-        with:
-          slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
-          slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
-          thread_ts: ${{ needs.notify-approval-needed.outputs.slack_ts }}
-          message: '❌ Failed to create the GitHub release for `posthog-ios@v${{ steps.get-version.outputs.version }}`! <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View logs>'
-          emoji_reaction: 'x'
-
   publish-cocoapods:
     name: Publish to CocoaPods
     needs: [create-github-release, notify-approval-needed]
-    runs-on: macos-14
+    runs-on: macos-15
     if: always() && needs.create-github-release.result == 'success'
+    # Best-effort: SPM consumers get the release from the tag, so a CocoaPods
+    # failure must not fail the release. Publish a missed pod manually (see RELEASING.md).
+    continue-on-error: true
     permissions:
       contents: read
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
     env:
       COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }} # Using @ioannisj token
     steps:
@@ -314,7 +317,11 @@ jobs:
         with:
           xcode-version: '16.2'
 
+      - name: Prepare CocoaPods validation environment
+        run: make prepareCocoaPods
+
       - name: Publish to CocoaPods
+        id: publish
         env:
           RELEASE_VERSION: ${{ needs.create-github-release.outputs.version }}
         run: |
@@ -325,8 +332,15 @@ jobs:
               | grep -E -- "^[[:space:]]*- ${RELEASE_VERSION//./\\.} \("
           }
 
-          if make releaseCocoaPods; then
+          if make publishCocoaPods 2>&1 | tee "$RUNNER_TEMP/pod-trunk-push.log"; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+
+          if grep -Eqi "read[-[:space:]]+only" "$RUNNER_TEMP/pod-trunk-push.log"; then
+            echo "read_only=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::CocoaPods Trunk is read-only. PostHog $RELEASE_VERSION was not published to CocoaPods; the GitHub/SPM release is available."
+            exit 1
           fi
 
           # `pod trunk push` regularly exits non-zero *after* the spec is already
@@ -337,6 +351,7 @@ jobs:
           for attempt in $(seq 1 10); do
             if on_trunk; then
               echo "PostHog $RELEASE_VERSION is on trunk (attempt $attempt/10). Treating as success."
+              echo "published=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             if [ "$attempt" -lt 10 ]; then
@@ -350,7 +365,7 @@ jobs:
 
       # Notify in case of failure
       - name: Send failure event to PostHog
-        if: ${{ failure() }}
+        if: ${{ failure() && steps.publish.outputs.read_only != 'true' }}
         continue-on-error: true
         uses: PostHog/posthog-github-action@9a6a19d360820ab4d95ecc4a5a7564062c895f84 # v1.3.0
         with:
@@ -368,32 +383,32 @@ jobs:
               "packageVersion": "${{ needs.create-github-release.outputs.version || 'unknown' }}",
               "actionUrl": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
               "alertText": ":rotating_light: Failed to publish posthog-ios@v${{ needs.create-github-release.outputs.version }} to CocoaPods :rotating_light:",
-              "alertContext": "The CocoaPods publish step failed."
+              "alertContext": "The CocoaPods preparation or publish step failed."
             }
-
-      - name: Notify Slack - Failed
-        continue-on-error: true
-        if: ${{ failure() && needs.notify-approval-needed.outputs.slack_ts != '' }}
-        uses: PostHog/.github/.github/actions/slack-thread-reply@cb0979b67dcd585828b61ac45927eef4da8f6287 # main
-        with:
-          slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
-          slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
-          thread_ts: ${{ needs.notify-approval-needed.outputs.slack_ts }}
-          message: '❌ Failed to publish `posthog-ios@v${{ needs.create-github-release.outputs.version }}` to CocoaPods! <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View logs>'
-          emoji_reaction: 'x'
 
   notify-released:
     name: Notify Slack - Released
-    needs: [notify-approval-needed, publish-cocoapods]
+    # publish-cocoapods is in `needs` only for ordering; it is best-effort and must not gate this.
+    needs: [notify-approval-needed, create-github-release, publish-cocoapods]
     runs-on: ubuntu-latest
-    if: always() && needs.publish-cocoapods.result == 'success' && needs.notify-approval-needed.outputs.slack_ts != ''
+    if: always() && needs.create-github-release.result == 'success' && needs.notify-approval-needed.outputs.slack_ts != ''
     steps:
       - name: Notify Slack - Released
-        continue-on-error: true
-        uses: PostHog/.github/.github/actions/slack-thread-reply@cb0979b67dcd585828b61ac45927eef4da8f6287 # main
+        uses: PostHog/.github/.github/actions/slack-thread-reply@cc755983073d8c8d9e94d8b84ff761e6451d287f # main
         with:
           slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
           slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
           thread_ts: ${{ needs.notify-approval-needed.outputs.slack_ts }}
           message: '🚀 `posthog-ios` released successfully!'
           emoji_reaction: 'rocket'
+          errors: true
+
+      - name: Notify Slack - CocoaPods status
+        if: ${{ !cancelled() }}
+        uses: PostHog/.github/.github/actions/slack-thread-reply@cc755983073d8c8d9e94d8b84ff761e6451d287f # main
+        with:
+          slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
+          slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
+          thread_ts: ${{ needs.notify-approval-needed.outputs.slack_ts }}
+          message: ${{ needs.publish-cocoapods.outputs.published == 'true' && format('📦 `posthog-ios@v{0}` published to CocoaPods.', needs.create-github-release.outputs.version) || format('⚠️ `posthog-ios@v{0}` was not published to CocoaPods.', needs.create-github-release.outputs.version) }}
+          errors: true

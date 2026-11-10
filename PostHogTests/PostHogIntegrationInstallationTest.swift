@@ -9,6 +9,10 @@
 import Testing
 import XCTest
 
+#if os(iOS) || os(macOS) || os(tvOS)
+    import PHPLCrashReporter
+#endif
+
 @Suite("Test integration installation", .serialized)
 class PostHogIntegrationInstallationTest {
     var server: MockPostHogServer!
@@ -18,6 +22,7 @@ class PostHogIntegrationInstallationTest {
         server.start()
         #if os(iOS)
             PostHogReplayIntegration.clearInstalls()
+            PostHogSurveyIntegration.clearInstalls()
         #endif
         #if os(iOS) || targetEnvironment(macCatalyst)
             PostHogAutocaptureIntegration.clearInstalls()
@@ -47,6 +52,7 @@ class PostHogIntegrationInstallationTest {
     private func getSut(
         projectToken: String,
         sessionReplay: Bool = false,
+        surveys: Bool = false,
         captureApplicationLifecycleEvents: Bool = false,
         captureScreenViews: Bool = false,
         captureElementInteractions: Bool = false,
@@ -54,9 +60,14 @@ class PostHogIntegrationInstallationTest {
         errorTrackingAutoCapture: Bool = false,
         enableSwizzling: Bool = true,
         capturePushNotificationOpened: Bool = false,
-        capturePushNotificationSubscriptions: Bool = false
+        capturePushNotificationSubscriptions: Bool = false,
+        flushAt: Int? = nil
     ) -> PostHogSDK {
         let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
+        if let flushAt {
+            config.flushAt = flushAt
+            config.disableQueueTimerForTesting = true
+        }
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.disableRemoteConfigForTesting = disableRemoteConfig
         config.disableFlushOnBackgroundForTesting = true
@@ -65,6 +76,7 @@ class PostHogIntegrationInstallationTest {
 
         #if os(iOS)
             config.sessionReplay = sessionReplay
+            config._surveys = surveys
         #endif
 
         #if os(iOS) || targetEnvironment(macCatalyst)
@@ -97,6 +109,16 @@ class PostHogIntegrationInstallationTest {
 
             first.close()
             second.close()
+        }
+    #endif
+
+    #if os(iOS)
+        @Test("surveys integration installs even when swizzling is disabled")
+        func surveysIntegrationInstalledWithoutSwizzling() {
+            let sut = getSut(projectToken: "test_project_token", surveys: true, enableSwizzling: false)
+            defer { sut.close() }
+
+            #expect(sut.getSurveysIntegration() != nil)
         }
     #endif
 
@@ -399,6 +421,124 @@ class PostHogIntegrationInstallationTest {
             sut.optIn() // triggers re-install with a fetched-but-failed remote config
             #expect(sut.getErrorTrackingIntegration() != nil)
         }
+
+        private func getCrashReportingSut() -> PostHogSDK {
+            getSut(projectToken: "test_error_tracking_\(UUID().uuidString)", errorTrackingAutoCapture: true, flushAt: 1)
+        }
+
+        /// A live report occasionally fails to decode, so generation is retried (as in the processor tests).
+        private func writePendingCrashReport(customData: [String: Any]) throws -> PHPLCrashReporter {
+            let reporter = try #require(PHPLCrashReporter(configuration: PHPLCrashReporterConfig.defaultConfiguration()))
+            reporter.customData = try JSONSerialization.data(withJSONObject: customData)
+
+            var reportData: Data?
+            for _ in 0 ..< 5 where reportData == nil {
+                let data = try reporter.generateLiveReportAndReturnError()
+                if (try? PHPLCrashReport(data: data)) != nil {
+                    reportData = data
+                }
+            }
+
+            let path = try #require(reporter.crashReportPath())
+            try FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+            try #require(reportData).write(to: URL(fileURLWithPath: path))
+            try #require(reporter.hasPendingCrashReport())
+            return reporter
+        }
+
+        private func crashCustomData(_ reporter: PHPLCrashReporter) throws -> [String: Any] {
+            try #require(reporter.customData.flatMap { fromJSONData($0) })
+        }
+
+        @Test("opting out replaces the crash context with an opted-out marker")
+        func optOutMarksCrashContextAsOptedOut() throws {
+            let sut = getCrashReportingSut()
+            defer { sut.close() }
+            let reporter = try #require(sut.getErrorTrackingIntegration()?.crashReporterForTesting)
+
+            let before = try crashCustomData(reporter)
+            #expect(before["distinct_id"] != nil)
+            #expect(before["event_properties"] != nil)
+            #expect(before[PostHogCrashCustomDataWriter.optedOutKey] == nil)
+
+            sut.optOut()
+
+            let after = try crashCustomData(reporter)
+            #expect(after[PostHogCrashCustomDataWriter.optedOutKey] as? Bool == true)
+            #expect(after["distinct_id"] == nil)
+            #expect(after["event_properties"] == nil)
+        }
+
+        @Test("closing while opted in leaves the crash context unmarked")
+        func closeWhileOptedInKeepsCrashContext() throws {
+            let sut = getCrashReportingSut()
+            let reporter = try #require(sut.getErrorTrackingIntegration()?.crashReporterForTesting)
+
+            sut.close()
+
+            let after = try crashCustomData(reporter)
+            #expect(after[PostHogCrashCustomDataWriter.optedOutKey] == nil)
+            #expect(after["distinct_id"] != nil)
+        }
+
+        @Test("a pending crash report recorded while opted out is dropped on opt-in")
+        func optInDropsCrashReportRecordedWhileOptedOut() throws {
+            let sut = getCrashReportingSut()
+            defer { sut.close() }
+            sut.optOut()
+
+            let reporter = try writePendingCrashReport(customData: [PostHogCrashCustomDataWriter.optedOutKey: true])
+            defer { reporter.purgePendingCrashReport() }
+
+            sut.optIn()
+            #expect(!reporter.hasPendingCrashReport())
+
+            // Any `$exception` from the pending report would be queued, and flushed, before this event.
+            sut.capture("after opt-in")
+            let events = getBatchedEvents(server)
+            #expect(events.contains { $0.event == "after opt-in" })
+            #expect(!events.contains { $0.event == "$exception" })
+        }
+
+        @Test("a pending crash report without the opted-out marker is still captured on opt-in")
+        func optInCapturesCrashReportRecordedWhileOptedIn() throws {
+            let sut = getCrashReportingSut()
+            defer { sut.close() }
+            sut.optOut()
+
+            let reporter = try writePendingCrashReport(customData: [
+                "distinct_id": "crashed-user",
+                "event_properties": ["crash_time_prop": "kept"],
+            ])
+            defer { reporter.purgePendingCrashReport() }
+
+            sut.optIn()
+
+            let events = getBatchedEvents(server)
+            let exception = try #require(events.first { $0.event == "$exception" })
+            #expect(exception.distinctId == "crashed-user")
+            #expect(exception.properties["crash_time_prop"] as? String == "kept")
+            #expect(exception.properties["$exception_list"] != nil)
+        }
+
+        #if os(iOS) && !targetEnvironment(macCatalyst) && compiler(>=6.4)
+            @Test("opting out keeps this process's saved context, reduced to the opted-out marker, for a later memory diagnostic")
+            func optOutKeepsMarkedProcessContext() throws {
+                guard #available(iOS 27.0, *) else { return }
+                let sut = getCrashReportingSut()
+                defer { sut.close() }
+                let contextFile = try #require(sut.storage).appFolderUrl
+                    .appendingPathComponent(PostHogProcessContextStore.directoryName)
+                    .appendingPathComponent("\(ProcessInfo.processInfo.processIdentifier).json")
+
+                sut.optOut()
+
+                let saved = try #require(fromJSONData(try Data(contentsOf: contextFile)))
+                #expect(saved[PostHogCrashCustomDataWriter.optedOutKey] as? Bool == true)
+                #expect(saved["distinct_id"] == nil)
+                #expect(saved["event_properties"] == nil)
+            }
+        #endif
     #endif
 
     #if os(iOS) || os(macOS)

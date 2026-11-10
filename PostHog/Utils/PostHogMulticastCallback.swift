@@ -87,15 +87,15 @@ final class RegistrationToken {
 ///
 /// Usage:
 /// ```swift
-/// let onViewLayout = PostHogThrottledMulticastCallback<Void>()
+/// let onOpportunity = PostHogThrottledMulticastCallback<Void>()
 ///
 /// // Subscribe with throttle
-/// let token = onViewLayout.subscribe(throttle: 0.5) {
-///     print("View laid out (throttled)")
+/// let token = onOpportunity.subscribe(throttle: 0.5) {
+///     print("Opportunity to capture (throttled)")
 /// }
 ///
 /// // Invoke all subscribers (each respects its own throttle)
-/// onViewLayout.invoke(())
+/// onOpportunity.invoke(())
 /// ```
 final class PostHogThrottledMulticastCallback<T> {
     private var callbacks: [UUID: ThrottledCallback] = [:]
@@ -136,7 +136,8 @@ final class PostHogThrottledMulticastCallback<T> {
     /// - Parameters:
     ///   - throttle: The minimum interval between callback invocations for this subscriber.
     ///   - trailing: Deliver the latest value received inside a window when that window closes.
-    ///     Values are coalesced while delivery is waiting for the main thread.
+    ///     Values are coalesced while delivery is waiting for the main thread. With an interval of 0 every
+    ///     value dispatches to main, which on a run-loop-driven publisher keeps the run loop from sleeping.
     ///   - callback: The callback to invoke when `invoke()` is called (on main thread).
     /// - Returns: A `RegistrationToken` that unsubscribes when deallocated.
     func subscribe(throttle interval: TimeInterval, trailing: Bool = false, _ callback: @escaping (T) -> Void) -> RegistrationToken {

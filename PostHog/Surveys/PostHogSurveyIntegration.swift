@@ -935,6 +935,15 @@
             activeSurveyLock.withLock { clearActiveSurveyLocked() }
         }
 
+        /// Drops the reservation only when it is still the attempt that was cancelled.
+        /// A reset and a new display can land while the cancel waits for the main queue.
+        func clearActiveSurveyIfCurrent(surveyId: String, attemptId: UUID?) {
+            activeSurveyLock.withLock {
+                guard activeSurvey?.id == surveyId, activeSurveyAttemptId == attemptId else { return }
+                clearActiveSurveyLocked()
+            }
+        }
+
         private func clearActiveSurveyLocked() {
             activeSurvey = nil
             activeSurveyAttemptId = nil

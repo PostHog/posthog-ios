@@ -58,6 +58,12 @@
             // display and reset paths.
             let apply = { [weak self] in
                 guard let self else { return }
+                // Reset can replace this attempt while the hop to main is queued.
+                // The replacement must keep its reservation and its pending UI.
+                guard self.activeSurveyLock.withLock({
+                    self.activeSurvey?.id == snapshot.survey.id && self.activeSurveyAttemptId == snapshot.attemptId
+                }) else { return }
+
                 #if os(iOS)
                     if let delegate = self.config?._surveysConfig.surveysDelegate as? PostHogSurveysDefaultDelegate {
                         switch delegate.cancelSurveyIfPresented(surveyId) {
@@ -72,7 +78,7 @@
                 if snapshot.wasShown {
                     self.handleSurveyClosed(survey: snapshot.survey.toDisplaySurvey(), attemptId: snapshot.attemptId)
                 } else {
-                    self.clearActiveSurvey()
+                    self.clearActiveSurveyIfCurrent(surveyId: snapshot.survey.id, attemptId: snapshot.attemptId)
                 }
             }
 
@@ -80,9 +86,9 @@
                 if Thread.isMainThread {
                     apply()
                 } else {
-                    // Synchronous so a background capture finishes the dismissal before
-                    // the caller continues, without publishing SwiftUI state off main.
-                    DispatchQueue.main.sync(execute: apply)
+                    // capture calls this directly. Waiting for main here deadlocks when
+                    // main is itself waiting on the thread that captured the cancel.
+                    DispatchQueue.main.async(execute: apply)
                 }
             #else
                 apply()

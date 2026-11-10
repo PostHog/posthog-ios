@@ -74,6 +74,20 @@ final class SurveyAutoSubmitUITests: XCTestCase {
         assertAnswers("0:First,Second")
     }
 
+    func testPositionedCardCloseWorksInProductionWindow() {
+        app.launchEnvironment = ["SURVEY_POSITION": "top_center"]
+        app.launch()
+        let status = app.staticTexts["survey-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        let shown = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "shown"), object: status)
+        XCTAssertEqual(XCTWaiter.wait(for: [shown], timeout: 5), .completed)
+        let close = app.buttons["posthog.survey.dismiss"]
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        close.tap()
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "closed"), object: status)
+        XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
+    }
+
     func testOptionalQuestionCanStillSkipWithExplicitSubmission() {
         launch(kind: "number", flag: "false", optional: true)
         XCTAssertTrue(continueButton.isEnabled)

@@ -132,6 +132,7 @@
                     .foregroundColor(appearance.textColor ?? appearance.backgroundColor.getContrastingTextColor())
             }
             .buttonStyle(.borderless)
+            .accessibilityIdentifier("posthog.survey.dismiss")
         }
     }
 

@@ -28,21 +28,17 @@
                 ZStack {
                     Color.black.opacity(0.4)
                         .ignoresSafeArea()
-                    positionedSurvey(survey)
+                        .allowsHitTesting(false)
+                    PositionedSurveyCard(displayManager: displayManager, fallbackSurvey: survey)
+                        .frame(maxWidth: 420)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: placementAlignment)
                 }
             }
         }
 
         private var placement: SurveyPlacement {
             SurveyPlacement.resolve(wire: displayManager.displayedSurvey?.appearance?.position)
-        }
-
-        private func positionedSurvey(_ survey: PostHogDisplaySurvey) -> some View {
-            SurveySheet(displayManager: displayManager, fallbackSurvey: survey, presentsAsSheet: false)
-                .environment(\.colorScheme, .light)
-                .frame(maxWidth: 420)
-                .padding(16)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: placementAlignment)
         }
 
         private var placementAlignment: Alignment {
@@ -67,6 +63,35 @@
             }
 
             return Alignment(horizontal: horizontal, vertical: vertical)
+        }
+
+        /// The card lives in its own hosting controller. `SurveysWindow` is a passthrough
+        /// window and drops any hit that resolves to the root hosting view, which is what
+        /// a SwiftUI button drawn directly in that root does. A separate view keeps the
+        /// close button, and the rest of the card, in the hit-test chain.
+        private struct PositionedSurveyCard: UIViewControllerRepresentable {
+            @ObservedObject var displayManager: SurveyDisplayController
+            let fallbackSurvey: PostHogDisplaySurvey
+
+            func makeUIViewController(context _: Context) -> UIHostingController<AnyView> {
+                let controller = UIHostingController(rootView: card)
+                controller.view.backgroundColor = .clear
+                if #available(iOS 16.0, *) {
+                    controller.sizingOptions = .intrinsicContentSize
+                }
+                return controller
+            }
+
+            func updateUIViewController(_ controller: UIHostingController<AnyView>, context _: Context) {
+                controller.rootView = card
+            }
+
+            private var card: AnyView {
+                AnyView(
+                    SurveySheet(displayManager: displayManager, fallbackSurvey: fallbackSurvey, presentsAsSheet: false)
+                        .environment(\.colorScheme, .light)
+                )
+            }
         }
 
         private var displayBinding: Binding<PostHogDisplaySurvey?> {

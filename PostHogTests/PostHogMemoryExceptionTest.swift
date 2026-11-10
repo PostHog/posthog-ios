@@ -170,6 +170,22 @@ struct PostHogMemoryExceptionTest {
         #expect(store.takeContext(pid: 42, notAfter: Date().addingTimeInterval(60)) == nil)
     }
 
+    @Test("close writes the pending context, keeps every saved context and ignores later writes")
+    func closeKeepsContexts() throws {
+        let directory = makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try blob("earlier launch").write(to: directory.appendingPathComponent("7.json"))
+        let store = PostHogProcessContextStore(directory: directory, currentPid: 42)
+        store.write(blob("user"))
+        store.close()
+        store.write(blob("late write"))
+
+        let saved = try #require(fromJSONData(try Data(contentsOf: directory.appendingPathComponent("42.json"))))
+        #expect(saved["distinct_id"] as? String == "user")
+        #expect(store.takeContext(pid: 7, notAfter: Date().addingTimeInterval(60))?["distinct_id"] as? String == "earlier launch")
+    }
+
     @Test("keeps saving after another process sharing the directory removed it")
     func survivesSharedDirectoryRemoval() {
         let directory = makeDirectory()

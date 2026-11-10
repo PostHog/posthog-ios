@@ -236,13 +236,17 @@ bootstrap:
 	brew install prek
 	prek install
 
-# download SDKs and runtimes
-# create Apple Vision Pro simulator if missing
-# release pod
-releaseCocoaPods:
+.PHONY: prepareCocoaPods publishCocoaPods
+
+releaseCocoaPods: prepareCocoaPods
+	$(MAKE) publishCocoaPods
+
+prepareCocoaPods:
 	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms 
 	@if ! xcrun simctl list devices | grep -q "Apple Vision Pro"; then \
 		LATEST_RUNTIME=$$(xcrun simctl list runtimes | grep "com.apple.CoreSimulator.SimRuntime.xrOS" | sort -r | head -n 1 | awk '{print $$NF}') && \
 		xcrun simctl create "Apple Vision Pro" "Apple Vision Pro" "$$LATEST_RUNTIME"; \
 	fi
+
+publishCocoaPods:
 	pod trunk push PostHog.podspec --allow-warnings

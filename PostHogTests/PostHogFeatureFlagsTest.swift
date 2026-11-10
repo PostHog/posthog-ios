@@ -640,6 +640,25 @@ enum PostHogFeatureFlagsTest {
             #expect(personProperties["user_plan"] as? String == "premium", "Expected user_plan to be 'premium' from capture call")
         }
 
+        @Test("Capture whose beforeSend resets keeps its userProperties out of the next user's flags")
+        func captureWithBeforeSendResetKeepsUserPropertiesFromNextUser() {
+            var sdk: PostHogSDK?
+            config.setBeforeSend { event in
+                if event.event == "test_event" {
+                    sdk?.reset()
+                }
+                return event
+            }
+            let sut = track(PostHogSDK.with(config))
+            sdk = sut
+            sut.identify("test_user")
+
+            sut.capture("test_event", userProperties: ["user_plan": "premium"])
+
+            #expect(sut.getDistinctId() != "test_user")
+            #expect(sut.remoteConfig?.getPersonPropertiesForFlags()["user_plan"] == nil)
+        }
+
         @Test("Group with groupProperties automatically sets group properties for flags")
         func groupWithGroupPropertiesAutomaticallySetsGroupPropertiesForFlags() async {
             let sut = track(PostHogSDK.with(config))
@@ -1813,6 +1832,108 @@ enum PostHogFeatureFlagsTest {
             await MainActor.run {}
 
             #expect(received.count == before)
+        }
+
+        /// Stubs `/flags` so the first response is held until `gate` is signalled and carries
+        /// `string-value: "previous-user"`; every later response carries `"new-user"`. `onLaterRequest`
+        /// runs when a later request reaches the server, before it is answered.
+        private func stubHeldFirstFlagsResponse(gate: DispatchSemaphore, onLaterRequest: @escaping () -> Void = {}) {
+            let lock = NSLock()
+            var requests = 0
+            server.flagsResponseHandler = { _ in
+                let count = lock.withLock {
+                    requests += 1
+                    return requests
+                }
+                if count == 1 {
+                    _ = gate.wait(timeout: .now() + 5)
+                } else {
+                    onLaterRequest()
+                }
+                let body: [String: Any] = [
+                    "featureFlags": ["string-value": count == 1 ? "previous-user" : "new-user"],
+                    "featureFlagPayloads": [String: Any](),
+                    "errorsWhileComputingFlags": false,
+                ]
+                return HTTPStubsResponse(jsonObject: body, statusCode: 200, headers: nil)
+            }
+        }
+
+        /// Starts a reload whose `/flags` response is held, calls `reset()` with the post-reset reload
+        /// skipped, then releases the held response and waits for the main-queue deliveries.
+        private func reloadAcrossResetWithoutReload(_ sut: PostHogSDK) async {
+            let gate = DispatchSemaphore(value: 0)
+            stubHeldFirstFlagsResponse(gate: gate)
+
+            await withCheckedContinuation { continuation in
+                sut.remoteConfig?.reloadFeatureFlags { _ in continuation.resume() }
+                // Skip the reload that reset() starts, so only the held response could reach a listener
+                sut.remoteConfig?.canReloadFlagsForTesting = false
+                sut.reset()
+                gate.signal()
+            }
+            await MainActor.run {}
+        }
+
+        @Test("drops a load in flight across reset() and delivers the reload reset() started")
+        func dropsLoadInFlightAcrossReset() async {
+            let sut = track(PostHogSDK.with(config))
+            let gate = DispatchSemaphore(value: 0)
+            nonisolated(unsafe) var resetReloadSent = false
+            nonisolated(unsafe) var cachedWhenResetReloadSent: [String: Any]?
+            stubHeldFirstFlagsResponse(gate: gate) {
+                // The held response has been handled by the time reset()'s queued reload goes out
+                resetReloadSent = true
+                cachedWhenResetReloadSent = sut.remoteConfig?.getFeatureFlags()
+            }
+            var received: [PostHogFeatureFlagsLoaded] = []
+            sut.onFeatureFlags { received.append($0) }
+
+            let heldLoadFlags = await withCheckedContinuation { continuation in
+                sut.remoteConfig?.reloadFeatureFlags { continuation.resume(returning: $0) }
+                sut.reset()
+                gate.signal()
+            }
+            await MainActor.run {}
+
+            #expect(resetReloadSent)
+            #expect(cachedWhenResetReloadSent?["string-value"] == nil, "the dropped response must not write the cache")
+            #expect(received.map { $0.variants["string-value"] as? String } == ["new-user"])
+            #expect(heldLoadFlags?["string-value"] as? String == "new-user")
+            #expect(sut.getFeatureFlag("string-value") as? String == "new-user")
+        }
+
+        @Test("does not replay a load dropped by reset() to a listener registered afterwards")
+        func noReplayOfLoadDroppedByReset() async {
+            let sut = track(PostHogSDK.with(config))
+            await reloadAcrossResetWithoutReload(sut)
+
+            var received: [PostHogFeatureFlagsLoaded] = []
+            sut.onFeatureFlags { received.append($0) }
+            await MainActor.run {}
+
+            #expect(received.isEmpty)
+            #expect(sut.remoteConfig?.getFeatureFlags()?["string-value"] == nil)
+        }
+
+        @Test("does not post didReceiveFeatureFlags for a load dropped by reset()")
+        func noNotificationForLoadDroppedByReset() async {
+            let sut = track(PostHogSDK.with(config))
+            // The notification is global (object: nil), so record this SDK's flags at each post rather
+            // than counting posts, which an earlier test's SDK could also make.
+            let lock = NSLock()
+            var flagsAtPost: [String?] = []
+            let observer = NotificationCenter.default.addObserver(
+                forName: PostHogSDK.didReceiveFeatureFlags, object: nil, queue: nil
+            ) { _ in
+                let value = sut.remoteConfig?.getFeatureFlags()?["string-value"] as? String
+                lock.withLock { flagsAtPost.append(value) }
+            }
+            defer { NotificationCenter.default.removeObserver(observer) }
+
+            await reloadAcrossResetWithoutReload(sut)
+
+            #expect(!lock.withLock { flagsAtPost }.contains("previous-user"))
         }
 
         @Test("does not call a listener unsubscribed by another listener during the same delivery")

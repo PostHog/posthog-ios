@@ -34,7 +34,7 @@ When the PR is merged to `main`, the release workflow will automatically:
    - Update the `CHANGELOG.md`
    - Commit the version bump to `main`
    - Create a git tag and GitHub release
-   - Publish the pod to CocoaPods
+   - Publish the pod to CocoaPods (best-effort, see [CocoaPods publish failed](#cocoapods-publish-failed))
    - SPM uses the tag name to determine the version, directly from the repo
 
 ### Manual Trigger
@@ -74,11 +74,29 @@ If the release workflow fails with "No changesets found", ensure your PR include
 
 Make sure the PR includes a changeset file and was merged to `main`, or trigger the workflow manually from the Actions tab.
 
-### Manual CocoaPods publish (emergency only)
+### Failed or cancelled release
 
-In case of automation failure, you can manually publish:
+The independent [release failure notification workflow](.github/workflows/release-failure-notification.yml) checks every completed main-branch release attempt and alerts if a job failed, timed out, or was cancelled. This includes runner startup failures and cancellations with job records. A best-effort CocoaPods failure does not generate a duplicate alert when the CocoaPods-status reply was delivered. The workflow still alerts if that reply failed or if the GitHub release exists but the released Slack notification was skipped. Once the GitHub/SPM release exists, alerts describe follow-up problems rather than claiming the release failed.
+
+Cancelled runs with no jobs are ignored, including superseded queued runs and manual cancellations before any job is created. A version-bump failure before any steps ran is also ignored when the rejection-reply step confirms an explicit rejection in the same attempt and no other job failed.
+
+Job inspection retries transient GitHub API failures up to three times. If inspection still fails, it logs the HTTP status or error type and message, then posts a fallback alert with the overall run status and logs link so the release can be checked manually. Error diagnostics stay in the run log, not in the Slack message.
+
+Alerts reply to the approval thread in the release approvals Slack channel. The release workflow preserves the thread timestamp in a run artifact for 30 days, independently of release approval. Failed-job reruns reuse the latest available thread from the same or an earlier attempt. If the timestamp is missing, invalid, or unavailable, the alert falls back to a new channel message, so it does not depend on the approval notification succeeding. The CocoaPods-status reply is attempted even if the released reply fails, unless the job is cancelled. The released/status messages and the independent failure message surface Slack API errors rather than silently ignoring them, allowing the completion check to detect a failed release notification. The completion workflow must be present on the default branch to run; local tests do not send Slack messages.
+
+### CocoaPods publish failed
+
+CocoaPods publishing is best-effort and does not block the release. If the "Publish to CocoaPods" job fails, the run still succeeds once the tag and GitHub release exist, the "released" Slack notification still goes out, and the Slack release thread gets a reply saying whether the version was published to CocoaPods, so you know when the pod is missing.
+
+The workflow prepares SDKs and simulators with `make prepareCocoaPods` before running `make publishCocoaPods`. Preparation failures stop before the push and do not trigger Trunk polling. A failed push still polls Trunk to detect versions accepted before a response timeout. When Trunk explicitly reports read-only, polling and the PostHog failure event are skipped; the threaded CocoaPods-status warning still reports that the pod was not published. The manual `make releaseCocoaPods` command runs both preparation and publishing.
+
+CocoaPods Trunk becomes permanently read-only on December 2nd 2026, after which new pod versions can no longer be published.
+
+To publish a missed pod manually, check out the release tag and push it:
 
 ```bash
+git fetch --tags
+git checkout <version>  # e.g. 3.93.3
 make releaseCocoaPods
 ```
 

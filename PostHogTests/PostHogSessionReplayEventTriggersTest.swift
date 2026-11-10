@@ -350,6 +350,80 @@
             #expect(sut.getReplayIntegration()?.isActive() == false)
         }
 
+        private var fractionalUnconditionalGroup: [[String: Any]] {
+            [["id": "g-empty", "sampleRate": 0.2, "conditions": ["matchType": "all"]]]
+        }
+
+        /// A fresh session id the trigger groups sample in (or out), picked through the SDK's own evaluator.
+        private func sessionId(sampledIn: Bool, by sut: PostHogSDK) throws -> String {
+            let remoteConfig = try #require(sut.remoteConfig)
+            for _ in 0 ..< 1000 {
+                let id = UUID().uuidString
+                if remoteConfig.isSessionRecordingPermittedByTriggerGroups(sessionId: id) == sampledIn {
+                    return id
+                }
+            }
+            Issue.record("no session id sampled \(sampledIn ? "in" : "out")")
+            return UUID().uuidString
+        }
+
+        @Test("unconditional groups resume after a sampled-out session")
+        func unconditionalGroupsResumeAfterSampledOutSession() throws {
+            let sut = getSut(triggerGroups: fractionalUnconditionalGroup)
+            defer { sut.close() }
+            let first = try sessionId(sampledIn: true, by: sut)
+            let sampledOut = try sessionId(sampledIn: false, by: sut)
+            let third = try sessionId(sampledIn: true, by: sut)
+
+            sut.sessionManager.setSessionId(first)
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(sut.isSessionReplayActive())
+
+            sut.sessionManager.setSessionId(sampledOut)
+            #expect(!sut.isSessionReplayActive())
+
+            sut.sessionManager.setSessionId(third)
+            #expect(sut.isSessionReplayActive())
+
+            sut.capture("ordinary")
+            #expect(sut.isSessionReplayActive())
+        }
+
+        @Test("a session sampled out from the start does not block the next one")
+        func initiallySampledOutSessionDoesNotBlockNext() throws {
+            let sut = getSut(triggerGroups: fractionalUnconditionalGroup)
+            defer { sut.close() }
+            let out = try sessionId(sampledIn: false, by: sut)
+            let inId = try sessionId(sampledIn: true, by: sut)
+
+            sut.stopSessionRecording()
+            sut.sessionManager.setSessionId(out)
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(!sut.isSessionReplayActive())
+
+            sut.sessionManager.setSessionId(inId)
+            #expect(sut.isSessionReplayActive())
+        }
+
+        @Test("an explicit stop still holds across a session change")
+        func explicitStopHoldsAcrossSessionChange() throws {
+            let sut = getSut(triggerGroups: fractionalUnconditionalGroup)
+            defer { sut.close() }
+            let first = try sessionId(sampledIn: true, by: sut)
+            let second = try sessionId(sampledIn: true, by: sut)
+
+            sut.sessionManager.setSessionId(first)
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(sut.isSessionReplayActive())
+
+            sut.stopSessionRecording()
+            sut.sessionManager.setSessionId(second)
+            #expect(!sut.isSessionReplayActive())
+
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(sut.isSessionReplayActive())
+        }
+
         private var eventOnlyTriggerGroup: [String: Any] {
             ["id": "purchase", "sampleRate": 1, "conditions": ["matchType": "any", "events": [["name": "purchase_completed"]]]]
         }

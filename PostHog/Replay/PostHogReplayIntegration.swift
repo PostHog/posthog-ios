@@ -37,6 +37,12 @@
         // cleared by its next explicit start. Guarded by `bufferingLock`.
         private var stoppedByReactNative: Bool = false
 
+        // Set by an explicit stop (`stop()`), cleared by the next explicit start. The session-change
+        // subscription lives for the whole install, so a stop that sampling or triggers caused can
+        // re-evaluate on the next session; this keeps a session change from undoing an explicit stop.
+        // Guarded by `bufferingLock`.
+        private var explicitlyStopped: Bool = false
+
         /// Last reported status handed to the crash context, so a reload that moved nothing doesn't
         /// rebuild the whole snapshot. Guards only itself.
         private let statusNotifyLock = NSLock()
@@ -217,6 +223,13 @@
                     self?.handleTriggerGroupsEventCaptured(event: event)
                 }
 
+                // Session changes are watched for the whole install, not only while recording: a
+                // session that samples out stops recording, and the next session must still be
+                // evaluated on its own so it can resume.
+                sessionIdChangedToken = postHog.sessionManager.onSessionIdChanged.subscribe { [weak self] in
+                    self?.handleSessionChanged()
+                }
+
                 start()
             }
         }
@@ -228,6 +241,7 @@
                 remoteConfigLoadedToken = nil
                 featureFlagsLoadedToken = nil
                 eventCapturedToken = nil
+                sessionIdChangedToken = nil
                 self.postHog = nil
                 statusNotifyLock.withLock { lastNotifiedStatusKey = nil }
 
@@ -267,8 +281,11 @@
         func start() {
             // Record the intent before the gates below: the event-trigger gate can defer the actual start.
             // The React Native stop latch is already lifted by `startSessionRecording()`, the only caller.
-            if let config, !config.sessionReplay {
-                bufferingLock.withLock { startedWithAutomaticDisabled = true }
+            bufferingLock.withLock {
+                explicitlyStopped = false
+                if let config, !config.sessionReplay {
+                    startedWithAutomaticDisabled = true
+                }
             }
             startRecording()
         }
@@ -327,11 +344,6 @@
             }
 
             guard claimRecording() else { return }
-
-            // Listen for session changes to stop recording when a new session starts (if triggers are configured)
-            sessionIdChangedToken = postHog.sessionManager.onSessionIdChanged.subscribe { [weak self] in
-                self?.handleSessionChanged()
-            }
 
             // flutter captures snapshots, so we don't need to capture them here
             if isNotFlutter() {
@@ -408,6 +420,7 @@
             bufferingLock.withLock {
                 startedWithAutomaticDisabled = false
                 stoppedByReactNative = !isNotReactNative()
+                explicitlyStopped = true
             }
             stopRecording()
         }
@@ -419,12 +432,12 @@
             bufferingLock.withLock { stoppedByReactNative = false }
         }
 
-        /// Note: This does not clear remoteConfigLoadedToken or eventCapturedToken as those are managed by install/uninstall.
+        /// Note: This does not clear remoteConfigLoadedToken, eventCapturedToken or sessionIdChangedToken
+        /// as those are managed by install/uninstall.
         private func stopRecording() {
             guard isEnabled else { return }
             bufferingLock.withLock { isEnabled = false }
             resetViews()
-            sessionIdChangedToken = nil
 
             // stop listening to `UIApplication.sendEvent`
             applicationEventToken = nil
@@ -560,6 +573,14 @@
                 }
                 return
             }
+
+            // An explicit stop holds until the next explicit start; only a stop that sampling or
+            // triggers caused is re-evaluated for the new session.
+            guard isEnabled || !bufferingLock.withLock({ explicitlyStopped }) else { return }
+
+            // A later `/config` that turned the flag off stopped recording; a new session must not
+            // restart it. Only the remote config path resumes it, once the flag is back on.
+            guard isEnabled || postHog.remoteConfig?.isSessionReplayFlagActive() == true else { return }
 
             // Re-evaluate sampling for the new session
             reevaluateSampling()

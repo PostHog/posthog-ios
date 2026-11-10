@@ -597,6 +597,23 @@
             #expect(integration.isActive() == false)
         }
 
+        @Test("a session change does not restart a capturer the flag turned off")
+        func sessionChangeAfterFlagOffKeepsCapturerStopped() async throws {
+            // Session changes are watched for the whole install, so a stop caused by the flag
+            // turning off must not be undone by the next session's sampling re-evaluation.
+            let (sut, integration, _) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            sut.remoteConfig?.setSessionReplayFlagActiveForTesting(false)
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isActive() == false)
+
+            sut.sessionManager.setSessionId(UUID().uuidString)
+
+            #expect(integration.isActive() == false)
+        }
+
         @Test("subsequent remote config that turns the flag back on resumes the capturer")
         func subsequentConfigFlagOnResumesCapturer() async throws {
             // After a prior remote config stopped the capturer for a flag-off, a later remote config

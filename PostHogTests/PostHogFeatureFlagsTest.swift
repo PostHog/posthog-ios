@@ -1902,6 +1902,82 @@ enum PostHogFeatureFlagsTest {
             #expect(received.count == before)
         }
 
+        /// Stubs `/flags` so the first response is held until `gate` is signalled and carries
+        /// `string-value: "previous-user"`; every later response carries `"new-user"`. `onLaterRequest`
+        /// runs when a later request reaches the server, before it is answered.
+        private func stubHeldFirstFlagsResponse(gate: DispatchSemaphore, onLaterRequest: @escaping () -> Void = {}) {
+            let lock = NSLock()
+            var requests = 0
+            server.flagsResponseHandler = { _ in
+                let count = lock.withLock {
+                    requests += 1
+                    return requests
+                }
+                if count == 1 {
+                    _ = gate.wait(timeout: .now() + 5)
+                } else {
+                    onLaterRequest()
+                }
+                let body: [String: Any] = [
+                    "featureFlags": ["string-value": count == 1 ? "previous-user" : "new-user"],
+                    "featureFlagPayloads": [String: Any](),
+                    "errorsWhileComputingFlags": false,
+                ]
+                return HTTPStubsResponse(jsonObject: body, statusCode: 200, headers: nil)
+            }
+        }
+
+        @Test("drops a load in flight across reset() and delivers the reload reset() started")
+        func dropsLoadInFlightAcrossReset() async {
+            let sut = track(PostHogSDK.with(config))
+            let gate = DispatchSemaphore(value: 0)
+            nonisolated(unsafe) var resetReloadSent = false
+            nonisolated(unsafe) var cachedWhenResetReloadSent: [String: Any]?
+            stubHeldFirstFlagsResponse(gate: gate) {
+                // The held response has been handled by the time reset()'s queued reload goes out
+                resetReloadSent = true
+                cachedWhenResetReloadSent = sut.remoteConfig?.getFeatureFlags()
+            }
+            var received: [PostHogFeatureFlagsLoaded] = []
+            sut.onFeatureFlags { received.append($0) }
+
+            let heldLoadResult = await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags { continuation.resume(returning: $0) }
+                sut.reset()
+                gate.signal()
+            }
+            await MainActor.run {}
+
+            #expect(resetReloadSent)
+            #expect(cachedWhenResetReloadSent?["string-value"] == nil, "the dropped response must not write the cache")
+            #expect(received.map { $0.variants["string-value"] as? String } == ["new-user"])
+            #expect(heldLoadResult.variants["string-value"] as? String == "new-user")
+            #expect(sut.getFeatureFlag("string-value") as? String == "new-user")
+        }
+
+        @Test("does not replay a load dropped by reset() to a listener registered afterwards")
+        func noReplayOfLoadDroppedByReset() async {
+            let sut = track(PostHogSDK.with(config))
+            let gate = DispatchSemaphore(value: 0)
+            stubHeldFirstFlagsResponse(gate: gate)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags { _ in continuation.resume() }
+                // Skip the reload that reset() starts, so only the held response could reach a listener
+                sut.remoteConfig?.canReloadFlagsForTesting = false
+                sut.reset()
+                gate.signal()
+            }
+            await MainActor.run {}
+
+            var received: [PostHogFeatureFlagsLoaded] = []
+            sut.onFeatureFlags { received.append($0) }
+            await MainActor.run {}
+
+            #expect(received.isEmpty)
+            #expect(sut.remoteConfig?.getFeatureFlags()?["string-value"] == nil)
+        }
+
         @Test("does not call a listener unsubscribed by another listener during the same delivery")
         func unsubscribedDuringDelivery() async {
             let sut = track(PostHogSDK.with(config))

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.94.3
+
+### Patch Changes
+
+- 6d7e886: A `/flags` load still in flight when `reset()` runs no longer writes the previous user's flags into the cache, calls `onFeatureFlags` listeners, posts `didReceiveFeatureFlags`, or is replayed to a listener registered later. The reload `reset()` starts still runs, and a `reloadFeatureFlags` callback waiting on the dropped load is called when that reload finishes.
+
 ## 3.94.2
 
 ### Patch Changes

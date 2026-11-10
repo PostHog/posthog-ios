@@ -33,8 +33,15 @@
                 return nil
             }
 
-            // if test comes back as our own view, ignore (this is the passthrough part)
-            return hitView == rootView ? nil : hitView
+            guard hitView == rootView else { return hitView }
+
+            // SwiftUI can return its root even when an embedded hosting view contains the hit.
+            for subview in rootView.subviews.reversed() {
+                if let hit = subview.hitTest(subview.convert(point, from: self), with: event) {
+                    return hit
+                }
+            }
+            return nil
         }
     }
 

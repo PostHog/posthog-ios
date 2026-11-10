@@ -1452,6 +1452,14 @@ private struct PendingFeatureFlagsRequest {
             }
         }
 
+        /// Force-set the in-memory v1 minimum duration, so tests can sequence `applyRemoteConfig`
+        /// deliveries that lower it while a window is held without a live /config.
+        func setRecordingMinimumDurationForTesting(_ minimumDuration: TimeInterval?) {
+            sessionReplayLock.withLock {
+                recordingMinimumDuration = minimumDuration
+            }
+        }
+
         /// Force the "a /config request completed" flag without storing any config data, so tests can
         /// simulate a failed fetch (fetched == true, no cached/live config) without a live request.
         func setRemoteConfigDidFetchForTesting(_ didFetch: Bool) {

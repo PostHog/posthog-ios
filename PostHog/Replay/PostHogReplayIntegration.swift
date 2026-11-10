@@ -656,6 +656,10 @@
             } else {
                 reevaluateSampling()
             }
+
+            // Only after the fresh config has decided: a reload that lowers the minimum and also
+            // excludes this session must leave the held window unpersisted.
+            releaseHeldWindowIfDue()
         }
 
         /// Drops the buffer if recording isn't permitted, else hands it to the minimum-duration gate
@@ -695,6 +699,16 @@
             return shouldRecordSession(postHog: postHog, sessionId: sessionId)
         }
 
+        /// A lowered minimum (an event or flags reload activating a group with a lower one, or a
+        /// config reload) can end the hold with snapshots still buffered. `isBuffering` is then false, so
+        /// later snapshots persist directly and the buffer callback never runs again, stranding the
+        /// opening window. Run that callback's gated check once more: it still waits for the first
+        /// config, requires active replay, and migrates only once the (new) minimum is met.
+        private func releaseHeldWindowIfDue() {
+            guard let replayQueue, replayQueue.bufferDepth > 0 else { return }
+            replayQueueDidBufferSnapshot(replayQueue)
+        }
+
         /// Migrates the buffer to the persisted queue when it should be flushed now — no minimum
         /// duration is configured, or the buffered window already spans it — and otherwise leaves it
         /// buffering for the minimum-duration window. The caller must have confirmed replay is active.
@@ -727,6 +741,8 @@
         /// pre-`/config` cache. The capturer self-gates on flag-off, so no stopRecording() is needed here.
         private func resolveBufferFromFeatureFlags() {
             reevaluateTriggerGroups()
+            // A flags reload can activate a flag-conditioned group with a lower minimum.
+            releaseHeldWindowIfDue()
 
             // A completed `/config` attempt (success or failure) makes the cached recording config as
             // fresh as it will get; latch that locally so later reloads can still resolve.
@@ -1874,6 +1890,9 @@
             hedgeLog("[Session Replay] Trigger group matched for session \(sessionId). Starting replay.")
             updateCachedMinimumDuration()
             startRecording()
+            // After the start: this event may be what resumes the recorder, and the release only
+            // migrates for an active one.
+            releaseHeldWindowIfDue()
             if !isActive() {
                 notifyRecordingStatusChanged()
             }

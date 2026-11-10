@@ -597,6 +597,137 @@
             #expect(integration.isActive() == false)
         }
 
+        // MARK: - Lowered minimum duration releases the held window
+
+        private static let holdGroups: [[String: Any]] = [
+            ["id": "hold", "sampleRate": 1, "minDurationMs": 60000, "conditions": ["matchType": "any"]],
+            [
+                "id": "purchase", "sampleRate": 1, "minDurationMs": 0,
+                "conditions": ["matchType": "any", "events": [["name": "purchase"]]],
+            ],
+        ]
+
+        /// Resolves the first config and holds two opening snapshots under the 60s group minimum.
+        private func holdingSut() async throws -> (sut: PostHogSDK, integration: PostHogReplayIntegration, replayQueue: PostHogReplayQueue) {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, triggerGroups: Self.holdGroups)
+            // As in a running app: /config has been fetched, so a restart doesn't re-arm the first-config hold.
+            sut.remoteConfig?.setRemoteConfigDidFetchForTesting(true)
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            integration.applyRemoteConfig(remoteConfig: nil)
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(integration.isActive())
+
+            replayQueue.add(snapshotEvent("opening_meta"))
+            replayQueue.add(snapshotEvent("opening_full"))
+            #expect(replayQueue.bufferDepth == 2)
+            #expect(replayQueue.depth == 0)
+            return (sut, integration, replayQueue)
+        }
+
+        @Test("an event activating a group with no minimum releases the held opening window")
+        func eventLoweringMinimumReleasesHeldWindow() async throws {
+            let (sut, integration, replayQueue) = try await holdingSut()
+            defer { sut.close() }
+
+            sut.capture("purchase")
+            await waitUntil { integration.isBuffering == false }
+            replayQueue.add(snapshotEvent("later_incremental"))
+
+            await waitUntil { replayQueue.bufferDepth == 0 && replayQueue.depth == 3 }
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 3)
+        }
+
+        /// Unlike Android, a restart on iOS clears the pre-stop buffer (`claimRecording`), so nothing
+        /// from before the stop may be left stranded once the resumed recording stops holding.
+        @Test("an event that lowers the minimum and resumes a stopped recorder strands nothing")
+        func eventLoweringMinimumAfterStopStrandsNothing() async throws {
+            let (sut, integration, replayQueue) = try await holdingSut()
+            defer { sut.close() }
+
+            // An explicit stop holds against automatic restarts, so pause through the config instead.
+            sut.remoteConfig?.setSessionReplayFlagActiveForTesting(false)
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(!integration.isActive())
+            sut.remoteConfig?.setSessionReplayFlagActiveForTesting(true)
+
+            sut.capture("purchase")
+            await waitUntil { integration.isActive() }
+            #expect(integration.isActive())
+            replayQueue.add(snapshotEvent("later_incremental"))
+
+            await waitUntil { replayQueue.bufferDepth == 0 }
+            #expect(replayQueue.bufferDepth == 0)
+        }
+
+        @Test("a flags reload activating a flag group with no minimum releases the held window")
+        func flagsReloadLoweringMinimumReleasesHeldWindow() async throws {
+            let groups: [[String: Any]] = [
+                ["id": "hold", "sampleRate": 1, "minDurationMs": 60000, "conditions": ["matchType": "any"]],
+                [
+                    "id": "late-flag", "sampleRate": 1, "minDurationMs": 0,
+                    "conditions": ["matchType": "all", "flag": "replay_late_flag"],
+                ],
+            ]
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, triggerGroups: groups)
+            defer { sut.close() }
+            sut.remoteConfig?.setRemoteConfigDidFetchForTesting(true)
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            integration.applyRemoteConfig(remoteConfig: nil)
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(integration.isActive())
+
+            replayQueue.add(snapshotEvent("opening_meta"))
+            replayQueue.add(snapshotEvent("opening_full"))
+            #expect(replayQueue.bufferDepth == 2)
+
+            server.featureFlags = ["replay_late_flag": true]
+            sut.reloadFeatureFlags()
+            await waitUntil { integration.isBuffering == false }
+            replayQueue.add(snapshotEvent("later_incremental"))
+
+            await waitUntil { replayQueue.bufferDepth == 0 && replayQueue.depth == 3 }
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 3)
+        }
+
+        @Test("a config reload lowering the minimum for a permitted session releases the held window")
+        func reloadLoweringMinimumReleasesHeldWindow() async throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            integration.applyRemoteConfig(remoteConfig: nil)
+            replayQueue.add(snapshotEvent("opening_meta"))
+            replayQueue.add(snapshotEvent("opening_full"))
+            #expect(replayQueue.bufferDepth == 2)
+
+            sut.remoteConfig?.setRecordingMinimumDurationForTesting(0)
+            integration.applyRemoteConfig(remoteConfig: nil)
+            replayQueue.add(snapshotEvent("later_incremental"))
+
+            await waitUntil { replayQueue.bufferDepth == 0 && replayQueue.depth == 3 }
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 3)
+        }
+
+        @Test("a config reload lowering the minimum and sampling the session out persists nothing")
+        func reloadLoweringMinimumAndSamplingOutPersistsNothing() async throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            integration.applyRemoteConfig(remoteConfig: nil)
+            replayQueue.add(snapshotEvent("opening_meta"))
+            replayQueue.add(snapshotEvent("opening_full"))
+
+            sut.remoteConfig?.setRecordingMinimumDurationForTesting(0)
+            sut.remoteConfig?.setRecordingSampleRateForTesting(0)
+            integration.applyRemoteConfig(remoteConfig: nil)
+            try await Task.sleep(nanoseconds: 50_000_000)
+
+            #expect(!integration.isActive())
+            #expect(replayQueue.depth == 0)
+        }
+
         @Test("a session change does not restart a capturer the flag turned off")
         func sessionChangeAfterFlagOffKeepsCapturerStopped() async throws {
             // Session changes are watched for the whole install, so a stop caused by the flag

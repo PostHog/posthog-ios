@@ -323,32 +323,33 @@
 
         /// One capture's pixels and mask rects, through the GPU mirror or the default path's renderer for motion.
         private func capture(_ window: UIWindow, gpu: Bool, mirror: PostHogGPUMirrorCapture,
-                             integration: PostHogReplayIntegration) async throws -> (UIImage, [CGRect])
+                             integration: PostHogReplayIntegration) async throws -> (UIImage, [CGRect])?
         {
             if gpu {
                 let (image, rects) = try await render(window, with: mirror, integration: integration)
                 return (UIImage(cgImage: image), rects)
             }
             window.layoutIfNeeded()
-            let motion = try motionCapture(window, integration: integration)
+            // nil: the default path skips the frame, which uploads nothing.
+            guard let motion = try motionCapture(window, integration: integration) else { return nil }
             return (motion.image, motion.rects)
         }
 
-        /// The default path's pixels and mask rects for a settled capture in the motion band.
+        /// The default path's pixels and mask rects for a settled capture in the motion band, nil when it skips the frame.
         private func motionCapture(_ window: UIWindow, integration: PostHogReplayIntegration = PostHogReplayIntegration()) throws
-            -> (image: UIImage, rects: [CGRect], renderer: PostHogScreenshotRenderer)
+            -> (image: UIImage, rects: [CGRect], renderer: PostHogScreenshotRenderer)?
         {
             try settledCapture(window, band: .motion, integration: integration)
         }
 
-        /// The default path's pixels and mask rects for a settled capture in `band`.
+        /// The default path's pixels and mask rects for a settled capture in `band`, nil when it skips the frame.
         private func settledCapture(_ window: UIWindow, band: PostHogReplayIntegration.SettleBand,
                                     integration: PostHogReplayIntegration = PostHogReplayIntegration()) throws
-            -> (image: UIImage, rects: [CGRect], renderer: PostHogScreenshotRenderer)
+            -> (image: UIImage, rects: [CGRect], renderer: PostHogScreenshotRenderer)?
         {
             let regions = try #require(integration.collectMaskedRegions(in: window))
-            let rendering = PostHogReplayIntegration.settledRendering(of: window, band: band, inflatedRects: nil, regions: regions) {
-                integration.collectMaskedRegions(in: window)
+            guard let rendering = PostHogReplayIntegration.settledRendering(of: window, band: band, inflatedRects: nil, regions: regions) else {
+                return nil
             }
             return try (#require(window.toImage(renderer: rendering.renderer)), #require(rendering.rects), rendering.renderer)
         }
@@ -418,9 +419,9 @@
 
         // MARK: - Default capture renderer for motion
 
-        @Test("A window holding a layer whose presentation can't be copied is drawn for motion from its model, without copying that layer",
+        @Test("A window holding a layer whose presentation can't be copied skips the motion frame, without copying that layer",
               arguments: [false, true])
-        func motionRendererDrawsUncopyableTreeFromItsModel(animating: Bool) async throws {
+        func motionFrameIsSkippedForUncopyableTree(animating: Bool) async throws {
             let window = makeWindow()
             try #require(!PostHogGPUMirrorCapture.isPresentationSafe(TrappingLayer.self))
             let view = TrappingView(frame: CGRect(x: 20, y: 20, width: 100, height: 100))
@@ -433,14 +434,13 @@
                 try await hold(view.layer, keyPath: "opacity", at: Float(1))
             }
 
-            let (image, _, renderer) = try motionCapture(window)
-            #expect(renderer == .modelTree)
-            let side = Int(100 * image.scale)
-            #expect(try Pixels(#require(image.cgImage)).points(where: Self.isMagenta).count == side * side)
+            #expect(try motionCapture(window) == nil)
+            // Still settled: the frame is drawn, with drawHierarchy.
+            #expect(try settledCapture(window, band: .still)?.renderer == .fidelity)
         }
 
-        @Test("Masks for motion also cover where the model places a view presented elsewhere, when the window is drawn from its model")
-        func motionMasksCoverModelOfModelDrawnWindow() async throws {
+        @Test("A motion frame isn't drawn when a view is presented away from its model in a window holding a layer whose presentation can't be copied")
+        func motionFrameIsSkippedWhenPresentedAwayFromModel() async throws {
             let window = makeWindow()
             window.addSubview(TrappingView(frame: CGRect(x: 150, y: 250, width: 40, height: 40)))
             let field = secretField(CGRect(x: 20, y: 20, width: 120, height: 60))
@@ -450,9 +450,7 @@
             try await Task.sleep(nanoseconds: 50_000_000)
             try await hold(field.layer, keyPath: "position", at: NSValue(cgPoint: CGPoint(x: 80, y: 200)))
 
-            let (image, rects, renderer) = try motionCapture(window)
-            #expect(renderer == .modelTree)
-            try expectMagentaMasked(image, rects)
+            #expect(try motionCapture(window) == nil)
         }
 
         private struct MaskedMagentaContent: View {
@@ -467,8 +465,8 @@
             }
         }
 
-        @Test("A postHogMask view presented collapsed but laid out full size is masked where the model draws it, when the window is drawn from its model")
-        func motionMasksCoverModelOfCollapsedReporter() async throws {
+        @Test("A postHogMask view presented collapsed but laid out full size keeps its mask, and its motion frame isn't drawn from the model")
+        func collapsedReporterKeepsItsMask() async throws {
             let window = makeSceneWindow()
             defer { closeSceneWindow(window) }
             let host = UIHostingController(rootView: MaskedMagentaContent())
@@ -484,10 +482,8 @@
             // Kept in both samples, the collapsed reporter pairs with itself rather than reading as motion.
             let samples = (integration.collectMaskedRegions(in: window), integration.collectMaskedRegions(in: window))
             #expect(PostHogReplayIntegration.settleVerdict(before: samples.0, after: samples.1).band == .still)
-            let (image, rects, renderer) = try motionCapture(window, integration: integration)
-            #expect(renderer == .modelTree)
-            try #require(!rects.isEmpty, "the collapsed reporter's mask was dropped")
-            try expectMagentaMasked(image, rects)
+            #expect(try !#require(samples.1).isEmpty, "the collapsed reporter's mask was dropped")
+            #expect(try motionCapture(window, integration: integration) == nil)
         }
 
         /// Runs `pendingLayout` the next time it lays out.
@@ -526,18 +522,15 @@
             return (container, field)
         }
 
-        @Test("A layout pending when masks are measured, which drawing the model tree runs, leaves no magenta unmasked where it moves or adds a view",
-              arguments: [false, true])
-        func modelTreeMasksCoverWhatAPendingLayoutMovesOrAdds(adds: Bool) async throws {
+        @Test("A skipped motion frame runs no pending layout", arguments: [false, true])
+        func skippedMotionFrameLeavesAPendingLayoutPending(adds: Bool) async throws {
             let window = makeWindow()
             window.addSubview(TrappingView(frame: CGRect(x: 150, y: 250, width: 40, height: 40)))
             let (container, field) = try await fieldWithPendingRelayout(in: window, adds: adds)
 
-            let (image, rects, renderer) = try motionCapture(window)
-            #expect(renderer == .modelTree)
-            #expect(container.pendingLayout == nil)
-            #expect(field.frame.minY == (adds ? 20 : 160))
-            try expectMagentaMasked(image, rects)
+            #expect(try motionCapture(window) == nil)
+            #expect(container.pendingLayout != nil)
+            #expect(field.frame.minY == 20)
         }
 
         @Test("A layout pending when masks are measured stays pending through the presentation-tree and fidelity renders, which draw what was measured",
@@ -547,7 +540,7 @@
             let (container, field) = try await fieldWithPendingRelayout(in: window)
             let layouts = container.layoutCount
 
-            let (image, rects, renderer) = try settledCapture(window, band: fidelity ? .still : .motion)
+            let (image, rects, renderer) = try #require(try settledCapture(window, band: fidelity ? .still : .motion))
             #expect(renderer == (fidelity ? .fidelity : .presentationTree))
             #expect(container.layoutCount == layouts)
             #expect(field.frame.minY == 20)
@@ -593,7 +586,7 @@
             try #require(field.layer.presentation() == nil)
             let expected = try #require(parent.layer.presentation()).convert(field.frame, to: window.layer)
 
-            let (image, rects) = try await capture(window, gpu: gpu, mirror: mirror, integration: PostHogReplayIntegration())
+            let (image, rects) = try #require(try await capture(window, gpu: gpu, mirror: mirror, integration: PostHogReplayIntegration()))
             #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(expected) })
             if gpu {
                 try expectMagentaMasked(image, rects)
@@ -629,7 +622,7 @@
                 // `build` commits first, which redraws the label without the text.
                 try await expectNoUnmaskedMagenta(window, mirror: mirror, integration: integration, expect: .hidden)
             } else {
-                let (image, rects) = try await capture(window, gpu: false, mirror: mirror, integration: integration)
+                let (image, rects) = try #require(try await capture(window, gpu: false, mirror: mirror, integration: integration))
                 #expect(rects.contains(label.frame))
                 try expectMagentaMasked(image, rects)
             }
@@ -682,7 +675,7 @@
             if gpu {
                 try await expectNoUnmaskedMagenta(window, mirror: mirror, integration: integration, expect: .hidden)
             } else {
-                let (image, rects) = try await capture(window, gpu: false, mirror: mirror, integration: integration)
+                let (image, rects) = try #require(try await capture(window, gpu: false, mirror: mirror, integration: integration))
                 try expectMagentaMasked(image, rects)
             }
         }
@@ -956,12 +949,13 @@
             let regions = integration.collectMaskedRegions(in: window)
             let verdict = PostHogReplayIntegration.settleVerdict(before: sentinel, after: regions)
             let rendering = PostHogReplayIntegration.settledRendering(of: window, band: verdict.band, inflatedRects: verdict.inflatedRects,
-                                                                      regions: regions) { integration.collectMaskedRegions(in: window) }
-            let rects = try #require(rendering.rects)
+                                                                      regions: regions)
             if distance > PostHogReplayIntegration.driftBudgetPoints {
-                #expect(rendering.renderer == .modelTree)
-                try expectMagentaMasked(try #require(window.toImage(renderer: rendering.renderer)), rects)
+                // Motion in a window holding the app layer: the frame is skipped.
+                #expect(rendering == nil)
             } else {
+                let rendering = try #require(rendering)
+                let rects = try #require(rendering.rects)
                 // drawHierarchy, which shows the last commit.
                 #expect(rendering.renderer == .fidelity)
                 #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(committed) }, "\(rects)")
@@ -1214,6 +1208,56 @@
                 ancestor = current.superview
             }
             return content
+        }
+
+        @Test("A motion frame isn't drawn while an app layer in postHogMask content animates away from its reporter")
+        func motionFrameSkippedForAppLayerMovingUnderReporter() async throws {
+            let mirror = try makeMirror()
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            await prewarm(mirror, for: window)
+            let content = try await hostMaskedAppLayerContent(in: window, mirror: mirror)
+            try await animateDown(content.layer, by: 150)
+            // Skipped: the model tree would draw the content away from its reporter's mask.
+            #expect(try motionCapture(window) == nil)
+        }
+
+        @Test("A motion frame isn't drawn while postHogMask content under a static app layer animates away from its reporter")
+        func motionFrameSkippedForContentMovingUnderStaticAppLayer() async throws {
+            let mirror = try makeMirror()
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            await prewarm(mirror, for: window)
+            let content = try await hostMaskedAppLayerContent(in: window, mirror: mirror)
+            let secret = try #require(content.subviews.first)
+            try await animateDown(secret.layer, by: 150)
+            #expect(try motionCapture(window) == nil)
+        }
+
+        @Test("postHogMask content with a copyable app layer animating away is masked on the presentation tree")
+        func copyableAppLayerMovingUnderReporterIsMaskedOnPresentationTree() async throws {
+            let mirror = try makeMirror()
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            await prewarm(mirror, for: window)
+            let content = try await hostMaskedAppLayerContent(in: window, mirror: mirror)
+            try await animateDown(content.layer, by: 150)
+            // AppAnimatableLayer implements init(layer:), so main's presentation-tree render doesn't trap on it.
+            let regions = try #require(PostHogReplayIntegration().collectMaskedRegions(in: window))
+            let image = try #require(window.toImage(renderer: .presentationTree))
+            try expectMagentaMasked(image, regions.map(\.rect))
+        }
+
+        @Test("postHogMask content animating away under a static app layer is masked in the GPU mirror")
+        func contentMovingUnderStaticAppLayerIsMaskedInMirror() async throws {
+            let mirror = try makeMirror()
+            let window = makeSceneWindow()
+            defer { closeSceneWindow(window) }
+            await prewarm(mirror, for: window)
+            let content = try await hostMaskedAppLayerContent(in: window, mirror: mirror)
+            let secret = try #require(content.subviews.first)
+            try await animateDown(secret.layer, by: 150)
+            try await expectNoUnmaskedMagenta(window, mirror: mirror)
         }
 
         @Test("A static app layer in postHogMask content is drawn under the reporter's mask")
@@ -2873,6 +2917,51 @@
             // Long enough for the warm-up purged above to finish and report back.
             try await Task.sleep(nanoseconds: 1_000_000_000)
             #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1))
+        }
+
+        @Test("A memory warning while a capture waits on the warm-up ends that capture, without starting another warm-up")
+        func purgeWhileCaptureWaitsOnWarmUpDoesNotWarmUpAgain() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            PostHogReplayIntegration.prewarmWindowForTesting = window
+            defer { PostHogReplayIntegration.prewarmWindowForTesting = nil }
+            let (sut, integration, _) = try makeSut()
+            integration.gpuMirror = mirror
+            defer { sut.close() }
+            let scale = integration.gpuPixelScale(window)
+            // Let any warm-up the SDK's setup started finish, then start from an empty cache.
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            mirror.purge()
+            try #require(mirror.needsPrewarm(for: window.bounds.size, scale: scale))
+
+            #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
+            mirror.purge()
+            await waitForCaptureToFinish(integration)
+            // Long enough for a second warm-up, had one started, to finish.
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            #expect(mirror.needsPrewarm(for: window.bounds.size, scale: scale))
+        }
+
+        @Test("A shape layer's dash phase and miter limit are mirrored")
+        func shapeDashPhaseAndMiterLimitAreMirrored() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+            let shape = CAShapeLayer()
+            shape.frame = CGRect(x: 20, y: 20, width: 100, height: 100)
+            shape.path = CGPath(rect: CGRect(x: 0, y: 0, width: 100, height: 100), transform: nil)
+            shape.strokeColor = UIColor.black.cgColor
+            shape.lineDashPattern = [6, 4]
+            shape.lineDashPhase = 3
+            shape.miterLimit = 2
+            window.layer.addSublayer(shape)
+            CATransaction.flush()
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            defer { frame.release() }
+            let copy = try #require(mirror.copiesForTesting.allObjects.compactMap { $0 as? CAShapeLayer }.first { $0.lineDashPattern == [6, 4] })
+            #expect(copy.lineDashPhase == 3)
+            #expect(copy.miterLimit == 2)
         }
 
         @Test("No GPU warm-up runs while the app is in the background, and one runs once it becomes active")

@@ -1696,8 +1696,8 @@
                 // Banded on mask geometry alone, not on layout-event counts: layout events arrive in
                 // bursts, so a count false-positives on the very burst that triggered the capture.
                 let verdict = Self.settleVerdict(before: sentinelRegions, after: regionsNow)
-                let rendering = Self.settledRendering(of: window, band: verdict.band, inflatedRects: verdict.inflatedRects,
-                                                      regions: regionsNow) { self.collectMaskedRegions(in: window) }
+                guard let rendering = Self.settledRendering(of: window, band: verdict.band, inflatedRects: verdict.inflatedRects,
+                                                            regions: regionsNow) else { return self.skipUncopyableMotionFrame() }
                 self.performScreenshotCapture(
                     window: window,
                     screenName: screenName,
@@ -2179,6 +2179,12 @@
             }
         }
 
+        /// Main thread. Ends a settled capture `settledRendering` gave no renderer for.
+        func skipUncopyableMotionFrame() {
+            hedgeLog("[Session Replay] Skipping snapshot: the window is in motion and holds a layer whose presentation can't be copied")
+            finishScreenshotRender()
+        }
+
         private func finishScreenshotRender() {
             screenshotRenderLock.withLock {
                 isScreenshotRenderInFlight = false
@@ -2315,9 +2321,11 @@
                     return
                 }
                 // The renderer is built off-main (see `prewarm`); this capture keeps the slot and resumes once it's ready.
+                let generation = mirror.purgeGeneration
                 mirror.prewarm(size: window.bounds.size, scale: scale) { [weak self, weak window] in
                     guard let self else { return }
-                    guard let window, postHog.isSessionReplayActive() else {
+                    // A memory warning purged the warm-up: don't start another one under memory pressure.
+                    guard let window, postHog.isSessionReplayActive(), mirror.purgeGeneration == generation else {
                         self.endGPUCapture(nil)
                         return
                     }

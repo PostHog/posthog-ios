@@ -406,7 +406,7 @@
         private var targets: [TargetKey: Target] = [:]
         private var warming: [TargetKey: [() -> Void]] = [:]
         /// Bumped by `purge`, so a warm-up it overtook doesn't refill the cache.
-        private var purgeGeneration = 0
+        private(set) var purgeGeneration = 0
         private var failedKeys: Set<TargetKey> = []
         private var classInfoCache: [ObjectIdentifier: ClassInfo] = [:]
         private var shareableTypeIDs: [CFTypeID: Bool] = [:]
@@ -928,6 +928,8 @@
                 copy.lineCap = shape.lineCap
                 copy.lineJoin = shape.lineJoin
                 copy.lineDashPattern = shape.lineDashPattern
+                copy.lineDashPhase = shape.lineDashPhase
+                copy.miterLimit = shape.miterLimit
                 copy.strokeStart = shape.strokeStart
                 copy.strokeEnd = shape.strokeEnd
                 return copy

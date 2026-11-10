@@ -985,7 +985,7 @@ let maxRetryDelay = 30.0
                 config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             }
         }
-        #if os(iOS) || TESTING
+        #if (os(iOS) || TESTING) && (!SWIFT_PACKAGE || Surveys)
             // A survey still waiting out its popup delay belongs to the previous user.
             let surveyIntegrations = setupLock.withLock { installedIntegrations.compactMap { $0 as? PostHogSurveyIntegration } }
             surveyIntegrations.forEach { $0.cancelPendingSurvey() }

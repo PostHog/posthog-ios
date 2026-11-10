@@ -289,7 +289,7 @@ When the event is sent, the SDK removes each one from `properties` and uses it f
 | `$product_tour_id` | `product_tour_id` |
 
 - An option you pass to any of these methods or set in `beforeSend` wins over its legacy property. An option set to `NSNull()` counts as unset, so the legacy property fills it.
-- When `personProfiles` turns person processing off, the SDK sets the `process_person_profile` option to `false`. Otherwise it sends neither, because PostHog processes person profiles by default. To change person processing for one event, pass the `process_person_profile` option or the `$process_person_profile` property. A registered `$process_person_profile` changes it for every event. In 3.x, the SDK replaced a registered `$process_person_profile` with its own value, so a registered `false` had no effect. In 4.0 it applies, also after `identify` and with `personProfiles` set to `.always`: those events don't change the person profile, and their `$set` is ignored.
+- When `personProfiles` turns person processing off, the SDK sets the `process_person_profile` option to `false`. Otherwise it sends neither, because PostHog processes person profiles by default. To change person processing for one event, pass the `process_person_profile` option or the `$process_person_profile` property. A registered `$process_person_profile` changes it for every event. In 3.x, the SDK replaced a registered `$process_person_profile` with its own value, so a registered `false` had no effect. In 4.0 it applies, also after `identify` and with `personProfiles` set to `.always`: those events don't change the person profile, and their `$set` is ignored. They are still linked to the person and billed as identified events.
 - Calling `group()`, or passing `userProperties`, `userPropertiesSetOnce` or `groups`, still turns person processing on for later events when `personProfiles` is `.identifiedOnly`, as in 3.x.
 - Review your `beforeSend` hooks for the new event shape. In 3.x, the SDK marked person processing with the `$process_person_profile` property. In 4.0, it's the `process_person_profile` option, and the property isn't set. A hook that replaces `event.options` without keeping that key, or returns an event kept from an earlier call, can lose the `false` the SDK set. That turns person processing on for anonymous users, overriding `personProfiles`.
 - The SDK sends option values as given. PostHog reads common forms of a value, such as `"false"` or `0` for a boolean, and drops an event whose option value it can't read.
@@ -305,7 +305,7 @@ When the event is sent, the SDK removes each one from `properties` and uses it f
                              options: ["process_person_profile": true])
   ```
 
-  To create no person profiles at all, set `personProfiles` to `.never` instead. The SDK then skips these calls.
+  If you registered `false` to skip person profiles for anonymous users, remove it: `personProfiles = .identifiedOnly`, the default, already does that and still lets `identify` create the person. To create no person profiles at all, set `personProfiles` to `.never` instead. The SDK then skips these calls.
 - Events still queued on disk by 3.x are sent to capture v1 after the update, with their legacy properties moved to options.
 
 #### AI events

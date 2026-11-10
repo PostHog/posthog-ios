@@ -53,22 +53,40 @@
             }
             guard let snapshot else { return }
 
-            #if os(iOS)
-                if let delegate = config?._surveysConfig.surveysDelegate as? PostHogSurveysDefaultDelegate {
-                    switch delegate.cancelSurveyIfPresented(surveyId) {
-                    case .dismissed:
-                        return
-                    case .cancelledPending, .notPresented:
-                        break
+            // Capture can call this off the main thread. Pending presentation and
+            // SurveyDisplayController publish on the main queue, same as the other
+            // display and reset paths.
+            let apply = { [weak self] in
+                guard let self else { return }
+                #if os(iOS)
+                    if let delegate = self.config?._surveysConfig.surveysDelegate as? PostHogSurveysDefaultDelegate {
+                        switch delegate.cancelSurveyIfPresented(surveyId) {
+                        case .dismissed:
+                            return
+                        case .cancelledPending, .notPresented:
+                            break
+                        }
                     }
-                }
-            #endif
+                #endif
 
-            if snapshot.wasShown {
-                handleSurveyClosed(survey: snapshot.survey.toDisplaySurvey(), attemptId: snapshot.attemptId)
-            } else {
-                clearActiveSurvey()
+                if snapshot.wasShown {
+                    self.handleSurveyClosed(survey: snapshot.survey.toDisplaySurvey(), attemptId: snapshot.attemptId)
+                } else {
+                    self.clearActiveSurvey()
+                }
             }
+
+            #if os(iOS)
+                if Thread.isMainThread {
+                    apply()
+                } else {
+                    // Synchronous so a background capture finishes the dismissal before
+                    // the caller continues, without publishing SwiftUI state off main.
+                    DispatchQueue.main.sync(execute: apply)
+                }
+            #else
+                apply()
+            #endif
         }
     }
 #endif

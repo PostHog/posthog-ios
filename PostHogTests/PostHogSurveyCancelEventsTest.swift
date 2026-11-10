@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 @testable import PostHog
 import Testing
@@ -106,4 +107,77 @@ struct PostHogSurveyCancelEventsTest {
         #expect(events.contains { $0.event == "survey dismissed" })
         #expect(integration.canShowNextSurvey())
     }
+
+    #if os(iOS)
+        @Test("a cancel event captured off the main thread dismisses survey UI on main")
+        func backgroundCancellation() throws {
+            let (postHog, integration) = try makeIntegration()
+            defer {
+                postHog.close()
+                postHog.reset()
+            }
+            load(integration)
+            let survey = try #require(integration.decodeSurveys(from: [
+                "surveys": [[
+                    "id": "cancel-survey",
+                    "name": "Cancel survey",
+                    "type": "popover",
+                    "questions": [[
+                        "id": "q",
+                        "type": "open",
+                        "question": "How was checkout?",
+                    ]],
+                    "conditions": [
+                        "events": ["values": [["name": "show_survey"]]],
+                        "cancel_events": ["values": [["name": "checkout_completed"]]],
+                    ],
+                    "start_date": "2024-01-01T00:00:00.000Z",
+                ]],
+            ]).first)
+            let delegate = try #require(postHog.config._surveysConfig.surveysDelegate as? PostHogSurveysDefaultDelegate)
+            let controller = SurveyDisplayController()
+            delegate.setDisplayControllerForTesting(controller)
+            controller.showSurvey(survey.toDisplaySurvey())
+            integration.setShownSurvey(survey)
+            integration.testSurveyCallbacks().shown(survey.toDisplaySurvey())
+
+            let dismissedOnMain = Locked(false)
+            let finished = DispatchSemaphore(value: 0)
+            let subscription = controller.$displayedSurvey.dropFirst().sink { _ in
+                dismissedOnMain.withLock { $0 = Thread.isMainThread }
+                finished.signal()
+            }
+            defer { subscription.cancel() }
+
+            DispatchQueue.global(qos: .userInitiated).async {
+                integration.testOnEvent(event: PostHogEvent(
+                    event: "checkout_completed",
+                    distinctId: "user",
+                    properties: [:],
+                    timestamp: Date()
+                ))
+            }
+
+            #expect(finished.wait(timeout: .now() + 2) == .success)
+            #expect(dismissedOnMain.withLock { $0 })
+            #expect(controller.displayedSurvey == nil)
+        }
+    #endif
 }
+
+#if os(iOS)
+    private final class Locked<Value>: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value: Value
+
+        init(_ value: Value) {
+            self.value = value
+        }
+
+        func withLock<T>(_ body: (inout Value) -> T) -> T {
+            lock.lock()
+            defer { lock.unlock() }
+            return body(&value)
+        }
+    }
+#endif

@@ -56,24 +56,12 @@
         override class var layerClass: AnyClass { CollapsingLayer.self }
     }
 
-    /// The layers above stand in for system layers, whose presentation the mask walk copies. Swift gives every CALayer
-    /// subclass its own `initWithLayer:`, which the SDK can't tell from one that traps, so it would read their model
-    /// instead. They override `presentation()` and are never copied, so CALayer's own is put back.
-    private let presentationStandInsAreCopyable: Void = {
-        let selector = NSSelectorFromString("initWithLayer:")
-        guard let method = class_getInstanceMethod(CALayer.self, selector) else { return }
-        for cls in [FadingOutLayer.self, CollapsingLayer.self] as [AnyClass] {
-            class_replaceMethod(cls, selector, method_getImplementation(method), method_getTypeEncoding(method))
-        }
-    }()
-
     @Suite("Replay masking fails closed", .serialized)
     @MainActor
     struct PostHogMaskFailClosedTest {
         private typealias Sut = (sdk: PostHogSDK, integration: PostHogReplayIntegration)
 
         private func makeSut(maskAllTextInputs: Bool = true, maskAllImages: Bool = true) -> Sut {
-            _ = presentationStandInsAreCopyable
             let config = PostHogConfig(projectToken: "phc_maskFailClosedTest")
             config.disableReachabilityForTesting = true
             config.sessionReplayConfig.maskAllTextInputs = maskAllTextInputs
@@ -392,10 +380,7 @@
             let window = makeWindow(containing: wrapper)
 
             #expect(wrapper.frame == .zero)
-            // Where the wrapper's presentation places it, as the presentation tree draws it: 320x640 bounds centred on
-            // the model's (0, 0) position put the wrapper's origin at (-160, -320), and the label 24, 120 past that.
-            let presented = CGRect(x: -136, y: -200, width: 200, height: 32)
-            #expect(sut.integration.collectMaskableRects(in: window) == (presentationIsVisible ? [presented] : []))
+            #expect(sut.integration.collectMaskableRects(in: window) == (presentationIsVisible ? [label.frame] : []))
         }
 
         // MARK: - Fading views

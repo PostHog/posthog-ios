@@ -30,21 +30,6 @@
             }
         }
 
-        /// The renderer for a settled capture in `band`, and the masks that keep its pixels covered: in motion the
-        /// presentation tree, which `regions` were measured on. nil when the window holds a layer whose presentation
-        /// can't be copied: rendering the presentation tree would trap on it, and the model tree draws content where
-        /// masks measured on the presentation don't cover it (`postHogMask()` content moving under its reporter), so the
-        /// frame is skipped and the next settled capture covers it.
-        static func settledRendering(of window: UIWindow, band: SettleBand, inflatedRects: [CGRect]?,
-                                     regions: [MaskedRegion]?) -> (renderer: PostHogScreenshotRenderer, rects: [CGRect]?)?
-        {
-            if band.usesFidelity {
-                return (.fidelity, inflatedRects ?? regions?.map(\.rect))
-            }
-            guard window.layer.canRenderPresentationTree else { return nil }
-            return (.presentationTree, regions?.map(\.rect))
-        }
-
         // Tuning surface for the settle check. Defaults are deliberately conservative: measured on
         // device, a 25ms window sees ~1.5pt of slow drift, ~4pt of CA animation and 185pt+ of a
         // scroll fling, so everything except a fling keeps the same renderer session replay has

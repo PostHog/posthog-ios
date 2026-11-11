@@ -1700,14 +1700,12 @@
                 // Banded on mask geometry alone, not on layout-event counts: layout events arrive in
                 // bursts, so a count false-positives on the very burst that triggered the capture.
                 let verdict = Self.settleVerdict(before: sentinelRegions, after: regionsNow)
-                guard let rendering = Self.settledRendering(of: window, band: verdict.band, inflatedRects: verdict.inflatedRects,
-                                                            regions: regionsNow) else { return self.skipUncopyableMotionFrame() }
                 self.performScreenshotCapture(
                     window: window,
                     screenName: screenName,
                     postHog: postHog,
-                    renderer: rendering.renderer,
-                    overrideMaskRects: rendering.rects
+                    renderer: verdict.band.usesFidelity ? .fidelity : .presentationTree,
+                    overrideMaskRects: verdict.inflatedRects ?? regionsNow?.map(\.rect)
                 )
             }
         }
@@ -1846,11 +1844,9 @@
 
     private extension PostHogReplayIntegration {
         /// An image replaced since the last commit stays on screen until then: the presentation layer still holds it.
-        /// A layer whose presentation can't be copied counts as replaced, since that can't be read.
         /// An animating view presents its current frames, which aren't replaced images.
         func showsReplacedImage(_ view: UIImageView, sources: [UIImage]) -> Bool {
             guard view.isNoCapture() || config?.sessionReplayConfig.maskAllImages == true else { return false }
-            guard CALayer.canCopyPresentation(of: view.layer) else { return true }
             guard let presented = view.layer.presentation()?.contents else { return false }
             let shown = presented as AnyObject
             if view.layer.contents as AnyObject? === shown {
@@ -2380,12 +2376,6 @@
             }
         }
 
-        /// Main thread. Ends a settled capture `settledRendering` gave no renderer for.
-        func skipUncopyableMotionFrame() {
-            hedgeLog("[Session Replay] Skipping snapshot: the window is in motion and holds a layer whose presentation can't be copied")
-            finishScreenshotRender()
-        }
-
         private func finishScreenshotRender() {
             screenshotRenderLock.withLock {
                 isScreenshotRenderInFlight = false
@@ -2592,9 +2582,7 @@
                 guard let regions = collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources) else {
                     return .skip
                 }
-                // Also a cover the mask walk didn't trust, which left the masks of what it hides in: the frame would
-                // still show the wrong screen.
-                let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window, trustingModels: true)?.layer
+                let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer
                 if let cover, isCulledWithAncestors(cover, frame.culledLayers) {
                     return .fallback
                 }

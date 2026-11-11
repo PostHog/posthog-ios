@@ -6,13 +6,18 @@ const unsuccessful = new Set(['failure', 'cancelled', 'timed_out', 'action_requi
 function readThreadTimestamp(directory, attempt) {
     if (!directory) return undefined;
     try {
-        // Failed-job reruns reuse the approval thread from the latest earlier attempt.
-        const attempts = readdirSync(directory)
-            .map(name => /^release-slack-thread-(\d+)$/.exec(name)?.[1])
-            .filter(value => value && Number(value) <= attempt)
-            .sort((a, b) => Number(b) - Number(a));
-        if (attempts.length === 0) return undefined;
-        const timestamp = readFileSync(join(directory, `release-slack-thread-${attempts[0]}`, 'thread-ts.txt'), 'utf8').trim();
+        const entries = readdirSync(directory);
+        // A single matching artifact is extracted straight into the directory.
+        // Failed-job reruns otherwise reuse the approval thread from the latest earlier attempt.
+        const files = entries.includes('thread-ts.txt')
+            ? [join(directory, 'thread-ts.txt')]
+            : entries
+                .map(name => /^release-slack-thread-(\d+)$/.exec(name)?.[1])
+                .filter(value => value && Number(value) <= attempt)
+                .sort((a, b) => Number(b) - Number(a))
+                .map(value => join(directory, `release-slack-thread-${value}`, 'thread-ts.txt'));
+        if (files.length === 0) return undefined;
+        const timestamp = readFileSync(files[0], 'utf8').trim();
         return /^\d+\.\d+$/.test(timestamp) ? timestamp : undefined;
     } catch (error) {
         if (error.code !== 'ENOENT') console.error('Could not read Slack thread:', error.message);

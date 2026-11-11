@@ -14,6 +14,7 @@
 
             #expect(window.toImage(preferFidelityRenderer: true) == nil)
             #expect(window.toImage(afterScreenUpdates: true) == nil)
+            #expect(window.toImage(afterScreenUpdates: true, preferFidelityRenderer: false) == nil)
             #expect(window.toImage(preferFidelityRenderer: false) != nil)
         }
     }

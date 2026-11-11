@@ -1,5 +1,23 @@
 ## Next
 
+## 3.94.4
+
+### Patch Changes
+
+- 32f78c6: Draw session replay screenshots in the screen's own color space, so a capture on a wide-gamut screen no longer converts every pixel on the main thread. The conversion now happens off the main thread on the replay queue: a resized or masked screenshot is redrawn in device RGB, and an image that reaches the WebP encoder in a wide gamut, such as a native-resolution screenshot with nothing to mask, is converted to sRGB. The WebP encoder is shared, so wide-gamut images in wireframe mode and from `imageToBase64` are converted to sRGB too, and upload in their true colors instead of having their Display P3 values read as sRGB. The JPEG fallback does not convert.
+
+## 3.94.3
+
+### Patch Changes
+
+- 6d7e886: A `/flags` load still in flight when `reset()` runs no longer writes the previous user's flags into the cache, calls `onFeatureFlags` listeners, posts `didReceiveFeatureFlags`, or is replayed to a listener registered later. The reload `reset()` starts still runs, and a `reloadFeatureFlags` callback waiting on the dropped load is called when that reload finishes.
+
+## 3.94.2
+
+### Patch Changes
+
+- 2856428: Fix surveys so `seenSurveyWaitPeriodInDays` counts from when a survey was shown rather than when it was closed, and a survey closed before it appears (for example during `surveyPopupDelaySeconds` or after `reset()`) is no longer marked seen or reported as `survey dismissed`.
+
 ## 3.94.1
 
 ### Patch Changes

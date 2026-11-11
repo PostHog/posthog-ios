@@ -78,6 +78,11 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
     }
 
     #if os(iOS)
+        /// Cancels a survey still waiting out its popup delay without touching one already on screen.
+        func cancelPendingSurvey() {
+            dismissPendingSurveyIfNeeded()
+        }
+
         @available(iOS 15.0, *)
         private func setupWindow() {
             if let activeWindow = UIApplication.getCurrentWindow(), let activeScene = activeWindow.windowScene {

@@ -505,41 +505,8 @@
             }
         }
 
-        @Test("A sensitive label cleared since its last display stays masked while its layer still shows the old text",
-              arguments: [true, false])
-        func clearedLabelStaysMaskedUntilRedrawn(gpu: Bool) async throws {
-            let mirror = try makeMirror()
-            let (sut, integration, _) = try makeSut()
-            defer { sut.close() }
-            let window = makeWindow()
-            await prewarm(mirror, for: window)
-
-            let label = UILabel(frame: CGRect(x: 20, y: 40, width: 160, height: 80))
-            label.text = "SECRET"
-            label.font = .boldSystemFont(ofSize: 48)
-            label.textColor = .magenta
-            window.addSubview(label)
-            window.layoutIfNeeded()
-            CATransaction.flush()
-            try #require(!label.layer.needsDisplay())
-            try #require(try #require(integration.collectMaskableRects(in: window)).contains(label.frame))
-
-            // No run-loop turn in between: the layer still holds the old text's bitmap.
-            label.text = ""
-
-            if gpu {
-                // `build` commits first, which redraws the label without the text.
-                try await expectNoUnmaskedMagenta(window, mirror: mirror, integration: integration, expect: .hidden)
-            } else {
-                let (image, rects) = try await capture(window, gpu: false, mirror: mirror, integration: integration)
-                #expect(rects.contains(label.frame))
-                try expectMagentaMasked(image, rects)
-            }
-        }
-
-        @Test("A sensitive image view cleared since its last commit stays masked while its layer still shows the old image",
-              arguments: [true, false])
-        func clearedImageViewStaysMaskedUntilCommitted(gpu: Bool) async throws {
+        @Test("GPU capture flushes the pending commit, so a sensitive image view cleared this turn uploads none of the old image")
+        func gpuClearedImageViewUploadsNoOldImage() async throws {
             let mirror = try makeMirror()
             let (sut, integration, _) = try makeSut()
             defer { sut.close() }
@@ -573,126 +540,79 @@
             // No run-loop turn in between: the presentation layer still holds the photo.
             imageView.image = nil
 
-            try await expectClearedContentMasked(window, gpu: gpu, mirror: mirror, integration: integration)
+            try await expectNoUnmaskedMagenta(window, mirror: mirror, integration: integration, expect: .hidden)
         }
 
-        /// Content cleared this turn: `build` commits first, so the GPU frame no longer draws it, while the default
-        /// path's render of the presentation tree still does, under its masks.
-        private func expectClearedContentMasked(_ window: UIWindow, gpu: Bool, mirror: PostHogGPUMirrorCapture,
-                                                integration: PostHogReplayIntegration) async throws
-        {
-            if gpu {
-                try await expectNoUnmaskedMagenta(window, mirror: mirror, integration: integration, expect: .hidden)
-            } else {
-                let (image, rects) = try await capture(window, gpu: false, mirror: mirror, integration: integration)
-                try expectMagentaMasked(image, rects)
-            }
-        }
-
-        @Test("An unclipped centered image view cleared since its last commit keeps the larger old image it still draws masked",
-              arguments: [true, false])
-        func clearedOverflowingImageStaysMaskedWhereItDraws(gpu: Bool) async throws {
+        @Test("GPU capture flushes the pending commit, so a masked label cleared this turn uploads none of its old text")
+        func gpuClearedLabelUploadsNoOldText() async throws {
             let mirror = try makeMirror()
             let (sut, integration, _) = try makeSut()
             defer { sut.close() }
             let window = makeWindow()
             await prewarm(mirror, for: window)
 
-            let size = CGSize(width: 160, height: 160)
-            let format = UIGraphicsImageRendererFormat()
-            format.scale = 1
-            let photo = UIGraphicsImageRenderer(size: size, format: format).image { context in
-                UIColor.white.setFill()
-                context.fill(CGRect(origin: .zero, size: size))
-                UIColor.magenta.setFill()
-                context.fill(CGRect(x: 10, y: 10, width: 140, height: 140))
+            let label = UILabel(frame: CGRect(x: 20, y: 40, width: 160, height: 80))
+            label.text = "SECRET"
+            label.font = .boldSystemFont(ofSize: 48)
+            label.textColor = .magenta
+            window.addSubview(label)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            let (before, rects) = try await render(window, with: mirror, integration: integration)
+            try #require(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(label.frame) })
+            try expectMagentaMasked(before, rects)
+
+            // No run-loop turn in between: the layer still holds the old text's bitmap.
+            label.text = ""
+            try #require(label.layer.needsDisplay())
+
+            try await expectNoUnmaskedMagenta(window, mirror: mirror, integration: integration, expect: .hidden)
+        }
+
+        @Test("GPU capture flushes the pending commit, so a masked image view cleared or switched to a symbol this turn uploads none of the old image",
+              arguments: [false, true], [false, true])
+        func gpuReplacedImageUploadsNoOldPixels(replacedWithSymbol: Bool, noCapture: Bool) async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, _) = try makeScreenshotReplaySut {
+                $0.screenshotModeGPUCapture = true
+                $0.maskAllImages = !noCapture
             }
-            try #require(!photo.isSymbolImage)
-            let imageView = UIImageView(image: photo)
+            defer { sut.close() }
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            // Unclipped and centered, the 160x160 photo hangs past the 40x40 bounds.
+            let imageView = try UIImageView(image: magentaImage(CGSize(width: 160, height: 160)))
             imageView.contentMode = .center
             imageView.clipsToBounds = false
             imageView.frame = CGRect(x: 80, y: 100, width: 40, height: 40)
+            if noCapture {
+                imageView.accessibilityIdentifier = "ph-no-capture"
+            }
             window.addSubview(imageView)
             window.layoutIfNeeded()
             CATransaction.flush()
             try await Task.sleep(nanoseconds: 50_000_000)
-            try #require(imageView.layer.presentation()?.contents != nil)
-            // Committed, the mask covers the whole drawn photo.
-            let drawn = CGRect(x: 20, y: 40, width: 160, height: 160)
-            try #require(try #require(integration.collectMaskableRects(in: window)).contains { $0.insetBy(dx: -1, dy: -1).contains(drawn) })
+            let (before, rects) = try await render(window, with: mirror, integration: integration)
+            try expectMagentaMasked(before, rects)
 
             // No run-loop turn in between: the presentation layer still holds the photo.
-            imageView.image = nil
+            imageView.image = replacedWithSymbol ? UIImage(systemName: "star.fill") : nil
+            try #require(imageView.layer.presentation()?.contents != nil)
 
-            try await expectClearedContentMasked(window, gpu: gpu, mirror: mirror, integration: integration)
+            try await expectNoUnmaskedMagenta(window, mirror: mirror, integration: integration, expect: .hidden)
         }
 
         /// A `pixels`-sized magenta bitmap at 1x.
-        private func magentaImage(_ pixels: CGSize, orientation: UIImage.Orientation = .up) throws -> UIImage {
+        private func magentaImage(_ pixels: CGSize) throws -> UIImage {
             let format = UIGraphicsImageRendererFormat()
             format.scale = 1
             let image = UIGraphicsImageRenderer(size: pixels, format: format).image { context in
                 UIColor.magenta.setFill()
                 context.fill(CGRect(origin: .zero, size: pixels))
             }
-            return try UIImage(cgImage: #require(image.cgImage), scale: 1, orientation: orientation)
-        }
-
-        /// Shows `image` in an unclipped image view, commits it, then clears it in this turn: the presentation layer
-        /// still holds it, and the default capture still draws it.
-        private func clearedImageView(_ image: UIImage, frame: CGRect, contentMode: UIView.ContentMode, in window: UIWindow,
-                                      beforeClearing: (UIImageView) async throws -> Void = { _ in }) async throws -> UIImageView
-        {
-            let imageView = UIImageView(image: image)
-            imageView.contentMode = contentMode
-            imageView.clipsToBounds = false
-            imageView.frame = frame
-            window.addSubview(imageView)
-            window.layoutIfNeeded()
-            CATransaction.flush()
-            try await Task.sleep(nanoseconds: 50_000_000)
-            try await beforeClearing(imageView)
-            try #require(imageView.layer.presentation()?.contents != nil)
-            imageView.image = nil
-            return imageView
-        }
-
-        @Test("An oriented image replaced since the last commit is masked where its rotated pixels land")
-        func replacedOrientedImageIsMaskedWhereItLands() async throws {
-            let (sut, integration, _) = try makeSut(gpuCapture: false)
-            defer { sut.close() }
-            let window = makeWindow()
-            // Stored 200x100, drawn 100x200.
-            let image = try magentaImage(CGSize(width: 200, height: 100), orientation: .right)
-            try #require(image.size == CGSize(width: 100, height: 200))
-            let imageView = try await clearedImageView(image, frame: CGRect(x: 50, y: 100, width: 100, height: 60), contentMode: .center, in: window)
-            let drawn = CGRect(x: 50, y: 30, width: 100, height: 200)
-
-            let rects = try #require(integration.collectMaskableRects(in: window))
-            #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(drawn) }, "\(rects)")
-            #expect(imageView.replacedImageExtent != nil)
-        }
-
-        @Test("An image replaced since the last commit is masked from the bounds it's presented with, not the model's")
-        func replacedImageIsMeasuredFromPresentedBounds() async throws {
-            let (sut, integration, _) = try makeSut(gpuCapture: false)
-            defer { sut.close() }
-            let window = makeWindow()
-            let image = try magentaImage(CGSize(width: 160, height: 160))
-            // Presented smaller than the model, so the image hangs further past the presented bounds.
-            let presentedBounds = CGRect(x: 0, y: 0, width: 40, height: 40)
-            let imageView = try await clearedImageView(image, frame: CGRect(x: 50, y: 50, width: 100, height: 100), contentMode: .topLeft,
-                                                       in: window)
-            { imageView in
-                try await hold(imageView.layer, keyPath: "bounds", at: NSValue(cgRect: presentedBounds))
-            }
-            let presented = try #require(imageView.layer.presentation())
-            try #require(presented.bounds == presentedBounds)
-            let windowPresented = try #require(window.layer.presentation())
-            let drawn = CGRect(origin: windowPresented.convert(presented.bounds.origin, from: presented), size: CGSize(width: 160, height: 160))
-
-            let rects = try #require(integration.collectMaskableRects(in: window))
-            #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(drawn) }, "\(rects)")
+            return try UIImage(cgImage: #require(image.cgImage), scale: 1, orientation: .up)
         }
 
         @Test("The mirror draws a still app layer whose copy traps from its model and leaves a moving one out, never copying either")

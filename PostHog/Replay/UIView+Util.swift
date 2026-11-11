@@ -7,7 +7,6 @@
 
 #if os(iOS)
     import Foundation
-    import IOSurface
     import UIKit
 
     extension UIView {
@@ -209,7 +208,7 @@
         var drawnOutsets: UIEdgeInsets {
             var content = bounds
             if !clipsToBounds, let imageView = self as? UIImageView {
-                content = imageView.drawnImageExtent.union(imageView.replacedImageExtent ?? .null)
+                content = imageView.drawnImageExtent
             }
             return layer.drawnOutsets(of: content)
         }
@@ -230,43 +229,15 @@
         /// The union of the bounds and where each image the view can draw lands, in bounds
         /// coordinates. Only fill-to-bounds content modes keep the image inside the bounds.
         var drawnImageExtent: CGRect {
-            guard !keepsImageInBounds else { return bounds }
-            let sources = [image, highlightedImage].compactMap { $0 } + (animationImages ?? []) + (highlightedAnimationImages ?? [])
-            return sources.reduce(bounds) { $0.union(drawnRect(ofImageSized: $1.size)) }
+            switch contentMode {
+            case .scaleToFill, .scaleAspectFit, .redraw:
+                return bounds
+            default:
+                let sources = [image, highlightedImage].compactMap { $0 }
+                    + (animationImages ?? []) + (highlightedAnimationImages ?? [])
+                return sources.reduce(bounds) { $0.union(drawnRect(ofImageSized: $1.size)) }
+            }
         }
-
-        private var keepsImageInBounds: Bool {
-            [.scaleToFill, .scaleAspectFit, .redraw].contains(contentMode)
-        }
-
-        /// Where an image replaced since the last commit lands, in bounds coordinates: the presentation layer still
-        /// holds it, and the default capture draws it. Measured on the presented layer, whose bounds, gravity and
-        /// contents rect place it; one it draws rotated or flipped reaches arbitrarily far. Nil when nothing was
-        /// replaced; contents whose size can't be read reach arbitrarily far too.
-        var replacedImageExtent: CGRect? {
-            #if canImport(Metal)
-                guard let presented = layer.presentation(), let contents = presented.contents,
-                      layer.contents.map({ $0 as AnyObject !== contents as AnyObject }) ?? true
-                else { return nil }
-                let gravity = presented.contentsGravity
-                let typeID = CFGetTypeID(contents as AnyObject)
-                let extent: CGRect
-                if PostHogGPUMirrorCapture.contentsTransformKey?.changedValue(in: presented) != nil
-                    || typeID != CGImage.typeID && typeID != IOSurfaceGetTypeID()
-                {
-                    extent = presented.bounds.insetBy(dx: -Self.unmeasuredImageReach, dy: -Self.unmeasuredImageReach)
-                } else if gravity == .resize || gravity == .resizeAspect {
-                    return nil
-                } else {
-                    extent = PostHogGPUMirrorCapture.contentsExtent(presented, contents: contents, gravity: gravity, bounds: presented.bounds)
-                }
-                return bounds.outset(by: CALayer.outsets(of: extent, past: presented.bounds))
-            #else
-                return nil
-            #endif
-        }
-
-        private static let unmeasuredImageReach: CGFloat = 100_000
 
         private func drawnRect(ofImageSized imageSize: CGSize) -> CGRect {
             var size = imageSize
@@ -356,7 +327,7 @@
             return outsets(of: drawn, past: layer.bounds)
         }
 
-        fileprivate static func outsets(of drawn: CGRect, past bounds: CGRect) -> UIEdgeInsets {
+        private static func outsets(of drawn: CGRect, past bounds: CGRect) -> UIEdgeInsets {
             UIEdgeInsets(
                 top: max(0, bounds.minY - drawn.minY),
                 left: max(0, bounds.minX - drawn.minX),

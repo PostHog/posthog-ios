@@ -6,6 +6,25 @@
     import Testing
     import UIKit
 
+    /// An app layer with its own designated `init()` and no `init(layer:)`: its presentation can't be copied.
+    private final class UncopyableLayer: CALayer {
+        var tag: Int
+
+        override init() {
+            tag = 1
+            super.init()
+        }
+
+        required init?(coder: NSCoder) {
+            tag = 1
+            super.init(coder: coder)
+        }
+    }
+
+    private final class UncopyableView: UIView {
+        override class var layerClass: AnyClass { UncopyableLayer.self }
+    }
+
     @Suite("Replay GPU inline masking", .serialized)
     @MainActor
     struct PostHogGPUInlineMaskTest: GPUCaptureTesting {
@@ -749,6 +768,65 @@
             let pixels = try await Pixels(capture(fixture).image)
             #expect(pixels.count(in: source.frame, where: Self.isMagenta) == 0)
             #expect(pixels.count(in: portalRect, where: Self.isMagenta) == 0)
+        }
+
+        /// Moves `view` with a long position animation, still running at capture.
+        private func move(_ view: UIView) {
+            let animation = CABasicAnimation(keyPath: "position")
+            animation.fromValue = CGPoint(x: view.layer.position.x + 40, y: view.layer.position.y)
+            animation.toValue = view.layer.position
+            animation.duration = 100
+            view.layer.add(animation, forKey: "move")
+        }
+
+        @Test("A postHogMask overlay under a moving app layer, drawn only through a portal, masks where the portal draws it, not the whole window")
+        func reporterUnderMovingAppLayerMasksWhereThePortalDrawsIt() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            try #require(!PostHogGPUMirrorCapture.isPresentationSafe(UncopyableLayer.self))
+            let bystander = UIView(frame: CGRect(x: 10, y: 220, width: 180, height: 60))
+            bystander.layer.contents = try magentaContents(bystander.bounds.size)
+            bystander.accessibilityIdentifier = "ph-no-mask"
+            let mover = UncopyableView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            let source = UIView(frame: mover.bounds)
+            source.layer.contents = try magentaContents(source.bounds.size)
+            // ph-no-mask so only the overlay masks it.
+            source.accessibilityIdentifier = "ph-no-mask"
+            let reporter = PostHogMaskReporterUIView(frame: source.bounds)
+            source.addSubview(reporter)
+            mover.addSubview(source)
+            fixture.window.addSubview(bystander)
+            fixture.window.addSubview(mover)
+            let portalRect = CGRect(x: 10, y: 120, width: 180, height: 60)
+            fixture.window.layer.addSublayer(try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false))
+            fixture.window.layoutIfNeeded()
+            move(mover)
+            // The live rect can't be read through the moving layer, so it spans the window.
+            try #require(reporter.toPresentationRect(fixture.window) == fixture.window.bounds)
+
+            let result = try await capture(fixture)
+            let pixels = try Pixels(result.image)
+            #expect(fixture.mask.extentStatsForTesting.count == 1)
+            #expect(pixels.count(in: portalRect, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: bystander.frame, where: Self.isMagenta) == 180 * 60, "content outside the overlay was masked")
+        }
+
+        @Test("A postHogMask overlay on a moving app layer, which the mirror leaves out, keeps its live rect and nothing on the layer is drawn")
+        func reporterOnMovingAppLayerKeepsItsLiveRect() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mover = UncopyableView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            mover.layer.contents = try magentaContents(mover.bounds.size)
+            let reporter = PostHogMaskReporterUIView(frame: mover.bounds)
+            mover.addSubview(reporter)
+            fixture.window.addSubview(mover)
+            fixture.window.layoutIfNeeded()
+            move(mover)
+
+            let result = try await capture(fixture)
+            #expect(fixture.mask.extentStatsForTesting.count == 0)
+            #expect(result.rectRegions.contains(reporter.toPresentationRect(fixture.window)))
+            #expect(try Pixels(result.image).count(where: Self.isMagentaHue) == 0)
         }
 
         // MARK: - iOS 26 SwiftUI layers

@@ -281,7 +281,7 @@
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             defer { CATransaction.commit() }
-            let remaining = withoutActuallyEscaping(tag) { tag in
+            return withoutActuallyEscaping(tag) { tag in
                 withoutActuallyEscaping(isBackdrop) { isBackdrop in
                     var pass = Pass(mask: self, index: frame.copies.index(), portals: PortalIndex(frame.portalSources), scale: frame.scale,
                                     root: frame.rootCopy, tag: tag, isBackdrop: isBackdrop)
@@ -298,16 +298,22 @@
                         defer { extentStatsForTesting.milliseconds = (CACurrentMediaTime() - extentStart) * 1000 }
                     #endif
                     // After the owned regions, so what they masked is left as it is.
-                    inline.formUnion(pass.redactExtents(regions))
-                    return regions.enumerated().filter { !inline.contains($0.offset) }.map(\.element)
+                    let extents = pass.redactExtents(regions)
+                    inline.formUnion(extents.masked)
+                    #if TESTING
+                        lastInlineRegionCountForTesting = inline.count
+                    #endif
+                    // A rect-only region drawn in the mirror is masked where its copies are drawn. A portal that shows a
+                    // source elsewhere is already masked whole by the walk whenever a mask sits under or over that source
+                    // (`maskedRegions(shownThrough:)`), so nothing more is added for it here.
+                    return regions.indices.filter { !inline.contains($0) }.flatMap { regionIndex in
+                        let region = regions[regionIndex]
+                        return extents.drawnRects[regionIndex].map { rects in
+                            rects.map { PostHogReplayIntegration.MaskedRegion(region.object, rect: $0, inline: region.inline) }
+                        } ?? [region]
+                    }
                 }
             }
-            #if TESTING
-                lastInlineRegionCountForTesting = regions.count - remaining.count
-            #endif
-            // A portal that shows a source elsewhere is already masked whole by the walk whenever a mask sits under or
-            // over that source (`maskedRegions(shownThrough:)`), so nothing more is added for it here.
-            return remaining
         }
 
         private func kind(of layer: CALayer, tag: (AnyClass?, AnyClass) -> Tag) -> Kind {

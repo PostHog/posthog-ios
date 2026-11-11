@@ -9,9 +9,11 @@
         enum InlineMasking {
             /// The object owns the pixels the rect covers: its copies are masked.
             case owned
-            /// A `postHogMask()` reporter: the content under the rect in its SwiftUI host is masked.
+            /// A `postHogMask()` reporter: the content under each of its drawn copies, or under the rect when it has none, is
+            /// masked.
             case extent
-            /// Rect pass only (a whole portal).
+            /// Rect pass only (a whole portal, a source shown through one): over each of the object's drawn copies, or
+            /// the rect when it has none.
             case rectOnly
         }
 

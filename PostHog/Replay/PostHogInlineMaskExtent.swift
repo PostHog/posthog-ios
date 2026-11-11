@@ -25,17 +25,18 @@
         struct ExtentTree {
             private(set) var entries: [ExtentEntry] = []
             private let root: CALayer
-            private let reporterCopies: Set<ObjectIdentifier>
+            private let tracked: Set<ObjectIdentifier>
             private let isBackdrop: (CALayer) -> Bool
-            /// Where each reporter copy sits in paint order.
-            private var reporters: [ObjectIdentifier: Int] = [:]
+            /// Where each drawn tracked copy sits in paint order.
+            private var drawn: [ObjectIdentifier: Int] = [:]
             /// Entries with a non-zero `zPosition`. It reorders only among siblings, since copies flatten their subtree.
             private var layered: [(index: Int, parent: Int?)] = []
 
-            /// nil when the root lands nowhere finite, so no extent can be located in it.
-            init?(root: CALayer, copies: CopyIndex, reporterCopies: Set<ObjectIdentifier>, isBackdrop: @escaping (CALayer) -> Bool) {
+            /// nil when the root lands nowhere finite, so no extent can be located in it. `tracked` are the copies whose
+            /// drawn place is looked up: reporters', and rect-only regions'.
+            init?(root: CALayer, copies: CopyIndex, tracked: Set<ObjectIdentifier>, isBackdrop: @escaping (CALayer) -> Bool) {
                 self.root = root
-                self.reporterCopies = reporterCopies
+                self.tracked = tracked
                 self.isBackdrop = isBackdrop
                 entries.reserveCapacity(copies.count)
                 let frame = collect(root, parent: nil, isDrawn: true, fadesApart: false, copies: copies)
@@ -46,7 +47,7 @@
             /// them against it. `ordered` is false when it can, or when the reporter's copy isn't drawn here.
             func entries(reachedBy rect: CGRect, reporter copies: Set<ObjectIdentifier>) -> (indices: [Int], ordered: Bool) {
                 // The last copy: a portal painted earlier can show the reporter while its source is still drawn.
-                let reporterIndex = copies.compactMap { reporters[$0] }.max()
+                let reporterIndex = copies.compactMap { drawn[$0] }.max()
                 let reordered = reporterIndex.map { reporter in layered.contains { canReorder($0, against: reporter, in: rect) } } ?? false
                 let end = reordered ? entries.count : reporterIndex ?? entries.count
                 var indices: [Int] = []
@@ -61,6 +62,11 @@
                     index += 1
                 }
                 return (indices, reporterIndex != nil && !reordered)
+            }
+
+            /// The entries of the drawn `copies`, placed as the mirror drew them; a hidden copy isn't drawn.
+            func drawnEntries(of copies: Set<ObjectIdentifier>) -> [ExtentEntry] {
+                copies.compactMap { drawn[$0].map { entries[$0] } }
             }
 
             /// A `zPosition` moves a layer only among its siblings. So it changes what's painted before the reporter only
@@ -90,7 +96,7 @@
                 let coverable = fadesApart ? nil : placement.flatMap { $0.hasPlainSublayers ? $0.toWindow : nil }
                 entries.append(ExtentEntry(copy: layer, frame: frame, coverable: coverable,
                                            shadow: nil, subtreeFrame: frame, subtreeEnd: index + 1))
-                if isDrawn, reporterCopies.contains(ObjectIdentifier(layer)) { reporters[ObjectIdentifier(layer)] = index }
+                if isDrawn, tracked.contains(ObjectIdentifier(layer)) { drawn[ObjectIdentifier(layer)] = index }
                 if isDrawn, layer.zPosition != 0 { layered.append((index, parent)) }
                 var subtreeFrame = frame
                 for sublayer in layer.sublayers ?? [] {
@@ -228,36 +234,70 @@
     }
 
     extension PostHogInlineMask.Pass {
-        private struct Reporter {
+        private struct Tracked {
             let region: Int
             let copies: Set<ObjectIdentifier>
         }
 
-        /// Masks everything painted under each reporter region's extent before the reporter, and returns the indices of
-        /// the regions it covered. A reporter with no copy in the mirror keeps its rect.
-        mutating func redactExtents(_ regions: [PostHogReplayIntegration.MaskedRegion]) -> Set<Int> {
-            #if TESTING
-                guard mask.isExtentEnabledForTesting else { return [] }
-            #endif
-            guard let root else { return [] }
-            var reporters: [Reporter] = []
-            for (regionIndex, region) in regions.enumerated() where region.inline == .extent {
-                guard let view = region.object as? UIView else { continue }
-                let copies = Set(index.copies(of: view.layer).map(ObjectIdentifier.init))
-                if !copies.isEmpty { reporters.append(Reporter(region: regionIndex, copies: copies)) }
+        /// Masks what's painted under each drawn reporter copy before it, and places each rect-only region where the
+        /// mirror draws its copies (shadow included): the live rect can span the window while an ancestor the
+        /// presentation tree can't be read through moves. Returns the regions masked inline and, by index, the drawn
+        /// rects of rect-only regions. A region with no drawn copy keeps its rect.
+        mutating func redactExtents(_ regions: [PostHogReplayIntegration.MaskedRegion]) -> (masked: Set<Int>, drawnRects: [Int: [CGRect]]) {
+            guard let root else { return ([], [:]) }
+            let (reporters, rectOnly) = tracked(regions)
+            // Flattened once, and only when a region needs it.
+            let tracked = (reporters + rectOnly).reduce(into: Set<ObjectIdentifier>()) { $0.formUnion($1.copies) }
+            guard !tracked.isEmpty,
+                  let tree = PostHogInlineMask.ExtentTree(root: root, copies: index, tracked: tracked, isBackdrop: isBackdrop)
+            else { return ([], [:]) }
+            var drawnRects: [Int: [CGRect]] = [:]
+            for region in rectOnly {
+                let reach = tree.drawnEntries(of: region.copies).map { $0.frame.union($0.shadow ?? .null) }
+                if !reach.isEmpty { drawnRects[region.region] = reach }
             }
-            // Flattened once, and only when a reporter needs it.
-            let reporterCopies = reporters.reduce(into: Set<ObjectIdentifier>()) { $0.formUnion($1.copies) }
-            guard !reporters.isEmpty,
-                  let tree = PostHogInlineMask.ExtentTree(root: root, copies: index, reporterCopies: reporterCopies, isBackdrop: isBackdrop)
-            else { return [] }
             for reporter in reporters {
-                redactExtent(regions[reporter.region].rect, in: tree, reporter: reporter.copies)
+                let drawn = tree.drawnEntries(of: reporter.copies)
+                guard !drawn.isEmpty else {
+                    hedgeLog("[Session Replay] Mask reporter not drawn in the mirror; masking its measured rect.")
+                    redactExtent(regions[reporter.region].rect, in: tree, reporter: reporter.copies)
+                    continue
+                }
+                // Each copy is its own extent, ordered against itself: a portal draws the reporter again elsewhere.
+                for entry in drawn {
+                    redactExtent(entry.frame, in: tree, reporter: [ObjectIdentifier(entry.copy)])
+                }
             }
             #if TESTING
                 mask.extentStatsForTesting.count = reporters.count
             #endif
-            return Set(reporters.map(\.region))
+            return (Set(reporters.map(\.region)), drawnRects)
+        }
+
+        /// The reporter and rect-only regions with a copy in the mirror, and their copies.
+        private func tracked(_ regions: [PostHogReplayIntegration.MaskedRegion]) -> (reporters: [Tracked], rectOnly: [Tracked]) {
+            var reporters: [Tracked] = []
+            var rectOnly: [Tracked] = []
+            for (regionIndex, region) in regions.enumerated() where region.inline != .owned {
+                guard let layer = (region.object as? UIView)?.layer ?? (region.object as? CALayer) else { continue }
+                let copies = Set(index.copies(of: layer).map(ObjectIdentifier.init))
+                guard !copies.isEmpty else { continue }
+                let tracked = Tracked(region: regionIndex, copies: copies)
+                if region.inline == .rectOnly {
+                    rectOnly.append(tracked)
+                } else if isExtentEnabled {
+                    reporters.append(tracked)
+                }
+            }
+            return (reporters, rectOnly)
+        }
+
+        private var isExtentEnabled: Bool {
+            #if TESTING
+                mask.isExtentEnabledForTesting
+            #else
+                true
+            #endif
         }
 
         /// Masks what the extent reaches before the reporter, whichever view drew it: content as the walk does, and

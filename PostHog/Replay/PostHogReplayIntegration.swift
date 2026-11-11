@@ -1839,7 +1839,7 @@
                     && !sourceRect.isEmpty && !mainWalk.contains { $0.intersects(sourceRect) }
             }
             if !isClean {
-                regions.append(MaskedRegion(source.view, rect: portalRect, inline: .rectOnly))
+                regions.append(MaskedRegion(source.portal, rect: portalRect, inline: .rectOnly))
             }
             return regions
         }

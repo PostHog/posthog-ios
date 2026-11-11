@@ -134,7 +134,7 @@
                     hasUnsettledReporters = true
                     continue
                 }
-                if let region = region(of: reporter, in: window, inline: .rectOnly) {
+                if let region = region(of: reporter, in: window, inline: .extent) {
                     regions.append(region)
                 }
             }

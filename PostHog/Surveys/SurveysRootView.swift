@@ -11,6 +11,7 @@
     @available(iOS 15.0, *)
     struct SurveysRootView: View {
         @EnvironmentObject private var displayManager: SurveyDisplayController
+        @State private var cardHeight: CGFloat = .zero
 
         var body: some View {
             if placement.usesBottomSheet {
@@ -29,10 +30,13 @@
                     Color.black.opacity(0.4)
                         .ignoresSafeArea()
                         .allowsHitTesting(false)
-                    PositionedSurveyCard(displayManager: displayManager, fallbackSurvey: survey)
-                        .frame(maxWidth: 420)
-                        .padding(16)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: placementAlignment)
+                    PositionedSurveyCard(displayManager: displayManager, fallbackSurvey: survey) { height in
+                        cardHeight = height
+                    }
+                    .frame(maxWidth: 420)
+                    .frame(height: cardHeight)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: placementAlignment)
                 }
             }
         }
@@ -72,13 +76,11 @@
         private struct PositionedSurveyCard: UIViewControllerRepresentable {
             @ObservedObject var displayManager: SurveyDisplayController
             let fallbackSurvey: PostHogDisplaySurvey
+            let onHeightChange: (CGFloat) -> Void
 
             func makeUIViewController(context _: Context) -> UIHostingController<AnyView> {
                 let controller = UIHostingController(rootView: card)
                 controller.view.backgroundColor = .clear
-                if #available(iOS 16.0, *) {
-                    controller.sizingOptions = .intrinsicContentSize
-                }
                 return controller
             }
 
@@ -90,6 +92,10 @@
                 AnyView(
                     SurveySheet(displayManager: displayManager, fallbackSurvey: fallbackSurvey, presentsAsSheet: false)
                         .environment(\.colorScheme, .light)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .readFrame { frame in
+                            onHeightChange(frame.height)
+                        }
                 )
             }
         }

@@ -63,8 +63,11 @@
                         .animation(.linear(duration: 0.25), value: displayManager.currentQuestionIndex)
                         .padding(.horizontal, 16)
                         .padding(.bottom, 8)
+                        .readFrame { frame in
+                            sheetHeight = frame.height
+                        }
                 }
-                .frame(maxHeight: UIScreen.main.bounds.height * 0.75)
+                .frame(height: min(sheetHeight, UIScreen.main.bounds.height * 0.75))
             }
             .background(appearance.backgroundColor)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))

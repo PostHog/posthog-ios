@@ -48,7 +48,11 @@ private final class SurveyFixture: ObservableObject {
         if flag != "missing" {
             first["skipSubmitButton"] = flag == "true"
         }
+        if environment["SURVEY_LONG_CONTENT"] == "true" {
+            first["choices"] = (1 ... 30).map { "Choice \($0)" }
+        }
         var second = first
+        second["choices"] = ["First", "Second", "Other"]
         second["id"] = "second"
         second["question"] = "Second question"
         second["skipSubmitButton"] = false

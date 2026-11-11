@@ -74,6 +74,72 @@ final class SurveyAutoSubmitUITests: XCTestCase {
         assertAnswers("0:First,Second")
     }
 
+    func testPositionedCardsHonorVerticalAndHorizontalAnchors() {
+        var closeFrames: [String: CGRect] = [:]
+        var screenWidth: CGFloat = 0
+        let rows = [
+            ["top_left", "top_center", "top_right"],
+            ["middle_left", "middle_center", "middle_right"],
+            ["left", "center", "right"],
+        ]
+        for position in rows.flatMap({ $0 }) {
+            launchPositionedSurvey(position: position)
+            screenWidth = app.frame.width
+            let close = app.buttons["posthog.survey.dismiss"]
+            closeFrames[position] = close.frame
+            XCTAssertTrue(close.isHittable, position)
+            XCTAssertTrue(app.buttons["4"].isHittable, position)
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = position
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+            close.tap()
+            let closed = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "label == %@", "closed"),
+                object: app.staticTexts["survey-status"]
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed, position)
+            app.terminate()
+        }
+        for column in 0 ... 2 {
+            let top = closeFrames[rows[0][column]]!
+            let middle = closeFrames[rows[1][column]]!
+            let bottom = closeFrames[rows[2][column]]!
+            XCTAssertGreaterThan(middle.midY, top.midY + 80)
+            XCTAssertGreaterThan(bottom.midY, middle.midY + 80)
+        }
+        if screenWidth > 600 {
+            for row in rows.prefix(2) {
+                XCTAssertGreaterThan(closeFrames[row[1]]!.midX, closeFrames[row[0]]!.midX + 20)
+                XCTAssertGreaterThan(closeFrames[row[2]]!.midX, closeFrames[row[1]]!.midX + 20)
+            }
+            XCTAssertGreaterThan(closeFrames["right"]!.midX, closeFrames["left"]!.midX + 40)
+        }
+    }
+
+    func testPositionedCardScrollsLongContentAndResizesAfterAnswer() {
+        launchPositionedSurvey(position: "right", longContent: true)
+        let close = app.buttons["posthog.survey.dismiss"]
+        let longContentCloseY = close.frame.midY
+        let lastChoice = app.buttons["Choice 30"]
+        let scrollView = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollView.exists)
+        for _ in 0 ..< 15 {
+            if lastChoice.isHittable { break }
+            scrollView.swipeUp()
+        }
+        XCTAssertTrue(lastChoice.isHittable)
+        XCTAssertTrue(close.isHittable)
+        XCTAssertEqual(close.frame.midY, longContentCloseY, accuracy: 2)
+        lastChoice.tap()
+        continueButton.tap()
+        assertQuestion("Second question")
+        XCTAssertTrue(app.buttons["First"].isHittable)
+        XCTAssertTrue(continueButton.isHittable)
+        XCTAssertGreaterThan(close.frame.midY, longContentCloseY + 80)
+        close.tap()
+    }
+
     func testPositionedCardCloseWorksInProductionWindow() {
         app.launchEnvironment = ["SURVEY_POSITION": "top_center"]
         app.launch()
@@ -94,6 +160,18 @@ final class SurveyAutoSubmitUITests: XCTestCase {
         continueButton.tap()
         assertQuestion("Second question")
         assertAnswers("0:nil")
+    }
+
+    private func launchPositionedSurvey(position: String, longContent: Bool = false) {
+        app.launchEnvironment = [
+            "SURVEY_POSITION": position,
+            "SURVEY_KIND": longContent ? "single" : "number",
+            "SURVEY_SKIP": longContent ? "false" : "true",
+            "SURVEY_LONG_CONTENT": String(longContent),
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["posthog.survey.dismiss"].waitForExistence(timeout: 5))
+        assertQuestion("First question")
     }
 
     private func assertAutoSubmit(kind: String, answer: String) {

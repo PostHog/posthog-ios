@@ -45,6 +45,7 @@
             defer { teardown(sut) }
             let integration = sut.integration
             let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
             let label = UILabel(frame: CGRect(x: 20, y: 40, width: 160, height: 80))
             label.text = "SECRET"
             label.font = .boldSystemFont(ofSize: 48)
@@ -69,6 +70,7 @@
             defer { teardown(sut) }
             let integration = sut.integration
             let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
             let size = CGSize(width: 160, height: 80)
             let format = UIGraphicsImageRendererFormat()
             format.scale = 1
@@ -106,6 +108,7 @@
             defer { teardown(sut) }
             let integration = sut.integration
             let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
             let size = CGSize(width: 160, height: 160)
             let format = UIGraphicsImageRendererFormat()
             format.scale = 1
@@ -122,7 +125,9 @@
             let drawn = CGRect(x: 20, y: 40, width: 160, height: 160)
 
             let (image, rects) = try motionCapture(window, integration: integration)
-            #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(drawn) }, "\(rects)")
+            let covering = try #require(rects.first { $0.insetBy(dx: -1, dy: -1).contains(drawn) }, "\(rects)")
+            // The extent is conservative: the bounds grown by the image's full 120pt overflow on every side.
+            #expect(imageView.frame.insetBy(dx: -121, dy: -121).contains(covering), "\(covering)")
             try expectMagentaMasked(image, rects)
             #expect(imageView.replacedImageExtent != nil)
         }
@@ -133,12 +138,14 @@
             defer { teardown(sut) }
             let integration = sut.integration
             let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
             // Stored 200x100, drawn 100x200.
             let image = try magentaImage(CGSize(width: 200, height: 100), orientation: .right)
             try #require(image.size == CGSize(width: 100, height: 200))
             let imageView = try await clearedImageView(image, frame: CGRect(x: 50, y: 100, width: 100, height: 60), contentMode: .center, in: window)
             let drawn = CGRect(x: 50, y: 30, width: 100, height: 200)
 
+            // A rotated image under .center takes the unmeasured branch, so the mask spans far past the image by design.
             let rects = try #require(integration.collectMaskableRects(in: window))
             #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(drawn) }, "\(rects)")
             #expect(imageView.replacedImageExtent != nil)
@@ -150,6 +157,7 @@
             defer { teardown(sut) }
             let integration = sut.integration
             let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
             let image = try magentaImage(CGSize(width: 160, height: 160))
             // Presented smaller than the model, so the image hangs further past the presented bounds.
             let presentedBounds = CGRect(x: 0, y: 0, width: 40, height: 40)
@@ -164,7 +172,92 @@
             let drawn = CGRect(origin: windowPresented.convert(presented.bounds.origin, from: presented), size: CGSize(width: 160, height: 160))
 
             let rects = try #require(integration.collectMaskableRects(in: window))
-            #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(drawn) }, "\(rects)")
+            let covering = try #require(rects.first { $0.insetBy(dx: -1, dy: -1).contains(drawn) }, "\(rects)")
+            let presentedFrame = CGRect(origin: drawn.origin, size: presentedBounds.size)
+            #expect(presentedFrame.insetBy(dx: -121, dy: -121).contains(covering), "\(covering)")
+        }
+
+        @Test("An oriented image cleared in a default scale-to-fill view is masked within the view")
+        func clearedOrientedImageInFillViewIsMaskedWithinTheView() async throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+            let integration = sut.integration
+            let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
+            let image = try magentaImage(CGSize(width: 200, height: 100), orientation: .right)
+            let imageView = try await clearedImageView(image, frame: CGRect(x: 50, y: 100, width: 100, height: 60), contentMode: .scaleToFill,
+                                                       in: window)
+
+            let (rendered, rects) = try motionCapture(window, integration: integration)
+            let limit = window.bounds.insetBy(dx: -1, dy: -1)
+            #expect(rects.allSatisfy { limit.contains($0) }, "\(rects)")
+            #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(imageView.frame) }, "\(rects)")
+            try expectMagentaMasked(rendered, rects)
+        }
+
+        @Test("A sensitive label with no text is not masked once settled")
+        func emptyLabelIsNotMaskedOnceSettled() async throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+            let integration = sut.integration
+            let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
+            let label = UILabel(frame: CGRect(x: 20, y: 40, width: 160, height: 80))
+            window.addSubview(label)
+            window.layoutIfNeeded()
+            try await commit()
+            #expect(try #require(integration.collectMaskableRects(in: window)).isEmpty)
+
+            label.text = "SECRET"
+            window.layoutIfNeeded()
+            try await commit()
+            label.text = ""
+            window.layoutIfNeeded()
+            try await commit()
+            #expect(try #require(integration.collectMaskableRects(in: window)).isEmpty)
+        }
+
+        @Test("A photo replaced by another image in the same turn stays masked while the old photo still draws")
+        func photoReplacedByAnotherImageStaysMasked() async throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+            let integration = sut.integration
+            let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
+            let imageView = try UIImageView(image: magentaImage(CGSize(width: 160, height: 80)))
+            imageView.frame = CGRect(x: 20, y: 40, width: 160, height: 80)
+            window.addSubview(imageView)
+            window.layoutIfNeeded()
+            try await commit()
+            try #require(imageView.layer.presentation()?.contents != nil)
+
+            imageView.image = UIImage(systemName: "star.fill")
+
+            let (image, rects) = try motionCapture(window, integration: integration)
+            try expectMagentaMasked(image, rects)
+        }
+
+        @Test("A symbol swapped for another symbol in the same turn keeps its image wireframe")
+        func swappedSymbolKeepsImageWireframe() async throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+            let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
+            let symbol = UIImageView(image: UIImage(systemName: "star.fill"))
+            symbol.frame = CGRect(x: 20, y: 40, width: 40, height: 40)
+            window.addSubview(symbol)
+            window.layoutIfNeeded()
+            try await commit()
+
+            symbol.image = UIImage(systemName: "heart.fill")
+
+            let root = try #require(sut.integration.toWireframe(window))
+            let imageWireframe = try #require(imageWireframes(in: root).first)
+            #expect(imageWireframe.image != nil)
+        }
+
+        private func imageWireframes(in wireframe: RRWireframe) -> [RRWireframe] {
+            (wireframe.type == "image" ? [wireframe] : []) + (wireframe.childWireframes ?? []).flatMap(imageWireframes)
         }
     }
 #endif

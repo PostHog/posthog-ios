@@ -980,7 +980,7 @@
 
             /// SwiftUI: Some control images like the ones in `Picker` view may land here
             if let image = view as? UIImageView {
-                if isImageViewSensitive(image) {
+                if isImageViewSensitive(image) || showsReplacedImage(image) {
                     maskableWidgets.append(.init(view, in: window))
                     // subviews can draw outside the image view's bounds, so its mask may not cover them
                     findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren)
@@ -1436,7 +1436,7 @@
                 + (view.animationImages ?? []) + (view.highlightedAnimationImages ?? [])
 
             if sources.isEmpty {
-                return showsReplacedImage(view, sources: sources)
+                return false
             }
 
             // sensitive, regardless
@@ -1445,11 +1445,11 @@
             }
 
             // asset images and symbols are probably not sensitive
-            return (config?.sessionReplayConfig.maskAllImages == true && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) })
-                || showsReplacedImage(view, sources: sources)
+            return config?.sessionReplayConfig.maskAllImages == true
+                && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) }
         }
 
-        private func toWireframe(_ view: UIView) -> RRWireframe? {
+        func toWireframe(_ view: UIView) -> RRWireframe? {
             if !view.isVisible() {
                 return nil
             }
@@ -1816,13 +1816,17 @@
     private extension PostHogReplayIntegration {
         /// An image replaced since the last commit stays on screen until then: the presentation layer still holds it.
         /// An animating view presents its current frames, which aren't replaced images.
-        func showsReplacedImage(_ view: UIImageView, sources: [UIImage]) -> Bool {
+        /// Once replaced, the old contents can't be classified, so even a symbol swapped for another symbol is masked
+        /// until the commit.
+        func showsReplacedImage(_ view: UIImageView) -> Bool {
             guard view.isNoCapture() || config?.sessionReplayConfig.maskAllImages == true else { return false }
             guard let presented = view.layer.presentation()?.contents else { return false }
             let shown = presented as AnyObject
             if view.layer.contents as AnyObject? === shown {
                 return false
             }
+            let sources = [view.image, view.highlightedImage].compactMap { $0 }
+                + (view.animationImages ?? []) + (view.highlightedAnimationImages ?? [])
             return !sources.contains { $0.cgImage === shown }
         }
 

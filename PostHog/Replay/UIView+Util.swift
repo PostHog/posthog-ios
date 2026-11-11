@@ -211,21 +211,23 @@
 
         /// Where an image replaced since the last commit lands, in bounds coordinates: the presentation layer still
         /// holds it, and the default capture draws it. Measured on the presented layer, whose bounds, gravity and
-        /// contents rect place it; one it draws rotated or flipped reaches arbitrarily far. Nil when nothing was
-        /// replaced; contents whose size can't be read reach arbitrarily far too.
+        /// contents rect place it. A gravity that scales the contents to the bounds keeps them inside (nil); otherwise
+        /// one it draws rotated or flipped reaches arbitrarily far, as do contents whose size can't be read. Nil
+        /// when nothing was replaced.
         var replacedImageExtent: CGRect? {
             guard let presented = layer.presentation(), let contents = presented.contents,
                   layer.contents.map({ $0 as AnyObject !== contents as AnyObject }) ?? true
             else { return nil }
             let gravity = presented.contentsGravity
+            if gravity == .resize || gravity == .resizeAspect {
+                return nil
+            }
             let typeID = CFGetTypeID(contents as AnyObject)
             let extent: CGRect
             if CALayer.contentsTransformKey?.changedValue(in: presented) != nil
                 || typeID != CGImage.typeID && typeID != IOSurfaceGetTypeID()
             {
                 extent = presented.bounds.insetBy(dx: -Self.unmeasuredImageReach, dy: -Self.unmeasuredImageReach)
-            } else if gravity == .resize || gravity == .resizeAspect {
-                return nil
             } else {
                 extent = CALayer.contentsExtent(presented, contents: contents, gravity: gravity, bounds: presented.bounds)
             }

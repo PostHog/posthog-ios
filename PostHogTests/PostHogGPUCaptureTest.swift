@@ -351,7 +351,13 @@
             guard let rendering = PostHogReplayIntegration.settledRendering(of: window, band: band, inflatedRects: nil, regions: regions) else {
                 return nil
             }
-            return try (#require(window.toImage(renderer: rendering.renderer)), #require(rendering.rects), rendering.renderer)
+            // drawHierarchy draws nothing in this hostless bundle, so a fidelity choice is rendered from the presentation
+            // tree, or the model tree when a layer in the window can't be copied for its presentation.
+            var renderer = rendering.renderer
+            if renderer == .fidelity {
+                renderer = window.layer.canRenderPresentationTree ? .presentationTree : .modelTree
+            }
+            return try (#require(window.toImage(renderer: renderer)), #require(rendering.rects), rendering.renderer)
         }
 
         @Test("A layer rotated in 3D about an anchor off its plane has its mask over its pixels")
@@ -2649,6 +2655,9 @@
         func culledCoverCaptureFallsBackAndUploads() async throws {
             let mirror = try makeMirror()
             let (sut, integration, snapshots) = try makeSut()
+            // drawHierarchy draws nothing in this hostless bundle; the fallback still has to upload a frame.
+            PostHogReplayIntegration.screenshotRendererForTesting = .presentationTree
+            defer { PostHogReplayIntegration.screenshotRendererForTesting = nil }
             integration.gpuMirror = mirror
             defer { sut.close() }
             let mockLifecycle = MockApplicationLifecyclePublisher()
@@ -2758,6 +2767,9 @@
             }
             integration.gpuMirror = mirror
             defer { sut.close() }
+            // drawHierarchy draws nothing in this hostless bundle; the default path's size is what's under test.
+            PostHogReplayIntegration.screenshotRendererForTesting = .presentationTree
+            defer { PostHogReplayIntegration.screenshotRendererForTesting = nil }
             let mockLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockLifecycle
             defer { DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared }
@@ -2776,11 +2788,7 @@
             let image = try snapshots.firstScreenshotImage()
             #expect(image.width == Int((window.bounds.width * pixelsPerPoint).rounded(.up)))
             #expect(image.height == Int((window.bounds.height * pixelsPerPoint).rounded(.up)))
-            // drawHierarchy has no render server to draw from in this hostless test bundle and leaves the bitmap
-            // uninitialized, so only GPU pixels are meaningful here (default-path masking is covered elsewhere).
-            if gpu {
-                #expect(try Pixels(image).points(where: Self.isMagenta).isEmpty)
-            }
+            #expect(try Pixels(image).points(where: Self.isMagenta).isEmpty)
         }
 
         @Test("Shared high-resolution contents are filtered when the mirror downscales them, not point-sampled")

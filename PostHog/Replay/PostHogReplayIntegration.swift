@@ -1264,7 +1264,7 @@
             // The settled path renders here so the pixels come from the same main-thread tick that
             // measured the mask rects — any later and the presentation tree has moved on. Callers
             // that render themselves (background capture, the bridge's first frame) pass false.
-            let image = renderImage ? window.toImage(renderer: renderer) : nil
+            let image = renderImage ? window.toImage(renderer: Self.screenshotRenderer(renderer)) : nil
             // A render that was attempted and failed skips the tick; only a deferred render falls
             // through to renderAndEnqueueScreenshot's own draw.
             if renderImage, image == nil {
@@ -2658,8 +2658,22 @@
         }
     #endif
 
+    private extension PostHogReplayIntegration {
+        static func screenshotRenderer(_ renderer: PostHogScreenshotRenderer) -> PostHogScreenshotRenderer {
+            #if TESTING
+                screenshotRendererForTesting ?? renderer
+            #else
+                renderer
+            #endif
+        }
+    }
+
     #if TESTING
         extension PostHogReplayIntegration {
+            /// drawHierarchy draws nothing without a window scene, so hostless tests route the default path's
+            /// render through this renderer instead.
+            static var screenshotRendererForTesting: PostHogScreenshotRenderer?
+
             var isScreenshotRenderInFlightForTesting: Bool {
                 screenshotRenderLock.withLock { isScreenshotRenderInFlight }
             }

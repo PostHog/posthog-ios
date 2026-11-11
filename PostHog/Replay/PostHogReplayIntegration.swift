@@ -1385,7 +1385,8 @@
         }
 
         private func isLabelSensitive(_ view: UILabel) -> Bool {
-            isTextInputSensitive(view) && hasText(view.text)
+            // Cleared text stays on screen until the label redraws.
+            isTextInputSensitive(view) && (hasText(view.text) || view.layer.needsDisplay())
         }
 
         private func isButtonSensitive(_ view: UIButton) -> Bool {
@@ -1435,7 +1436,7 @@
                 + (view.animationImages ?? []) + (view.highlightedAnimationImages ?? [])
 
             if sources.isEmpty {
-                return false
+                return showsReplacedImage(view, sources: sources)
             }
 
             // sensitive, regardless
@@ -1444,8 +1445,8 @@
             }
 
             // asset images and symbols are probably not sensitive
-            return config?.sessionReplayConfig.maskAllImages == true
-                && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) }
+            return (config?.sessionReplayConfig.maskAllImages == true && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) })
+                || showsReplacedImage(view, sources: sources)
         }
 
         private func toWireframe(_ view: UIView) -> RRWireframe? {
@@ -1813,6 +1814,18 @@
     }
 
     private extension PostHogReplayIntegration {
+        /// An image replaced since the last commit stays on screen until then: the presentation layer still holds it.
+        /// An animating view presents its current frames, which aren't replaced images.
+        func showsReplacedImage(_ view: UIImageView, sources: [UIImage]) -> Bool {
+            guard view.isNoCapture() || config?.sessionReplayConfig.maskAllImages == true else { return false }
+            guard let presented = view.layer.presentation()?.contents else { return false }
+            let shown = presented as AnyObject
+            if view.layer.contents as AnyObject? === shown {
+                return false
+            }
+            return !sources.contains { $0.cgImage === shown }
+        }
+
         /// Image attachments in text are drawn by the label or text view itself, with no image view to
         /// mask, so masking images masks text that holds one. Like image views, symbols and
         /// asset-catalog images stay visible; an attachment whose image can't be read is masked.

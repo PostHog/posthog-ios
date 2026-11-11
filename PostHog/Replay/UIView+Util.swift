@@ -144,10 +144,13 @@
                 return nil
             }
 
-            // Use native screen scale for best drawHierarchy performance.
-            // Using a non-native scale can trigger internal rescaling overhead.
+            // Use native screen scale and gamut for best drawHierarchy performance.
+            // Using a non-native scale can trigger internal rescaling overhead, and a bitmap in
+            // another gamut makes drawHierarchy convert every pixel on the main thread.
             let nativeScale = (self as? UIWindow ?? window)?.screen.scale ?? 1
-            let renderer = PostHogGraphicsImageRenderer(size: size, scale: nativeScale)
+            let drawsHierarchy = afterScreenUpdates || screenshotRenderer == .fidelity
+            let gamut = screenshotGamut(drawingHierarchy: drawsHierarchy)
+            let renderer = PostHogGraphicsImageRenderer(size: size, scale: nativeScale, gamut: gamut)
 
             var drawn = true
             let image = autoreleasepool {
@@ -173,6 +176,13 @@
                 return nil
             }
             return image
+        }
+
+        func screenshotGamut(drawingHierarchy: Bool) -> UIDisplayGamut {
+            guard drawingHierarchy, let screen = (self as? UIWindow ?? window)?.screen else {
+                return .unspecified
+            }
+            return screen.traitCollection.displayGamut
         }
 
         // you need this because of SwiftUI otherwise the coordinates always zeroed for some reason

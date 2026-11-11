@@ -1492,10 +1492,11 @@
 
             // Same bails prepareScreenshotWireframe applies, hoisted ahead of both sampling walks
             // and the render so a transition doesn't pay for a frame that gets discarded.
-            guard let before = DispatchQueue.main.sync(execute: { () -> [MaskedRegion]? in
+            var before = DispatchQueue.main.sync { () -> [MaskedRegion]? in
                 guard window.isVisible(), !self.isAnimatingTransition(window) else { return nil }
                 return self.collectMaskedRegions(in: window)
-            }) else {
+            }
+            guard before != nil else {
                 return false
             }
             // Off-main on purpose, and the reason this mode exists: drawHierarchy on main was too
@@ -1504,6 +1505,9 @@
             // aligned with pixels despite the render happening on this thread.
             let image = window.toImage(preferFidelityRenderer: true)
             let capture = DispatchQueue.main.sync { () -> ScreenshotCapture? in
+                // MaskedRegion retains its view: drop the sample here so a view's last release
+                // (and its UIKit teardown) runs on main, not on the replay queue.
+                defer { before = nil }
                 let after = self.collectMaskedRegions(in: window)
                 guard let rects = Self.sweptRects(before: before, after: after) else {
                     hedgeLog("[Session Replay] Skipping snapshot: mask samples could not be paired")

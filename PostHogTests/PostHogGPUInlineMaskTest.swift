@@ -6,23 +6,24 @@
     import Testing
     import UIKit
 
-    /// An app layer with its own designated `init()` and no `init(layer:)`: its presentation can't be copied.
-    private final class UncopyableLayer: CALayer {
-        var tag: Int
-
+    /// An app layer with its own `init(layer:)`: the mirror can't tell it copies safely, so it's drawn from its model
+    /// and left out while it moves, though reading its presentation doesn't trap.
+    private final class AppLayer: CALayer {
         override init() {
-            tag = 1
             super.init()
         }
 
+        override init(layer: Any) {
+            super.init(layer: layer)
+        }
+
         required init?(coder: NSCoder) {
-            tag = 1
             super.init(coder: coder)
         }
     }
 
-    private final class UncopyableView: UIView {
-        override class var layerClass: AnyClass { UncopyableLayer.self }
+    private final class AppLayerView: UIView {
+        override class var layerClass: AnyClass { AppLayer.self }
     }
 
     @Suite("Replay GPU inline masking", .serialized)
@@ -779,15 +780,15 @@
             view.layer.add(animation, forKey: "move")
         }
 
-        @Test("A postHogMask overlay under a moving app layer, drawn only through a portal, masks where the portal draws it, not the whole window")
+        @Test("A postHogMask overlay under a moving app layer, drawn only through a portal, masks the portal and nothing outside it")
         func reporterUnderMovingAppLayerMasksWhereThePortalDrawsIt() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
-            try #require(!PostHogGPUMirrorCapture.isPresentationSafe(UncopyableLayer.self))
+            try #require(!PostHogGPUMirrorCapture.isPresentationSafe(AppLayer.self))
             let bystander = UIView(frame: CGRect(x: 10, y: 220, width: 180, height: 60))
             bystander.layer.contents = try magentaContents(bystander.bounds.size)
             bystander.accessibilityIdentifier = "ph-no-mask"
-            let mover = UncopyableView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            let mover = AppLayerView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
             let source = UIView(frame: mover.bounds)
             source.layer.contents = try magentaContents(source.bounds.size)
             // ph-no-mask so only the overlay masks it.
@@ -801,8 +802,9 @@
             fixture.window.layer.addSublayer(try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false))
             fixture.window.layoutIfNeeded()
             move(mover)
-            // The live rect can't be read through the moving layer, so it spans the window.
-            try #require(reporter.toPresentationRect(fixture.window) == fixture.window.bounds)
+            // Measured where the moving layer is presented, not where the portal shows it.
+            let liveRect = reporter.toPresentationRect(fixture.window)
+            try #require(!liveRect.intersects(portalRect) && !liveRect.intersects(bystander.frame))
 
             let result = try await capture(fixture)
             let pixels = try Pixels(result.image)
@@ -815,7 +817,7 @@
         func reporterOnMovingAppLayerKeepsItsLiveRect() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
-            let mover = UncopyableView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            let mover = AppLayerView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
             mover.layer.contents = try magentaContents(mover.bounds.size)
             let reporter = PostHogMaskReporterUIView(frame: mover.bounds)
             mover.addSubview(reporter)
@@ -825,7 +827,8 @@
 
             let result = try await capture(fixture)
             #expect(fixture.mask.extentStatsForTesting.count == 0)
-            #expect(result.rectRegions.contains(reporter.toPresentationRect(fixture.window)))
+            // Its presented rect, measured mid-animation: the reporter's size, not the window's.
+            #expect(result.rectRegions.contains { $0.size == reporter.bounds.size && $0.intersects(mover.frame) })
             #expect(try Pixels(result.image).count(where: Self.isMagentaHue) == 0)
         }
 

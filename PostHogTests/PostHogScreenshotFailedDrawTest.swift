@@ -14,6 +14,7 @@
 
             #expect(window.toImage(renderer: .fidelity) == nil)
             #expect(window.toImage(afterScreenUpdates: true) == nil)
+            #expect(window.toImage(afterScreenUpdates: true, renderer: .presentationTree) == nil)
             #expect(window.toImage(renderer: .presentationTree) != nil)
         }
     }

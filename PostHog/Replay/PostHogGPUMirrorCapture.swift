@@ -492,7 +492,7 @@
         }
 
         private func mirrorPortal(_ portal: CALayer, presentation: CALayer, info: ClassInfo, walk: inout Walk) -> CALayer? {
-            guard let content = portalContent(portal, presentation: presentation, walk: &walk) else { return nil }
+            guard let content = portalContent(portal, walk: &walk) else { return nil }
             let copy = makeCopy(of: portal, presentation: presentation, info: info, walk: &walk)
             copy.sublayers = [content.layer]
             if content.clips { copy.masksToBounds = true }
@@ -508,8 +508,7 @@
         /// or culled where it sits yet still show through the portal. Any other portal stays out, as does a portal
         /// inside a source being drawn through another: its masks would only be found where the inner portal sits.
         /// `clips` is true when the portal shows its source on itself, so masks there can only cover the portal's bounds.
-        /// `presentation` is the state the portal's own copy is drawn from.
-        private func portalContent(_ portal: CALayer, presentation: CALayer, walk: inout Walk) -> (layer: CALayer, clips: Bool)? {
+        private func portalContent(_ portal: CALayer, walk: inout Walk) -> (layer: CALayer, clips: Bool)? {
             guard walk.portalsInProgress.isEmpty,
                   let source = portal.value(forKey: "sourceLayer") as? CALayer,
                   let view = source.delegate as? UIView,
@@ -539,8 +538,10 @@
             case .atPortal:
                 let portalRect = PostHogPortalSource.portalRect(of: portal, root: walk.root)
                 walk.portalSources.append(PostHogPortalSource(view: view, portal: portal, portalRect: portalRect))
+                // The source's coordinates become the portal's bounds coordinates: a portal whose bounds start away
+                // from zero (iOS 27 draws each glass button through one onto a bar-sized source) is a window onto them.
                 content.anchorPoint = .zero
-                content.position = presentation.bounds.origin
+                content.position = .zero
                 content.transform = CATransform3DIdentity
                 return (content, true)
             }

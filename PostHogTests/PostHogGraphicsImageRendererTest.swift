@@ -50,4 +50,119 @@
             #expect(pixels[(Self.bytesPerRow * 100)...].allSatisfy { $0 == 0 })
         }
     }
+
+    @Suite("Replay screenshot color space", .serialized)
+    @MainActor
+    struct PostHogScreenshotColorSpaceTest {
+        private static let sRGB = CGColorSpace(name: CGColorSpace.sRGB)!
+        private static let displayP3 = CGColorSpace(name: CGColorSpace.displayP3)!
+        private static let deviceRGBName = CGColorSpaceCreateDeviceRGB().name
+        private static let size = CGSize(width: 40, height: 40)
+        private static let scale: CGFloat = 3
+        private static let expected: [UInt8] = [204, 51, 51]
+
+        private func colorSpaceName(_ image: UIImage?) -> CFString? {
+            image?.cgImage?.colorSpace?.name
+        }
+
+        private func displayP3Screenshot() throws -> UIImage {
+            let fill = try #require(
+                CGColor(colorSpace: Self.sRGB, components: [0.8, 0.2, 0.2, 1])?
+                    .converted(to: Self.displayP3, intent: .defaultIntent, options: nil)
+            )
+            let image = PostHogGraphicsImageRenderer(size: Self.size, scale: Self.scale, gamut: .P3).image { context in
+                context.setFillColor(fill)
+                context.fill(CGRect(origin: .zero, size: Self.size))
+            }
+            return try #require(image)
+        }
+
+        private func uploaded(_ image: UIImage, masks: [CGRect], pixelScale: CGFloat) throws -> CGImage {
+            let wireframe = RRWireframe()
+            wireframe.type = "screenshot"
+            wireframe.image = image
+            wireframe.maskableWidgets = masks
+            wireframe.screenshotPixelScale = pixelScale
+            let base64 = try #require(wireframe.toDict()["base64"] as? String)
+            let encoded = try #require(base64.split(separator: ",").last.map(String.init))
+            let data = try #require(Data(base64Encoded: encoded))
+            return try #require(UIImage(data: data)?.cgImage)
+        }
+
+        private func sRGBPixel(_ image: CGImage, column: Int, row: Int) throws -> [UInt8] {
+            var rgba = [UInt8](repeating: 0, count: 4)
+            let context = try #require(CGContext(
+                data: &rgba, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: Self.sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ))
+            context.draw(image, in: CGRect(x: -column, y: row - image.height + 1, width: image.width, height: image.height))
+            return Array(rgba.prefix(3))
+        }
+
+        private func isExpected(_ rgb: [UInt8]) -> Bool {
+            zip(rgb, Self.expected).allSatisfy { abs(Int($0) - Int($1)) <= 6 }
+        }
+
+        @Test("a wide-gamut screen renders into a Display P3 bitmap")
+        func wideGamutRendersInDisplayP3() {
+            let image = PostHogGraphicsImageRenderer(size: Self.size, scale: 1, gamut: .P3).image { _ in }
+            #expect(colorSpaceName(image) == CGColorSpace.displayP3)
+        }
+
+        @Test("an sRGB or unknown screen renders into a device RGB bitmap")
+        func otherGamutsRenderInDeviceRGB() {
+            let sRGBScreen = PostHogGraphicsImageRenderer(size: Self.size, scale: 1, gamut: .SRGB).image { _ in }
+            let unknownScreen = PostHogGraphicsImageRenderer(size: Self.size, scale: 1, gamut: .unspecified).image { _ in }
+            let byDefault = PostHogGraphicsImageRenderer(size: Self.size, scale: 1).image { _ in }
+            #expect(colorSpaceName(sRGBScreen) == Self.deviceRGBName)
+            #expect(colorSpaceName(unknownScreen) == Self.deviceRGBName)
+            #expect(colorSpaceName(byDefault) == Self.deviceRGBName)
+        }
+
+        @Test("drawHierarchy renders in the screen's gamut and the presentation tree in device RGB")
+        func screenshotGamutFollowsTheRenderer() {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 50, height: 50))
+            let subview = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
+            window.addSubview(subview)
+            let screenGamut = window.screen.traitCollection.displayGamut
+
+            #expect(window.screenshotGamut(drawingHierarchy: true) == screenGamut)
+            #expect(subview.screenshotGamut(drawingHierarchy: true) == screenGamut)
+            #expect(window.screenshotGamut(drawingHierarchy: false) == .unspecified)
+            #expect(UIView(frame: window.bounds).screenshotGamut(drawingHierarchy: true) == .unspecified)
+        }
+
+        @Test("a presentation-tree screenshot stays in device RGB on any screen")
+        func presentationTreeScreenshotIsDeviceRGB() throws {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 50, height: 50))
+            window.rootViewController = UIViewController()
+            window.rootViewController?.view.backgroundColor = .red
+            window.makeKeyAndVisible()
+            defer { window.isHidden = true }
+
+            let image = try #require(window.toImage(renderer: .presentationTree))
+            #expect(colorSpaceName(image) == Self.deviceRGBName)
+        }
+
+        @Test("a Display P3 screenshot uploads in its sRGB colors when it is resampled")
+        func displayP3ScreenshotResampled() throws {
+            let uploaded = try uploaded(displayP3Screenshot(), masks: [], pixelScale: 1)
+            #expect(uploaded.width == Int(Self.size.width))
+            #expect(isExpected(try sRGBPixel(uploaded, column: 20, row: 20)))
+        }
+
+        @Test("a Display P3 screenshot uploads in its sRGB colors at native resolution")
+        func displayP3ScreenshotAtNativeResolution() throws {
+            let uploaded = try uploaded(displayP3Screenshot(), masks: [], pixelScale: Self.scale)
+            #expect(uploaded.width == Int(Self.size.width * Self.scale))
+            #expect(isExpected(try sRGBPixel(uploaded, column: 60, row: 60)))
+        }
+
+        @Test("a masked Display P3 screenshot uploads in its sRGB colors around the mask")
+        func displayP3ScreenshotMasked() throws {
+            let uploaded = try uploaded(displayP3Screenshot(), masks: [CGRect(x: 0, y: 0, width: 10, height: 10)], pixelScale: 1)
+            #expect(try sRGBPixel(uploaded, column: 5, row: 5).allSatisfy { $0 < 50 })
+            #expect(isExpected(try sRGBPixel(uploaded, column: 30, row: 30)))
+        }
+    }
 #endif

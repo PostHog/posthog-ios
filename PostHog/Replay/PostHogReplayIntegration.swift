@@ -1264,7 +1264,7 @@
             // The settled path renders here so the pixels come from the same main-thread tick that
             // measured the mask rects — any later and the presentation tree has moved on. Callers
             // that render themselves (background capture, the bridge's first frame) pass false.
-            let image = renderImage ? window.toImage(renderer: renderer) : nil
+            let image = renderImage ? window.toImage(renderer: Self.screenshotRenderer(renderer)) : nil
             // A render that was attempted and failed skips the tick; only a deferred render falls
             // through to renderAndEnqueueScreenshot's own draw.
             if renderImage, image == nil {
@@ -1395,8 +1395,7 @@
         }
 
         private func isLabelSensitive(_ view: UILabel) -> Bool {
-            // Cleared text stays on screen until the label redraws.
-            isTextInputSensitive(view) && (hasText(view.text) || view.layer.needsDisplay())
+            isTextInputSensitive(view) && hasText(view.text)
         }
 
         private func isButtonSensitive(_ view: UIButton) -> Bool {
@@ -1446,7 +1445,7 @@
                 + (view.animationImages ?? []) + (view.highlightedAnimationImages ?? [])
 
             if sources.isEmpty {
-                return showsReplacedImage(view, sources: sources)
+                return false
             }
 
             // sensitive, regardless
@@ -1456,7 +1455,7 @@
 
             // asset images and symbols are probably not sensitive
             return config?.sessionReplayConfig.maskAllImages == true
-                && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) } || showsReplacedImage(view, sources: sources)
+                && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) }
         }
 
         private func toWireframe(_ view: UIView) -> RRWireframe? {
@@ -1700,14 +1699,12 @@
                 // Banded on mask geometry alone, not on layout-event counts: layout events arrive in
                 // bursts, so a count false-positives on the very burst that triggered the capture.
                 let verdict = Self.settleVerdict(before: sentinelRegions, after: regionsNow)
-                guard let rendering = Self.settledRendering(of: window, band: verdict.band, inflatedRects: verdict.inflatedRects,
-                                                            regions: regionsNow) else { return self.skipUncopyableMotionFrame() }
                 self.performScreenshotCapture(
                     window: window,
                     screenName: screenName,
                     postHog: postHog,
-                    renderer: rendering.renderer,
-                    overrideMaskRects: rendering.rects
+                    renderer: verdict.band.usesFidelity ? .fidelity : .presentationTree,
+                    overrideMaskRects: verdict.inflatedRects ?? regionsNow?.map(\.rect)
                 )
             }
         }
@@ -1846,20 +1843,6 @@
     }
 
     private extension PostHogReplayIntegration {
-        /// An image replaced since the last commit stays on screen until then: the presentation layer still holds it.
-        /// A layer whose presentation can't be copied counts as replaced, since that can't be read.
-        /// An animating view presents its current frames, which aren't replaced images.
-        func showsReplacedImage(_ view: UIImageView, sources: [UIImage]) -> Bool {
-            guard view.isNoCapture() || config?.sessionReplayConfig.maskAllImages == true else { return false }
-            guard CALayer.canCopyPresentation(of: view.layer) else { return true }
-            guard let presented = view.layer.presentation()?.contents else { return false }
-            let shown = presented as AnyObject
-            if view.layer.contents as AnyObject? === shown {
-                return false
-            }
-            return !sources.contains { $0.cgImage === shown }
-        }
-
         /// Image attachments in text are drawn by the label or text view itself, with no image view to
         /// mask, so masking images masks text that holds one. Like image views, symbols and
         /// asset-catalog images stay visible; an attachment whose image can't be read is masked.
@@ -2408,12 +2391,6 @@
             }
         }
 
-        /// Main thread. Ends a settled capture `settledRendering` gave no renderer for.
-        func skipUncopyableMotionFrame() {
-            hedgeLog("[Session Replay] Skipping snapshot: the window is in motion and holds a layer whose presentation can't be copied")
-            finishScreenshotRender()
-        }
-
         private func finishScreenshotRender() {
             screenshotRenderLock.withLock {
                 isScreenshotRenderInFlight = false
@@ -2655,10 +2632,9 @@
                 return leftOutCover(of: frame, in: window) ? .fallback : .rects(regions.map(\.rect))
             }
 
-            /// Whether the mirror left out the full-window cover or one of its ancestors. Also a cover the mask walk didn't
-            /// trust, which left the masks of what it hides in: the frame would still show the wrong screen.
+            /// Whether the mirror left out the full-window cover or one of its ancestors.
             private func leftOutCover(of frame: PostHogGPUMirrorCapture.Frame, in window: UIWindow) -> Bool {
-                guard let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window, trustingModels: true)?.layer else { return false }
+                guard let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer else { return false }
                 return isCulledWithAncestors(cover, frame.culledLayers)
             }
 
@@ -2719,8 +2695,22 @@
         }
     #endif
 
+    private extension PostHogReplayIntegration {
+        static func screenshotRenderer(_ renderer: PostHogScreenshotRenderer) -> PostHogScreenshotRenderer {
+            #if TESTING
+                screenshotRendererForTesting ?? renderer
+            #else
+                renderer
+            #endif
+        }
+    }
+
     #if TESTING
         extension PostHogReplayIntegration {
+            /// drawHierarchy draws nothing without a window scene, so hostless tests route the default path's
+            /// render through this renderer instead.
+            static var screenshotRendererForTesting: PostHogScreenshotRenderer?
+
             var isScreenshotRenderInFlightForTesting: Bool {
                 screenshotRenderLock.withLock { isScreenshotRenderInFlight }
             }

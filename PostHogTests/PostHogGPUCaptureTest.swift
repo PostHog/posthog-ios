@@ -1566,10 +1566,10 @@
 
         /// Glass without luminance tracking or a sampling margin, over a shape whose output range ends at
         /// `outputMaximum`: a sheet's when that's tens of points, clear glass's when it's 1.
-        private func makeUntrackedGlass(frame: CGRect, outputMaximum: Double) throws -> CALayer {
+        private func makeUntrackedGlass(frame: CGRect, outputMaximum: Double, marginWidth: Double = 0) throws -> CALayer {
             let backdrop = try makeGlass(frame: frame, cornerRadius: 20, filter: "glassBackground")
             backdrop.setValue(false, forKey: "tracksLuma")
-            backdrop.setValue(0, forKey: "marginWidth")
+            backdrop.setValue(marginWidth, forKey: "marginWidth")
             let sdfClass = try #require(NSClassFromString("CASDFLayer") as? CALayer.Type)
             let outputClass = try #require(NSClassFromString("CASDFOutputEffect") as? NSObject.Type)
             let output = outputClass.init()
@@ -1591,6 +1591,21 @@
 
             window.layer.addSublayer(try makeUntrackedGlass(frame: CGRect(x: 20, y: 40, width: 160, height: 80), outputMaximum: 34))
             window.layer.addSublayer(try makeUntrackedGlass(frame: CGRect(x: 20, y: 160, width: 160, height: 80), outputMaximum: 1))
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[100, 80].green > 200)
+            #expect(pixels[100, 200].green < 120)
+        }
+
+        @Test("iOS 27's clear glass, with a half-point margin and an output range ending past 1, still fills as clear")
+        func clearGlassWithSmallMarginIsClear() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow(background: .red)
+            window.overrideUserInterfaceStyle = .light
+            await prewarm(mirror, for: window)
+
+            window.layer.addSublayer(try makeUntrackedGlass(frame: CGRect(x: 20, y: 40, width: 160, height: 80), outputMaximum: 8.9, marginWidth: 16))
+            window.layer.addSublayer(try makeUntrackedGlass(frame: CGRect(x: 20, y: 160, width: 160, height: 80), outputMaximum: 1.53, marginWidth: 0.53))
 
             let pixels = try await Pixels(render(window, with: mirror).0)
             #expect(pixels[100, 80].green > 200)
@@ -2081,6 +2096,29 @@
             let pixels = try Pixels(image)
             #expect(pixels[100, 210] == .blue)
             #expect(pixels[60, 50] == .white)
+        }
+
+        @Test("A lens portal whose bounds start away from zero is a window onto its source's coordinates")
+        func lensPortalWithOffsetBoundsShowsSourceAtItsCoordinates() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            // iOS 27's glass bars: a bar-sized source placing each button where the bar shows it, and a portal per
+            // button whose bounds start at the button's position.
+            let source = UIView(frame: window.bounds)
+            let button = UIView(frame: CGRect(x: 40, y: 180, width: 120, height: 60))
+            button.backgroundColor = .blue
+            source.addSubview(button)
+            window.addSubview(source)
+            let portal = try makeLensPortal(showing: source, frame: button.frame)
+            portal.bounds = button.frame
+            window.layer.addSublayer(portal)
+
+            let pixels = try await Pixels(render(window, with: mirror).0)
+            #expect(pixels[100, 210] == .blue)
+            #expect(pixels[39, 179] == .white)
+            #expect(pixels[161, 241] == .white)
         }
 
         @Test("A postHogMask reporter under a lens portal's source masks the whole portal")

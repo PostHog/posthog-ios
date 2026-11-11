@@ -9,8 +9,8 @@
     /// read on.
     enum PostHogGlassStandIn {
         struct Kind {
-            /// Clear glass barely refracts: its shape's output range ends at 1 rather than tens of points. Sheets share
-            /// its untracked luminance and zero margin, so those alone don't tell it apart.
+            /// Clear glass barely refracts: its shape's output range ends near 1 rather than tens of points. Sheets share
+            /// its untracked luminance and near-zero margin, so those alone don't tell it apart.
             let clear: Bool
             /// The group holds a tint layer, composited `destIn`, beside its background.
             fileprivate let hasTintCutout: Bool
@@ -49,7 +49,10 @@
         private static let colorMatrixSize = 20 * MemoryLayout<Float>.size
         private static let ownerSearchDepth = 12
         private static let tintSearchDepth = 6
-        private static let clearOutputMaximum = 1.0
+        /// Clear glass's margin and output range: 0 and 1 on iOS 26, 0.53 and 1.53 on iOS 27, where regular glass
+        /// has a margin of 7 to 16 points and an output range in the tens.
+        private static let clearMarginMaximum = 1.0
+        private static let clearOutputMaximum = 2.0
         private static let barClassFragments = ["BarButton", "TabBar", "FloatingBar"]
         /// Sheets, alerts and dialogs let much more of what's behind them through than controls do: they draw as a
         /// system blur material. The fixed-appearance materials: a view outside a window doesn't pick up `overrideUserInterfaceStyle`.
@@ -74,7 +77,7 @@
             var tints: [Tint] = []
             if hasTintCutout, let group { collectTints(in: group, depth: tintSearchDepth, into: &tints) }
             return Kind(clear: backdrop.value(forKey: "tracksLuma") as? Bool == false
-                && (backdrop.value(forKey: "marginWidth") as? NSNumber)?.doubleValue == 0
+                && (backdrop.value(forKey: "marginWidth") as? NSNumber).map { $0.doubleValue <= clearMarginMaximum } == true
                 && outputMaximum(under: backdrop).map { $0 <= clearOutputMaximum } == true,
                 hasTintCutout: hasTintCutout, group: group, tints: tints)
         }

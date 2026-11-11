@@ -1490,7 +1490,12 @@
         private func performBracketedBackgroundCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) -> Bool {
             defer { finishScreenshotRender() }
 
-            guard let before = DispatchQueue.main.sync(execute: { self.collectMaskedRegions(in: window) }) else {
+            // Same bails prepareScreenshotWireframe applies, hoisted ahead of both sampling walks
+            // and the render so a transition doesn't pay for a frame that gets discarded.
+            guard let before = DispatchQueue.main.sync(execute: { () -> [MaskedRegion]? in
+                guard window.isVisible(), !self.isAnimatingTransition(window) else { return nil }
+                return self.collectMaskedRegions(in: window)
+            }) else {
                 return false
             }
             // Off-main on purpose, and the reason this mode exists: drawHierarchy on main was too

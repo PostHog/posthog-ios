@@ -615,13 +615,16 @@
                         return
                     }
                     let bytes = image.byteCount
-                    while self.cacheBytes + bytes > Self.maxCacheBytes, !self.drawnOrder.isEmpty {
-                        let oldest = self.drawnOrder.removeFirst()
-                        if case let .drawn(old)? = self.entries.removeValue(forKey: oldest) {
+                    // Dropped from the order in one go: removing them one by one shifts the array each time, under the lock.
+                    var evictedCount = 0
+                    while self.cacheBytes + bytes > Self.maxCacheBytes, evictedCount < self.drawnOrder.count {
+                        if case let .drawn(old)? = self.entries.removeValue(forKey: self.drawnOrder[evictedCount]) {
                             self.cacheBytes -= old.byteCount
                             evicted.append(old)
                         }
+                        evictedCount += 1
                     }
+                    self.drawnOrder.removeFirst(evictedCount)
                     self.entries[signature] = .drawn(image)
                     self.drawnOrder.append(signature)
                     self.cacheBytes += bytes

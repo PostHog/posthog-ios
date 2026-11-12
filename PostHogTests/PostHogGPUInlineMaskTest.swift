@@ -1288,5 +1288,29 @@
             fixture.mask.waitForTextDrawsForTesting()
             #expect(fixture.mask.textCacheEntryCountForTesting == 0)
         }
+
+        @Test("A `*` bitmap that doesn't fit the cache evicts the oldest, which is drawn again when next captured")
+        func textCacheEvictsOldestBitmaps() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mask = fixture.mirror.inlineMask
+            // Each bitmap is just under a quarter of the cache, so the fifth doesn't fit beside the first four.
+            let frame = CGRect(x: 0, y: 0, width: 1000, height: 1040)
+            for length in 1 ... 5 {
+                let label = secretLabel(frame, text: String(repeating: "x", count: length))
+                fixture.window.addSubview(label)
+                _ = try await capture(fixture)
+                mask.waitForTextDrawsForTesting()
+                label.removeFromSuperview()
+            }
+            #expect(mask.textDrawsForTesting == 5)
+            #expect(mask.textCacheEntryCountForTesting == 4)
+
+            fixture.window.addSubview(secretLabel(frame, text: "x"))
+            _ = try await capture(fixture)
+            mask.waitForTextDrawsForTesting()
+            #expect(mask.textDrawsForTesting == 6)
+            #expect(mask.textCacheEntryCountForTesting == 4)
+        }
     }
 #endif

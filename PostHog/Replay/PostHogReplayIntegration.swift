@@ -983,7 +983,7 @@
                 if isImageViewSensitive(image) || showsReplacedImage(image) {
                     maskableWidgets.append(.init(view, in: window))
                     // subviews can draw outside the image view's bounds, so its mask may not cover them
-                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren)
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren || view.isNoCapture())
                     return
                 }
             }
@@ -1820,6 +1820,8 @@
         /// until the commit.
         func showsReplacedImage(_ view: UIImageView) -> Bool {
             guard view.isNoCapture() || config?.sessionReplayConfig.maskAllImages == true else { return false }
+            // presentation() copies the layer through init(layer:), which an app-defined layer class may not support
+            guard type(of: view.layer) == CALayer.self else { return false }
             guard let presented = view.layer.presentation()?.contents else { return false }
             let shown = presented as AnyObject
             if view.layer.contents as AnyObject? === shown {

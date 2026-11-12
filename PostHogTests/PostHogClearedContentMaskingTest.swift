@@ -126,8 +126,8 @@
 
             let (image, rects) = try motionCapture(window, integration: integration)
             let covering = try #require(rects.first { $0.insetBy(dx: -1, dy: -1).contains(drawn) }, "\(rects)")
-            // The extent is conservative: the bounds grown by the image's full 120pt overflow on every side.
-            #expect(imageView.frame.insetBy(dx: -121, dy: -121).contains(covering), "\(covering)")
+            // The extent is conservative: the bounds grown on every side by the image's 120pt overflow, plus its 160pt side in case it's drawn turned.
+            #expect(imageView.frame.insetBy(dx: -281, dy: -281).contains(covering), "\(covering)")
             try expectMagentaMasked(image, rects)
             #expect(imageView.replacedImageExtent != nil)
         }
@@ -145,7 +145,7 @@
             let imageView = try await clearedImageView(image, frame: CGRect(x: 50, y: 100, width: 100, height: 60), contentMode: .center, in: window)
             let drawn = CGRect(x: 50, y: 30, width: 100, height: 200)
 
-            // A rotated image under .center takes the unmeasured branch, so the mask spans far past the image by design.
+            // The layer's contents carry no orientation, so the mask reaches past the measured size by the image's longest side.
             let rects = try #require(integration.collectMaskableRects(in: window))
             #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(drawn) }, "\(rects)")
             #expect(imageView.replacedImageExtent != nil)
@@ -174,7 +174,7 @@
             let rects = try #require(integration.collectMaskableRects(in: window))
             let covering = try #require(rects.first { $0.insetBy(dx: -1, dy: -1).contains(drawn) }, "\(rects)")
             let presentedFrame = CGRect(origin: drawn.origin, size: presentedBounds.size)
-            #expect(presentedFrame.insetBy(dx: -121, dy: -121).contains(covering), "\(covering)")
+            #expect(presentedFrame.insetBy(dx: -281, dy: -281).contains(covering), "\(covering)")
         }
 
         @Test("An oriented image cleared in a default scale-to-fill view is masked within the view")
@@ -256,8 +256,86 @@
             #expect(imageWireframe.image != nil)
         }
 
+        @Test("A no-capture image view showing a replaced image masks its unclipped subviews too")
+        func noCaptureReplacedImageMasksItsSubviews() async throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+            sut.sdk.config.sessionReplayConfig.maskAllTextInputs = false
+            sut.sdk.config.sessionReplayConfig.maskAllImages = false
+            let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
+            let parent = try UIImageView(image: magentaImage(CGSize(width: 60, height: 60)))
+            parent.contentMode = .scaleToFill
+            parent.clipsToBounds = false
+            parent.accessibilityIdentifier = "ph-no-capture"
+            parent.frame = CGRect(x: 20, y: 40, width: 60, height: 60)
+            window.addSubview(parent)
+            let child = UILabel(frame: CGRect(x: 80, y: 100, width: 80, height: 40))
+            child.text = "SECRET"
+            parent.addSubview(child)
+            let unmasked = UILabel(frame: CGRect(x: 0, y: 140, width: 80, height: 40))
+            unmasked.text = "PUBLIC"
+            unmasked.accessibilityIdentifier = "ph-no-mask"
+            parent.addSubview(unmasked)
+            window.layoutIfNeeded()
+            try await commit()
+            try #require(parent.layer.presentation()?.contents != nil)
+
+            parent.image = nil
+
+            let rects = try #require(sut.integration.collectMaskableRects(in: window))
+            let childRect = child.convert(child.bounds, to: window)
+            #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(childRect) }, "\(rects)")
+            let unmaskedRect = unmasked.convert(unmasked.bounds, to: window)
+            #expect(!rects.contains { $0.intersects(unmaskedRect) }, "\(rects)")
+        }
+
+        @Test("An image view with an app-defined layer class isn't copied for its presentation")
+        func customLayerImageViewIsNotCopiedForPresentation() async throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+            let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
+            let symbol = CopyCountingImageView(image: UIImage(systemName: "star.fill"))
+            symbol.frame = CGRect(x: 20, y: 40, width: 40, height: 40)
+            window.addSubview(symbol)
+            window.layoutIfNeeded()
+            try await commit()
+            try #require(symbol.layer is CopyCountingLayer)
+            try await hold(symbol.layer, keyPath: "opacity", at: 1)
+            CopyCountingLayer.copies = 0
+
+            let rects = try #require(sut.integration.collectMaskableRects(in: window))
+            #expect(CopyCountingLayer.copies == 0)
+            #expect(!rects.contains { $0.intersects(symbol.frame) }, "\(rects)")
+        }
+
         private func imageWireframes(in wireframe: RRWireframe) -> [RRWireframe] {
             (wireframe.type == "image" ? [wireframe] : []) + (wireframe.childWireframes ?? []).flatMap(imageWireframes)
+        }
+    }
+
+    private final class CopyCountingLayer: CALayer {
+        nonisolated(unsafe) static var copies = 0
+
+        override init() {
+            super.init()
+        }
+
+        override init(layer: Any) {
+            Self.copies += 1
+            super.init(layer: layer)
+        }
+
+        @available(*, unavailable)
+        required init?(coder _: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+    }
+
+    private final class CopyCountingImageView: UIImageView {
+        override class var layerClass: AnyClass {
+            CopyCountingLayer.self
         }
     }
 #endif

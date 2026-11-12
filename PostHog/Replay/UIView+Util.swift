@@ -211,9 +211,11 @@
 
         /// Where an image replaced since the last commit lands, in bounds coordinates: the presentation layer still
         /// holds it, and the default capture draws it. Measured on the presented layer, whose bounds, gravity and
-        /// contents rect place it. A gravity that scales the contents to the bounds keeps them inside (nil); otherwise
-        /// one it draws rotated or flipped reaches arbitrarily far, as do contents whose size can't be read. Nil
-        /// when nothing was replaced.
+        /// contents rect place it. A gravity that scales the contents to the bounds keeps them inside (nil). Otherwise
+        /// the layer may draw them rotated or flipped (an EXIF orientation), which the public API doesn't expose, so
+        /// the measured extent grows by the contents' longest drawn side: a turned copy anchored by the same gravity
+        /// can't land further out. Contents whose size can't be read reach arbitrarily far. Nil when nothing was
+        /// replaced.
         var replacedImageExtent: CGRect? {
             guard let presented = layer.presentation(), let contents = presented.contents,
                   layer.contents.map({ $0 as AnyObject !== contents as AnyObject }) ?? true
@@ -222,16 +224,18 @@
             if gravity == .resize || gravity == .resizeAspect {
                 return nil
             }
-            let typeID = CFGetTypeID(contents as AnyObject)
+            let presentedBounds = presented.bounds
             let extent: CGRect
-            if CALayer.contentsTransformKey?.changedValue(in: presented) != nil
-                || typeID != CGImage.typeID && typeID != IOSurfaceGetTypeID()
-            {
-                extent = presented.bounds.insetBy(dx: -Self.unmeasuredImageReach, dy: -Self.unmeasuredImageReach)
+            if let size = CALayer.contentsSize(presented, contents: contents) {
+                let drawn = CALayer.drawnSize(of: size, gravity: gravity, in: presentedBounds)
+                let turned = CALayer.drawnSize(of: CGSize(width: size.height, height: size.width), gravity: gravity, in: presentedBounds)
+                let reach = max(drawn.width, drawn.height, turned.width, turned.height)
+                extent = presentedBounds.insetBy(dx: -max(0, drawn.width - presentedBounds.width) - reach,
+                                                 dy: -max(0, drawn.height - presentedBounds.height) - reach)
             } else {
-                extent = CALayer.contentsExtent(presented, contents: contents, gravity: gravity, bounds: presented.bounds)
+                extent = presentedBounds.insetBy(dx: -Self.unmeasuredImageReach, dy: -Self.unmeasuredImageReach)
             }
-            return bounds.outset(by: CALayer.outsets(of: extent, past: presented.bounds))
+            return bounds.outset(by: CALayer.outsets(of: extent, past: presentedBounds))
         }
 
         private static let unmeasuredImageReach: CGFloat = 100_000
@@ -256,25 +260,6 @@
             default: originY = (bounds.height - size.height) / 2
             }
             return CGRect(x: bounds.minX + originX, y: bounds.minY + originY, width: size.width, height: size.height)
-        }
-    }
-
-    /// A private CALayer property newer OSes draw with. Read through KVC, which CALayer answers for any key; nil where
-    /// CALayer doesn't declare it, so older OSes skip it.
-    struct PostHogPrivateLayerKey {
-        let name: String
-        private let defaultValue: NSObject?
-
-        init?(_ name: String) {
-            guard CALayer.instancesRespond(to: NSSelectorFromString(name)) else { return nil }
-            self.name = name
-            defaultValue = CALayer().value(forKey: name) as? NSObject
-        }
-
-        /// The layer's value when it differs from a fresh layer's.
-        func changedValue(in layer: CALayer) -> NSObject? {
-            guard let value = layer.value(forKey: name) as? NSObject, !value.isEqual(defaultValue) else { return nil }
-            return value
         }
     }
 
@@ -316,31 +301,29 @@
             )
         }
 
-        /// Set on an image view's layer that draws its image rotated or flipped (an EXIF orientation), stored unrotated.
-        static let contentsTransformKey = PostHogPrivateLayerKey("contentsTransform")
-
-        /// Where `contents` drawn with a `gravity` that doesn't scale them to `bounds` lands, in `bounds`' space.
-        static func contentsExtent(_ layer: CALayer, contents: Any, gravity: CALayerContentsGravity, bounds: CGRect) -> CGRect {
+        /// The size `contents` draws at before gravity places it, in points. Nil for contents the layer draws itself.
+        static func contentsSize(_ layer: CALayer, contents: Any) -> CGSize? {
             let object = contents as AnyObject
             let typeID = CFGetTypeID(object)
-            var size: CGSize
+            let pixels: CGSize
             if typeID == CGImage.typeID {
                 let image = object as! CGImage
-                size = CGSize(width: image.width, height: image.height)
+                pixels = CGSize(width: image.width, height: image.height)
             } else if typeID == IOSurfaceGetTypeID() {
                 let surface = object as! IOSurfaceRef
-                size = CGSize(width: IOSurfaceGetWidth(surface), height: IOSurfaceGetHeight(surface))
+                pixels = CGSize(width: IOSurfaceGetWidth(surface), height: IOSurfaceGetHeight(surface))
             } else {
-                // Backing stores are drawn by the layer itself at its own size.
-                return bounds
+                return nil
             }
             let scale = layer.contentsScale > 0 ? layer.contentsScale : 1
-            size = CGSize(width: size.width / scale * layer.contentsRect.width, height: size.height / scale * layer.contentsRect.height)
-            if gravity == .resizeAspectFill, size.width > 0, size.height > 0 {
-                let fill = max(bounds.width / size.width, bounds.height / size.height)
-                size = CGSize(width: size.width * fill, height: size.height * fill)
-            }
-            return bounds.insetBy(dx: -max(0, size.width - bounds.width), dy: -max(0, size.height - bounds.height))
+            return CGSize(width: pixels.width / scale * layer.contentsRect.width, height: pixels.height / scale * layer.contentsRect.height)
+        }
+
+        /// The size contents of `size` draw at under a `gravity` that doesn't scale them to `bounds`.
+        static func drawnSize(of size: CGSize, gravity: CALayerContentsGravity, in bounds: CGRect) -> CGSize {
+            guard gravity == .resizeAspectFill, size.width > 0, size.height > 0 else { return size }
+            let fill = max(bounds.width / size.width, bounds.height / size.height)
+            return CGSize(width: size.width * fill, height: size.height * fill)
         }
 
         fileprivate static func outsets(of drawn: CGRect, past bounds: CGRect) -> UIEdgeInsets {

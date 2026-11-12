@@ -169,6 +169,46 @@ struct PostHogSurveyCancelEventsTest {
             #expect(controller.displayedSurvey == nil)
         }
 
+        @Test("a cancel event before the survey is reserved does not display it")
+        func cancelBeforeReservation() throws {
+            let (postHog, integration) = try makeIntegration()
+            defer {
+                postHog.close()
+                postHog.reset()
+            }
+            load(integration)
+            integration.hasActiveSurveyWindow = { true }
+            let delegate = try #require(postHog.config._surveysConfig.surveysDelegate as? PostHogSurveysDefaultDelegate)
+            let controller = SurveyDisplayController()
+            delegate.setDisplayControllerForTesting(controller)
+
+            integration.testOnEvent(event: PostHogEvent(
+                event: "show_survey",
+                distinctId: "user",
+                properties: [:],
+                timestamp: Date()
+            ))
+            #expect(integration.testIsEventActivated(surveyId: "cancel-survey"))
+
+            let settled = DispatchSemaphore(value: 0)
+            DispatchQueue.main.async {
+                integration.testOnEvent(event: PostHogEvent(
+                    event: "checkout_completed",
+                    distinctId: "user",
+                    properties: [:],
+                    timestamp: Date()
+                ))
+                DispatchQueue.main.async {
+                    settled.signal()
+                }
+            }
+
+            #expect(settled.wait(timeout: .now() + 2) == .success)
+            #expect(controller.displayedSurvey == nil)
+            #expect(integration.canShowNextSurvey())
+            #expect(!integration.testIsEventActivated(surveyId: "cancel-survey"))
+        }
+
         @Test("a background cancel returns without waiting for main")
         func captureMustNotWaitForMain() throws {
             let (postHog, integration) = try makeIntegration()

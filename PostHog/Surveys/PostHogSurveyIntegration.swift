@@ -319,7 +319,13 @@
                               self.freshFeatureFlagsLock.withLock({ self.surveyRefreshGeneration == refreshGeneration }),
                               self.hasActiveSurveyWindow(),
                               self.canShowNextSurvey(),
-                              let survey = activeSurveys.first(where: self.canRenderSurvey)
+                              // The list was chosen before this block was queued. A cancel in that
+                              // gap drops the activation without an active survey to dismiss, so
+                              // check it again before this block reserves the stale selection.
+                              let survey = activeSurveys.first(where: { candidate in
+                                  self.canRenderSurvey(survey: candidate) &&
+                                      (!candidate.hasEvents || self.isSurveyEventActivated(survey: candidate))
+                              })
                         else { return }
 
                         let language = self.resolveDisplayLanguage()

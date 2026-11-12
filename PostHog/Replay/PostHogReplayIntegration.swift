@@ -1626,19 +1626,28 @@
             )
         }
 
-        /// The render sits between two mask samples instead of one: measure geometry, render
-        /// off-main, measure again, then mask as `backgroundCaptureMaskRects` decides — swept and
-        /// trailed when the content drifted, skipped on motion, an unpaired owner, or a missing
-        /// sample. Always uses `drawHierarchy`, never the presentation-tree renderer: that reads
-        /// `layer.presentation()`, which is main-only, and this path's other reads already sit
-        /// inside `main.sync`.
+        /// The render sits between two mask samples instead of one: measure geometry, wait
+        /// `backgroundCaptureLeadSeconds`, render off-main, measure again, then mask as
+        /// `backgroundCaptureMaskRects` decides — swept and trailed when the content drifted,
+        /// skipped on motion, an unpaired owner, or a missing sample. Always uses `drawHierarchy`,
+        /// never the presentation-tree renderer: that reads `layer.presentation()`, which is
+        /// main-only, and this path's other reads already sit inside `main.sync`.
+        private func scheduleBracketedBackgroundCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) {
+            guard let before = collectMaskedRegions(in: window) else {
+                finishScreenshotRender()
+                return
+            }
+            PostHogReplayIntegration.dispatchQueue.asyncAfter(deadline: .now() + Self.backgroundCaptureLeadSeconds) { [weak self] in
+                self?.performBracketedBackgroundCapture(window: window, before: before, screenName: screenName, postHog: postHog)
+            }
+        }
+
         @discardableResult
-        private func performBracketedBackgroundCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) -> Bool {
+        private func performBracketedBackgroundCapture(
+            window: UIWindow, before: [MaskedRegion], screenName: String?, postHog: PostHogSDK
+        ) -> Bool {
             defer { finishScreenshotRender() }
 
-            guard let before = DispatchQueue.main.sync(execute: { self.collectMaskedRegions(in: window) }) else {
-                return false
-            }
             // Off-main on purpose, and the reason this mode exists: drawHierarchy on main was too
             // slow to keep up. UIKit documents it as main-thread-only, so it stays experimental
             // behind `screenshotModeBackgroundCapture` — the bracketing above is what keeps masks
@@ -1728,9 +1737,7 @@
                 }
 
                 if postHog.config.sessionReplayConfig.screenshotModeBackgroundCapture {
-                    PostHogReplayIntegration.dispatchQueue.async { [weak self] in
-                        self?.performBracketedBackgroundCapture(window: window, screenName: screenName, postHog: postHog)
-                    }
+                    scheduleBracketedBackgroundCapture(window: window, screenName: screenName, postHog: postHog)
                 } else {
                     scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)
                 }

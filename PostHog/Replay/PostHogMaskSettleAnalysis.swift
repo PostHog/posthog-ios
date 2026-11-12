@@ -41,6 +41,11 @@
         /// invalidating them.
         static let settleWindowSeconds: TimeInterval = 0.025
 
+        /// Gap between the first mask sample and the off-main background render. On device, that
+        /// render still showed the pre-stop scroll position for 30-40ms after an abrupt stop, so a
+        /// still verdict must span longer than that for the pixels to have caught up.
+        static let backgroundCaptureLeadSeconds: TimeInterval = 0.1
+
         /// At or below 80pt/s, geometry counts as unmoved and rects are used exactly as sampled.
         /// Raise only to stop idle screens paying for inflation, and only a little: this much
         /// displacement then goes uncompensated, so it is the one knob that trades directly

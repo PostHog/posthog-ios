@@ -26,6 +26,10 @@
         override class var layerClass: AnyClass { AppLayer.self }
     }
 
+    private final class TransformLayerView: UIView {
+        override class var layerClass: AnyClass { CATransformLayer.self }
+    }
+
     @Suite("Replay GPU inline masking", .serialized)
     @MainActor
     struct PostHogGPUInlineMaskTest: GPUCaptureTesting {
@@ -1246,6 +1250,52 @@
             #expect(pixels.count(in: CGRect(x: 10, y: 72, width: 180, height: 46), where: Self.isMagentaHue) == 0)
             #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
             #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 60 * 30)
+        }
+
+        @Test("Content a container's shape mask hides stays hidden when a postHogMask extent reaches part of the container")
+        func shapeMaskedContainerPartlyUnderExtentKeepsItsClip() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let container = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 100))
+            container.backgroundColor = .green
+            container.accessibilityIdentifier = "ph-no-mask"
+            let maskLayer = CAShapeLayer()
+            maskLayer.frame = container.bounds
+            maskLayer.path = UIBezierPath(rect: CGRect(x: 0, y: 0, width: 180, height: 50)).cgPath
+            container.layer.mask = maskLayer
+            let child = UIView(frame: container.bounds)
+            child.accessibilityIdentifier = "ph-no-mask"
+            child.layer.contents = try magentaContents(child.bounds.size)
+            container.addSubview(child)
+            fixture.window.addSubview(container)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 20, width: 60, height: 30))
+            fixture.window.addSubview(reporter)
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: CGRect(x: 10, y: 72, width: 180, height: 46), where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 60 * 30)
+        }
+
+        @Test("A sibling a CATransformLayer sorts behind a postHogMask reporter by its transform drops the paint order, as a zPosition does")
+        func depthSortedSiblingDropsPaintOrder() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let stage = TransformLayerView(frame: CGRect(x: 0, y: 0, width: 200, height: 200))
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 20, y: 40, width: 100, height: 60))
+            let behind = UIView(frame: CGRect(x: 20, y: 40, width: 100, height: 60))
+            behind.accessibilityIdentifier = "ph-no-mask"
+            behind.layer.contents = try magentaContents(behind.bounds.size)
+            behind.layer.transform = CATransform3DMakeTranslation(0, 0, -10)
+            stage.addSubview(behind)
+            fixture.window.addSubview(stage)
+            fixture.window.layoutIfNeeded()
+            #expect(try await Pixels(capture(fixture).image).count(in: behind.frame, where: Self.isMagentaHue) == 100 * 60)
+            stage.insertSubview(reporter, belowSubview: behind)
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(fixture.mask.extentStatsForTesting.unordered == 1)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
         }
 
         @Test("A source's copy a portal shows under an ancestor with ungrouped opacity is masked where the extent covers the source",

@@ -557,14 +557,20 @@
         static let black = UIColor.black.cgColor
 
         /// A mask drawn from content, such as a label masking a gradient, would cut the redaction into that content's
-        /// shape and upload it as a silhouette. It's kept opaque over its own bounds instead, so it still clips the copy
-        /// there without showing anything it drew.
+        /// shape and upload it as a silhouette. It's kept opaque over its own bounds instead, and the copy's sublayers,
+        /// which it may have hidden, are hidden with it. A plain or shape mask only clips, so it's kept.
         static func flattenMask(_ copy: CALayer) {
-            guard let mask = copy.mask else { return }
+            guard let mask = copy.mask, maskDrawsContent(mask) else { return }
+            copy.sublayers?.forEach { $0.isHidden = true }
             mask.sublayers?.forEach { $0.isHidden = true }
             mask.mask = nil
             _ = stripContent(mask)
             mask.backgroundColor = black
+        }
+
+        static func maskDrawsContent(_ mask: CALayer) -> Bool {
+            mask.contents != nil || (mask as? CATextLayer)?.string != nil || mask.mask != nil
+                || (mask.sublayers ?? []).contains { !$0.isHidden }
         }
 
         static func blackOut(_ copy: CALayer, _ parts: BlackOut) {

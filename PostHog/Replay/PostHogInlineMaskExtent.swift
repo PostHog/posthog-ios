@@ -29,7 +29,8 @@
             private let isBackdrop: (CALayer) -> Bool
             /// Where each drawn tracked copy sits in paint order.
             private var drawn: [ObjectIdentifier: Int] = [:]
-            /// Entries with a non-zero `zPosition`. It reorders only among siblings, since copies flatten their subtree.
+            /// Entries with a non-zero `zPosition`, or moved in depth inside a `CATransformLayer`. Either reorders only
+            /// among siblings, since copies flatten their subtree.
             private var layered: [(index: Int, parent: Int?)] = []
 
             /// nil when the root lands nowhere finite, so no extent can be located in it. `tracked` are the copies whose
@@ -77,6 +78,12 @@
                 return isOnBranch(layered.index, of: reporter) || entries[layered.index].subtreeFrame.intersects(rect)
             }
 
+            /// A `CATransformLayer` sorts its sublayers by depth, so a 3D transform reorders them as a `zPosition` does.
+            private static func movesInDepth(_ layer: CALayer) -> Bool {
+                guard layer.superlayer is CATransformLayer else { return false }
+                return layer.anchorPointZ != 0 || layer.transform.m43 != 0 || !CATransform3DIsAffine(layer.transform)
+            }
+
             /// Whether the entry is the reporter or one of its ancestors: in pre-order, the reporter lies in its subtree.
             private func isOnBranch(_ index: Int, of reporter: Int) -> Bool {
                 index <= reporter && reporter < entries[index].subtreeEnd
@@ -97,7 +104,7 @@
                 entries.append(ExtentEntry(copy: layer, frame: frame, coverable: coverable,
                                            shadow: nil, subtreeFrame: frame, subtreeEnd: index + 1))
                 if isDrawn, tracked.contains(ObjectIdentifier(layer)) { drawn[ObjectIdentifier(layer)] = index }
-                if isDrawn, layer.zPosition != 0 { layered.append((index, parent)) }
+                if isDrawn, layer.zPosition != 0 || Self.movesInDepth(layer) { layered.append((index, parent)) }
                 var subtreeFrame = frame
                 for sublayer in layer.sublayers ?? [] {
                     subtreeFrame = subtreeFrame.union(collect(sublayer, parent: index, isDrawn: isDrawn, fadesApart: fadesApart, copies: copies))
@@ -172,10 +179,10 @@
         }
 
         /// Whether a sublayer can cover the copy's content: a blend could let the content through it, and ungrouped
-        /// opacity fades the two apart. A filter applies to the cover and the content together. A mask would cut the cover
-        /// into its own shape, so a masked copy is replaced whole, which flattens the mask.
+        /// opacity fades the two apart. A filter or a plain or shape mask applies to the cover and the content together. A
+        /// mask drawn from content would cut the cover into that content's shape, so its copy is replaced whole instead.
         static func layerAllowsCover(_ copy: CALayer) -> Bool {
-            copy.compositingFilter == nil && copy.mask == nil && !fadesApart(copy)
+            copy.compositingFilter == nil && (copy.mask.map { !maskDrawsContent($0) } ?? true) && !fadesApart(copy)
         }
 
         /// Whether the copy's opacity applies per sublayer rather than to their composite.

@@ -66,14 +66,14 @@ If your app's window root is a SwiftUI view, replay recorded nothing in 3.x unle
 
 `$sdk_debug_replay_capture_mode` is now always `screenshot`, so update any filter on `wireframe`.
 
-Check what your screens show before you ship 4.0. Text inputs and images are masked by default (`maskAllTextInputs` and `maskAllImages` are `true`). To hide anything else:
+Check what your screens show before you ship 4.0. Text inputs, images and system pickers are masked by default (`maskAllTextInputs`, `maskAllImages` and `maskAllSandboxedViews` are `true`). Set any of them to `false` to show that content. To hide anything else:
 
 | To mask | SwiftUI | UIKit |
 | --- | --- | --- |
 | A view and everything inside it | `.postHogMask()` | add `ph-no-capture` to the view's `accessibilityIdentifier` |
-| All text and text inputs | `sessionReplayConfig.maskAllTextInputs = true` | same |
-| Every image | `sessionReplayConfig.maskAllImages = true` | same, except SF Symbols and images bundled with your app |
-| System pickers (photos, contacts) | `sessionReplayConfig.maskAllSandboxedViews = true` | same |
+| All text and text inputs | `sessionReplayConfig.maskAllTextInputs = true` (default) | same |
+| Every image | `sessionReplayConfig.maskAllImages = true` (default) | same, except SF Symbols and images bundled with your app |
+| System pickers (photos, contacts) | `sessionReplayConfig.maskAllSandboxedViews = true` (default) | same |
 
 To mask an exempt image, tag its image view with `ph-no-capture`. `ph-no-capture` also works in `accessibilityLabel`. To keep pixels out of recordings entirely, turn replay off with `config.sessionReplay = false`.
 
@@ -134,7 +134,7 @@ An event property set to `NSNull()` or to a `nil` optional is now left out of th
 
 4.0 sends analytics events to capture v1 (`/i/v1/analytics/events`) instead of `/batch`. Most apps upgrade without code changes, and only the `maxRetries` rename (see [Retries](#retries)) produces a compile error. Read the checklist first, then the sections that apply to you.
 
-For the changes every capture v1 SDK shares, such as event options, limits and per-event results, see [Upgrading to capture v1 SDKs](https://posthog.com/docs/libraries/capture-v1).
+For the changes every capture v1 SDK shares, such as event options, limits and per-event results, see [Upgrading to capture v1 SDKs](https://posthog.com/docs/api/capture-v1).
 
 #### Checklist
 

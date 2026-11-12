@@ -186,14 +186,23 @@ Rename these configuration APIs:
 
 | 3.x.x | 4.x.x |
 | --- | --- |
-| `PostHogConfig(apiKey:)`, `PostHogConfig(apiKey:host:)`<br>ObjC: `apiKey:`, `apiKey:host:` | `PostHogConfig(projectToken:)`, `PostHogConfig(projectToken:host:)`<br>ObjC: `projectToken:`, `projectToken:host:` |
+| `PostHogConfig(apiKey:)`<br>ObjC: `apiKey:` | `PostHogConfig(projectToken:)`<br>ObjC: `projectToken:` |
+| `PostHogConfig(apiKey:host:)`<br>ObjC: `apiKey:host:` | `PostHogConfig(projectToken:host:)`<br>ObjC: `projectToken:host:` |
 | `config.apiKey` | `config.projectToken` |
 | `config.evaluationEnvironments` | `config.evaluationContexts` |
-| `config.remoteConfig` | Delete the assignment. Remote config is always loaded. |
+| `config.remoteConfig` | Delete the assignment |
 | `config.propertiesSanitizer`, `PostHogPropertiesSanitizer` | `config.setBeforeSend(_:)` (see below) |
-| `config.dataMode = .cellular`<br>ObjC: `PostHogDataModeCellular` | `.any`<br>ObjC: `PostHogDataModeAny`. `PostHogDataMode(rawValue: 1)` now returns `nil`. |
-| `config.maxRetries` | `config.pushNotificationSubscriptionMaxRetries`. It only ever limited push-notification subscription retries. |
-| `config.storageManager`, `PostHogStorageManager` | `identify(_:)`, `getDistinctId()`, `getAnonymousId()`, `getDeviceId()` and `reset()` on `PostHogSDK`. There's no public way to supply your own storage manager or set the IDs directly. |
+| `config.dataMode = .cellular`<br>ObjC: `PostHogDataModeCellular` | `.any`<br>ObjC: `PostHogDataModeAny` |
+| `config.maxRetries` | `config.pushNotificationSubscriptionMaxRetries` |
+| `config.storageManager`, `PostHogStorageManager` | Methods on `PostHogSDK` |
+
+Remote config is always loaded, so `config.remoteConfig` has nothing to set.
+
+`PostHogDataMode(rawValue: 1)` now returns `nil`.
+
+`config.maxRetries` only ever limited push-notification subscription retries.
+
+Instead of a storage manager, use `identify(_:)`, `getDistinctId()`, `getAnonymousId()`, `getDeviceId()` and `reset()` on `PostHogSDK`. There's no public way to supply your own storage manager or set the IDs directly.
 
 Replace `propertiesSanitizer` with a `beforeSend` block:
 
@@ -220,18 +229,32 @@ Replace these session replay APIs:
 
 | 3.x.x | 4.x.x |
 | --- | --- |
-| `sessionReplayConfig.screenshotMode` | Delete the assignment. Replay always records masked screenshots: see [Review session replay](#review-session-replay). |
-| `sessionReplayConfig.maskPhotoLibraryImages` | Delete the assignment. It had no effect. |
+| `sessionReplayConfig.screenshotMode` | Delete the assignment |
+| `sessionReplayConfig.maskPhotoLibraryImages` | Delete the assignment |
 | `sessionReplayConfig.debouncerDelay` | `sessionReplayConfig.throttleDelay` |
-| `PostHogLogLevel`, `PostHogLogEntry`<br>ObjC: `PostHogLogLevelInfo`, `PostHogLogLevelWarn`, `PostHogLogLevelError` | `PostHogConsoleLogLevel`, `PostHogConsoleLogEntry`<br>ObjC: `PostHogConsoleLogLevelInfo`, `PostHogConsoleLogLevelWarn`, `PostHogConsoleLogLevelError` |
+| `PostHogLogLevel` | `PostHogConsoleLogLevel` |
+| `PostHogLogEntry` | `PostHogConsoleLogEntry` |
+| ObjC: `PostHogLogLevelInfo` | ObjC: `PostHogConsoleLogLevelInfo` |
+| ObjC: `PostHogLogLevelWarn` | ObjC: `PostHogConsoleLogLevelWarn` |
+| ObjC: `PostHogLogLevelError` | ObjC: `PostHogConsoleLogLevelError` |
+
+Replay always records masked screenshots, so `screenshotMode` has nothing to set (see [Review session replay](#review-session-replay)).
+
+`sessionReplayConfig.maskPhotoLibraryImages` had no effect.
 
 Replace these feature flag APIs:
 
 | 3.x.x | 4.x.x |
 | --- | --- |
-| `getFeatureFlagPayload(key)`<br>ObjC: `getFeatureFlagPayload:` | `getFeatureFlagResult(key, sendFeatureFlagEvent: false)?.payload`<br>ObjC: `[sdk getFeatureFlagResultWithKey:key sendFeatureFlagEvent:NO].payload` |
-| `reloadFeatureFlags { ... }`<br>ObjC: `^{ ... }` | `reloadFeatureFlags { result in ... }` (or `{ _ in ... }`). `result.errorsLoading` is `true` when the reload failed (`result.variants` then holds the last known flags) or the SDK isn't set up. It's `false` when the project is over its flag quota.<br>ObjC: `^(PostHogFeatureFlagsLoaded *result) { ... }` |
+| `getFeatureFlagPayload(key)`<br>ObjC: `getFeatureFlagPayload:` | `payload` of `getFeatureFlagResult`<br>ObjC: `payload` of `getFeatureFlagResultWithKey:sendFeatureFlagEvent:` |
+| `reloadFeatureFlags { ... }`<br>ObjC: `^{ ... }` | `reloadFeatureFlags { result in ... }`<br>ObjC: `^(PostHogFeatureFlagsLoaded *result) { ... }` |
 | `PostHogSDK.didReceiveFeatureFlags` notification | `onFeatureFlags(_:)` (see below) |
+
+To read a payload, call `getFeatureFlagResult(key, sendFeatureFlagEvent: false)?.payload`. In Objective-C, call `[sdk getFeatureFlagResultWithKey:key sendFeatureFlagEvent:NO].payload`.
+
+The `reloadFeatureFlags` closure now takes a result. Write `{ _ in ... }` if you don't use it.
+
+`result.errorsLoading` is `true` when the reload failed or the SDK isn't set up. After a failed reload, `result.variants` holds the last known flags. `result.errorsLoading` is `false` when the project is over its flag quota.
 
 Replace the `didReceiveFeatureFlags` notification with `onFeatureFlags(_:)`:
 
@@ -256,12 +279,26 @@ These internal and utility APIs were public only for PostHog's own React Native 
 
 | 3.x.x | 4.x.x |
 | --- | --- |
-| `PostHogSessionManager` | `getSessionId()`, `startSession()` and `endSession()` on `PostHogSDK`. Custom session IDs (`setSessionId(_:)`) have no public replacement in 4.x.x. |
-| `postHogSdkName`, `postHogVersion`, `config.snapshotEndpoint` | No longer public. A wrapper SDK that must read or set them can use `@_spi(PostHogInternal) import PostHog`, with no stability guarantees. |
-| ObjC: `[PostHogSessionManager shared]`, `setSessionId:`, `config.snapshotEndpoint` | No longer exposed to Objective-C. `[[PostHogSDK shared] getSessionId]`, `startSession` and `endSession` replace the session calls. |
-| `dateToMillis(_:)`, `imageToBase64(_:_:)` | No longer public. For `dateToMillis(_:)`, use `Int64(date.timeIntervalSince1970 * 1000)`. For `imageToBase64(_:_:)`, copy the code you need into your app. A wrapper SDK can still use both through `@_spi(PostHogInternal) import PostHog`, with no stability guarantees. |
-| `toISO8601String(_:)`, `toISO8601Date(_:)`, `sanitizeDictionary(_:)`, `deleteSafely(_:)`, `postHogiOSSdkName`, `Gzip`, `GzipError`, `CompressionLevel`, `UIColor(hex:)`, `UIColor.hexDescription(_:)` | No longer public. Copy the code you need into your app. |
-| `ReachabilityError`, `ReachabilityChangedNotification` | Removed. Use `NWPathMonitor` if your app needs reachability. |
+| `PostHogSessionManager` | `getSessionId()`, `startSession()`, `endSession()` |
+| `postHogSdkName`, `postHogVersion`, `config.snapshotEndpoint` | No longer public |
+| ObjC: `[PostHogSessionManager shared]`, `setSessionId:`, `config.snapshotEndpoint` | No longer exposed to Objective-C |
+| `dateToMillis(_:)`, `imageToBase64(_:_:)` | No longer public |
+| `toISO8601String(_:)`, `toISO8601Date(_:)`, `sanitizeDictionary(_:)`, `deleteSafely(_:)` | No longer public |
+| `postHogiOSSdkName`, `Gzip`, `GzipError`, `CompressionLevel` | No longer public |
+| `UIColor(hex:)`, `UIColor.hexDescription(_:)` | No longer public |
+| `ReachabilityError`, `ReachabilityChangedNotification` | Removed |
+
+`getSessionId()`, `startSession()` and `endSession()` are on `PostHogSDK`. Custom session IDs (`setSessionId(_:)`) have no public replacement in 4.x.x.
+
+A wrapper SDK that must read or set `postHogSdkName`, `postHogVersion`, or `config.snapshotEndpoint` can use `@_spi(PostHogInternal) import PostHog`, with no stability guarantees.
+
+In Objective-C, `[[PostHogSDK shared] getSessionId]`, `startSession` and `endSession` replace the session calls.
+
+For `dateToMillis(_:)`, use `Int64(date.timeIntervalSince1970 * 1000)`. For `imageToBase64(_:_:)`, copy the code you need into your app. A wrapper SDK can still use both through `@_spi(PostHogInternal) import PostHog`, with no stability guarantees.
+
+For the ISO 8601 functions, `sanitizeDictionary(_:)`, `deleteSafely(_:)`, `postHogiOSSdkName`, the gzip types, and the `UIColor` hex functions, copy the code you need into your app.
+
+Use `NWPathMonitor` if your app needs reachability.
 
 For the full list of changes, see the [changelog](https://github.com/PostHog/posthog-ios/blob/main/CHANGELOG.md).
 
@@ -321,13 +358,11 @@ Use `traits: []` to leave out all three. If you leave features out, list every t
 
 In an Xcode app project, you can choose traits for a package dependency from Xcode 26.4. Check that the build leaves the feature out.
 
-When a trait is off, its public API is removed too. Code that uses it fails to compile instead of silently doing nothing, except where the table says otherwise:
+When a trait is off, its public API is removed too. Code that uses it fails to compile instead of silently doing nothing, except where noted:
 
-| Trait off | Removed |
-| --- | --- |
-| `SessionReplay` | `config.sessionReplay`, `config.sessionReplayConfig`, `PostHogSessionReplayConfig`, the console log types, `startSessionRecording()`, `startSessionRecording(resumeCurrent:)`, `stopSessionRecording()`, `isSessionReplayActive()`, `.postHogNoMask()`. The `URLSession` helpers `postHogData`, `postHogDownload` and `postHogUpload` still compile, but record no network requests. |
-| `CrashReporting` | `errorTrackingConfig.autoCapture`. `captureException` and the rest of `errorTrackingConfig` still work. |
-| `Surveys` | `config.surveys`, `config.surveysConfig`, `PostHogSurveysConfig`, `PostHogSurveysDelegate` and the survey display types |
+- **`SessionReplay` off.** It removes `config.sessionReplay`, `config.sessionReplayConfig`, `PostHogSessionReplayConfig`, the console log types, `startSessionRecording()`, `startSessionRecording(resumeCurrent:)`, `stopSessionRecording()`, `isSessionReplayActive()`, and `.postHogNoMask()`. The `URLSession` helpers `postHogData`, `postHogDownload` and `postHogUpload` still compile, but record no network requests.
+- **`CrashReporting` off.** It removes `errorTrackingConfig.autoCapture`. `captureException` and the rest of `errorTrackingConfig` still work.
+- **`Surveys` off.** It removes `config.surveys`, `config.surveysConfig`, `PostHogSurveysConfig`, `PostHogSurveysDelegate` and the survey display types.
 
 `.postHogMask()` stays available, because it also keeps tap autocapture out of masked areas.
 
@@ -553,12 +588,20 @@ To create no person profiles at all, set `personProfiles` to `.never` instead. T
 | Behavior | 4.x.x | 3.x.x |
 | --- | --- | --- |
 | Statuses retried | Network errors and 404, 408, 429, 500, 502, 503, and 504 responses | Didn't retry 404, and retried 3xx responses |
-| `Retry-After` | Sets the minimum wait before the next send, up to 30 seconds. This also applies to session replay and logs. | Analytics events and session replay had no cap, and logs allowed up to 5 minutes |
-| Wait after a failed send | Doubles from 1 second up to 30 seconds, with up to 25% random jitter. This applies to events, session replay, and logs. | Grew by 1 second per failure |
-| Request size | At most `maxBatchSize` events and about 5 MiB. The SDK sends as soon as about 5 MiB of events is queued, even before `flushAt` is reached. | Batches were limited by event count only |
-| An analytics event over 1,000,000 serialized bytes | PostHog drops only that event. With `debug` on, the drop line says `event_too_big`. | The event got a 413 for its whole batch, and was dropped once the SDK had split the batch down to it |
+| `Retry-After` cap | 30 seconds | None, or 5 minutes for logs |
+| Wait after a failed send | Doubles, from 1 to 30 seconds | Grew by 1 second per failure |
+| Request size limit | `maxBatchSize` events and about 5 MiB | Event count only |
+| An analytics event over 1,000,000 serialized bytes | Dropped on its own | Dropped after a 413 |
 
-Four more rules apply to failed requests:
+In 4.x.x, `Retry-After` sets the minimum wait before the next send, up to 30 seconds. This also applies to session replay and logs. In 3.x.x, analytics events and session replay had no cap, and logs allowed up to 5 minutes.
+
+In 4.x.x, the wait after a failed send doubles from 1 second up to 30 seconds, with up to 25% random jitter. This applies to events, session replay, and logs.
+
+A 4.x.x request holds at most `maxBatchSize` events and about 5 MiB. The SDK sends as soon as about 5 MiB of events is queued, even before `flushAt` is reached. In 3.x.x, batches were limited by event count only.
+
+In 4.x.x, PostHog drops only the analytics event that is over 1,000,000 serialized bytes. With `debug` on, the drop line says `event_too_big`. In 3.x.x, the event got a 413 for its whole batch, and was dropped once the SDK had split the batch down to it.
+
+Six more rules apply to failed requests and batches:
 
 - **Other statuses.** A status that isn't retried, such as a 402 when you're over your billing limit, drops the whole request. A product quota, such as for exceptions or AI events, instead drops only those events inside a 200.
 - **Partial retries.** When the response asks to retry only some events, the SDK keeps those events queued and removes the rest.

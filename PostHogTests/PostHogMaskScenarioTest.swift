@@ -567,5 +567,31 @@
                 CGRect(x: 0, y: 0, width: 100, height: 21),
             ])
         }
+
+        @Test("background capture skips content that moved during the lead wait and came back")
+        func backgroundCaptureSkipsBounceDuringLead() {
+            let a = NSObject()
+            let lead = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            // Rendered at y=100, back at y=0 by the last sample.
+            let before = [region(a, CGRect(x: 0, y: 100, width: 100, height: 20))]
+            let after = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(lead: lead, before: before, after: after) == nil)
+        }
+
+        @Test("background capture skips a private view that appeared during the lead wait and vanished")
+        func backgroundCaptureSkipsTransientOwner() {
+            let before = [region(NSObject(), CGRect(x: 0, y: 0, width: 100, height: 20))]
+            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(lead: [], before: before, after: []) == nil)
+        }
+
+        @Test("background capture masks every sampled position when all three samples are still")
+        func backgroundCaptureStillAcrossThreeSamples() throws {
+            let a = NSObject()
+            let lead = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let before = [region(a, CGRect(x: 0, y: 1, width: 100, height: 20))]
+            let after = [region(a, CGRect(x: 0, y: 2, width: 100, height: 20))]
+            let rects = try #require(PostHogReplayIntegration.backgroundCaptureMaskRects(lead: lead, before: before, after: after))
+            #expect(rects == [CGRect(x: 0, y: 0, width: 100, height: 21), CGRect(x: 0, y: 1, width: 100, height: 21)])
+        }
     }
 #endif

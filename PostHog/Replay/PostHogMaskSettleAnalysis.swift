@@ -137,6 +137,21 @@
             }
         }
 
+        /// Three-sample form: `lead` is taken `backgroundCaptureLeadSeconds` before `before`, so a
+        /// still span covers the render's lag, while `before` stays adjacent to the render and
+        /// catches anything that moved, appeared or vanished during the wait. Each consecutive
+        /// pair must be coverable on its own; the masks are the union of both.
+        static func backgroundCaptureMaskRects(
+            lead: [MaskedRegion]?, before: [MaskedRegion]?, after: [MaskedRegion]?
+        ) -> [CGRect]? {
+            guard let leading = backgroundCaptureMaskRects(before: lead, after: before),
+                  let trailing = backgroundCaptureMaskRects(before: before, after: after)
+            else {
+                return nil
+            }
+            return leading + trailing
+        }
+
         /// Banded by measured drift:
         /// - still (≤ tolerance): rects as collected.
         /// - drift (≤ budget): each mask inflated to the swept region (both sampled positions

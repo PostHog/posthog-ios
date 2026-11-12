@@ -380,7 +380,16 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     @objc public var evaluationContexts: [String]?
 
     /// The identifier of the App Group that should be used to store shared analytics data.
-    /// PostHog will try to get the physical location of the App Group’s shared container, otherwise fallback to the default location
+    ///
+    /// Configure an App Group in Xcode for both the main app and its extension targets.
+    /// Set the same identifier in each target before calling `setup`:
+    ///
+    /// ```swift
+    /// config.appGroupIdentifier = "group.com.yourcompany.yourapp"
+    /// PostHogSDK.shared.setup(config)
+    /// ```
+    ///
+    /// PostHog uses the shared container when available, otherwise it falls back to the default location.
     /// Default: nil
     @objc public var appGroupIdentifier: String?
 
@@ -643,6 +652,9 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     ///
     /// Blocks run synchronously in array order before an event is cached or sent. Returning
     /// `nil` from any block drops the event and skips the remaining blocks.
+    ///
+    /// Prefer sampling or modifying your own custom events. Preserve PostHog internal events
+    /// unchanged, since core features can require every event to work correctly.
     ///
     /// To sample an event, return `nil` for the share you drop. On the events you keep, set `$sample_type` to
     /// `["sampleByEvent"]`, `$sample_threshold` to the rate you keep, and `$sampled_events` to the sampled event names.

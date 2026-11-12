@@ -111,35 +111,24 @@
             return oldRects
         }
 
-        /// Per-owner union of two samples taken either side of a render: covers wherever the
-        /// content sat while the render ran. An owner present in only one sample was still on
-        /// screen for part of that window, so its rect is emitted as collected rather than
-        /// discarding the frame — a scroll that recycles cells changes the owner set constantly,
-        /// and dropping every such frame freezes the recording across the whole interaction.
-        /// Unlike `pairedOldRects` the result is a mask list, not positionally tied to `after`.
-        /// nil only for a repeated owner within one sample, where the pairing is genuinely
-        /// ambiguous and there is no safe rect to emit.
-        static func sweptRects(before: [MaskedRegion]?, after: [MaskedRegion]?) -> [CGRect]? {
-            guard let before, let after, let beforeByOwner = rectsByOwner(before) else {
+        /// Masks for a frame rendered off-main between two samples, or nil to skip the frame.
+        /// The off-main render copies the last committed frame, which can trail `before`, so
+        /// drifted masks take `settleVerdict`'s inflation, including its trail behind `before`.
+        /// Motion, an unpaired owner (a cell recycled mid-render), or a nil sample skips the frame:
+        /// no rect is known to cover where that content sat when the pixels were committed, and
+        /// the presentation-tree renderer the settled path falls back to is main-only.
+        static func backgroundCaptureMaskRects(before: [MaskedRegion]?, after: [MaskedRegion]?) -> [CGRect]? {
+            let verdict = settleVerdict(before: before, after: after)
+            switch verdict.band {
+            case .still:
+                // Within tolerance, but the pixels may still show `before`.
+                guard let after, let oldRects = pairedOldRects(before: before, after: after) else { return nil }
+                return zip(oldRects, after).map { $0.union($1.rect) }
+            case .drift:
+                return verdict.inflatedRects
+            case .motion:
                 return nil
             }
-
-            var rects: [CGRect] = []
-            rects.reserveCapacity(max(before.count, after.count))
-            var seenAfterOwners: Set<ObjectIdentifier> = []
-            seenAfterOwners.reserveCapacity(after.count)
-            for region in after {
-                guard seenAfterOwners.insert(region.owner).inserted else {
-                    return nil
-                }
-                // No counterpart means the owner appeared mid-render; cover where it landed.
-                rects.append(beforeByOwner[region.owner].map { $0.union(region.rect) } ?? region.rect)
-            }
-            // Owners that went away mid-render were still displayed for part of it.
-            for region in before where !seenAfterOwners.contains(region.owner) {
-                rects.append(region.rect)
-            }
-            return rects
         }
 
         /// Banded by measured drift:

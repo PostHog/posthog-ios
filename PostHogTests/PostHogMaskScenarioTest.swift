@@ -498,115 +498,74 @@
             #expect(inflated[0].maxY >= 125.31)
         }
 
-        @Test("swept union covers both sample positions, in after order")
-        func sweptRectsCoversBothSamplesInAfterOrder() throws {
+        @Test("background capture masks the trail behind the older sample")
+        func backgroundCaptureCoversTrailBehindBefore() throws {
             let a = NSObject()
-            let b = NSObject()
-            let before = [
-                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
-                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
-            ]
-            // b moves; a is stationary. after is in swapped order vs before, so
-            // ordering must be recovered from `owner`, not index.
-            let after = [
-                region(b, CGRect(x: 0, y: 130, width: 100, height: 20)),
-                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
-            ]
-            let swept = try #require(PostHogReplayIntegration.sweptRects(before: before, after: after))
-            #expect(swept.count == 2)
+            let before = [region(a, CGRect(x: 0, y: 100, width: 100, height: 20))]
+            let after = [region(a, CGRect(x: 0, y: 105, width: 100, height: 20))]
+            let rects = try #require(PostHogReplayIntegration.backgroundCaptureMaskRects(before: before, after: after))
 
-            // swept[0] pairs with after[0] (b): union of y=100..120 and y=130..150.
-            #expect(swept[0] == CGRect(x: 0, y: 100, width: 100, height: 50))
-
-            // swept[1] pairs with after[1] (a): stationary, so it collapses to a's rect.
-            #expect(swept[1] == CGRect(x: 0, y: 0, width: 100, height: 20))
+            // The off-main render can copy pixels committed before `before` was sampled, here at
+            // y=95; a union of the two samples alone would leave y=95..100 visible.
+            #expect(rects.count == 1)
+            #expect(rects[0].contains(CGRect(x: 0, y: 95, width: 100, height: 30)))
         }
 
-        @Test("nil before makes sweptRects nil")
-        func sweptRectsNilBefore() {
-            let a = NSObject()
-            let after = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            #expect(PostHogReplayIntegration.sweptRects(before: nil, after: after) == nil)
-        }
-
-        @Test("nil after makes sweptRects nil")
-        func sweptRectsNilAfter() {
-            let a = NSObject()
-            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            #expect(PostHogReplayIntegration.sweptRects(before: before, after: nil) == nil)
-        }
-
-        @Test("an owner that appears mid-render is covered, not dropped")
-        func sweptRectsCountMismatch() throws {
-            let a = NSObject()
-            let b = NSObject()
-            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            let after = [
-                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
-                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
-            ]
-            // b appeared mid-render, so it was displayed for part of the window and is covered
-            // rather than costing the whole frame.
-            let swept = try #require(PostHogReplayIntegration.sweptRects(before: before, after: after))
-            #expect(swept == [
-                CGRect(x: 0, y: 0, width: 100, height: 20),
-                CGRect(x: 0, y: 100, width: 100, height: 20),
-            ])
-        }
-
-        @Test("duplicate owner in before makes sweptRects nil")
-        func sweptRectsDuplicateOwnerInBefore() {
-            let a = NSObject()
-            let b = NSObject()
-            let before = [
-                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
-                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
-            ]
-            let after = [
-                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
-                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
-            ]
-            #expect(PostHogReplayIntegration.sweptRects(before: before, after: after) == nil)
-        }
-
-        @Test("duplicate owner in after makes sweptRects nil")
-        func sweptRectsDuplicateOwnerInAfter() {
-            let a = NSObject()
-            let b = NSObject()
-            let before = [
-                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
-                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
-            ]
-            let after = [
-                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
-                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
-            ]
-            #expect(PostHogReplayIntegration.sweptRects(before: before, after: after) == nil)
-        }
-
-        @Test("a fully recycled owner set covers both samples, not nil")
-        func sweptRectsDisjointOwnerSet() throws {
+        @Test("background capture skips a frame whose cell was recycled mid-render")
+        func backgroundCaptureSkipsRecycledOwner() {
             let a = NSObject()
             let b = NSObject()
             let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
             let after = [region(b, CGRect(x: 0, y: 200, width: 100, height: 20))]
-            // Neither owner can be paired, but both were on screen during the render window:
-            // `after` entries come first, then the ones that went away.
-            let swept = try #require(PostHogReplayIntegration.sweptRects(before: before, after: after))
-            #expect(swept == [
-                CGRect(x: 0, y: 200, width: 100, height: 20),
-                CGRect(x: 0, y: 0, width: 100, height: 20),
-            ])
+            // Where `a` sat when the pixels were committed was never sampled.
+            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(before: before, after: after) == nil)
         }
 
-        @Test("a stationary owner's swept rect equals its rect unchanged")
-        func sweptRectsStationaryOwnerUnchanged() throws {
+        @Test("background capture skips a frame where an owner appeared mid-render")
+        func backgroundCaptureSkipsAppearedOwner() {
             let a = NSObject()
-            let rect = CGRect(x: 10, y: 20, width: 100, height: 20)
-            let before = [region(a, rect)]
-            let after = [region(a, rect)]
-            let swept = try #require(PostHogReplayIntegration.sweptRects(before: before, after: after))
-            #expect(swept == [rect])
+            let b = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let after = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
+            ]
+            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(before: before, after: after) == nil)
+        }
+
+        @Test("background capture skips a frame that moved past the drift budget")
+        func backgroundCaptureSkipsMotion() {
+            let a = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let after = [region(a, CGRect(x: 0, y: 200, width: 100, height: 20))]
+            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(before: before, after: after) == nil)
+        }
+
+        @Test("background capture skips a frame with a missing sample")
+        func backgroundCaptureSkipsNilSample() {
+            let sample = [region(NSObject(), CGRect(x: 0, y: 0, width: 100, height: 20))]
+            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(before: nil, after: sample) == nil)
+            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(before: sample, after: nil) == nil)
+        }
+
+        @Test("background capture masks both samples of a still frame, paired by owner")
+        func backgroundCaptureStillCoversBothSamples() throws {
+            let a = NSObject()
+            let b = NSObject()
+            let before = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
+            ]
+            // a moves 1pt, within the still tolerance; after is in swapped order.
+            let after = [
+                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
+                region(a, CGRect(x: 0, y: 1, width: 100, height: 20)),
+            ]
+            let rects = try #require(PostHogReplayIntegration.backgroundCaptureMaskRects(before: before, after: after))
+            #expect(rects == [
+                CGRect(x: 0, y: 100, width: 100, height: 20),
+                CGRect(x: 0, y: 0, width: 100, height: 21),
+            ])
         }
     }
 #endif

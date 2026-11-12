@@ -1627,10 +1627,11 @@
         }
 
         /// The render sits between two mask samples instead of one: measure geometry, render
-        /// off-main, measure again, mask the per-owner union — provably covering wherever the
-        /// content sat while the render ran, so no threshold is needed. Always uses
-        /// `drawHierarchy`, never the presentation-tree renderer: that reads `layer.presentation()`,
-        /// which is main-only, and this path's other reads already sit inside `main.sync`.
+        /// off-main, measure again, then mask as `backgroundCaptureMaskRects` decides — swept and
+        /// trailed when the content drifted, skipped on motion, an unpaired owner, or a missing
+        /// sample. Always uses `drawHierarchy`, never the presentation-tree renderer: that reads
+        /// `layer.presentation()`, which is main-only, and this path's other reads already sit
+        /// inside `main.sync`.
         @discardableResult
         private func performBracketedBackgroundCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) -> Bool {
             defer { finishScreenshotRender() }
@@ -1645,8 +1646,8 @@
             let image = window.toImage(preferFidelityRenderer: true)
             let capture = DispatchQueue.main.sync { () -> ScreenshotCapture? in
                 let after = self.collectMaskedRegions(in: window)
-                guard let rects = Self.sweptRects(before: before, after: after) else {
-                    hedgeLog("[Session Replay] Skipping snapshot: mask samples could not be paired")
+                guard let rects = Self.backgroundCaptureMaskRects(before: before, after: after) else {
+                    hedgeLog("[Session Replay] Skipping snapshot: mask geometry could not be covered during background capture")
                     return nil
                 }
                 // No renderer preference: `renderImage: false` means this call never renders — the

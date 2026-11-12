@@ -383,14 +383,12 @@ Production owner: presentation-aware mask collection. The harness requires visib
 | 450 | `emptyArraysStill` | R — legitimate no-mask geometry settles. |
 | 457 | `driftInflationCoversSweepInAfterOrder` | R — swept coverage and owner ordering; catches wrong pairing/under-inflation. |
 | 486 | `driftInflationCoversTrailBehindBefore` | R — displayed-pixel lag requires trailing inflation. |
-| 502 | `sweptRectsCoversBothSamplesInAfterOrder` | R — union and owner ordering independently specified. |
-| 526 | `sweptRectsNilBefore` | R — missing sample cannot manufacture a safe union. |
-| 533 | `sweptRectsNilAfter` | R — same later-sample guard. |
-| 540 | `sweptRectsCountMismatch` | R — newly appearing owner remains covered. |
-| 558 | `sweptRectsDuplicateOwnerInBefore` | R — ambiguous duplicate pairing returns nil. |
-| 573 | `sweptRectsDuplicateOwnerInAfter` | R — symmetric ambiguity guard. |
-| 588 | `sweptRectsDisjointOwnerSet` | R — recycled owners cover both samples instead of losing disappeared content. |
-| 603 | `sweptRectsStationaryOwnerUnchanged` | R — stationary union does not distort mask. |
+| 502 | `backgroundCaptureCoversTrailBehindBefore` | R — off-main pixels can trail `before`; the mask covers that trail. |
+| 515 | `backgroundCaptureSkipsRecycledOwner` | R — a recycled cell's committed position is unknown, so the frame is skipped. |
+| 525 | `backgroundCaptureSkipsAppearedOwner` | R — an owner appearing mid-render cannot be paired, so the frame is skipped. |
+| 537 | `backgroundCaptureSkipsMotion` | R — motion has no off-main aligned renderer, so the frame is skipped. |
+| 545 | `backgroundCaptureSkipsNilSample` | R — a missing sample cannot manufacture safe masks. |
+| 552 | `backgroundCaptureStillCoversBothSamples` | R — still frames still cover both samples, paired by owner. |
 
 ### 5. `PostHogMaskSnapshotTest.swift`
 

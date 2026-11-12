@@ -74,7 +74,8 @@
         /// - Video and camera previews stay blank, as they do today.
         /// - Liquid Glass is approximated without refraction: sheets, alerts and dialogs as a blur of what's
         ///   behind them, smaller glass as a flat fill in its shape. Tinted glass keeps its tint. The labels and
-        ///   icons on it are reproduced.
+        ///   icons on it are reproduced. On iOS 27, sheets, alerts and dialogs currently show as a flat panel
+        ///   instead of a blur.
         ///
         /// Captures fall back to the default path when the device has no Metal or a render fails.
         /// Takes precedence over `screenshotModeBackgroundCapture` when both are enabled.

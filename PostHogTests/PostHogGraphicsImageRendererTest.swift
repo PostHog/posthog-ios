@@ -77,6 +77,7 @@
             return try #require(image)
         }
 
+        #if !SWIFT_PACKAGE || SessionReplay
         private func uploaded(_ image: UIImage, masks: [CGRect], pixelScale: CGFloat) throws -> CGImage {
             let wireframe = RRWireframe()
             wireframe.type = "screenshot"
@@ -88,6 +89,7 @@
             let data = try #require(Data(base64Encoded: encoded))
             return try #require(UIImage(data: data)?.cgImage)
         }
+        #endif
 
         private func sRGBPixel(_ image: CGImage, column: Int, row: Int) throws -> [UInt8] {
             var rgba = [UInt8](repeating: 0, count: 4)
@@ -144,6 +146,7 @@
             #expect(colorSpaceName(image) == Self.deviceRGBName)
         }
 
+        #if !SWIFT_PACKAGE || SessionReplay
         @Test("a Display P3 screenshot uploads in its sRGB colors when it is resampled")
         func displayP3ScreenshotResampled() throws {
             let uploaded = try uploaded(displayP3Screenshot(), masks: [], pixelScale: 1)
@@ -164,5 +167,6 @@
             #expect(try sRGBPixel(uploaded, column: 5, row: 5).allSatisfy { $0 < 50 })
             #expect(isExpected(try sRGBPixel(uploaded, column: 30, row: 30)))
         }
+        #endif
     }
 #endif

@@ -633,6 +633,9 @@
         func defaultPathKeepsReporterRects() async throws {
             let fixture = try await makeSwiftUIFixture(gpu: false)
             defer { fixture.close() }
+            // drawHierarchy draws nothing in this hostless bundle.
+            PostHogReplayIntegration.screenshotRendererForTesting = .presentationTree
+            defer { PostHogReplayIntegration.screenshotRendererForTesting = nil }
             await show(card { boldText("Card holder", color: magenta) }.postHogMask(), in: fixture)
 
             let result = try #require(fixture.integration.defaultPathCaptureForTesting(window: fixture.window))

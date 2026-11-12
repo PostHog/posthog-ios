@@ -934,6 +934,9 @@
         func defaultPathIsUnchanged() async throws {
             let mirror = try makeMirror()
             let (sut, integration, _) = try makeScreenshotReplaySut { $0.screenshotModeGPUCapture = false }
+            // drawHierarchy draws nothing in this hostless bundle.
+            PostHogReplayIntegration.screenshotRendererForTesting = .presentationTree
+            defer { PostHogReplayIntegration.screenshotRendererForTesting = nil }
             integration.gpuMirror = mirror
             defer { sut.close() }
             let window = makeWindow()

@@ -172,9 +172,10 @@
         }
 
         /// Whether a sublayer can cover the copy's content: a blend could let the content through it, and ungrouped
-        /// opacity fades the two apart. A mask or filter applies to the cover and the content together.
+        /// opacity fades the two apart. A filter applies to the cover and the content together. A mask would cut the cover
+        /// into its own shape, so a masked copy is replaced whole, which flattens the mask.
         static func layerAllowsCover(_ copy: CALayer) -> Bool {
-            copy.compositingFilter == nil && !fadesApart(copy)
+            copy.compositingFilter == nil && copy.mask == nil && !fadesApart(copy)
         }
 
         /// Whether the copy's opacity applies per sublayer rather than to their composite.

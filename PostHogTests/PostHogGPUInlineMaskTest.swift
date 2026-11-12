@@ -423,6 +423,30 @@
             #expect(pixels[100, 290] == .white)
         }
 
+        @Test("A masked view whose layer mask is text, as in gradient text, is black over its bounds, not in the glyphs' shape",
+              arguments: [false, true])
+        func textShapedLayerMaskDoesNotSurvive(noCapture: Bool) async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let frame = CGRect(x: 10, y: 20, width: 180, height: 60)
+            let masked: UIView
+            if noCapture {
+                masked = noCaptureView(frame, color: .green)
+            } else {
+                let image = try UIImageView(image: checkerboard(frame.size))
+                image.frame = frame
+                masked = image
+            }
+            let glyphs = UILabel(frame: masked.bounds)
+            glyphs.text = "SSN 078-05-1120"
+            glyphs.font = .boldSystemFont(ofSize: 28)
+            masked.mask = glyphs
+            fixture.window.addSubview(masked)
+
+            let pixels = try await expectFullyMasked(capture(fixture))
+            #expect(pixels.count(in: frame, where: Self.isBlack) == Int(frame.width * frame.height))
+        }
+
         @Test("An auto-masked view keeps its chrome; the same view under ph-no-capture doesn't")
         func autoMaskedViewKeepsChrome() async throws {
             let fixture = try await makeFixture()

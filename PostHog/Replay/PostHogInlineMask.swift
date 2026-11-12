@@ -521,9 +521,10 @@
         // MARK: - Copy redaction
 
         /// Removes everything the copy draws besides chrome: contents, shape paths, text, shadows, background filters and
-        /// compositing. Filters and masks are kept: they act on the redaction too, and dropping them shows what they hid.
-        /// Whether it drew content of its own.
+        /// compositing. Filters are kept: they act on the redaction too. A mask keeps its geometry but not its content
+        /// (`flattenMask`). Whether it drew content of its own.
         static func stripContent(_ copy: CALayer) -> Bool {
+            flattenMask(copy)
             var hadContent = copy.contents != nil
             if hadContent { copy.contents = nil }
             if let shape = copy as? CAShapeLayer, shape.path != nil {
@@ -555,7 +556,19 @@
 
         static let black = UIColor.black.cgColor
 
+        /// A mask drawn from content, such as a label masking a gradient, would cut the redaction into that content's
+        /// shape and upload it as a silhouette. It's kept opaque over its own bounds instead, so it still clips the copy
+        /// there without showing anything it drew.
+        static func flattenMask(_ copy: CALayer) {
+            guard let mask = copy.mask else { return }
+            mask.sublayers?.forEach { $0.isHidden = true }
+            mask.mask = nil
+            _ = stripContent(mask)
+            mask.backgroundColor = black
+        }
+
         static func blackOut(_ copy: CALayer, _ parts: BlackOut) {
+            flattenMask(copy)
             if parts.contains(.content) { _ = stripContent(copy) }
             if parts.contains(.fill) {
                 copy.contents = nil

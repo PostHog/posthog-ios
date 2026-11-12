@@ -62,11 +62,11 @@
 
         /// Render screenshots on the GPU instead of with `drawHierarchy` when `screenshotMode` is enabled.
         ///
-        /// Each capture copies the window's layer tree and renders the copy into a Metal texture, so
-        /// the main thread only builds the copy, and masks are measured from the same presentation state
-        /// the pixels come from. Layers whose presentation can't be copied safely (an app's own `CALayer`
-        /// subclasses) are drawn from their model state instead, and left out wherever that would draw
-        /// masked content off its mask.
+        /// Each capture commits pending changes, copies the window's layer tree and renders the copy into a
+        /// Metal texture, so the main thread only builds the copy. Layers whose presentation can't be copied
+        /// safely (an app's or a framework's own `CALayer` subclasses) are drawn from their model state
+        /// instead. While one of them has an animation that moves or reshapes it, a playing Lottie animation
+        /// for example, it is left out of the frame with everything under it.
         ///
         /// Not captured exactly:
         /// - Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped
@@ -79,10 +79,11 @@
         /// Captures fall back to the default path when the device has no Metal or a render fails.
         /// Takes precedence over `screenshotModeBackgroundCapture` when both are enabled.
         ///
-        /// While recording, the app keeps roughly 25–30 MB more memory resident on average (GPU memory held
-        /// by Metal and Core Animation); peak memory is about the same as the default capture (iPhone 17 Pro).
+        /// While recording, the app keeps roughly 25 to 30 MB more memory resident on average (GPU memory held
+        /// by Metal and Core Animation); peak memory is about the same as the default capture. Measured on an
+        /// iPhone 17 Pro with `screenshotScale` unset, one pixel per point; a larger scale holds more.
         ///
-        /// Experimental. iOS only.
+        /// Experimental. iOS and Mac Catalyst only.
         /// Default: false
         @objc public var screenshotModeGPUCapture: Bool = false
 

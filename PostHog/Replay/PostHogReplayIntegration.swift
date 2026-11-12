@@ -1226,7 +1226,7 @@
             var maskableWidgets: [MaskedRegion] = []
             findMaskableWidgets(under: cover, in: window, &maskableWidgets, culledLayers)
             if !portalSources.isEmpty {
-                let mainWalk = (maskableWidgets + reporters).map(\.rect)
+                let mainWalk = maskableWidgets + reporters
                 for (source, drawn) in zip(portalSources, drawn) {
                     maskableWidgets += maskedRegions(shownThrough: source, drawing: drawn, in: window, mainWalk: mainWalk)
                 }
@@ -1816,11 +1816,10 @@
 
     extension PostHogReplayIntegration {
         /// The masks under a portal's source where it sits and, for a portal that shows it elsewhere, the whole portal
-        /// unless the source is clean: no reporter or maskable widget under it, nothing in `mainWalk` over it, and a
-        /// measurable rect. A reporter under the source that hasn't been laid out masks all of it instead of skipping
-        /// the frame: under an ancestor that hides it, it may never be laid out.
+        /// unless the source is clean (`portalDependencies`). A reporter under the source that hasn't been laid out
+        /// masks all of it instead of skipping the frame: under an ancestor that hides it, it may never be laid out.
         private func maskedRegions(shownThrough source: PostHogPortalSource, drawing drawn: PostHogSessionReplayMaskRegistry.MaskedRects,
-                                   in window: UIWindow, mainWalk: [CGRect]) -> [MaskedRegion]
+                                   in window: UIWindow, mainWalk: [MaskedRegion]) -> [MaskedRegion]
         {
             var regions: [MaskedRegion] = []
             findMaskableWidgets(under: source.view, in: window, &regions, [])
@@ -1828,17 +1827,29 @@
             if drawn.hasUnsettledReporters {
                 regions.append(MaskedRegion(source.view, rect: source.view.toPresentationRect(window, outsets: source.view.drawnOutsets), inline: .rectOnly))
             }
-            guard let portalRect = source.portalRect else { return regions }
-            var isClean = !drawn.hasReporters && regions.isEmpty
-            if isClean {
-                let sourceRect = source.view.toPresentationRect(window)
-                isClean = [sourceRect.minX, sourceRect.minY, sourceRect.width, sourceRect.height].allSatisfy(\.isFinite)
-                    && !sourceRect.isEmpty && !mainWalk.contains { $0.intersects(sourceRect) }
-            }
-            if !isClean {
-                regions.append(MaskedRegion(source.portal, rect: portalRect, inline: .rectOnly))
-            }
+            guard let portalRect = source.portalRect,
+                  let coveredBy = portalDependencies(of: source, drawing: drawn, under: regions, in: window, mainWalk: mainWalk)
+            else { return regions }
+            regions.append(MaskedRegion(source.portal, rect: portalRect, inline: .portal(coveredBy: coveredBy)))
             return regions
+        }
+
+        /// The regions whose inline masking also masks the portal's copy of the source: those under the source and
+        /// those in `mainWalk` over it, all of them when the source has no measurable rect. nil for a clean source,
+        /// which needs no portal mask; empty when only the rect pass can mask it: a reporter under it unsettled or at no
+        /// size, or an overlay over it with no in-place copy to reach.
+        private func portalDependencies(of source: PostHogPortalSource, drawing drawn: PostHogSessionReplayMaskRegistry.MaskedRects,
+                                        under regions: [MaskedRegion], in window: UIWindow, mainWalk: [MaskedRegion]) -> Set<ObjectIdentifier>?
+        {
+            if drawn.hasUnsettledReporters || drawn.hasEmptyReporters { return [] }
+            var owners = Set((regions + drawn.regions).map(\.owner))
+            let sourceRect = source.view.toPresentationRect(window)
+            let isMeasurable = [sourceRect.minX, sourceRect.minY, sourceRect.width, sourceRect.height].allSatisfy(\.isFinite) && !sourceRect.isEmpty
+            let over = isMeasurable ? mainWalk.filter { $0.rect.intersects(sourceRect) } : mainWalk
+            // An overlay's extent reaches the portal's copy only through the source's own copy.
+            if !source.hasInPlaceCopy, over.contains(where: { $0.inline == .extent && !owners.contains($0.owner) }) { return [] }
+            owners.formUnion(over.map(\.owner))
+            return owners.isEmpty ? nil : owners
         }
     }
 

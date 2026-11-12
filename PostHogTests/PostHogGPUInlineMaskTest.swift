@@ -710,6 +710,38 @@
             }
         }
 
+        @Test("A portal showing its source elsewhere keeps its whole rect while a mask under the source isn't masked inline",
+              arguments: [false, true])
+        func portalKeepsRectForMaskLeftToRectPass(zeroSizeReporter: Bool) async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let source = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            let reporter: PostHogMaskReporterUIView
+            if zeroSizeReporter {
+                source.layer.contents = try magentaContents(source.bounds.size)
+                // ph-no-mask so nothing but the reporter, laid out at no size and so with no region to mask inline, masks it.
+                source.accessibilityIdentifier = "ph-no-mask"
+                reporter = PostHogMaskReporterUIView(frame: CGRect(x: 20, y: 20, width: 0, height: 0))
+            } else {
+                // The image is masked inline, the reporter beside it is left to the rect pass.
+                fixture.mask.isExtentEnabledForTesting = false
+                let image = try UIImageView(image: checkerboard(CGSize(width: 80, height: 60)))
+                image.frame = CGRect(x: 0, y: 0, width: 80, height: 60)
+                source.addSubview(image)
+                reporter = PostHogMaskReporterUIView(frame: CGRect(x: 100, y: 0, width: 80, height: 60))
+            }
+            source.addSubview(reporter)
+            fixture.window.addSubview(source)
+            let portalRect = CGRect(x: 10, y: 180, width: 180, height: 60)
+            fixture.window.layer.addSublayer(try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false))
+            fixture.window.layoutIfNeeded()
+
+            let result = try await capture(fixture)
+            let pixels = try Pixels(result.image)
+            #expect(result.rectRegions.contains(portalRect))
+            #expect(pixels.count(in: portalRect.insetBy(dx: 2, dy: 2)) { !Self.isBlack($0) } == 0)
+        }
+
         @Test("A postHogMask overlay beside a source hidden by a portal painted first masks the copy the portal shows elsewhere",
               arguments: [true, false])
         func siblingReporterMasksPortalPaintedBeforeItsHiddenSource(extentInline: Bool) async throws {

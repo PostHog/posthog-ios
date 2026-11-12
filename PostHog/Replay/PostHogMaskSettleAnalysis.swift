@@ -6,15 +6,18 @@
 
     extension PostHogReplayIntegration {
         /// How GPU capture may mask a region in its mirror instead of painting its rect.
-        enum InlineMasking {
+        enum InlineMasking: Equatable {
             /// The object owns the pixels the rect covers: its copies are masked.
             case owned
             /// A `postHogMask()` reporter: the content under each of its drawn copies, or under the rect when it has none, is
             /// masked.
             case extent
-            /// Rect pass only (a whole portal, a source shown through one): over each of the object's drawn copies, or
-            /// the rect when it has none.
+            /// Rect pass only (a source shown through a portal): over each of the object's drawn copies, or the rect
+            /// when it has none.
             case rectOnly
+            /// A whole portal that shows its source elsewhere: like `rectOnly`, unless every region whose owner is in
+            /// `coveredBy` was masked inline, since that masks the portal's copy too. Empty means always.
+            case portal(coveredBy: Set<ObjectIdentifier>)
         }
 
         /// A maskable rect tagged with its view/layer identity, so two samples taken moments

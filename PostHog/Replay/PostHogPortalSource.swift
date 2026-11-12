@@ -13,6 +13,9 @@
         /// The portal's bounds in window coordinates, set when the portal shows the source somewhere other than where
         /// it sits.
         let portalRect: CGRect?
+        /// False when the mirror draws the source only through portals: hidden by one walked first, or culled where it
+        /// sits. An overlay beside it then has no copy of it to mask in place.
+        var hasInPlaceCopy = true
 
         /// How a portal places its source's subtree, or nil for a portal the mirror leaves out.
         enum Placement {

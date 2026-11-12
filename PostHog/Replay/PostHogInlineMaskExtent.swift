@@ -283,10 +283,10 @@
                 let copies = Set(index.copies(of: layer).map(ObjectIdentifier.init))
                 guard !copies.isEmpty else { continue }
                 let tracked = Tracked(region: regionIndex, copies: copies)
-                if region.inline == .rectOnly {
-                    rectOnly.append(tracked)
-                } else if isExtentEnabled {
-                    reporters.append(tracked)
+                switch region.inline {
+                case .owned: break
+                case .extent: if isExtentEnabled { reporters.append(tracked) }
+                case .rectOnly, .portal: rectOnly.append(tracked)
                 }
             }
             return (reporters, rectOnly)

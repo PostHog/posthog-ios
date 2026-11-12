@@ -219,6 +219,7 @@
             private var drawsOnMainForTesting = 0
             private(set) var textCacheHitsForTesting = 0
             private(set) var textBarsForTesting = 0
+            /// Regions masked inline in the last capture, whole-portal regions dropped for it included.
             private(set) var lastInlineRegionCountForTesting = 0
             struct ExtentStatsForTesting {
                 /// Extents masked inline in the last capture, and how many ignored paint order.
@@ -300,12 +301,17 @@
                     // After the owned regions, so what they masked is left as it is.
                     let extents = pass.redactExtents(regions)
                     inline.formUnion(extents.masked)
+                    // A whole-portal region is dropped once everything it depends on was masked inline, the portal's
+                    // copy included.
+                    let inlineOwners = Set(inline.map { regions[$0].owner })
+                    inline.formUnion(regions.indices.filter { index in
+                        guard case let .portal(coveredBy) = regions[index].inline else { return false }
+                        return !coveredBy.isEmpty && coveredBy.isSubset(of: inlineOwners)
+                    })
                     #if TESTING
                         lastInlineRegionCountForTesting = inline.count
                     #endif
-                    // A rect-only region drawn in the mirror is masked where its copies are drawn. A portal that shows a
-                    // source elsewhere is already masked whole by the walk whenever a mask sits under or over that source
-                    // (`maskedRegions(shownThrough:)`), so nothing more is added for it here.
+                    // A rect-only or portal region drawn in the mirror is masked where its copies are drawn.
                     return regions.indices.filter { !inline.contains($0) }.flatMap { regionIndex in
                         let region = regions[regionIndex]
                         return extents.drawnRects[regionIndex].map { rects in

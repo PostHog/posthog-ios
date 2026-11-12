@@ -38,7 +38,11 @@
                 self.target = target
                 self.root = root
                 culledLayers = walk.culled
-                portalSources = walk.portalSources
+                portalSources = walk.portalSources.map { source in
+                    var source = source
+                    source.hasInPlaceCopy = walk.viewCopies[ObjectIdentifier(source.view.layer)] != nil
+                    return source
+                }
                 copies = walk.copies
             }
 

@@ -14,6 +14,16 @@
     import UIKit
 
     extension UIImage {
+        static func webPColorSpace(for source: CGColorSpace?) -> CGColorSpace {
+            guard let source, source.model == .rgb else {
+                return CGColorSpace(name: CGColorSpace.linearSRGB)!
+            }
+            if source.isWideGamutRGB {
+                return CGColorSpace(name: CGColorSpace.sRGB)!
+            }
+            return source
+        }
+
         /**
          Returns a data object that contains the image in WebP format.
 
@@ -46,10 +56,8 @@
                     alphaInfo == CGImageAlphaInfo.noneSkipLast
             )
 
-            // try to use image color space if ~rgb
-            let colorSpace: CGColorSpace = cgImage.colorSpace?.model == .rgb
-                ? cgImage.colorSpace! // safe from previous check
-                : CGColorSpace(name: CGColorSpace.linearSRGB)!
+            // use the image's color space if ~rgb, converting a wide gamut to sRGB
+            let colorSpace = UIImage.webPColorSpace(for: cgImage.colorSpace)
             let renderingIntent = cgImage.renderingIntent
 
             guard let destFormat = vImage_CGImageFormat(

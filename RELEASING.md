@@ -76,7 +76,7 @@ Make sure the PR includes a changeset file and was merged to `main`, or trigger 
 
 ### Failed or cancelled release
 
-The independent [release failure notification workflow](.github/workflows/release-failure-notification.yml) checks every completed main-branch release attempt and alerts if a job failed, timed out, or was cancelled. This includes runner startup failures and cancellations with job records. The workflow also alerts if the GitHub release exists but the released Slack notification was skipped. Once the GitHub/SPM release exists, alerts describe follow-up problems rather than claiming the release failed.
+The independent [release failure notification workflow](.github/workflows/release-failure-notification.yml) checks every completed main-branch release attempt and alerts if a job failed, timed out, or was cancelled. This includes runner startup failures and cancellations with job records. The workflow also alerts if the GitHub release exists but the released Slack notification was skipped. Once the GitHub/SPM release exists, alerts describe follow-up problems rather than claiming the release failed. It only acts on runs that a push or a manual dispatch started in this repository.
 
 Cancelled runs with no jobs are ignored, including superseded queued runs and manual cancellations before any job is created. A version-bump failure before any steps ran is also ignored when the rejection-reply step confirms an explicit rejection in the same attempt and no other job failed.
 

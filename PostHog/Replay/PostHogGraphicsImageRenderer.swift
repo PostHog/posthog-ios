@@ -6,8 +6,9 @@
 
     import UIKit
 
-    /// Cached device RGB color space — avoids creating a new one per render call.
+    /// Cached color spaces — avoids creating new ones per render call.
     private let deviceRGBColorSpace = CGColorSpaceCreateDeviceRGB()
+    private let displayP3ColorSpace = CGColorSpace(name: CGColorSpace.displayP3) ?? deviceRGBColorSpace
 
     /// High-performance image renderer that bypasses `UIGraphicsImageRenderer` overhead.
     ///
@@ -18,13 +19,26 @@
         private let size: CGSize
         private let scale: CGFloat
         private let roundingUp: Bool
+        private let colorSpace: CGColorSpace
 
         /// `roundingUp` rounds the pixel size up instead of down, and stretches `size` over every pixel so none
-        /// is left undrawn.
-        init(size: CGSize, scale: CGFloat, roundingUp: Bool = false) {
+        /// is left undrawn. `gamut` picks the bitmap's color space: Display P3 for `.P3`, device RGB otherwise.
+        init(size: CGSize, scale: CGFloat, roundingUp: Bool = false, gamut: UIDisplayGamut = .unspecified) {
             self.size = size
             self.scale = scale
             self.roundingUp = roundingUp
+            colorSpace = Self.colorSpace(for: gamut)
+        }
+
+        static func colorSpace(for gamut: UIDisplayGamut) -> CGColorSpace {
+            switch gamut {
+            case .P3:
+                return displayP3ColorSpace
+            case .SRGB, .unspecified:
+                return deviceRGBColorSpace
+            @unknown default:
+                return deviceRGBColorSpace
+            }
         }
 
         private func pixels(_ points: CGFloat) -> Int {
@@ -56,7 +70,7 @@
                 height: pixelsPerColumn,
                 bitsPerComponent: bitsPerComponent,
                 bytesPerRow: bytesPerRow,
-                space: deviceRGBColorSpace,
+                space: colorSpace,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
             ) else {
                 return nil

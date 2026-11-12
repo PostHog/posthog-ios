@@ -77,7 +77,6 @@
         private var activeSurveyResponseQuestionText: [String: String] = [:]
         private var activeSurveyCompleted: Bool = false
         private var activeSurveyQuestionIndex: Int = 0
-        var activeSurveyWasShown: Bool = false
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
             installIfNeeded(using: Self.integrationInstallState) {
@@ -319,9 +318,6 @@
                               self.freshFeatureFlagsLock.withLock({ self.surveyRefreshGeneration == refreshGeneration }),
                               self.hasActiveSurveyWindow(),
                               self.canShowNextSurvey(),
-                              // The list was chosen before this block was queued. A cancel in that
-                              // gap drops the activation without an active survey to dismiss, so
-                              // check it again before this block reserves the stale selection.
                               let survey = activeSurveys.first(where: { candidate in
                                   self.canRenderSurvey(survey: candidate) &&
                                       (!candidate.hasEvents || self.isSurveyEventActivated(survey: candidate))
@@ -330,7 +326,10 @@
 
                         let language = self.resolveDisplayLanguage()
                         let translations = resolveSurveyTranslations(survey: survey, targetLanguage: language)
-                        self.setActiveSurvey(survey: survey, language: translations.matchedKey, questionTranslations: translations.questions)
+                        guard self.setActiveSurvey(
+                            survey: survey, language: translations.matchedKey, questionTranslations: translations.questions,
+                            requireEventActivation: true
+                        ) else { return }
 
                         let callbacks = self.makeSurveyCallbacks()
                         // render the survey
@@ -555,7 +554,6 @@
                 if activeSurvey.hasEvents {
                     eventActivatedSurveysLock.withLock { _ = eventActivatedSurveys.removeValue(forKey: activeSurvey.id) }
                 }
-                activeSurveyWasShown = true
                 return (activeSurvey, generation)
             }
             guard let shown else { return }
@@ -856,17 +854,23 @@
             postHog.capture(event, distinctId: distinctId, properties: properties)
         }
 
-        private func setActiveSurvey(survey: PostHogSurvey, language: String? = nil, questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil) {
+        @discardableResult
+        private func setActiveSurvey(
+            survey: PostHogSurvey, language: String? = nil, questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil,
+            requireEventActivation: Bool = false
+        ) -> Bool {
             activeSurveyLock.withLock {
-                guard let storage else { return }
-                storage.withSurveyState { generation in
+                guard let storage else { return false }
+                return storage.withSurveyState { generation in
                     if activeSurvey == nil {
+                        // Cancellation either clears activation before this check or observes the reserved attempt.
+                        guard !requireEventActivation || !survey.hasEvents || isSurveyEventActivated(survey: survey) else { return false }
                         let saved = supportsSurveyResume ? progressStore?.load(survey) : nil
                         let progress = saved ?? SurveyProgress(
                             resetEpoch: generation, submissionId: UUID().uuidString,
                             questionOrder: SurveyProgress.questionOrder(for: survey)
                         )
-                        guard storage.isSurveyGenerationCurrent(generation) else { return }
+                        guard storage.isSurveyGenerationCurrent(generation) else { return false }
                         activeSurvey = survey
                         activeSurveyAttemptId = UUID()
                         activeSurveyGeneration = generation
@@ -882,7 +886,9 @@
                         activeSurveyResponseLanguage = progress.language
                         activeSurveyQuestionIndex = progress.questionIndex
                         activeProgressWasPersisted = saved != nil
+                        return true
                     }
+                    return false
                 }
             }
         }
@@ -935,19 +941,8 @@
             #endif
         }
 
-        // Internal so the cancel-event extension, in another file, can drop a survey that was
-        // never rendered. `private` would hide it from that file.
-        func clearActiveSurvey() {
+        private func clearActiveSurvey() {
             activeSurveyLock.withLock { clearActiveSurveyLocked() }
-        }
-
-        /// Drops the reservation only when it is still the attempt that was cancelled.
-        /// A reset and a new display can land while the cancel waits for the main queue.
-        func clearActiveSurveyIfCurrent(surveyId: String, attemptId: UUID?) {
-            activeSurveyLock.withLock {
-                guard activeSurvey?.id == surveyId, activeSurveyAttemptId == attemptId else { return }
-                clearActiveSurveyLocked()
-            }
         }
 
         private func clearActiveSurveyLocked() {
@@ -966,7 +961,6 @@
             activeSurveyResponseQuestionText = [:]
             activeSurveyResponseLanguage = nil
             activeSurveyQuestionIndex = 0
-            activeSurveyWasShown = false
         }
 
         private func resolveDisplayLanguage() -> String? {

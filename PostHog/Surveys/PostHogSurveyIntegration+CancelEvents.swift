@@ -20,8 +20,7 @@
 
         private struct CancelledSurveySnapshot {
             let survey: PostHogSurvey
-            let attemptId: UUID?
-            let wasShown: Bool
+            let attemptId: UUID
         }
 
         /// Drop event activation for surveys this capture cancels. A survey that is already
@@ -44,12 +43,8 @@
 
         private func dismissCancelledSurvey(_ surveyId: String) {
             let snapshot: CancelledSurveySnapshot? = activeSurveyLock.withLock {
-                guard let activeSurvey, activeSurvey.id == surveyId else { return nil }
-                return CancelledSurveySnapshot(
-                    survey: activeSurvey,
-                    attemptId: activeSurveyAttemptId,
-                    wasShown: activeSurveyWasShown
-                )
+                guard let activeSurvey, activeSurvey.id == surveyId, let activeSurveyAttemptId else { return nil }
+                return CancelledSurveySnapshot(survey: activeSurvey, attemptId: activeSurveyAttemptId)
             }
             guard let snapshot else { return }
 
@@ -57,13 +52,9 @@
             // SurveyDisplayController publish on the main queue, same as the other
             // display and reset paths.
             let apply = { [weak self] in
-                guard let self else { return }
-                // Reset can replace this attempt while the hop to main is queued.
-                // The replacement must keep its reservation and its pending UI.
-                guard self.activeSurveyLock.withLock({
-                    self.activeSurvey?.id == snapshot.survey.id && self.activeSurveyAttemptId == snapshot.attemptId
-                }) else { return }
-
+                guard let self,
+                      self.activeSurveyLock.withLock({ self.activeSurveyAttemptId == snapshot.attemptId })
+                else { return }
                 #if os(iOS)
                     if let delegate = self.config?._surveysConfig.surveysDelegate as? PostHogSurveysDefaultDelegate {
                         switch delegate.cancelSurveyIfPresented(surveyId) {
@@ -75,19 +66,13 @@
                     }
                 #endif
 
-                if snapshot.wasShown {
-                    self.handleSurveyClosed(survey: snapshot.survey.toDisplaySurvey(), attemptId: snapshot.attemptId)
-                } else {
-                    self.clearActiveSurveyIfCurrent(surveyId: snapshot.survey.id, attemptId: snapshot.attemptId)
-                }
+                self.handleSurveyClosed(survey: snapshot.survey.toDisplaySurvey(), attemptId: snapshot.attemptId)
             }
 
             #if os(iOS)
                 if Thread.isMainThread {
                     apply()
                 } else {
-                    // capture calls this directly. Waiting for main here deadlocks when
-                    // main is itself waiting on the thread that captured the cancel.
                     DispatchQueue.main.async(execute: apply)
                 }
             #else

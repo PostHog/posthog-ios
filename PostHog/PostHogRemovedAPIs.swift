@@ -120,12 +120,5 @@ public extension PostHogSDK {
             get { false }
             set {} // swiftlint:disable:this unused_setter_value
         }
-
-        /// Removed in PostHog 4.0. Screenshots are always captured on the main thread.
-        @available(*, unavailable, message: "Removed in PostHog 4.0. Screenshots are always captured on the main thread: delete the assignment.")
-        var screenshotModeBackgroundCapture: Bool {
-            get { false }
-            set {} // swiftlint:disable:this unused_setter_value
-        }
     }
 #endif

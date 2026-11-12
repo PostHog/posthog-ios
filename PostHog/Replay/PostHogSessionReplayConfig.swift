@@ -58,6 +58,18 @@
             screenshotScale.map { nativeScale * CGFloat($0.doubleValue) } ?? 1
         }
 
+        /// Schedule screenshot image capture on a background queue.
+        ///
+        /// Try this if session replay causes main-thread hangs or dropped frames on complex screens.
+        ///
+        /// Warning: Enabling this option will trigger Main Thread Checker warnings and may
+        /// briefly freeze the app the first time a screenshot is captured. Consider disabling
+        /// Main Thread Checker in your scheme's run diagnostics when enabling this.
+        ///
+        /// Experimental.
+        /// Default: false
+        @objc public var screenshotModeBackgroundCapture: Bool = false
+
         /// Throttle delay used to reduce the number of snapshots captured and reduce performance impact
         /// This is used for capturing the screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact

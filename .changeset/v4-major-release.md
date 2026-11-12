@@ -7,7 +7,7 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - **Breaking:** stop publishing to CocoaPods — install with Swift Package Manager (3.x versions stay on CocoaPods)
 - **Breaking:** raise minimum deployment targets to iOS and Mac Catalyst 15.0, macOS 11.0, tvOS 15.0 and watchOS 10.0
 - **Breaking:** require Xcode 26 or later (`swift-tools-version` 6.2)
-- **Breaking:** always record session replay as masked screenshots, which shows custom-drawn content and uses more bandwidth and CPU than wireframes — remove `screenshotMode` and `screenshotModeBackgroundCapture` assignments and mask sensitive content with `postHogMask()` or `ph-no-capture`
+- **Breaking:** always record session replay as masked screenshots, which shows custom-drawn content and uses more bandwidth and CPU than wireframes — remove `screenshotMode` assignments and mask sensitive content with `postHogMask()` or `ph-no-capture`
 - **Breaking:** pass a `PostHogFeatureFlagsLoaded` to the `reloadFeatureFlags(_:)` callback — use `{ result in ... }` or `{ _ in ... }`
 - **Breaking:** mark `reloadFeatureFlags(_:)`, `setBeforeSend(_:)`, `getAnonymousId`, `pushIdentityProvider` and `logSanitizer` callbacks `@Sendable`, fixing a crash in Swift 6 apps
 - **Breaking:** rename `PostHogLogLevel` to `PostHogConsoleLogLevel` and `PostHogLogEntry` to `PostHogConsoleLogEntry`

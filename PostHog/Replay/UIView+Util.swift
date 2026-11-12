@@ -115,7 +115,7 @@
         }
 
         func toImage(afterScreenUpdates: Bool = false, preferFidelityRenderer: Bool = true) -> UIImage? {
-            // Replay callers render on main; the sync is defensive, since controller traversal belongs on main.
+            // Background capture also enters here; controller traversal belongs on main.
             let hasCamera = {
                 (self as? UIWindow ?? self.window)?.hasCameraForReplay() ?? false
             }

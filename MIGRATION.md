@@ -387,7 +387,6 @@ In Objective-C, wrap each block in a `BoxedBeforeSendBlock`:
 | 3.x | 4.0 |
 | --- | --- |
 | `sessionReplayConfig.screenshotMode` | Delete the assignment. Replay always records masked screenshots: see [Session replay always records screenshots](#session-replay-always-records-screenshots). |
-| `sessionReplayConfig.screenshotModeBackgroundCapture` | Delete the assignment. Screenshots are always captured on the main thread. |
 | `sessionReplayConfig.maskPhotoLibraryImages` | Delete the assignment. It had no effect. |
 | `sessionReplayConfig.debouncerDelay` | `sessionReplayConfig.throttleDelay` |
 | `PostHogLogLevel`, `PostHogLogEntry`<br>ObjC: `PostHogLogLevelInfo`, `PostHogLogLevelWarn`, `PostHogLogLevelError` | `PostHogConsoleLogLevel`, `PostHogConsoleLogEntry`<br>ObjC: `PostHogConsoleLogLevelInfo`, `PostHogConsoleLogLevelWarn`, `PostHogConsoleLogLevelError` |

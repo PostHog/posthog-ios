@@ -644,6 +644,9 @@ public typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
     /// Blocks run synchronously in array order before an event is cached or sent. Returning
     /// `nil` from any block drops the event and skips the remaining blocks.
     ///
+    /// To sample an event, return `nil` for the share you drop. On the events you keep, set `$sample_type` to
+    /// `["sampleByEvent"]`, `$sample_threshold` to the rate you keep, and `$sampled_events` to the sampled event names.
+    ///
     /// - Parameter blocks: Ordered callbacks that can mutate or drop events.
     public func setBeforeSend(_ blocks: [BeforeSendBlock]) {
         beforeSend.set(blocks)

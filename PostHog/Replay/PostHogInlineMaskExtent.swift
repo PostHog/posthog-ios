@@ -111,11 +111,9 @@
                 return subtreeFrame
             }
 
-            /// Where the layer's own drawing can reach in the window: the whole window when filters can spread it.
+            /// Where the layer's own drawing can reach in the window.
             private func reach(of layer: CALayer, copies: CopyIndex) -> CGRect {
-                // A backdrop's filters draw what's behind it inside its bounds.
-                guard let local = PostHogInlineMask.drawnRect(layer) ?? (isBackdrop(layer) ? layer.bounds : nil) else { return root.bounds }
-                return copies.windowFrame(of: layer, root: root, local: local)
+                copies.windowFrame(of: layer, root: root, local: PostHogInlineMask.drawnRect(layer))
             }
 
             /// Where the layer's shadow can reach in the window: its `shadowPath`, or the window frame of everything it
@@ -162,10 +160,9 @@
         /// Rounding slack for extent containment, so edge-aligned copies count as inside.
         fileprivate static let extentTolerance: CGFloat = 0.5
 
-        /// Whether the copy draws content of its own: contents, a shape, text, or a mask (which can give a plain
-        /// background a glyph's shape).
+        /// Whether the copy draws content of its own: contents, a shape or text.
         static func drawsContent(_ copy: CALayer) -> Bool {
-            copy.contents != nil || (copy as? CAShapeLayer)?.path != nil || (copy as? CATextLayer)?.string != nil || copy.mask != nil
+            copy.contents != nil || (copy as? CAShapeLayer)?.path != nil || (copy as? CATextLayer)?.string != nil
         }
 
         /// Whether the copy shows colour of its own without content: a background, border, gradient or shadow.
@@ -174,10 +171,10 @@
                 || (copy as? CAGradientLayer)?.colors?.isEmpty == false || copy.shadowOpacity > 0 && isVisible(copy.shadowColor)
         }
 
-        /// Whether a sublayer can cover the copy's content: a mask would clip the cover, a blend could let the
-        /// content through it, a filter (a blur) could spread the content over it, and ungrouped opacity fades the two apart.
+        /// Whether a sublayer can cover the copy's content: a blend could let the content through it, and ungrouped
+        /// opacity fades the two apart. A mask or filter applies to the cover and the content together.
         static func layerAllowsCover(_ copy: CALayer) -> Bool {
-            copy.mask == nil && copy.compositingFilter == nil && copy.filters == nil && !fadesApart(copy)
+            copy.compositingFilter == nil && !fadesApart(copy)
         }
 
         /// Whether the copy's opacity applies per sublayer rather than to their composite.
@@ -185,12 +182,21 @@
             copy.opacity < 1 && !copy.allowsGroupOpacity
         }
 
+        /// Whether an ancestor's ungrouped opacity fades the copy's sublayers apart from its content.
+        static func ancestorFadesApart(_ copy: CALayer) -> Bool {
+            var ancestor = copy.superlayer
+            while let layer = ancestor {
+                if fadesApart(layer) { return true }
+                ancestor = layer.superlayer
+            }
+            return false
+        }
+
         /// The rect, in bounds coordinates, the copy's own drawing can reach: its bounds, or past them for a shape's
-        /// path and stroke and contents that don't scale to the bounds. nil when filters can spread it anywhere.
-        private static func drawnRect(_ copy: CALayer) -> CGRect? {
+        /// path and stroke and contents that don't scale to the bounds. A filter's spread (a blur's fringe) isn't counted.
+        private static func drawnRect(_ copy: CALayer) -> CGRect {
             let bounds = copy.bounds
             guard !copy.masksToBounds else { return bounds }
-            guard copy.filters == nil else { return nil }
             var rect = bounds
             let gravity = copy.contentsGravity
             if let contents = copy.contents, gravity != .resize, gravity != .resizeAspect {
@@ -212,7 +218,7 @@
             // A cover edge inside a pixel would leave that pixel to rounding.
             let pixels = rect.applying(CGAffineTransform(scaleX: scale, y: scale)).integral
             let local = pixels.applying(CGAffineTransform(scaleX: 1 / scale, y: 1 / scale).concatenating(toWindow.inverted()))
-            let hole = local.intersection(drawnRect(copy) ?? .infinite)
+            let hole = local.intersection(drawnRect(copy))
             return hole.isNull || hole.isEmpty ? nil : hole
         }
 
@@ -399,14 +405,14 @@
         }
 
         /// Covers the hole in `copy` and in each other copy of its source: a hole in bounds coordinates is the same
-        /// part of the source in every copy. A copy whose bounds or sublayer space differs, or that can't take a cover,
-        /// is blacked out whole.
+        /// part of the source in every copy. A copy whose bounds or sublayer space differs, or that can't take a cover
+        /// (an ancestor's ungrouped opacity included), is blacked out whole.
         private mutating func apply(_ hole: CGRect?, to copy: CALayer, others: [CALayer]) {
             guard let hole else { return }
             PostHogInlineMask.cover(hole, in: copy)
             for other in others {
                 if other.bounds == copy.bounds, CATransform3DIsIdentity(other.sublayerTransform), !other.isGeometryFlipped,
-                   PostHogInlineMask.layerAllowsCover(other)
+                   PostHogInlineMask.layerAllowsCover(other), !PostHogInlineMask.ancestorFadesApart(other)
                 {
                     PostHogInlineMask.cover(hole, in: other)
                 } else {

@@ -118,6 +118,10 @@
                 pairs.append(CopyMapEntry(source: source, copy: copy, placement: placement))
             }
 
+            func sources(in range: Range<Int>) -> [CALayer] {
+                pairs[range].map(\.source)
+            }
+
             /// Drops the placement of every copy recorded from `index` on.
             mutating func forgetPlacements(from index: Int) {
                 for position in index ..< pairs.count {
@@ -192,8 +196,6 @@
 
         private enum TextEntry {
             case drawing
-            /// Nothing to draw: the view has no text.
-            case empty
             case drawn(CGImage)
         }
 
@@ -243,6 +245,10 @@
 
             var textDrawsOnMainForTesting: Int {
                 lock.withLock { drawsOnMainForTesting }
+            }
+
+            var textCacheEntryCountForTesting: Int {
+                lock.withLock { entries.count }
             }
 
             /// Returns once every `*` bitmap queued so far is drawn.
@@ -476,6 +482,10 @@
                 let key = source.map(ObjectIdentifier.init) ?? ObjectIdentifier(copy)
                 let known = signatures[key] ?? kind.textSignature(size: size, scale: scale, bars: bars)
                 signatures[key] = known
+                if known?.isEmpty == true {
+                    if fallbackToBlack { PostHogInlineMask.blackOut(copy, .fill) }
+                    return
+                }
                 if let signature = known {
                     guard showDrawn(signature, on: copy, kind: kind, size: size, fallbackToBlack: fallbackToBlack) else { return }
                 }
@@ -485,15 +495,11 @@
                 #endif
             }
 
-            /// Shows the drawn bitmap, or black for a view with no text, and queues a draw within the budget. Whether the
-            /// copy still needs bars.
+            /// Shows the drawn bitmap and queues a draw within the budget. Whether the copy still needs bars.
             private mutating func showDrawn(_ signature: TextSignature, on copy: CALayer, kind: Kind, size: CGSize, fallbackToBlack: Bool) -> Bool {
                 switch mask.entry(for: signature) {
                 case let .drawn(image)?:
                     PostHogInlineMask.setContents(image, on: copy, scale: scale)
-                    return false
-                case .empty?:
-                    if fallbackToBlack { PostHogInlineMask.blackOut(copy, .fill) }
                     return false
                 case .drawing?:
                     return true
@@ -503,7 +509,6 @@
                     let text = kind.readText(size: size)
                     spent += CACurrentMediaTime() - start
                     guard let text else {
-                        mask.recordEmpty(signature)
                         if fallbackToBlack { PostHogInlineMask.blackOut(copy, .fill) }
                         return false
                     }
@@ -515,8 +520,9 @@
 
         // MARK: - Copy redaction
 
-        /// Removes everything the copy draws besides chrome: contents, shape paths, text, shadows, filters, compositing
-        /// and masks (a mask can be glyph-shaped). Whether it drew content of its own.
+        /// Removes everything the copy draws besides chrome: contents, shape paths, text, shadows, background filters and
+        /// compositing. Filters and masks are kept: they act on the redaction too, and dropping them shows what they hid.
+        /// Whether it drew content of its own.
         static func stripContent(_ copy: CALayer) -> Bool {
             var hadContent = copy.contents != nil
             if hadContent { copy.contents = nil }
@@ -529,17 +535,15 @@
                 hadContent = true
             }
             if copy.shadowOpacity != 0 { copy.shadowOpacity = 0 }
-            if copy.filters != nil { copy.filters = nil }
             if copy.backgroundFilters != nil { copy.backgroundFilters = nil }
             if copy.compositingFilter != nil { copy.compositingFilter = nil }
-            if copy.mask != nil { copy.mask = nil }
             return hadContent
         }
 
         /// What `blackOut` turns black.
         struct BlackOut: OptionSet {
             let rawValue: Int
-            /// Content, filters, blends and masks removed first (`stripContent`), so nothing can tint or spread the black.
+            /// Content and blends removed first (`stripContent`), so nothing can tint the black.
             static let content = BlackOut(rawValue: 1 << 0)
             /// The whole bounds black, contents dropped.
             static let fill = BlackOut(rawValue: 1 << 1)
@@ -592,10 +596,6 @@
                 if case .drawn? = entry { textCacheHitsForTesting += 1 }
             #endif
             return entry
-        }
-
-        private func recordEmpty(_ signature: TextSignature) {
-            lock.withLock { entries[signature] = .empty }
         }
 
         private func enqueue(_ text: TextSource, for signature: TextSignature, scale: CGFloat) {
@@ -777,6 +777,8 @@
         let textRect: CGRect
         /// Its colour and appearance are drawn too.
         let bars: TextBars
+        /// No text to draw: nothing is drawn or cached for it.
+        let isEmpty: Bool
 
         /// Written out because `CGSize` and `CGPoint` aren't `Hashable` in older SDKs.
         func hash(into hasher: inout Hasher) {
@@ -795,7 +797,7 @@
         init?(_ label: UILabel, size: CGSize, scale: CGFloat, bars: TextBars) {
             guard let masked = Self.key(label.text ?? "", keepingWhitespace: true) else { return nil }
             self.init(masked, size: size, scale: scale, font: label.font, alignment: label.textAlignment.rawValue, lines: label.numberOfLines,
-                      flags: label.lineBreakMode.rawValue, bars: bars)
+                      flags: label.lineBreakMode.rawValue, bars: bars, isEmpty: masked.isEmpty)
         }
 
         init?(_ field: UITextField, size: CGSize, scale: CGFloat, bars: TextBars) {
@@ -804,14 +806,14 @@
             guard let key = Self.key(text.isEmpty ? field.placeholder ?? "" : text, keepingWhitespace: false) else { return nil }
             self.init(text.isEmpty ? "\u{0}" + key : key, size: size, scale: scale, font: field.font, alignment: field.textAlignment.rawValue,
                       lines: 1, flags: (field.isEditing ? 1 : 0) | (field.isSecureTextEntry ? 2 : 0),
-                      textRect: TextSource.fieldRect(field, bounds: CGRect(origin: .zero, size: size)), bars: bars)
+                      textRect: TextSource.fieldRect(field, bounds: CGRect(origin: .zero, size: size)), bars: bars, isEmpty: key.isEmpty)
         }
 
         init?(_ textView: UITextView, size: CGSize, scale: CGFloat, bars: TextBars) {
             guard let masked = Self.key(textView.text ?? "", keepingWhitespace: true) else { return nil }
             let layout = TextSource.textViewLayout(textView)
             self.init(masked, size: size, scale: scale, font: textView.font, alignment: textView.textAlignment.rawValue, lines: 0, flags: 0,
-                      origin: layout.origin, layoutWidth: layout.width, bars: bars)
+                      origin: layout.origin, layoutWidth: layout.width, bars: bars, isEmpty: masked.isEmpty)
         }
 
         init(rowsOf size: CGSize, scale: CGFloat, traits: UITraitCollection, bars: TextBars) {
@@ -820,7 +822,7 @@
         }
 
         private init(_ masked: String, size: CGSize, scale: CGFloat, font: UIFont?, alignment: Int, lines: Int, flags: Int,
-                     origin: CGPoint = .zero, layoutWidth: CGFloat = 0, textRect: CGRect = .zero, bars: TextBars)
+                     origin: CGPoint = .zero, layoutWidth: CGFloat = 0, textRect: CGRect = .zero, bars: TextBars, isEmpty: Bool = false)
         {
             self.masked = masked
             self.size = size
@@ -833,6 +835,7 @@
             self.layoutWidth = layoutWidth
             self.textRect = textRect
             self.bars = bars
+            self.isEmpty = isEmpty
         }
 
         /// The text masked per unicode scalar, which is cheap: equal masked text gives an equal key, and the bitmap is

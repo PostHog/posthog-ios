@@ -505,18 +505,15 @@
             #expect(fixture.mask.extentStatsForTesting.count == 1)
         }
 
-        @Test("A clipped, blurred layer partly under a postHogMask extent is replaced whole: a cover would be blurred into")
-        func blurredLayerPartlyUnderExtentIsReplaced() async throws {
+        @Test("A clipped, blurred layer partly under a postHogMask extent is covered there: only the blur's fringe crosses the cover's edge")
+        func blurredLayerPartlyUnderExtentIsCovered() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
-            let filterClass: AnyObject = try #require(NSClassFromString("CAFilter"))
-            let blur = try #require(filterClass.perform(NSSelectorFromString("filterWithType:"), with: "gaussianBlur")?.takeUnretainedValue() as? NSObject)
-            blur.setValue(8, forKey: "inputRadius")
             let layer = CALayer()
             layer.frame = CGRect(x: 20, y: 40, width: 160, height: 100)
             layer.masksToBounds = true
             layer.contents = try magentaContents(layer.bounds.size)
-            layer.filters = [blur]
+            layer.filters = [try gaussianBlur()]
             fixture.window.layer.addSublayer(layer)
             let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 20, y: 40, width: 80, height: 100))
             fixture.window.addSubview(reporter)
@@ -524,7 +521,9 @@
             fixture.window.layoutIfNeeded()
 
             let pixels = try await Pixels(capture(fixture).image)
-            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            // A Gaussian blur of radius 8 reaches about three radii past the cover's edge.
+            #expect(pixels.count(in: CGRect(x: 20, y: 40, width: 56, height: 100), where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: CGRect(x: 124, y: 40, width: 56, height: 100), where: Self.isMagentaHue) > 0)
         }
 
         @Test("A translucent layer with group opacity off, partly under a postHogMask extent, is replaced whole: a cover would fade apart from its content",
@@ -1134,6 +1133,160 @@
             let yellow = pixels.count(in: label.frame) { $0.red > 200 && $0.green > 200 && $0.blue < 60 }
             #expect(red == 0 || green == 0)
             #expect(yellow == 0)
+        }
+
+        // MARK: - Filters, masks and faded copies
+
+        private func gaussianBlur(radius: CGFloat = 8) throws -> NSObject {
+            let filterClass: AnyObject = try #require(NSClassFromString("CAFilter"))
+            let blur = try #require(filterClass.perform(NSSelectorFromString("filterWithType:"), with: "gaussianBlur")?.takeUnretainedValue() as? NSObject)
+            blur.setValue(radius, forKey: "inputRadius")
+            return blur
+        }
+
+        @Test("A blurred container away from a postHogMask extent keeps its blur and colour")
+        func blurredContainerAwayFromExtentIsUntouched() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let container = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 100))
+            container.backgroundColor = .green
+            container.accessibilityIdentifier = "ph-no-mask"
+            container.layer.filters = [try gaussianBlur()]
+            let child = try UIImageView(image: checkerboard(CGSize(width: 160, height: 80), cell: 8))
+            child.frame = CGRect(x: 10, y: 10, width: 160, height: 80)
+            child.accessibilityIdentifier = "ph-no-mask"
+            container.addSubview(child)
+            fixture.window.addSubview(container)
+            fixture.window.addSubview(PostHogMaskReporterUIView(frame: CGRect(x: 20, y: 220, width: 60, height: 40)))
+
+            let result = try await capture(fixture)
+            let pixels = try Pixels(result.image)
+            #expect(pixels.maxNeighbourStep(in: CGRect(x: 40, y: 50, width: 100, height: 40)) < 120)
+            #expect(pixels.count(in: container.frame, where: Self.isBlack) == 0)
+        }
+
+        @Test("A blurred layer partly under a postHogMask extent is covered there and keeps its blur elsewhere")
+        func blurredLayerPartlyUnderExtentKeepsBlurOutsideIt() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let size = CGSize(width: 180, height: 100)
+            let content = try image(size) { context in
+                context.setFillColor(UIColor.magenta.cgColor)
+                context.fill(CGRect(x: 0, y: 0, width: 80, height: 100))
+                for y in stride(from: CGFloat(0), to: 100, by: 8) {
+                    for x in stride(from: CGFloat(80), to: 180, by: 8) {
+                        context.setFillColor((Int(x / 8 + y / 8) % 2 == 0 ? UIColor.green : UIColor.white).cgColor)
+                        context.fill(CGRect(x: x, y: y, width: 8, height: 8))
+                    }
+                }
+            }
+            let layer = CALayer()
+            layer.frame = CGRect(origin: CGPoint(x: 10, y: 40), size: size)
+            layer.contents = content.cgImage
+            layer.filters = [try gaussianBlur()]
+            fixture.window.layer.addSublayer(layer)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 40, width: 80, height: 100))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+
+            let result = try await capture(fixture)
+            let pixels = try Pixels(result.image)
+            let outside = CGRect(x: 120, y: 60, width: 50, height: 60)
+            #expect(pixels.count(where: Self.isMagentaHue) == 0)
+            // Still drawn, and blurred: green and white blend.
+            #expect(pixels.count(in: outside) { $0.green > 200 && Int($0.green) - Int($0.red) > 40 } > 1000)
+            #expect(pixels.maxNeighbourStep(in: outside) < 120)
+        }
+
+        @Test("Content a container's mask hides stays hidden when a postHogMask extent reaches part of the container")
+        func maskedContainerPartlyUnderExtentKeepsItsMask() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let container = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 100))
+            container.backgroundColor = .green
+            container.accessibilityIdentifier = "ph-no-mask"
+            let maskLayer = CALayer()
+            maskLayer.frame = CGRect(x: 0, y: 0, width: 180, height: 50)
+            maskLayer.backgroundColor = UIColor.black.cgColor
+            container.layer.mask = maskLayer
+            let child = UIView(frame: container.bounds)
+            child.accessibilityIdentifier = "ph-no-mask"
+            child.layer.contents = try magentaContents(child.bounds.size)
+            container.addSubview(child)
+            fixture.window.addSubview(container)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 20, width: 60, height: 30))
+            fixture.window.addSubview(reporter)
+
+            let result = try await capture(fixture)
+            let pixels = try Pixels(result.image)
+            #expect(pixels.count(in: CGRect(x: 10, y: 72, width: 180, height: 46), where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 60 * 30)
+        }
+
+        @Test("A source's copy a portal shows under an ancestor with ungrouped opacity is masked where the extent covers the source",
+              arguments: [true, false])
+        func portalCopyUnderFadingAncestorIsMasked(lens: Bool) async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let source = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            source.layer.contents = try magentaContents(source.bounds.size)
+            source.accessibilityIdentifier = "ph-no-mask"
+            fixture.window.addSubview(source)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 20, width: 80, height: 60))
+            fixture.window.addSubview(reporter)
+            let fader = CALayer()
+            fader.frame = fixture.window.bounds
+            fader.opacity = 0.5
+            fader.allowsGroupOpacity = false
+            let portalRect = lens ? CGRect(x: 10, y: 180, width: 180, height: 60) : source.frame
+            fader.addSublayer(try makePortal(showing: source.layer, frame: portalRect, matchesPosition: !lens, matchesTransform: !lens))
+            fixture.window.layer.addSublayer(fader)
+
+            let result = try await capture(fixture)
+            let pixels = try Pixels(result.image)
+            let covered = CGRect(x: portalRect.minX, y: portalRect.minY, width: 80, height: 60)
+            #expect(pixels.count(in: covered.insetBy(dx: 1, dy: 1), where: Self.isMagentaHue) == 0)
+        }
+
+        @Test("A source's layer a portal draws but the mirror culls where it sits keeps the whole-portal rect under an overlay")
+        func portalOfDescendantCulledInPlaceKeepsItsRect() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let clipper = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 50))
+            clipper.clipsToBounds = true
+            let source = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            source.accessibilityIdentifier = "ph-no-mask"
+            // Below the clip where it sits, so only the portal draws it.
+            let clippedAway = UIView(frame: CGRect(x: 0, y: 40, width: 180, height: 20))
+            clippedAway.accessibilityIdentifier = "ph-no-mask"
+            clippedAway.layer.contents = try magentaContents(clippedAway.bounds.size)
+            source.addSubview(clippedAway)
+            clipper.addSubview(source)
+            fixture.window.addSubview(clipper)
+            fixture.window.addSubview(PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60)))
+            let portalRect = CGRect(x: 10, y: 180, width: 180, height: 60)
+            fixture.window.layer.addSublayer(try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false,
+                                                            hidesSource: false))
+
+            let result = try await capture(fixture)
+            let pixels = try Pixels(result.image)
+            #expect(pixels.count(where: Self.isMagenta) == 0)
+            #expect(result.rectRegions.contains(portalRect))
+        }
+
+        @Test("A text field with no text or placeholder under a postHogMask extent caches nothing")
+        func emptyTextIsNotCached() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let field = UITextField(frame: CGRect(x: 20, y: 40, width: 160, height: 40))
+            field.accessibilityIdentifier = "ph-no-mask"
+            fixture.window.addSubview(field)
+            fixture.window.addSubview(PostHogMaskReporterUIView(frame: field.frame))
+
+            _ = try await capture(fixture)
+            fixture.mask.waitForTextDrawsForTesting()
+            #expect(fixture.mask.textCacheEntryCountForTesting == 0)
         }
     }
 #endif

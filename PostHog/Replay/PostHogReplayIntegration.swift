@@ -1837,7 +1837,7 @@
         /// The regions whose inline masking also masks the portal's copy of the source: those under the source and
         /// those in `mainWalk` over it, all of them when the source has no measurable rect. nil for a clean source,
         /// which needs no portal mask; empty when only the rect pass can mask it: a reporter under it unsettled or at no
-        /// size, or an overlay over it with no in-place copy to reach.
+        /// size, or an overlay over it while part of what the portal draws has no in-place copy to reach.
         private func portalDependencies(of source: PostHogPortalSource, drawing drawn: PostHogSessionReplayMaskRegistry.MaskedRects,
                                         under regions: [MaskedRegion], in window: UIWindow, mainWalk: [MaskedRegion]) -> Set<ObjectIdentifier>?
         {
@@ -1846,8 +1846,8 @@
             let sourceRect = source.view.toPresentationRect(window)
             let isMeasurable = [sourceRect.minX, sourceRect.minY, sourceRect.width, sourceRect.height].allSatisfy(\.isFinite) && !sourceRect.isEmpty
             let over = isMeasurable ? mainWalk.filter { $0.rect.intersects(sourceRect) } : mainWalk
-            // An overlay's extent reaches the portal's copy only through the source's own copy.
-            if !source.hasInPlaceCopy, over.contains(where: { $0.inline == .extent && !owners.contains($0.owner) }) { return [] }
+            // An overlay's extent reaches the portal's copy only through the source's in-place copies.
+            if !source.hasInPlaceCopies, over.contains(where: { $0.inline == .extent && !owners.contains($0.owner) }) { return [] }
             owners.formUnion(over.map(\.owner))
             return owners.isEmpty ? nil : owners
         }

@@ -38,9 +38,9 @@
                 self.target = target
                 self.root = root
                 culledLayers = walk.culled
-                portalSources = walk.portalSources.map { source in
-                    var source = source
-                    source.hasInPlaceCopy = walk.viewCopies[ObjectIdentifier(source.view.layer)] != nil
+                portalSources = walk.portalSources.map { drawn in
+                    var source = drawn.source
+                    source.hasInPlaceCopies = walk.copies.sources(in: drawn.copies).allSatisfy { walk.inPlaceCopied.contains(ObjectIdentifier($0)) }
                     return source
                 }
                 copies = walk.copies
@@ -160,11 +160,14 @@
             let scale: CGFloat
             let root: CALayer
             var culled: Set<ObjectIdentifier> = []
-            var portalSources: [PostHogPortalSource] = []
+            /// Each portal source the mirror draws, with the range of `copies` its portal's copy of the source holds.
+            var portalSources: [(source: PostHogPortalSource, copies: Range<Int>)] = []
             /// Sources a portal draws in place of themselves: left out where they sit, without being culled.
             var hiddenSources: Set<ObjectIdentifier> = []
             /// Copies of view-backed layers outside any portal, for hiding a source mirrored before its portal.
             var viewCopies: [ObjectIdentifier: CALayer] = [:]
+            /// Layers with a copy outside any portal.
+            var inPlaceCopied: Set<ObjectIdentifier> = []
             var portalsInProgress: Set<ObjectIdentifier> = []
             /// The Liquid Glass background the walk is inside, if any.
             var glass: PostHogGlassStandIn.Kind?
@@ -521,10 +524,12 @@
             else { return nil }
 
             let id = ObjectIdentifier(source)
+            let firstCopy = walk.copies.count
             walk.portalsInProgress.insert(id)
             let content = mirror(source, parent: .unknown, throughPortal: true, walk: &walk)
             walk.portalsInProgress.remove(id)
             guard let content else { return nil }
+            let copies = firstCopy ..< walk.copies.count
 
             if portal.value(forKey: "hidesSourceLayer") as? Bool == true {
                 walk.hiddenSources.insert(id)
@@ -532,7 +537,7 @@
             }
             switch placement {
             case let .inPlace(toPortal):
-                walk.portalSources.append(PostHogPortalSource(view: view, portal: portal, portalRect: nil))
+                walk.portalSources.append((PostHogPortalSource(view: view, portal: portal, portalRect: nil), copies))
                 // Puts the source's copy, positioned in its superlayer's space, where that space sits in the portal.
                 let space = CALayer()
                 space.anchorPoint = .zero
@@ -541,7 +546,7 @@
                 return (space, false)
             case .atPortal:
                 let portalRect = PostHogPortalSource.portalRect(of: portal, root: walk.root)
-                walk.portalSources.append(PostHogPortalSource(view: view, portal: portal, portalRect: portalRect))
+                walk.portalSources.append((PostHogPortalSource(view: view, portal: portal, portalRect: portalRect), copies))
                 // The source's coordinates become the portal's bounds coordinates: a portal whose bounds start away
                 // from zero (iOS 27 draws each glass button through one onto a bar-sized source) is a window onto them.
                 content.anchorPoint = .zero
@@ -561,7 +566,10 @@
                 copiesForTesting.add(copy)
                 copiesMadeForTesting += 1
             #endif
-            if walk.portalsInProgress.isEmpty, source.delegate is UIView { walk.viewCopies[ObjectIdentifier(source)] = copy }
+            if walk.portalsInProgress.isEmpty {
+                walk.inPlaceCopied.insert(ObjectIdentifier(source))
+                if source.delegate is UIView { walk.viewCopies[ObjectIdentifier(source)] = copy }
+            }
             walk.copies.record(copy, of: source, placement: placement)
             copyGeometry(from: presentation, source: source, to: copy)
             // A transform layer renders none of its own style, contents, effects or mask, and warns when they're set.

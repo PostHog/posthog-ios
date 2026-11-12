@@ -310,6 +310,80 @@
             try expectMagentaMasked(image, rects)
         }
 
+        @Test("A single-sided layer facing away, flipped itself or by a 3D parent, is hidden with its sublayers, as on screen",
+              arguments: [false, true], [false, true])
+        func backFacingSingleSidedLayerIsHidden(doubleSided: Bool, flippedByParent: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            let frame = CGRect(x: 20, y: 40, width: 160, height: 120)
+            let container: UIView = flippedByParent ? TransformLayerView(frame: frame) : UIView(frame: frame)
+            window.addSubview(container)
+            let card = UIView(frame: container.bounds)
+            card.backgroundColor = .magenta
+            card.layer.isDoubleSided = doubleSided
+            let face = CALayer()
+            face.frame = CGRect(x: 10, y: 10, width: 60, height: 40)
+            face.backgroundColor = UIColor.blue.cgColor
+            card.layer.addSublayer(face)
+            container.addSubview(card)
+            let flip = CATransform3DMakeRotation(.pi, 0, 1, 0)
+            if flippedByParent {
+                container.layer.transform = flip
+            } else {
+                card.layer.transform = flip
+            }
+
+            let (image, _) = try await render(window, with: mirror)
+            let pixels = try Pixels(image)
+            #expect(pixels.points(where: Self.isMagenta).isEmpty == !doubleSided)
+            #expect(pixels.points(where: { $0 == .blue }).isEmpty == !doubleSided)
+        }
+
+        @Test("A layer whose clipping an animation still holds on, its model already off, is drawn clipped", arguments: [false, true])
+        func heldMasksToBoundsStillClips(asMask: Bool) async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+
+            // 60x60, with a sublayer hanging 60pt past its right edge.
+            let clipper = CALayer()
+            clipper.masksToBounds = true
+            let hanging = CALayer()
+            hanging.frame = CGRect(x: 60, y: 0, width: 60, height: 60)
+            clipper.addSublayer(hanging)
+            if asMask {
+                clipper.frame = CGRect(x: 20, y: 20, width: 60, height: 60)
+                clipper.backgroundColor = UIColor.black.cgColor
+                hanging.backgroundColor = UIColor.black.cgColor
+                let content = CALayer()
+                content.frame = CGRect(x: 20, y: 20, width: 160, height: 120)
+                content.backgroundColor = UIColor.magenta.cgColor
+                content.mask = clipper
+                window.layer.addSublayer(content)
+            } else {
+                clipper.frame = CGRect(x: 40, y: 40, width: 60, height: 60)
+                clipper.backgroundColor = UIColor.blue.cgColor
+                hanging.backgroundColor = UIColor.magenta.cgColor
+                window.layer.addSublayer(clipper)
+            }
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            let (committed, _) = try await render(window, with: mirror)
+            let clippedMagenta = try Pixels(committed).points(where: Self.isMagenta).count
+
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            clipper.masksToBounds = false
+            CATransaction.commit()
+            try await hold(clipper, keyPath: "masksToBounds", at: true)
+            try #require(clipper.presentation()?.masksToBounds == true)
+
+            let (held, _) = try await render(window, with: mirror)
+            #expect(try Pixels(held).points(where: Self.isMagenta).count == clippedMagenta)
+        }
+
         @Test("A window placed away from the screen's origin, or transformed, is drawn in its own bounds, where its masks are",
               arguments: [false, true])
         func offsetWindowIsDrawnInItsBounds(transformed: Bool) async throws {

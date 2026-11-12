@@ -254,9 +254,10 @@
         /// The last frame's copy count, to size the next frame's copy map up front.
         private var lastCopyCount = 0
 
-        /// nil when the device has no Metal. Production code uses `shared`; tests make their own.
+        /// nil when the device has no Metal or no Apple-family GPU. Production code uses `shared`; tests make their own.
         init?() {
-            guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else { return nil }
+            // The render target uses shared storage, which non-Apple-family GPUs (Intel or AMD Macs) don't offer for textures.
+            guard let device = MTLCreateSystemDefaultDevice(), device.supportsFamily(.apple1), let queue = device.makeCommandQueue() else { return nil }
             self.device = device
             self.queue = queue
         }
@@ -694,7 +695,8 @@
                 if presentation.transform.m12 != 0 || presentation.transform.m21 != 0 { copy.allowsEdgeAntialiasing = true }
             }
             if !CATransform3DIsIdentity(presentation.sublayerTransform) { copy.sublayerTransform = presentation.sublayerTransform }
-            if source.masksToBounds, !(copy is CATransformLayer) { copy.masksToBounds = true }
+            if presentation.masksToBounds, !(copy is CATransformLayer) { copy.masksToBounds = true }
+            if !presentation.isDoubleSided { copy.isDoubleSided = false }
             if source.isGeometryFlipped { copy.isGeometryFlipped = true }
         }
 

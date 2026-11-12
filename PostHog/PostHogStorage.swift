@@ -253,6 +253,7 @@ class PostHogStorage {
         case requestId = "posthog.requestId"
         case evaluatedAt = "posthog.evaluatedAt"
         case minimalFlagCalledEvents = "posthog.minimalFlagCalledEvents"
+        case errorsWhileComputingFlags = "posthog.errorsWhileComputingFlags"
         case personPropertiesForFlags = "posthog.personPropertiesForFlags"
         case groupPropertiesForFlags = "posthog.groupPropertiesForFlags"
         case errorTracking = "posthog.errorTracking"
@@ -518,6 +519,7 @@ class PostHogStorage {
             deleteSafely(url(forKey: .lastSeenSurveyDate))
             deleteSafely(url(forKey: .requestId))
             deleteSafely(url(forKey: .minimalFlagCalledEvents))
+            deleteSafely(url(forKey: .errorsWhileComputingFlags))
             deleteSafely(url(forKey: .personPropertiesForFlags))
             deleteSafely(url(forKey: .groupPropertiesForFlags))
             deleteSafely(url(forKey: .personPropertiesHash))

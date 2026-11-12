@@ -77,19 +77,17 @@
             return try #require(image)
         }
 
-        #if !SWIFT_PACKAGE || SessionReplay
-            private func uploaded(_ image: UIImage, masks: [CGRect], pixelScale: CGFloat) throws -> CGImage {
-                let wireframe = RRWireframe()
-                wireframe.type = "screenshot"
-                wireframe.image = image
-                wireframe.maskableWidgets = masks
-                wireframe.screenshotPixelScale = pixelScale
-                let base64 = try #require(wireframe.toDict()["base64"] as? String)
-                let encoded = try #require(base64.split(separator: ",").last.map(String.init))
-                let data = try #require(Data(base64Encoded: encoded))
-                return try #require(UIImage(data: data)?.cgImage)
-            }
-        #endif
+        private func uploaded(_ image: UIImage, masks: [CGRect], pixelScale: CGFloat) throws -> CGImage {
+            let wireframe = RRScreenshotFrame()
+            wireframe.type = "screenshot"
+            wireframe.image = image
+            wireframe.maskableWidgets = masks
+            wireframe.screenshotPixelScale = pixelScale
+            let base64 = try #require(wireframe.toDict()["base64"] as? String)
+            let encoded = try #require(base64.split(separator: ",").last.map(String.init))
+            let data = try #require(Data(base64Encoded: encoded))
+            return try #require(UIImage(data: data)?.cgImage)
+        }
 
         private func sRGBPixel(_ image: CGImage, column: Int, row: Int) throws -> [UInt8] {
             var rgba = [UInt8](repeating: 0, count: 4)
@@ -146,27 +144,25 @@
             #expect(colorSpaceName(image) == Self.deviceRGBName)
         }
 
-        #if !SWIFT_PACKAGE || SessionReplay
-            @Test("a Display P3 screenshot uploads in its sRGB colors when it is resampled")
-            func displayP3ScreenshotResampled() throws {
-                let uploaded = try uploaded(displayP3Screenshot(), masks: [], pixelScale: 1)
-                #expect(uploaded.width == Int(Self.size.width))
-                #expect(isExpected(try sRGBPixel(uploaded, column: 20, row: 20)))
-            }
+        @Test("a Display P3 screenshot uploads in its sRGB colors when it is resampled")
+        func displayP3ScreenshotResampled() throws {
+            let uploaded = try uploaded(displayP3Screenshot(), masks: [], pixelScale: 1)
+            #expect(uploaded.width == Int(Self.size.width))
+            #expect(isExpected(try sRGBPixel(uploaded, column: 20, row: 20)))
+        }
 
-            @Test("a Display P3 screenshot uploads in its sRGB colors at native resolution")
-            func displayP3ScreenshotAtNativeResolution() throws {
-                let uploaded = try uploaded(displayP3Screenshot(), masks: [], pixelScale: Self.scale)
-                #expect(uploaded.width == Int(Self.size.width * Self.scale))
-                #expect(isExpected(try sRGBPixel(uploaded, column: 60, row: 60)))
-            }
+        @Test("a Display P3 screenshot uploads in its sRGB colors at native resolution")
+        func displayP3ScreenshotAtNativeResolution() throws {
+            let uploaded = try uploaded(displayP3Screenshot(), masks: [], pixelScale: Self.scale)
+            #expect(uploaded.width == Int(Self.size.width * Self.scale))
+            #expect(isExpected(try sRGBPixel(uploaded, column: 60, row: 60)))
+        }
 
-            @Test("a masked Display P3 screenshot uploads in its sRGB colors around the mask")
-            func displayP3ScreenshotMasked() throws {
-                let uploaded = try uploaded(displayP3Screenshot(), masks: [CGRect(x: 0, y: 0, width: 10, height: 10)], pixelScale: 1)
-                #expect(try sRGBPixel(uploaded, column: 5, row: 5).allSatisfy { $0 < 50 })
-                #expect(isExpected(try sRGBPixel(uploaded, column: 30, row: 30)))
-            }
-        #endif
+        @Test("a masked Display P3 screenshot uploads in its sRGB colors around the mask")
+        func displayP3ScreenshotMasked() throws {
+            let uploaded = try uploaded(displayP3Screenshot(), masks: [CGRect(x: 0, y: 0, width: 10, height: 10)], pixelScale: 1)
+            #expect(try sRGBPixel(uploaded, column: 5, row: 5).allSatisfy { $0 < 50 })
+            #expect(isExpected(try sRGBPixel(uploaded, column: 30, row: 30)))
+        }
     }
 #endif

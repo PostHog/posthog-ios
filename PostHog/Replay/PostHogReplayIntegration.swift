@@ -1657,7 +1657,12 @@
 
             var before = DispatchQueue.main.sync { () -> [MaskedRegion]? in
                 let sample = self.collectMaskedRegions(in: window)
-                if sample == nil { lead = nil }
+                // The lead pair alone decides most motion frames; skip them before paying for a render.
+                guard Self.backgroundCaptureMaskRects(before: lead, after: sample) != nil else {
+                    lead = nil
+                    hedgeLog("[Session Replay] Skipping snapshot: mask geometry could not be covered during background capture")
+                    return nil
+                }
                 return sample
             }
             guard before != nil else {

@@ -247,10 +247,19 @@
             case .scaleToFill, .scaleAspectFit, .redraw:
                 return bounds
             default:
-                let sources = [image, highlightedImage].compactMap { $0 }
-                    + (animationImages ?? []) + (highlightedAnimationImages ?? [])
-                return sources.reduce(bounds) { $0.union(drawnRect(ofImageSized: $1.size)) }
+                return imageSources.reduce(bounds) { $0.union(drawnRect(ofImageSized: $1.size)) }
             }
+        }
+
+        /// Every image the view is set to draw.
+        var imageSources: [UIImage] {
+            [image, highlightedImage].compactMap { $0 } + (animationImages ?? []) + (highlightedAnimationImages ?? [])
+        }
+
+        /// Whether an animation on the layer draws an image the view isn't set to draw, such as a transition's
+        /// cached previous image.
+        var animatesReplacedImage: Bool {
+            layer.animatesContents(outside: imageSources.compactMap(\.cgImage))
         }
 
         /// Where an image replaced since the last commit lands, in bounds coordinates: the presentation layer still
@@ -261,9 +270,9 @@
         /// can't land further out. Contents whose size can't be read reach arbitrarily far. Nil when nothing was
         /// replaced.
         var replacedImageExtent: CGRect? {
-            // An app-defined layer's presentation can't be read, so an image replaced since the last commit can't be
-            // measured.
-            if layer.isAppDefined {
+            // An app-defined layer's presentation can't be read, and an animation can draw an image the view no longer
+            // holds, so an image replaced since the last commit can't be measured.
+            if layer.isAppDefined || animatesReplacedImage {
                 let gravity = layer.contentsGravity
                 if gravity == .resize || gravity == .resizeAspect {
                     return nil
@@ -389,9 +398,26 @@
             hasAnimationInChain ? modelRect.union(window?.bounds ?? modelRect) : modelRect
         }
 
-        /// Whether a `CATransition` is running on this layer: it draws the layer's previous contents until it ends.
-        var hasContentTransition: Bool {
-            animationKeys()?.contains { animation(forKey: $0) is CATransition } == true
+        /// Whether an animation on this layer draws contents other than `known`, read off the animations without
+        /// copying the layer: a `CATransition` draws the cached previous contents, and a `contents` animation draws
+        /// its values, or the previous contents when it has no `fromValue`.
+        func animatesContents(outside known: [AnyObject]) -> Bool {
+            func isKnown(_ value: Any) -> Bool {
+                known.contains { $0 === value as AnyObject }
+            }
+            return animationKeys()?.contains { key in
+                switch animation(forKey: key) {
+                case is CATransition:
+                    return true
+                case let keyframes as CAKeyframeAnimation where keyframes.keyPath == "contents":
+                    return !(keyframes.values ?? []).allSatisfy(isKnown)
+                case let basic as CABasicAnimation where basic.keyPath == "contents":
+                    guard let from = basic.fromValue else { return true }
+                    return ![from, basic.toValue, basic.byValue].compactMap { $0 }.allSatisfy(isKnown)
+                default:
+                    return false
+                }
+            } == true
         }
 
         /// Whether this layer or an ancestor has an animation, so the model may not match the screen.

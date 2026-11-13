@@ -87,6 +87,50 @@
             #expect(try #require(sut.integration.collectMaskableRects(in: window)).contains(label.frame))
         }
 
+        @Test("A sensitive image view fading from a photo to a symbol stays masked while the transition draws the photo")
+        func imageViewFadingToSymbolStaysMasked() async throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+            let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
+            let imageView = UIImageView(image: try magentaImage(CGSize(width: 160, height: 80)))
+            imageView.frame = CGRect(x: 20, y: 40, width: 160, height: 80)
+            window.addSubview(imageView)
+            window.layoutIfNeeded()
+            try await commit()
+
+            let fade = CATransition()
+            fade.type = .fade
+            fade.duration = 1000
+            imageView.layer.add(fade, forKey: nil)
+            imageView.image = UIImage(systemName: "star.fill")
+            try await commit()
+
+            let rects = try #require(sut.integration.collectMaskableRects(in: window))
+            #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(imageView.frame) }, "\(rects)")
+        }
+
+        @Test("A sensitive image view with its own layer class stays masked while a contents animation draws the image it held")
+        func customLayerImageViewAnimatingOldContentsStaysMasked() async throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+            let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
+            let photo = try magentaImage(CGSize(width: 160, height: 80))
+            let imageView = CopyCountingImageView(image: photo)
+            imageView.frame = CGRect(x: 20, y: 40, width: 160, height: 80)
+            window.addSubview(imageView)
+            window.layoutIfNeeded()
+            try await commit()
+            imageView.image = nil
+            try await hold(imageView.layer, keyPath: "contents", at: try #require(photo.cgImage))
+            CopyCountingLayer.copies = 0
+
+            let rects = try #require(sut.integration.collectMaskableRects(in: window))
+            #expect(CopyCountingLayer.copies == 0)
+            #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(imageView.frame) }, "\(rects)")
+        }
+
         @Test("A sensitive image view cleared since its last commit stays masked while its layer still shows the old image")
         func clearedImageViewStaysMaskedUntilCommitted() async throws {
             let sut = makeSut()

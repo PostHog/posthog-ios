@@ -1403,7 +1403,7 @@
 
         private func isLabelSensitive(_ view: UILabel) -> Bool {
             // Cleared text stays on screen until the label redraws, and a content transition keeps drawing it after.
-            isTextInputSensitive(view) && (hasText(view.text) || view.layer.needsDisplay() || view.layer.hasContentTransition)
+            isTextInputSensitive(view) && (hasText(view.text) || view.layer.needsDisplay() || view.layer.animatesContents(outside: []))
         }
 
         private func isButtonSensitive(_ view: UIButton) -> Bool {
@@ -1899,9 +1899,13 @@
         /// An image replaced since the last commit stays on screen until then: the presentation layer still holds it.
         /// An animating view presents its current frames, which aren't replaced images.
         /// Once replaced, the old contents can't be classified, so even a symbol swapped for another symbol is masked
-        /// until the commit.
+        /// until the commit. An animation drawing an image the view no longer holds, such as a transition from it,
+        /// counts too.
         func showsReplacedImage(_ view: UIImageView) -> Bool {
             guard view.isNoCapture() || config?.sessionReplayConfig.maskAllImages == true else { return false }
+            if view.animatesReplacedImage {
+                return true
+            }
             // presentation() copies the layer through init(layer:), which an app-defined layer class may not support
             guard type(of: view.layer) == CALayer.self else { return false }
             guard let presented = view.layer.presentation()?.contents else { return false }
@@ -1909,9 +1913,7 @@
             if view.layer.contents as AnyObject? === shown {
                 return false
             }
-            let sources = [view.image, view.highlightedImage].compactMap { $0 }
-                + (view.animationImages ?? []) + (view.highlightedAnimationImages ?? [])
-            return !sources.contains { $0.cgImage === shown }
+            return !view.imageSources.contains { $0.cgImage === shown }
         }
 
         /// Image attachments in text are drawn by the label or text view itself, with no image view to

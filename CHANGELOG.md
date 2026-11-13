@@ -1,5 +1,11 @@
 ## Next
 
+## 3.95.0
+
+### Minor Changes
+
+- 8cfbaef: Honor survey appearance.position instead of always presenting a bottom sheet, and expose the configured position to custom survey renderers.
+
 ## 3.94.4
 
 ### Patch Changes

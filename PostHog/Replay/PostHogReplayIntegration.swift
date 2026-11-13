@@ -1207,6 +1207,13 @@
                 return nil
             }
 
+            // Under an app-defined layer, masks come from the model, which runs ahead of what's drawn until Core
+            // Animation commits. A capture outside the run-loop opportunity (the bridge, background capture's samples)
+            // can land mid-turn, so commit first; at the opportunity there's nothing left to commit.
+            if window.layer.containsAppDefinedLayer {
+                CATransaction.flush()
+            }
+
             // A cover such as a SwiftUI `fullScreenCover` leaves the screen it hides attached to
             // the window, and rects from that screen would be redacted over the cover's own
             // pixels. Everything still on screen sits inside the cover, so both rect sources

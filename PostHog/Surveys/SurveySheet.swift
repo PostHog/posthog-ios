@@ -19,6 +19,7 @@
         let fallbackSurvey: PostHogDisplaySurvey
         /// Bottom-center surveys use the system sheet. Other `appearance.position` values use a card.
         var presentsAsSheet: Bool = true
+        var maximumCardContentHeight: CGFloat = .infinity
 
         @State private var sheetHeight: CGFloat = .zero
 
@@ -67,7 +68,7 @@
                             sheetHeight = frame.height
                         }
                 }
-                .frame(height: min(sheetHeight, UIScreen.main.bounds.height * 0.75))
+                .frame(height: min(sheetHeight, maximumCardContentHeight))
             }
             .background(appearance.backgroundColor)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))

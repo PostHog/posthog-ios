@@ -73,10 +73,10 @@ import Foundation
     /// Optional text for the button that advances past the intro screen
     public let introScreenButtonText: String?
 
-    /// Anchor from `appearance.position`.
-    /// `top_*` sits on the top edge, `middle_*` sits in the vertical middle,
-    /// and `left`, `center`, and `right` sit on the bottom edge.
-    /// Nil keeps the bottom-center sheet.
+    /// Where the survey should be placed on screen, as sent by PostHog (`appearance.position`).
+    /// One of `top_left`, `top_center`, `top_right`, `middle_left`, `middle_center`, `middle_right`,
+    /// `left`, `center`, or `right` (the last three are bottom-aligned).
+    /// Nil when not set; treat nil and unknown values as `center`.
     public let position: String?
 
     init(

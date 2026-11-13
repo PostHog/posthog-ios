@@ -17,6 +17,12 @@ struct SurveyTestApp: App {
                     Text(fixture.status)
                         .accessibilityIdentifier("survey-status")
                         .onAppear { fixture.presentProductionWindow() }
+                    Button("Background action") {
+                        fixture.backgroundTaps += 1
+                    }
+                    .accessibilityIdentifier("background-action")
+                    Text(String(fixture.backgroundTaps))
+                        .accessibilityIdentifier("background-taps")
                 }
             }
         }
@@ -31,6 +37,7 @@ private final class SurveyFixture: ObservableObject {
     let position: String?
     @Published var answers: [String] = []
     @Published var status = ""
+    @Published var backgroundTaps = 0
     private var productionWindow: SurveysWindow?
 
     init() {
@@ -94,6 +101,9 @@ private final class SurveyFixture: ObservableObject {
             }
             let window = SurveysWindow(controller: self.controller, scene: scene)
             window.frame = scene.coordinateSpace.bounds
+            if let height = ProcessInfo.processInfo.environment["SURVEY_WINDOW_HEIGHT"].flatMap(Double.init) {
+                window.frame.size.height = CGFloat(height)
+            }
             window.windowLevel = .alert
             window.makeKeyAndVisible()
             self.productionWindow = window

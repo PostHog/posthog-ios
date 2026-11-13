@@ -11,7 +11,14 @@
 
     @available(iOS 15.0, *)
     final class SurveysWindow: PassthroughWindow {
+        private let displayController: SurveyDisplayController?
+
+        override var allowsBackgroundInteraction: Bool {
+            displayController?.displayedSurvey == nil
+        }
+
         init(controller: SurveyDisplayController, scene: UIWindowScene) {
+            displayController = controller
             super.init(windowScene: scene)
             let rootView = SurveysRootView().environmentObject(controller)
             let hostingController = UIHostingController(rootView: rootView)
@@ -20,11 +27,14 @@
         }
 
         required init?(coder _: NSCoder) {
+            displayController = nil
             super.init(frame: .zero)
         }
     }
 
     class PassthroughWindow: UIWindow {
+        var allowsBackgroundInteraction: Bool { true }
+
         override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
             guard
                 let hitView = super.hitTest(point, with: event),
@@ -41,7 +51,7 @@
                     return hit
                 }
             }
-            return nil
+            return allowsBackgroundInteraction ? nil : rootView
         }
     }
 

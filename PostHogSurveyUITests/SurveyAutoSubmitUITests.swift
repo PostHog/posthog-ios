@@ -140,6 +140,53 @@ final class SurveyAutoSubmitUITests: XCTestCase {
         close.tap()
     }
 
+    func testPositionedCardFitsAWindowShorterThanTheScreen() {
+        launchPositionedSurvey(position: "middle_right", longContent: true, windowHeight: 400)
+        let window = app.windows.containing(.button, identifier: "posthog.survey.dismiss").firstMatch
+        XCTAssertEqual(window.frame.height, 400, accuracy: 1)
+        let close = app.buttons["posthog.survey.dismiss"]
+        let scrollView = app.scrollViews.firstMatch
+        XCTAssertGreaterThanOrEqual(close.frame.minY, window.frame.minY)
+        XCTAssertLessThanOrEqual(scrollView.frame.maxY, window.frame.maxY)
+        XCTAssertTrue(close.isHittable)
+        let lastChoice = app.buttons["Choice 30"]
+        for _ in 0 ..< 20 {
+            if lastChoice.isHittable { break }
+            scrollView.swipeUp()
+        }
+        XCTAssertTrue(lastChoice.isHittable)
+        lastChoice.tap()
+        continueButton.tap()
+        assertQuestion("Second question")
+        XCTAssertTrue(app.buttons["First"].isHittable)
+        XCTAssertTrue(close.isHittable)
+        close.tap()
+    }
+
+    func testPositionedCardBlocksBackgroundTapsUntilClosed() {
+        launchPositionedSurvey(position: "top_center")
+        let backgroundButton = app.buttons["background-action"]
+        XCTAssertTrue(backgroundButton.exists)
+        XCTAssertGreaterThan(backgroundButton.frame.minY, app.buttons["4"].frame.maxY)
+        let backgroundPoint = backgroundButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        backgroundPoint.tap()
+        XCTAssertEqual(app.staticTexts["background-taps"].label, "0")
+        XCTAssertEqual(app.staticTexts["survey-status"].label, "shown")
+        XCTAssertTrue(app.staticTexts["First question"].exists)
+        app.buttons["posthog.survey.dismiss"].tap()
+        let closed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "closed"),
+            object: app.staticTexts["survey-status"]
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
+        backgroundPoint.tap()
+        let tapped = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "1"),
+            object: app.staticTexts["background-taps"]
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [tapped], timeout: 5), .completed)
+    }
+
     func testPositionedCardCloseWorksInProductionWindow() {
         app.launchEnvironment = ["SURVEY_POSITION": "top_center"]
         app.launch()
@@ -162,13 +209,16 @@ final class SurveyAutoSubmitUITests: XCTestCase {
         assertAnswers("0:nil")
     }
 
-    private func launchPositionedSurvey(position: String, longContent: Bool = false) {
+    private func launchPositionedSurvey(position: String, longContent: Bool = false, windowHeight: Int? = nil) {
         app.launchEnvironment = [
             "SURVEY_POSITION": position,
             "SURVEY_KIND": longContent ? "single" : "number",
             "SURVEY_SKIP": longContent ? "false" : "true",
             "SURVEY_LONG_CONTENT": String(longContent),
         ]
+        if let windowHeight {
+            app.launchEnvironment["SURVEY_WINDOW_HEIGHT"] = String(windowHeight)
+        }
         app.launch()
         XCTAssertTrue(app.buttons["posthog.survey.dismiss"].waitForExistence(timeout: 5))
         assertQuestion("First question")

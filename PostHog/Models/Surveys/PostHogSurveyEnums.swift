@@ -188,12 +188,8 @@ struct SurveyPlacement: Equatable {
     }
 
     static func resolve(wire: String?) -> SurveyPlacement {
-        guard let wire, !wire.isEmpty else { return bottomCenter }
-        let normalized = wire.replacingOccurrences(of: "-", with: "_")
-        let stripped = normalized.hasPrefix("bottom_")
-            ? String(normalized.dropFirst("bottom_".count))
-            : normalized
-        return placementsByWire[stripped] ?? bottomCenter
+        guard let wire else { return bottomCenter }
+        return placementsByWire[wire] ?? bottomCenter
     }
 }
 

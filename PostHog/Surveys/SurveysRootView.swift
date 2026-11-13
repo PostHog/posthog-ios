@@ -26,17 +26,22 @@
                             .environment(\.colorScheme, .light) // enforce light theme for now
                     }
             } else if let survey = displayManager.displayedSurvey {
-                ZStack {
-                    Color.black.opacity(0.4)
-                        .ignoresSafeArea()
-                        .allowsHitTesting(false)
-                    PositionedSurveyCard(displayManager: displayManager, fallbackSurvey: survey) { height in
-                        cardHeight = height
+                GeometryReader { geometry in
+                    ZStack {
+                        Color.black.opacity(0.4)
+                            .ignoresSafeArea()
+                        PositionedSurveyCard(
+                            displayManager: displayManager,
+                            fallbackSurvey: survey,
+                            maximumCardContentHeight: geometry.size.height * 0.75
+                        ) { height in
+                            cardHeight = height
+                        }
+                        .frame(maxWidth: 420)
+                        .frame(height: cardHeight)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: placementAlignment)
                     }
-                    .frame(maxWidth: 420)
-                    .frame(height: cardHeight)
-                    .padding(16)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: placementAlignment)
                 }
             }
         }
@@ -69,13 +74,12 @@
             return Alignment(horizontal: horizontal, vertical: vertical)
         }
 
-        /// The card lives in its own hosting controller. `SurveysWindow` is a passthrough
-        /// window and drops any hit that resolves to the root hosting view, which is what
-        /// a SwiftUI button drawn directly in that root does. A separate view keeps the
-        /// close button, and the rest of the card, in the hit-test chain.
+        /// Keep controls in a separate hosting view so the window can swallow background
+        /// hits without interfering with survey interaction.
         private struct PositionedSurveyCard: UIViewControllerRepresentable {
             @ObservedObject var displayManager: SurveyDisplayController
             let fallbackSurvey: PostHogDisplaySurvey
+            let maximumCardContentHeight: CGFloat
             let onHeightChange: (CGFloat) -> Void
 
             func makeUIViewController(context _: Context) -> UIHostingController<AnyView> {
@@ -90,12 +94,17 @@
 
             private var card: AnyView {
                 AnyView(
-                    SurveySheet(displayManager: displayManager, fallbackSurvey: fallbackSurvey, presentsAsSheet: false)
-                        .environment(\.colorScheme, .light)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .readFrame { frame in
-                            onHeightChange(frame.height)
-                        }
+                    SurveySheet(
+                        displayManager: displayManager,
+                        fallbackSurvey: fallbackSurvey,
+                        presentsAsSheet: false,
+                        maximumCardContentHeight: maximumCardContentHeight
+                    )
+                    .environment(\.colorScheme, .light)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .readFrame { frame in
+                        onHeightChange(frame.height)
+                    }
                 )
             }
         }

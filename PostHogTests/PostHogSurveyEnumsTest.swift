@@ -411,8 +411,8 @@ struct PostHogSurveyEnumsTest {
             (.some(.right), .bottom, .trailing),
             (.none, .bottom, .center),
             (.some(.unknown(position: "future")), .bottom, .center),
-            (.some(.unknown(position: "bottom_right")), .bottom, .trailing),
-            (.some(.unknown(position: "top-left")), .top, .leading),
+            (.some(.unknown(position: "bottom_right")), .bottom, .center),
+            (.some(.unknown(position: "top-left")), .bottom, .center),
         ]
     )
     func anchorsNamedPosition(

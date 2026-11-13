@@ -137,6 +137,13 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
         }
 
+        /// Cancels this survey only while its built-in popup delay is pending.
+        func cancelPendingSurveyIfPresented(_ surveyId: String) -> Bool {
+            guard pendingSurvey?.id == surveyId else { return false }
+            dismissPendingSurveyIfNeeded()
+            return true
+        }
+
         private func dismissPendingSurveyIfNeeded() {
             guard let pendingSurvey else { return }
 

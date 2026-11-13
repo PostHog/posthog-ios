@@ -69,6 +69,11 @@ public typealias OnPostHogSurveyClosed = (_ survey: PostHogDisplaySurvey) -> Voi
     /// Delegates that opt in through `supportsSurveyResume` must start at
     /// `survey.initialQuestionIndex` to resume an unfinished survey.
     ///
+    /// Once handed to a custom delegate, cancel events do not invalidate the survey,
+    /// even while the delegate defers display. The delegate must report each survey
+    /// as shown or closed and retains ownership until it reports the survey closed.
+    /// Cancel events only clear unconsumed activation and the built-in UI's popup delay.
+    ///
     /// - Parameters:
     ///   - survey: The survey to be displayed to the user
     ///   - onSurveyShown: To be called when the survey is successfully displayed to the user.

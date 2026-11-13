@@ -10,9 +10,42 @@ import OHHTTPStubs
 import OHHTTPStubsSwift
 @testable import PostHog
 import Testing
+#if os(iOS)
+    import UIKit
+#endif
 
 @Suite("Test Surveys")
 enum PostHogSurveysTest {
+    #if os(iOS)
+        @Suite("Survey window hit testing")
+        @MainActor
+        struct WindowHitTesting {
+            private final class RootHitView: UIView {
+                override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+                    self.point(inside: point, with: event) ? self : nil
+                }
+            }
+
+            @Test("embedded card receives hits when the hosting root returns itself")
+            func embeddedCardReceivesHits() {
+                let window = PassthroughWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 200))
+                let controller = UIViewController()
+                let root = RootHitView(frame: window.bounds)
+                let card = UIView(frame: CGRect(x: 20, y: 20, width: 100, height: 100))
+                root.addSubview(card)
+                controller.view = root
+                window.rootViewController = controller
+                window.isHidden = false
+                defer { window.isHidden = true }
+
+                #expect(window.hitTest(CGPoint(x: 50, y: 50), with: nil) === card)
+                #expect(window.hitTest(CGPoint(x: 150, y: 150), with: nil) == nil)
+                card.isHidden = true
+                #expect(window.hitTest(CGPoint(x: 50, y: 50), with: nil) == nil)
+            }
+        }
+    #endif
+
     @Suite("Auto-submit on selection")
     struct AutoSubmit {
         private func displayQuestion(type: String, skipSubmit: Bool?, hasOpenChoice: Bool = false, display: String = "number") throws -> PostHogDisplaySurveyQuestion {
@@ -742,6 +775,7 @@ enum PostHogSurveysTest {
                         repeatedActivation: repeatedActivation,
                         values: values
                     ),
+                    cancelEvents: nil,
                     linkedFlagVariant: nil,
                     actions: nil
                 ),
@@ -2381,10 +2415,11 @@ enum PostHogSurveysTest {
             introScreenHeader: String? = nil,
             introScreenDescription: String? = nil,
             introScreenDescriptionContentType: PostHogSurveyTextContentType? = nil,
-            introScreenButtonText: String? = nil
+            introScreenButtonText: String? = nil,
+            position: PostHogSurveyAppearancePosition? = nil
         ) -> PostHogSurveyAppearance {
             PostHogSurveyAppearance(
-                position: nil, fontFamily: nil, backgroundColor: nil,
+                position: position, fontFamily: nil, backgroundColor: nil,
                 submitButtonColor: nil, submitButtonText: nil, submitButtonTextColor: nil,
                 textColor: nil, descriptionTextColor: nil, ratingButtonColor: nil,
                 ratingButtonActiveColor: nil, ratingButtonHoverColor: nil,
@@ -2464,6 +2499,30 @@ enum PostHogSurveysTest {
             #expect(displaySurvey.appearance?.displayIntroScreen == false)
             #expect(displaySurvey.appearance?.introScreenHeader == nil)
             #expect(displaySurvey.appearance?.introScreenButtonText == nil)
+        }
+
+        @Test("maps appearance.position onto the display survey")
+        func mapsAppearancePositionToDisplaySurvey() {
+            let survey = PostHogSurvey.testInstance(
+                name: "position-mapped",
+                appearance: makeAppearance(delay: nil, position: .topCenter)
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+
+            #expect(displaySurvey.appearance?.position == "top_center")
+        }
+
+        @Test("leaves display position nil when the survey has none")
+        func leavesDisplayPositionNilWhenMissing() {
+            let survey = PostHogSurvey.testInstance(
+                name: "position-missing",
+                appearance: makeAppearance(delay: nil)
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+
+            #expect(displaySurvey.appearance?.position == nil)
         }
 
         @Test(

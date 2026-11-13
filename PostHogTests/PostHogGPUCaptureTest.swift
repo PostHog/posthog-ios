@@ -70,73 +70,7 @@
 
     @Suite("Replay GPU capture", .serialized)
     @MainActor
-    struct PostHogGPUCaptureTest {
-        private struct RGBA: Equatable {
-            let red: UInt8, green: UInt8, blue: UInt8, alpha: UInt8
-
-            static let magenta = RGBA(red: 255, green: 0, blue: 255, alpha: 255)
-            static let blue = RGBA(red: 0, green: 0, blue: 255, alpha: 255)
-            static let white = RGBA(red: 255, green: 255, blue: 255, alpha: 255)
-            static let red = RGBA(red: 255, green: 0, blue: 0, alpha: 255)
-        }
-
-        /// RGBA8 pixels, 1x.
-        private struct Pixels {
-            let width: Int
-            let height: Int
-            private let bytes: [UInt8]
-
-            init(_ image: CGImage) throws {
-                width = image.width
-                height = image.height
-                var bytes = [UInt8](repeating: 0, count: width * height * 4)
-                let context = try #require(CGContext(
-                    data: &bytes, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-                    space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-                ))
-                context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-                self.bytes = bytes
-            }
-
-            subscript(x: Int, y: Int) -> RGBA {
-                let index = (y * width + x) * 4
-                return RGBA(red: bytes[index], green: bytes[index + 1], blue: bytes[index + 2], alpha: bytes[index + 3])
-            }
-
-            func points(where predicate: (RGBA) -> Bool) -> [CGPoint] {
-                var points: [CGPoint] = []
-                for y in 0 ..< height {
-                    for x in 0 ..< width where predicate(self[x, y]) {
-                        points.append(CGPoint(x: x, y: y))
-                    }
-                }
-                return points
-            }
-        }
-
-        private static func isMagenta(_ pixel: RGBA) -> Bool {
-            pixel.red > 200 && pixel.green < 60 && pixel.blue > 200
-        }
-
-        private func makeMirror() throws -> PostHogGPUMirrorCapture {
-            // Its own instance per test, so no renderer or frame carries over between tests.
-            try #require(PostHogGPUMirrorCapture(), "the simulator has no Metal device")
-        }
-
-        private func makeWindow(frame: CGRect = CGRect(x: 0, y: 0, width: 200, height: 300), background: UIColor = .white) -> UIWindow {
-            let window = UIWindow(frame: frame)
-            window.backgroundColor = background
-            // Shown without becoming key, so the SDK's own capture loop never picks it up.
-            window.isHidden = false
-            return window
-        }
-
-        private func prewarm(_ mirror: PostHogGPUMirrorCapture, for window: UIWindow, scale: CGFloat = 1) async {
-            await withCheckedContinuation { continuation in
-                mirror.prewarm(size: window.bounds.size, scale: scale) { continuation.resume() }
-            }
-        }
-
+    struct PostHogGPUCaptureTest: GPUCaptureTesting {
         /// Turn 1 and turn 2 of a capture, without the replay pipeline around them: the pixels and the mask rects.
         private func render(_ window: UIWindow, with mirror: PostHogGPUMirrorCapture, scale: CGFloat = 1,
                             integration: PostHogReplayIntegration = PostHogReplayIntegration()) async throws -> (CGImage, [CGRect])
@@ -196,13 +130,6 @@
             let unmasked = try (rects.isEmpty ? Pixels(cgImage) : maskedPixels(cgImage, rects)).points(where: Self.isMagenta)
             let box = unmasked.reduce(CGRect.null) { $0.union(CGRect(origin: $1, size: CGSize(width: 1, height: 1))) }
             #expect(unmasked.count == 0, "magenta pixels unmasked in \(box), mask rects \(rects)", sourceLocation: sourceLocation)
-        }
-
-        private func noCaptureView(_ frame: CGRect, color: UIColor = .magenta) -> UIView {
-            let view = UIView(frame: frame)
-            view.backgroundColor = color
-            view.accessibilityIdentifier = "ph-no-capture"
-            return view
         }
 
         // MARK: - Mask walk
@@ -2437,13 +2364,14 @@
             await drainReplayQueue()
         }
 
-        /// A window with magenta content inset in a masked field, as text sits in a text field: masks are drawn
-        /// with rounded corners, so a fully magenta field would show at the corners.
-        private func windowWithContent(frame: CGRect = CGRect(x: 0, y: 0, width: 200, height: 300)) -> UIWindow {
+        /// A window with magenta content inset in a masked field, as text sits in a text field: masks are drawn with
+        /// rounded corners, so a fully magenta field would show at the corners. The magenta is layer contents, since a
+        /// background colour survives inline masking as chrome.
+        private func windowWithContent(frame: CGRect = CGRect(x: 0, y: 0, width: 200, height: 300)) throws -> UIWindow {
             let window = makeWindow(frame: frame)
             let field = noCaptureView(CGRect(x: 10, y: 10, width: 60, height: 50), color: .clear)
             let secret = UIView(frame: field.bounds.insetBy(dx: 5, dy: 5))
-            secret.backgroundColor = .magenta
+            secret.layer.contents = try magentaContents(secret.bounds.size)
             field.addSubview(secret)
             window.addSubview(field)
             window.layoutIfNeeded()
@@ -2459,7 +2387,7 @@
             let mockLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockLifecycle
             defer { DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared }
-            let window = windowWithContent()
+            let window = try windowWithContent()
 
             // No renderer yet: the capture keeps the slot while one is built off-main, then resumes.
             #expect(mirror.needsPrewarm(for: window.bounds.size, scale: 1))
@@ -2504,7 +2432,7 @@
             let (sut, integration, snapshots) = try makeSut()
             integration.gpuMirror = mirror
             defer { sut.close() }
-            let window = windowWithContent()
+            let window = try windowWithContent()
             await prewarm(mirror, for: window)
 
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
@@ -2528,8 +2456,8 @@
 
             weak var weakWindow: UIWindow?
             // The pool drains UIKit's autoreleased references; a shown window is retained by the app until hidden.
-            let started = autoreleasepool {
-                let window = windowWithContent()
+            let started = try autoreleasepool {
+                let window = try windowWithContent()
                 weakWindow = window
                 let started = integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut)
                 window.isHidden = true
@@ -2552,7 +2480,7 @@
             let mockLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockLifecycle
             defer { DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared }
-            let window = windowWithContent()
+            let window = try windowWithContent()
             await prewarm(mirror, for: window)
 
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
@@ -2569,7 +2497,7 @@
             let (sut, integration, _) = try makeSut(gpuCapture: false)
             defer { sut.close() }
             integration.gpuMirror = mirror
-            let window = windowWithContent()
+            let window = try windowWithContent()
 
             #expect(integration.startScreenshotCapture(window: window, screenName: nil, postHog: sut))
             await waitForCaptureToFinish(integration)
@@ -2593,7 +2521,7 @@
             let mockLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockLifecycle
             defer { DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared }
-            let window = windowWithContent(frame: UIScreen.main.bounds)
+            let window = try windowWithContent(frame: UIScreen.main.bounds)
             try #require(window.screen.scale == 3, "the expected sizes are for a 3x simulator")
             // 402x874 pt (iPhone 17 Pro): 402x874 px unset, 603x1311 at 0.5, 1206x2622 at 1.0.
             let pixelsPerPoint = screenshotScale.map { 3 * CGFloat($0) } ?? 1
@@ -2650,7 +2578,7 @@
             let mockLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockLifecycle
             defer { DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared }
-            let window = windowWithContent()
+            let window = try windowWithContent()
             // Nested, as in real screens: only layers below the root's children were kept alive.
             let list = UIView(frame: CGRect(x: 0, y: 70, width: 200, height: 200))
             for row in 0 ..< 40 {

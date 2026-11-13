@@ -1226,7 +1226,7 @@
             var maskableWidgets: [MaskedRegion] = []
             findMaskableWidgets(under: cover, in: window, &maskableWidgets, culledLayers)
             if !portalSources.isEmpty {
-                let mainWalk = (maskableWidgets + reporters).map(\.rect)
+                let mainWalk = maskableWidgets + reporters
                 for (source, drawn) in zip(portalSources, drawn) {
                     maskableWidgets += maskedRegions(shownThrough: source, drawing: drawn, in: window, mainWalk: mainWalk)
                 }
@@ -1850,28 +1850,40 @@
 
     extension PostHogReplayIntegration {
         /// The masks under a portal's source where it sits and, for a portal that shows it elsewhere, the whole portal
-        /// unless the source is clean: no reporter or maskable widget under it, nothing in `mainWalk` over it, and a
-        /// measurable rect. A reporter under the source that hasn't been laid out masks all of it instead of skipping
-        /// the frame: under an ancestor that hides it, it may never be laid out.
+        /// unless the source is clean (`portalDependencies`). A reporter under the source that hasn't been laid out
+        /// masks all of it instead of skipping the frame: under an ancestor that hides it, it may never be laid out.
         private func maskedRegions(shownThrough source: PostHogPortalSource, drawing drawn: PostHogSessionReplayMaskRegistry.MaskedRects,
-                                   in window: UIWindow, mainWalk: [CGRect]) -> [MaskedRegion]
+                                   in window: UIWindow, mainWalk: [MaskedRegion]) -> [MaskedRegion]
         {
             var regions: [MaskedRegion] = []
             findMaskableWidgets(under: source.view, in: window, &regions, [])
+            // Rect pass only: the whole source, and the whole portal, are left to the black rects.
             if drawn.hasUnsettledReporters {
-                regions.append(MaskedRegion(source.view, in: window))
+                regions.append(MaskedRegion(source.view, rect: source.view.toPresentationRect(window, outsets: source.view.drawnOutsets), inline: .rectOnly))
             }
-            guard let portalRect = source.portalRect else { return regions }
-            var isClean = !drawn.hasReporters && regions.isEmpty
-            if isClean {
-                let sourceRect = source.view.toPresentationRect(window)
-                isClean = [sourceRect.minX, sourceRect.minY, sourceRect.width, sourceRect.height].allSatisfy(\.isFinite)
-                    && !sourceRect.isEmpty && !mainWalk.contains { $0.intersects(sourceRect) }
-            }
-            if !isClean {
-                regions.append(MaskedRegion(source.view, rect: portalRect))
-            }
+            guard let portalRect = source.portalRect,
+                  let coveredBy = portalDependencies(of: source, drawing: drawn, under: regions, in: window, mainWalk: mainWalk)
+            else { return regions }
+            regions.append(MaskedRegion(source.portal, rect: portalRect, inline: .portal(coveredBy: coveredBy)))
             return regions
+        }
+
+        /// The regions whose inline masking also masks the portal's copy of the source: those under the source and
+        /// those in `mainWalk` over it, all of them when the source has no measurable rect. nil for a clean source,
+        /// which needs no portal mask; empty when only the rect pass can mask it: a reporter under it unsettled or at no
+        /// size, or an overlay over it while part of what the portal draws has no in-place copy to reach.
+        private func portalDependencies(of source: PostHogPortalSource, drawing drawn: PostHogSessionReplayMaskRegistry.MaskedRects,
+                                        under regions: [MaskedRegion], in window: UIWindow, mainWalk: [MaskedRegion]) -> Set<ObjectIdentifier>?
+        {
+            if drawn.hasUnsettledReporters || drawn.hasEmptyReporters { return [] }
+            var owners = Set((regions + drawn.regions).map(\.owner))
+            let sourceRect = source.view.toPresentationRect(window)
+            let isMeasurable = [sourceRect.minX, sourceRect.minY, sourceRect.width, sourceRect.height].allSatisfy(\.isFinite) && !sourceRect.isEmpty
+            let over = isMeasurable ? mainWalk.filter { $0.rect.intersects(sourceRect) } : mainWalk
+            // An overlay's extent reaches the portal's copy only through the source's in-place copies.
+            if !source.hasInPlaceCopies, over.contains(where: { $0.inline == .extent && !owners.contains($0.owner) }) { return [] }
+            owners.formUnion(over.map(\.owner))
+            return owners.isEmpty ? nil : owners
         }
     }
 
@@ -2364,6 +2376,33 @@
             return true
         }
     }
+
+    #if canImport(Metal)
+        extension PostHogReplayIntegration {
+            /// How copies of a `viewClass` view (nil for a layer with no view of its own) whose layer is a `layerClass`
+            /// are masked in the mirror, from the same view and layer types the mask walk matches.
+            func inlineMaskTag(view viewClass: AnyClass?, layer layerClass: AnyClass) -> PostHogInlineMask.Tag {
+                func isA(_ cls: AnyClass, _ types: [AnyClass?]) -> Bool {
+                    types.contains { $0.map { (cls as? NSObject.Type)?.isSubclass(of: $0) == true } ?? false }
+                }
+                guard let viewClass else {
+                    if isA(layerClass, Self.swiftUIFlattenedContentTypes) { return .opaque }
+                    return isA(layerClass, swiftUITextBasedViewTypes) ? .unreadableText : .container
+                }
+                if isA(viewClass, [UITextView.self]) { return .textView }
+                if isA(viewClass, [UITextField.self]) { return .textField }
+                if isA(viewClass, [reactNativeTextView, reactNativeParagraphView]) { return .unreadableText }
+                if isA(viewClass, [UILabel.self]) { return .label }
+                if isA(viewClass, [WKWebView.self, UISwitch.self, UIPickerView.self, reactNativeSvgView, systemSandboxedView] + swiftUIGenericTypes
+                    + Self.swiftUIFlattenedContentTypes)
+                {
+                    return .opaque
+                }
+                return isA(viewClass, swiftUITextBasedViewTypes) ? .unreadableText : .container
+            }
+        }
+    #endif
+
     extension PostHogReplayIntegration {
         /// Source layers whose whole subtree the GPU capture left out of the frame being captured.
         typealias Culled = Set<ObjectIdentifier>
@@ -2543,37 +2582,64 @@
                 }
             }
 
+            /// Turn 1 of a GPU capture.
+            enum MirroredFrame {
+                /// The window can't be captured this tick.
+                case skipped
+                /// The mirror couldn't be built; the default path can still capture.
+                case unbuilt
+                /// A mask reporter hasn't laid out yet: the frame is dropped (fail closed).
+                case unsettled(PostHogGPUMirrorCapture.Frame)
+                /// The mirror left out the full-window cover, so the frame would show what it hides: the default capture path
+                /// takes it instead.
+                case fallback(PostHogGPUMirrorCapture.Frame)
+                /// Frozen, with the regions the mirror couldn't mask itself left on the wireframe for the rect pass.
+                case frozen(PostHogGPUMirrorCapture.Frame, RRWireframe)
+            }
+
+            /// Main thread. Mirrors the window, walks it for masked regions, masks what it can in the mirror and freezes
+            /// it, all in this turn: nothing may reach the mirror after `freeze`.
+            func mirrorAndMask(_ window: UIWindow, mirror: PostHogGPUMirrorCapture, scale: CGFloat) -> MirroredFrame {
+                // Camera first: its layers can trap when presentation() copies them.
+                guard window.isVisible(), !window.hasCameraForReplay(), !isAnimatingTransition(window) else { return .skipped }
+                guard let frame = mirror.build(window: window, scale: scale) else { return .unbuilt }
+                guard let regions = collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources) else {
+                    return .unsettled(frame)
+                }
+                if leftOutCover(of: frame, in: window) { return .fallback(frame) }
+                let remaining = mirror.maskInline(regions, in: frame, tag: inlineMaskTag(view:layer:))
+                frame.freeze()
+                let wireframe = createBasicWireframe(window)
+                wireframe.type = "screenshot"
+                wireframe.maskableWidgets = remaining.map(\.rect)
+                wireframe.screenshotPixelScale = frame.scale
+                return .frozen(frame, wireframe)
+            }
+
             /// One capture instead of settle-then-shoot: the settle check exists because drawHierarchy shows the render
             /// server's last frame rather than the current tree. The mirror copies the presentation tree the mask rects
             /// are measured from, in the same turn, so pixels and masks agree without waiting. The render runs a turn later.
             private func captureMirrored(window: UIWindow, screenName: String?, postHog: PostHogSDK, mirror: PostHogGPUMirrorCapture, scale: CGFloat) {
-                // Camera first: its layers can trap when presentation() copies them.
-                guard window.isVisible(), !window.hasCameraForReplay(), !isAnimatingTransition(window) else {
+                let timestampDate = Date()
+                let frame: PostHogGPUMirrorCapture.Frame, wireframe: RRWireframe
+                switch mirrorAndMask(window, mirror: mirror, scale: scale) {
+                case .skipped:
                     endGPUCapture(nil)
                     return
-                }
-                let timestampDate = Date()
-                guard let frame = mirror.build(window: window, scale: scale) else {
+                case .unbuilt:
                     endGPUCapture(nil, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
                     return
-                }
-                let rects: [CGRect]
-                switch maskableRects(for: frame, in: window) {
-                case let .rects(walked):
-                    rects = walked
-                case .skip:
+                case let .unsettled(unsettled):
                     hedgeLog("[Session Replay] Skipping snapshot: a masked view hasn't been laid out yet")
-                    endGPUCapture(frame)
+                    endGPUCapture(unsettled)
                     return
-                case .fallback:
-                    endGPUCapture(frame, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
+                case let .fallback(unused):
+                    endGPUCapture(unused, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
                     return
+                case let .frozen(frozen, frozenWireframe):
+                    frame = frozen
+                    wireframe = frozenWireframe
                 }
-                frame.freeze()
-                let wireframe = createBasicWireframe(window)
-                wireframe.type = "screenshot"
-                wireframe.maskableWidgets = rects
-                wireframe.screenshotPixelScale = frame.scale
                 let capture = MirroredCapture(frame: frame, wireframe: wireframe, windowSize: window.bounds.size,
                                               screenName: screenName, timestampDate: timestampDate)
                 // Build and render each cost up to a frame on older devices; keep them in separate turns.
@@ -2586,7 +2652,12 @@
                 }
             }
 
-            /// What the mask walk of a GPU capture leaves its frame with.
+            /// The read-back pixels as the screenshot the rect pass and encode take.
+            static func screenshot(_ pixels: CGImage, of frame: PostHogGPUMirrorCapture.Frame) -> UIImage {
+                UIImage(cgImage: pixels, scale: frame.scale, orientation: .up)
+            }
+
+            /// What the mask walk of a GPU capture leaves its frame with, before any inline masking.
             enum GPUMaskWalk: Equatable {
                 case rects([CGRect])
                 /// A masked view hasn't been laid out yet.
@@ -2596,16 +2667,18 @@
                 case fallback
             }
 
-            /// The mask walk of a GPU capture, between `build` and `freeze`.
+            /// The mask walk of a GPU capture, between `build` and `freeze`, without inline masking.
             func maskableRects(for frame: PostHogGPUMirrorCapture.Frame, in window: UIWindow) -> GPUMaskWalk {
                 guard let regions = collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources) else {
                     return .skip
                 }
-                let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer
-                if let cover, isCulledWithAncestors(cover, frame.culledLayers) {
-                    return .fallback
-                }
-                return .rects(regions.map(\.rect))
+                return leftOutCover(of: frame, in: window) ? .fallback : .rects(regions.map(\.rect))
+            }
+
+            /// Whether the mirror left out the full-window cover or one of its ancestors.
+            private func leftOutCover(of frame: PostHogGPUMirrorCapture.Frame, in window: UIWindow) -> Bool {
+                guard let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer else { return false }
+                return isCulledWithAncestors(cover, frame.culledLayers)
             }
 
             private struct MirroredCapture {
@@ -2635,7 +2708,7 @@
                     if let self, let image, let window, postHog.isSessionReplayActive() {
                         self.renderAndEnqueueScreenshot(wireframe, window: window, windowSize: capture.windowSize, screenName: capture.screenName,
                                                         postHog: postHog, timestampDate: capture.timestampDate,
-                                                        image: UIImage(cgImage: image, scale: frame.scale, orientation: .up))
+                                                        image: Self.screenshot(image, of: frame))
                     }
                     DispatchQueue.main.async {
                         guard let self else {
@@ -2683,6 +2756,82 @@
 
             var isScreenshotRenderInFlightForTesting: Bool {
                 screenshotRenderLock.withLock { isScreenshotRenderInFlight }
+            }
+        }
+
+        extension PostHogReplayIntegration {
+            struct MaskCaptureForTesting {
+                /// The final image the WebP encode is given: the pixels with the rect pass applied.
+                let image: UIImage
+                let rectRegions: [CGRect]
+                let inlineRegionCount: Int
+                let turn1Milliseconds: Double
+                let webpBytes: Int
+            }
+
+            private static func result(encoding wireframe: RRWireframe, inlineRegionCount: Int, turn1Milliseconds: Double) -> MaskCaptureForTesting? {
+                let rects = wireframe.maskableWidgets ?? []
+                guard let (image, base64) = wireframe.encodeImage(), let base64,
+                      let data = Data(base64Encoded: base64.components(separatedBy: ",").last ?? "")
+                else { return nil }
+                return MaskCaptureForTesting(image: image, rectRegions: rects, inlineRegionCount: inlineRegionCount,
+                                             turn1Milliseconds: turn1Milliseconds, webpBytes: data.count)
+            }
+
+            /// The settled path as production runs it (rect collection, toImage, maskImage), then the upload's WebP encode.
+            func defaultPathCaptureForTesting(window: UIWindow) -> MaskCaptureForTesting? {
+                let start = CACurrentMediaTime()
+                guard let capture = collectScreenshotMetadata(window), let image = capture.image else { return nil }
+                let milliseconds = (CACurrentMediaTime() - start) * 1000
+                capture.wireframe.image = image
+                return Self.result(encoding: capture.wireframe, inlineRegionCount: 0, turn1Milliseconds: milliseconds)
+            }
+
+            /// The GPU path as production runs it, minus upload.
+            func gpuPathCaptureForTesting(window: UIWindow, mirror: PostHogGPUMirrorCapture, scale: CGFloat,
+                                          completion: @escaping (MaskCaptureForTesting?) -> Void)
+            {
+                let start = CACurrentMediaTime()
+                let mirrored = mirrorAndMask(window, mirror: mirror, scale: scale)
+                let milliseconds = (CACurrentMediaTime() - start) * 1000
+                guard case let .frozen(frame, wireframe) = mirrored else {
+                    switch mirrored {
+                    case let .unsettled(frame), let .fallback(frame): frame.release()
+                    case .skipped, .unbuilt, .frozen: break
+                    }
+                    completion(nil)
+                    return
+                }
+                let inlineCount = mirror.inlineMask.lastInlineRegionCountForTesting
+                PostHogGPUMirrorCapture.onNextRunLoopTurn {
+                    guard frame.encode() else {
+                        frame.release()
+                        completion(nil)
+                        return
+                    }
+                    frame.readback(on: Self.dispatchQueue) { image in
+                        var result: MaskCaptureForTesting?
+                        if let image {
+                            wireframe.image = Self.screenshot(image, of: frame)
+                            result = Self.result(encoding: wireframe, inlineRegionCount: inlineCount, turn1Milliseconds: milliseconds)
+                        }
+                        DispatchQueue.main.async {
+                            frame.release()
+                            completion(result)
+                        }
+                    }
+                }
+            }
+
+            /// Every class the mask walk masks as text, an image, a web view or a sandboxed view, as (view, layer) class pairs.
+            /// Not buttons: their chrome is kept and their title label masked as a label.
+            var maskedClassesForTesting: [(view: AnyClass?, layer: AnyClass)] {
+                let views: [AnyClass] = [UILabel.self, UITextField.self, UITextView.self, UIImageView.self, WKWebView.self, UISwitch.self,
+                                         UIPickerView.self]
+                    + [reactNativeTextView, reactNativeParagraphView, reactNativeImageView, reactNativeImageComponentView, reactNativeSvgView,
+                       systemSandboxedView].compactMap { $0 } + (swiftUITextBasedViewTypes + Self.swiftUIFlattenedContentTypes).filter { $0 is UIView.Type }
+                let layers = (swiftUITextBasedViewTypes + swiftUIImageLayerTypes + Self.swiftUIFlattenedContentTypes).filter { $0 is CALayer.Type }
+                return views.map { (view: $0, layer: CALayer.self) } + layers.map { (view: nil, layer: $0) }
             }
         }
     #endif

@@ -101,8 +101,13 @@
                 if position > viewPosition || (position == viewPosition && isAfterView) {
                     return false
                 }
-                // Model order can already hide a sibling that is still rendered above the cover.
-                let renderedPosition = sibling.layer.readablePresentation?.zPosition ?? position
+                // Model order can already hide a sibling that is still rendered above the cover. An app-defined sibling
+                // that's animating can't be read, so it may be.
+                let rendered = sibling.layer.readablePresentation
+                if rendered == nil, sibling.layer.isAppDefined {
+                    return false
+                }
+                let renderedPosition = rendered?.zPosition ?? position
                 if renderedPosition > renderedViewPosition || (renderedPosition == renderedViewPosition && isAfterView) {
                     return false
                 }

@@ -142,3 +142,6 @@ xcodebuild-ios.log
 
 # Survey UI test run output
 survey-ui-tests.log
+
+# sdk-specs checkout the release workflow generates the SDK reference from
+.sdk-specs/

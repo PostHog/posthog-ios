@@ -55,6 +55,8 @@ class PostHogRemoteConfig {
     private var requestId: String?
     private var evaluatedAt: Int?
     private var minimalFlagCalledEvents: Bool?
+    /// Latest response-wide evaluation diagnostic, guarded by `featureFlagsLock`.
+    private var errorsWhileComputingFlags: Bool?
 
     /// Copies of `config.bootstrap`, retained for `$feature_flag_called` enrichment and cleared by
     /// `clear()` (on `reset()`) so bootstrap never re-applies to a different user. Under `featureFlagsLock`.
@@ -147,6 +149,10 @@ class PostHogRemoteConfig {
         let sanitizedPayloads = sanitizeDictionary(config.bootstrap?.featureFlagPayloads) ?? [:]
         bootstrappedFlags = enabledFlags
         bootstrappedPayloads = sanitizedPayloads.filter { enabledFlags[$0.key] != nil }
+
+        // Older SDKs persisted failed placeholders in the derived maps. Clean those maps before
+        // bootstrap supplies independent successful values or any accessor serves the disk cache.
+        sanitizePersistedFeatureFlags()
 
         // Load cached person and group properties for flags
         loadCachedPropertiesForFlags()
@@ -566,6 +572,7 @@ class PostHogRemoteConfig {
                     // Persist the minimal $feature_flag_called gate alongside the cached flags so it
                     // survives restarts. Set unconditionally: an absent field means the gate is off.
                     self.setCachedMinimalFlagCalledEvents(data["minimalFlagCalledEvents"] as? Bool)
+                    self.setCachedErrorsWhileComputingFlags(errorsWhileComputingFlags)
 
                     if errorsWhileComputingFlags {
                         let cachedFlags = self.getCachedFlags() ?? [:]
@@ -577,8 +584,16 @@ class PostHogRemoteConfig {
 
                         loadedFeatureFlags = newFeatureFlags
                         if let flagsV4 {
-                            let newFlags = cachedFlags.merging(flagsV4) { _, new in new }
+                            // A failed record supplies diagnostics, not a replacement for a served value.
+                            let incomingFlags = flagsV4.filter { key, value in
+                                let failed = (value as? [String: Any])?["failed"] as? Bool == true
+                                return !failed || cachedFeatureFlags[key] == nil
+                            }
+                            let newFlags = cachedFlags.merging(incomingFlags) { _, new in new }
                             self.setCachedFlags(newFlags)
+                        } else {
+                            // Legacy values replace the source for these keys, not retained siblings.
+                            self.setCachedFlags(cachedFlags.filter { featureFlags[$0.key] == nil })
                         }
                         self.setCachedFeatureFlags(newFeatureFlags)
                         self.setCachedFeatureFlagPayload(newFeatureFlagsPayloads)
@@ -587,9 +602,7 @@ class PostHogRemoteConfig {
                         // (matches posthog-js): bootstrapped-only keys and stale bootstrapped payloads
                         // do not survive a complete load. Partial/errored responses merge above.
                         loadedFeatureFlags = featureFlags
-                        if let flagsV4 {
-                            self.setCachedFlags(flagsV4)
-                        }
+                        self.setCachedFlags(flagsV4 ?? [:])
                         self.setCachedFeatureFlags(featureFlags)
                         self.setCachedFeatureFlagPayload(featureFlagPayloads)
                     }
@@ -909,6 +922,20 @@ class PostHogRemoteConfig {
         getFeatureFlagValue(key) { self.getCachedFlags() }
     }
 
+    func getFeatureFlagErrors(_ key: String) -> [String] {
+        featureFlagsLock.withLock {
+            var errors = [String]()
+            let details = getCachedFlags()?[key] as? [String: Any]
+            if getCachedFeatureFlags()?[key] == nil, details?["failed"] as? Bool == true {
+                errors.append("evaluation_failed")
+            }
+            if getCachedValue(\.errorsWhileComputingFlags, key: .errorsWhileComputingFlags, load: { storage.getBool(forKey: $0) }) == true {
+                errors.append("errors_while_computing_flags")
+            }
+            return errors
+        }
+    }
+
     private func getFeatureFlagValue(_ key: String, from getCachedValues: () -> [String: Any]?) -> Any? {
         var flags: [String: Any]?
         featureFlagsLock.withLock {
@@ -952,6 +979,9 @@ class PostHogRemoteConfig {
     private func seedBootstrapFlagsIfNeeded() -> Bool {
         featureFlagsLock.withLock {
             guard !bootstrappedFlags.isEmpty else { return false }
+            // Bootstrap replaces the served snapshot and carries no remote evaluation details.
+            setCachedFlags([:])
+            setCachedErrorsWhileComputingFlags(nil)
             setCachedFeatureFlags(bootstrappedFlags)
             setCachedFeatureFlagPayload(bootstrappedPayloads)
             return true
@@ -988,6 +1018,28 @@ class PostHogRemoteConfig {
     // To be called after acquiring `featureFlagsLock`
     private func setFlagsLoadedFromRemoteLocked() {
         flagsLoadedFromRemote = true
+    }
+
+    private func sanitizePersistedFeatureFlags() {
+        featureFlagsLock.withLock {
+            let failedKeys = Set((getCachedFlags() ?? [:]).compactMap { key, value in
+                (value as? [String: Any])?["failed"] as? Bool == true ? key : nil
+            })
+            guard !failedKeys.isEmpty else { return }
+
+            if let cached = getCachedFeatureFlags() {
+                let sanitized = cached.filter { !failedKeys.contains($0.key) }
+                if sanitized.count != cached.count {
+                    setCachedFeatureFlags(sanitized)
+                }
+            }
+            if let cached = getCachedFeatureFlagPayload() {
+                let sanitized = cached.filter { !failedKeys.contains($0.key) }
+                if sanitized.count != cached.count {
+                    setCachedFeatureFlagPayload(sanitized)
+                }
+            }
+        }
     }
 
     // To be called after acquiring `featureFlagsLock`
@@ -1234,6 +1286,13 @@ class PostHogRemoteConfig {
         }
     }
 
+    // To be called after acquiring `featureFlagsLock`
+    private func setCachedErrorsWhileComputingFlags(_ value: Bool?) {
+        setCachedValue(value, cache: \.errorsWhileComputingFlags, key: .errorsWhileComputingFlags) { key, value in
+            storage.setBool(forKey: key, contents: value)
+        }
+    }
+
     private func getCachedValue<T>(
         _ cache: ReferenceWritableKeyPath<PostHogRemoteConfig, T?>,
         key: PostHogStorage.StorageKey,
@@ -1265,6 +1324,7 @@ class PostHogRemoteConfig {
             var featureFlagsPayloads = [String: Any]()
             for (key, value) in flagsV4 {
                 if let flag = value as? [String: Any] {
+                    guard flag["failed"] as? Bool != true else { continue }
                     if let variant = flag["variant"] as? String {
                         featureFlags[key] = variant
                         // If there's a variant, the flag is enabled, so we can store the payload
@@ -1306,6 +1366,7 @@ class PostHogRemoteConfig {
         setCachedRequestId(nil) // requestId no longer valid
         setCachedEvaluatedAt(nil) // evaluatedAt no longer valid
         setCachedMinimalFlagCalledEvents(nil) // gate travels with the cached flags; re-arms on the next /flags
+        setCachedErrorsWhileComputingFlags(nil)
     }
 
     /// Clears all cached feature flags, remote config state, and user-specific properties.

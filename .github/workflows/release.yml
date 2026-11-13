@@ -292,6 +292,82 @@ jobs:
               "alertContext": "The GitHub release creation step failed."
             }
 
+  update-references:
+    name: Update SDK reference
+    needs: create-github-release
+    runs-on: macos-26
+    # Best-effort: a failure never blocks the release. Run generate-references.yml to retry.
+    continue-on-error: true
+    if: always() && needs.create-github-release.result == 'success'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Checkout sdk-specs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: PostHog/sdk-specs
+          path: .sdk-specs
+
+      - name: Generate the reference
+        run: python3 scripts/generate-markdown.py --sdk-specs .sdk-specs
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: references
+          path: references/
+          if-no-files-found: error
+
+      - name: Warn if the SDK reference didn't regenerate
+        if: failure()
+        run: echo "::warning::The SDK reference didn't regenerate. Run generate-references.yml to retry."
+
+  # ghcommit-action is a Docker action, which only runs on Linux runners.
+  commit-references:
+    name: Commit SDK reference
+    needs: [create-github-release, update-references]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    if: always() && needs.update-references.result == 'success'
+    permissions:
+      contents: read
+    steps:
+      - name: Get GitHub App token
+        id: releaser
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.GH_APP_POSTHOG_IOS_RELEASER_APP_ID }}
+          private-key: ${{ secrets.GH_APP_POSTHOG_IOS_RELEASER_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          token: ${{ steps.releaser.outputs.token }}
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: references
+          path: references/
+
+      - name: Commit the reference
+        uses: planetscale/ghcommit-action@a6b150b81dca5dd027baa898604418eec9e11465 # v0.2.22
+        with:
+          commit_message: "docs: update SDK reference for v${{ needs.create-github-release.outputs.version }} [skip ci]"
+          repo: ${{ github.repository }}
+          branch: main
+          file_pattern: references/
+        env:
+          GITHUB_TOKEN: ${{ steps.releaser.outputs.token }}
+
+      - name: Warn if the SDK reference didn't regenerate
+        if: failure()
+        run: echo "::warning::The SDK reference didn't regenerate. Run generate-references.yml to retry."
+
   publish-cocoapods:
     name: Publish to CocoaPods
     needs: [create-github-release, notify-approval-needed]

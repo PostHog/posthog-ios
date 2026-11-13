@@ -49,7 +49,7 @@ Read the checklist first, then the sections that apply to you.
 - [ ] You read `$session_id` or `$window_id` from the raw request body, for example in a proxy → [Check session IDs](#check-session-ids)
 - [ ] You register a super property, or pass an event property, with the same key as one the SDK sets, such as `$os`, `$is_identified`, or `$geoip_disable`, and expect the SDK's value to win → [Check property precedence](#check-property-precedence)
 - [ ] You replace `event.options` in `beforeSend`, or return an event kept from an earlier call → [Keep options in beforeSend](#keep-options-in-beforesend)
-- [ ] You register `$process_person_profile` as `false` and still call `identify`, `alias`, `group`, or `setPersonProperties` → [Fix identity calls](#fix-identity-calls)
+- [ ] You register `$process_person_profile` as `false` and expect it to keep every event personless → [Check registered person processing](#check-registered-person-processing)
 - [ ] You rely on a `Retry-After` longer than 30 seconds → [Check retries and batches](#check-retries-and-batches)
 - [ ] You might go back to 3.x.x after you ship 4.x.x → [Plan your rollback](#plan-your-rollback)
 
@@ -560,30 +560,15 @@ In 3.x.x, the SDK marked person processing with the `$process_person_profile` pr
 
 A hook that replaces `event.options` without keeping that key, or returns an event kept from an earlier call, can lose the `false` the SDK set. That turns person processing on for anonymous users, overriding `personProfiles`.
 
-### Fix identity calls
+### Check registered person processing
 
 A registered `$process_person_profile` changes person processing for every event. In 3.x.x, the SDK replaced a registered `$process_person_profile` with its own value, so a registered `false` had no effect.
 
 In 4.x.x a registered `false` applies, also after `identify` and with `personProfiles` set to `.always`. Those events don't change the person profile, and their `$set` is ignored. They're still linked to the person and billed as identified events.
 
-A registered `$process_person_profile: false` also reaches the events `identify`, `alias`, `group`, and `setPersonProperties` send:
+A registered `$process_person_profile`, or a `process_person_profile` option a wrapper SDK registers, doesn't apply to identity events: `$identify`, `$create_alias`, `$merge_dangerously`, `$groupidentify`, `$set`, and `$set_once`. With person processing off, PostHog drops `$identify`, `$create_alias`, `$merge_dangerously`, and `$groupidentify`, and keeps `$set` and `$set_once` but ignores their person update. So a registered `false` would stop `identify`, `alias`, `group`, and `setPersonProperties` from working.
 
-- **`$identify`, `$create_alias`, and `$groupidentify`.** PostHog accepts them and then drops them with an ingestion warning, and the SDK doesn't report it.
-- **`$set`.** PostHog keeps the event, but the person isn't updated.
-
-To keep identifying, pass the option on the call, or set it in `beforeSend`:
-
-```swift
-PostHogSDK.shared.register(["$process_person_profile": false])
-
-PostHogSDK.shared.identify("user-123",
-                           userProperties: ["plan": "pro"],
-                           options: ["process_person_profile": true])
-```
-
-If you registered `false` to skip person profiles for anonymous users, remove it. `personProfiles = .identifiedOnly`, the default, already does that and still lets `identify` create the person.
-
-To create no person profiles at all, set `personProfiles` to `.never` instead. The SDK then skips these calls.
+A value you pass on the call, or set in `beforeSend`, still applies. To create no person profiles at all, set `personProfiles` to `.never`. The SDK then skips these calls.
 
 ### Check retries and batches
 

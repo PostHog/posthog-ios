@@ -23,6 +23,8 @@ struct PostHogSurveyConditions: Decodable {
     let seenSurveyWaitPeriodInDays: Int?
     /// Event-based conditions for displaying the survey (optional)
     let events: PostHogSurveyEventConditions?
+    /// Events that cancel a pending or visible survey (optional)
+    let cancelEvents: PostHogSurveyEventConditions?
     /// Required variant of the linked flag; "any" accepts any enabled value.
     let linkedFlagVariant: String?
     /// Action-based conditions for displaying the survey (optional)

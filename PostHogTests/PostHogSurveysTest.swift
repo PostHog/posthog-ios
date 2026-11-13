@@ -775,6 +775,7 @@ enum PostHogSurveysTest {
                         repeatedActivation: repeatedActivation,
                         values: values
                     ),
+                    cancelEvents: nil,
                     linkedFlagVariant: nil,
                     actions: nil
                 ),

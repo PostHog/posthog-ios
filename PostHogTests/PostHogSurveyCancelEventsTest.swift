@@ -1,4 +1,3 @@
-import Combine
 import Foundation
 @testable import PostHog
 import Testing
@@ -85,30 +84,120 @@ final class PostHogSurveyCancelEventsTest {
         #expect(!integration.testIsEventActivated(surveyId: "cancel-survey"))
     }
 
-    @Test("a cancel event dismisses a survey that is already on screen")
+    @Test("cancellation preserves an attempt owned by a custom delegate", arguments: [false, true], ["checkout_completed", "unrelated"])
     @MainActor
-    func cancelDismissesShownSurvey() throws {
+    func customDelegateKeepsOwnership(shownBeforeCancel: Bool, eventName: String) async throws {
         let (postHog, integration) = try makeIntegration()
         defer {
             postHog.close()
             postHog.reset()
         }
-        var events: [PostHogEvent] = []
-        postHog.config.setBeforeSend { events.append($0)
+        let delegate = RecordingSurveyDelegate()
+        postHog.config._surveysConfig.surveysDelegate = delegate
+        let survey = try load(integration)
+        let nextSurvey = try #require(integration.decodeSurveys(from: ["surveys": [[
+            "id": "next-survey", "name": "Next survey", "type": "popover",
+            "questions": [["id": "next", "type": "open", "question": "Next?"]],
+            "start_date": "2024-01-01T00:00:00.000Z",
+        ]]]).first)
+        integration.setSurveys([survey, nextSurvey])
+        var events: [String] = []
+        postHog.config.setBeforeSend { event in
+            events.append(event.event)
             return nil
         }
-        let survey = try load(integration)
         integration.setShownSurvey(survey)
-        integration.testSurveyCallbacks().shown(survey.toDisplaySurvey())
+        let callbacks = integration.testSurveyCallbacks()
+        delegate.renderSurvey(survey.toDisplaySurvey(), onSurveyShown: callbacks.shown, onSurveyResponse: callbacks.response, onSurveyClosed: callbacks.closed)
+        let presentation = try #require(delegate.presentations.first)
+        let submissionId = try #require(integration.testActiveSubmissionId)
+        if shownBeforeCancel {
+            presentation.callbacks.shown(presentation.survey)
+        }
 
-        integration.testOnEvent(event: PostHogEvent(event: "checkout_completed", distinctId: "user", properties: [:], timestamp: Date()))
+        integration.testOnEvent(event: PostHogEvent(event: eventName, distinctId: "user", properties: [:], timestamp: Date()))
+        await drainDisplayQueue()
 
-        #expect(events.contains { $0.event == "survey dismissed" })
+        #expect(integration.testActiveSubmissionId == submissionId)
+        #expect(!integration.canShowNextSurvey())
+        #expect(!events.contains("survey dismissed"))
+        #if os(iOS)
+            integration.hasActiveSurveyWindow = { true }
+            integration.showNextSurvey()
+            await drainDisplayQueue()
+            #expect(delegate.presentations.count == 1)
+        #endif
+        if !shownBeforeCancel {
+            presentation.callbacks.shown(presentation.survey)
+        }
+        #expect(events.filter { $0 == "survey shown" }.count == 1)
+        let next = presentation.callbacks.response(presentation.survey, 0, .openEnded("Answer"))
+        #expect(next?.isSurveyCompleted == true)
+        #expect(events.filter { $0 == "survey sent" }.count == 1)
+        #expect(!events.contains("survey dismissed"))
+        presentation.callbacks.closed(presentation.survey)
         #expect(integration.canShowNextSurvey())
     }
 
+    @MainActor
+    private func drainDisplayQueue() async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
+                DispatchQueue.main.async { continuation.resume() }
+            }
+        }
+    }
+
     #if os(iOS)
-        @Test("cancellation accounts for a response even if shown was not reported")
+        @Test("cancel events preserve a visible built-in survey", arguments: [false, true], [false, true])
+        @MainActor
+        func cancelKeepsShownSurvey(background: Bool, answer: Bool) async throws {
+            let (postHog, integration) = try makeIntegration()
+            defer {
+                postHog.close()
+                postHog.reset()
+            }
+            let survey = try load(integration)
+            let delegate = try #require(postHog.config._surveysConfig.surveysDelegate as? PostHogSurveysDefaultDelegate)
+            let controller = SurveyDisplayController()
+            delegate.setDisplayControllerForTesting(controller)
+            var events: [String] = []
+            postHog.config.setBeforeSend { event in
+                events.append(event.event)
+                return nil
+            }
+            integration.setShownSurvey(survey)
+            let submissionId = try #require(integration.testActiveSubmissionId)
+            let callbacks = integration.testSurveyCallbacks()
+            delegate.renderSurvey(survey.toDisplaySurvey(), onSurveyShown: callbacks.shown, onSurveyResponse: callbacks.response, onSurveyClosed: callbacks.closed)
+
+            if background {
+                await withCheckedContinuation { continuation in
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        integration.testOnEvent(event: PostHogEvent(event: "checkout_completed", distinctId: "user", properties: [:], timestamp: Date()))
+                        continuation.resume()
+                    }
+                }
+            } else {
+                integration.testOnEvent(event: PostHogEvent(event: "checkout_completed", distinctId: "user", properties: [:], timestamp: Date()))
+            }
+            await drainDisplayQueue()
+
+            #expect(controller.displayedSurvey?.id == survey.id)
+            #expect(integration.testActiveSubmissionId == submissionId)
+            #expect(!integration.canShowNextSurvey())
+            #expect(events == ["survey shown"])
+            if answer {
+                controller.onNextQuestion(index: 0, response: .openEnded("Answer"))
+                #expect(controller.isSurveyCompleted)
+                #expect(events.filter { $0 == "survey sent" }.count == 1)
+            }
+            controller.dismissSurvey()
+            #expect(events.filter { $0 == "survey dismissed" }.count == (answer ? 0 : 1))
+            #expect(integration.canShowNextSurvey())
+        }
+
+        @Test("cancel events preserve answers before the shown callback")
         @MainActor
         func responseThenCancellation() throws {
             let (postHog, integration) = try makeIntegration()
@@ -116,6 +205,8 @@ final class PostHogSurveyCancelEventsTest {
                 postHog.close()
                 postHog.reset()
             }
+            let delegate = RecordingSurveyDelegate()
+            postHog.config._surveysConfig.surveysDelegate = delegate
             try load(integration)
             let survey = try #require(integration.decodeSurveys(from: ["surveys": [[
                 "id": "cancel-survey", "name": "Cancel survey", "type": "popover",
@@ -125,18 +216,28 @@ final class PostHogSurveyCancelEventsTest {
                 ],
                 "start_date": "2024-01-01T00:00:00.000Z",
             ]]]).first)
-            var events: [String] = []
+            var events: [PostHogEvent] = []
             postHog.config.setBeforeSend { event in
-                events.append(event.event)
+                events.append(event)
                 return nil
             }
             integration.setShownSurvey(survey)
-            let next = try #require(integration.testSurveyCallbacks().response(survey.toDisplaySurvey(), 0, .openEnded("Answer")))
+            let callbacks = integration.testSurveyCallbacks()
+            delegate.renderSurvey(survey.toDisplaySurvey(), onSurveyShown: callbacks.shown, onSurveyResponse: callbacks.response, onSurveyClosed: callbacks.closed)
+            let presentation = try #require(delegate.presentations.first)
+            let next = try #require(presentation.callbacks.response(presentation.survey, 0, .openEnded("Answer")))
             #expect(!next.isSurveyCompleted)
 
             integration.testOnEvent(event: PostHogEvent(event: "checkout_completed", distinctId: "user", properties: [:], timestamp: Date()))
 
-            #expect(events.filter { $0 == "survey dismissed" }.count == 1)
+            #expect(!events.contains { $0.event == "survey dismissed" })
+            #expect(!integration.canShowNextSurvey())
+            let completed = presentation.callbacks.response(presentation.survey, 1, .openEnded("Second answer"))
+            #expect(completed?.isSurveyCompleted == true)
+            let sent = try #require(events.first { $0.event == "survey sent" })
+            #expect(sent.properties["$survey_response_first"] as? String == "Answer")
+            #expect(sent.properties["$survey_response_second"] as? String == "Second answer")
+            presentation.callbacks.closed(presentation.survey)
             #expect(integration.canShowNextSurvey())
         }
 
@@ -149,8 +250,13 @@ final class PostHogSurveyCancelEventsTest {
                 postHog.close()
                 postHog.reset()
             }
-            let survey = try load(integration)
+            let survey = try load(integration, delay: 60)
+            let delegate = try #require(postHog.config._surveysConfig.surveysDelegate as? PostHogSurveysDefaultDelegate)
+            let controller = SurveyDisplayController()
+            delegate.setDisplayControllerForTesting(controller)
             integration.setShownSurvey(survey)
+            let callbacks = integration.testSurveyCallbacks()
+            delegate.renderSurvey(survey.toDisplaySurvey(), onSurveyShown: callbacks.shown, onSurveyResponse: callbacks.response, onSurveyClosed: callbacks.closed)
             integration.start()
             let finished = DispatchSemaphore(value: 0)
             DispatchQueue.global(qos: .userInitiated).async {
@@ -159,8 +265,10 @@ final class PostHogSurveyCancelEventsTest {
             }
 
             #expect(finished.wait(timeout: .now() + 1) == .success)
+            #expect(!integration.canShowNextSurvey())
             await drainDisplayQueue()
             #expect(integration.canShowNextSurvey())
+            #expect(controller.displayedSurvey == nil)
         }
 
         @Test("a stale cancellation cannot clear a new attempt after reset", arguments: [false, true])
@@ -196,12 +304,7 @@ final class PostHogSurveyCancelEventsTest {
             await drainDisplayQueue()
 
             #expect(integration.testActiveSubmissionId == replacementSubmissionId)
-            switch delegate.cancelSurveyIfPresented(replacement.id) {
-            case .cancelledPending:
-                break
-            default:
-                Issue.record("The replacement's pending display was cancelled by the stale attempt")
-            }
+            #expect(delegate.cancelPendingSurveyIfPresented(replacement.id))
         }
 
         @Test("cancelling a pending display releases it without interaction events")
@@ -229,12 +332,7 @@ final class PostHogSurveyCancelEventsTest {
 
             #expect(integration.canShowNextSurvey())
             #expect(events.isEmpty)
-            switch delegate.cancelSurveyIfPresented(survey.id) {
-            case .notPresented:
-                break
-            default:
-                Issue.record("The cancelled display is still pending")
-            }
+            #expect(!delegate.cancelPendingSurveyIfPresented(survey.id))
         }
 
         @Test("a cancellation between selection and reservation suppresses display")
@@ -261,70 +359,20 @@ final class PostHogSurveyCancelEventsTest {
             #expect(integration.canShowNextSurvey())
         }
 
-        @MainActor
-        private func drainDisplayQueue() async {
-            await withCheckedContinuation { continuation in
-                DispatchQueue.main.async {
-                    DispatchQueue.main.async { continuation.resume() }
-                }
-            }
-        }
-
-        @Test("a cancel event captured off the main thread dismisses survey UI on main")
-        @MainActor
-        func backgroundCancellation() async throws {
-            let (postHog, integration) = try makeIntegration()
-            defer {
-                postHog.close()
-                postHog.reset()
-            }
-            let survey = try load(integration)
-            let delegate = try #require(postHog.config._surveysConfig.surveysDelegate as? PostHogSurveysDefaultDelegate)
-            let controller = SurveyDisplayController()
-            delegate.setDisplayControllerForTesting(controller)
-            integration.setShownSurvey(survey)
-            let callbacks = integration.testSurveyCallbacks()
-            delegate.renderSurvey(survey.toDisplaySurvey(), onSurveyShown: callbacks.shown, onSurveyResponse: callbacks.response, onSurveyClosed: callbacks.closed)
-
-            let dismissedOnMain = Locked(false)
-            let subscription = controller.$displayedSurvey.dropFirst().sink { _ in
-                dismissedOnMain.withLock { $0 = Thread.isMainThread }
-            }
-            defer { subscription.cancel() }
-
-            await withCheckedContinuation { continuation in
-                DispatchQueue.global(qos: .userInitiated).async {
-                    integration.testOnEvent(event: PostHogEvent(
-                        event: "checkout_completed",
-                        distinctId: "user",
-                        properties: [:],
-                        timestamp: Date()
-                    ))
-                    continuation.resume()
-                }
-            }
-            await drainDisplayQueue()
-
-            #expect(dismissedOnMain.withLock { $0 })
-            #expect(controller.displayedSurvey == nil)
-            #expect(integration.canShowNextSurvey())
-        }
     #endif
 }
 
-#if os(iOS)
-    private final class Locked<Value>: @unchecked Sendable {
-        private let lock = NSLock()
-        private var value: Value
+private final class RecordingSurveyDelegate: NSObject, PostHogSurveysDelegate {
+    var presentations: [(survey: PostHogDisplaySurvey, callbacks: SurveyCallbacks)] = []
 
-        init(_ value: Value) {
-            self.value = value
-        }
-
-        func withLock<T>(_ body: (inout Value) -> T) -> T {
-            lock.lock()
-            defer { lock.unlock() }
-            return body(&value)
-        }
+    func renderSurvey(
+        _ survey: PostHogDisplaySurvey,
+        onSurveyShown: @escaping OnPostHogSurveyShown,
+        onSurveyResponse: @escaping OnPostHogSurveyResponse,
+        onSurveyClosed: @escaping OnPostHogSurveyClosed
+    ) {
+        presentations.append((survey, SurveyCallbacks(shown: onSurveyShown, response: onSurveyResponse, closed: onSurveyClosed)))
     }
-#endif
+
+    func cleanupSurveys() {}
+}

@@ -662,7 +662,7 @@
         }
 
         /// Handle a survey dismiss
-        func handleSurveyClosed(survey: PostHogDisplaySurvey, attemptId: UUID?) {
+        private func handleSurveyClosed(survey: PostHogDisplaySurvey, attemptId: UUID?) {
             let capture: (() -> Void)? = withActiveSurveyAttempt(attemptId) { generation in
                 let activeSurvey = self.activeSurvey
                 let completed = activeSurveyCompleted

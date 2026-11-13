@@ -2701,10 +2701,14 @@
                 return leftOutCover(of: frame, in: window) ? .fallback : .rects(regions.map(\.rect))
             }
 
-            /// Whether the mirror left out the full-window cover or one of its ancestors.
+            /// Whether the mirror left out the full-window cover, or a presented view that may be one, or an ancestor.
             private func leftOutCover(of frame: PostHogGPUMirrorCapture.Frame, in window: UIWindow) -> Bool {
-                guard let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer else { return false }
-                return isCulledWithAncestors(cover, frame.culledLayers)
+                if let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer {
+                    return isCulledWithAncestors(cover, frame.culledLayers)
+                }
+                return PostHogPresentationCover.unreadablePresentedViews(in: window).contains {
+                    isCulledWithAncestors($0.layer, frame.culledLayers)
+                }
             }
 
             private struct MirroredCapture {

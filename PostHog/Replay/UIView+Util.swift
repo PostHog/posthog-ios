@@ -386,14 +386,12 @@
         /// `modelRect` for a layer in an app-defined chain, whose presentation can't be read. The model matches the
         /// screen only while nothing in the chain animates; while something does, the mask covers the whole window.
         func failingClosedWhileAnimating(_ modelRect: CGRect, in window: UIWindow?) -> CGRect {
-            var layer: CALayer? = self
-            while let current = layer {
-                if current.animationKeys() != nil {
-                    return modelRect.union(window?.bounds ?? modelRect)
-                }
-                layer = current.superlayer
-            }
-            return modelRect
+            hasAnimationInChain ? modelRect.union(window?.bounds ?? modelRect) : modelRect
+        }
+
+        /// Whether this layer or an ancestor has an animation, so the model may not match the screen.
+        var hasAnimationInChain: Bool {
+            animationKeys() != nil || superlayer?.hasAnimationInChain == true
         }
 
         private static func isAppDefined(_ cls: AnyClass) -> Bool {
@@ -465,11 +463,12 @@
         /// in bounds coordinates. A shadow without a `shadowPath` repeats the content's shape,
         /// text included, so it counts; `masksToBounds` clips the shadow away.
         /// Either the model's shadow or the presentation's can be drawn (the GPU capture copies the
-        /// presentation's, mid-animation or before a commit), so the larger of the two counts.
+        /// presentation's, mid-animation or before a commit), so the larger of the two counts. An app-defined layer's
+        /// presentation isn't copied: while one animates, its mask already spans the window.
         func drawnOutsets(of content: CGRect) -> UIEdgeInsets {
             let clips = masksToBounds
             let modelOutsets = Self.outsets(of: self, content: content, clips: clips)
-            guard let presented = presentation() else { return modelOutsets }
+            guard let presented = readablePresentation else { return modelOutsets }
             let presentedOutsets = Self.outsets(of: presented, content: presented.bounds.outset(by: Self.outsets(of: content, past: bounds)),
                                                 clips: clips && presented.masksToBounds)
             return UIEdgeInsets(top: max(modelOutsets.top, presentedOutsets.top), left: max(modelOutsets.left, presentedOutsets.left),

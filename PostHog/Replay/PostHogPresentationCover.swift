@@ -28,6 +28,20 @@
             return cover
         }
 
+        /// Presented views that can't be checked as covers, because an app-defined layer in their chain is animating.
+        /// Any of them may hide the window, so a capture that leaves one out can't draw what's behind it instead.
+        static func unreadablePresentedViews(in window: UIWindow) -> [UIView] {
+            var views: [UIView] = []
+            var controller = window.rootViewController
+            while let presented = controller?.presentedViewController {
+                if let view = presented.viewIfLoaded, view.layer.hasAppDefinedLayerInChain, view.layer.hasAnimationInChain {
+                    views.append(view)
+                }
+                controller = presented
+            }
+            return views
+        }
+
         private static func fullWindowCoverView(_ controller: UIViewController, in window: UIWindow) -> UIView? {
             guard
                 let view = controller.viewIfLoaded,
@@ -42,15 +56,17 @@
         }
 
         private static func hasUnobstructedCoverage(_ view: UIView, in window: UIWindow) -> Bool {
-            // Its presentation can't be converted without copying an app-defined layer, so it's no cover.
-            if view.layer.hasAppDefinedLayerInChain {
+            // Under an app-defined layer the presentation can't be converted without copying it. The model matches the
+            // screen only while nothing in the chain animates; while something does, it's no cover.
+            let readsModel = view.layer.hasAppDefinedLayerInChain
+            if readsModel, view.layer.hasAnimationInChain {
                 return false
             }
             var current = view
             while true {
                 let layer = current.layer
                 guard isUnmodifiedRectangle(layer, in: window.layer),
-                      isUnmodifiedRectangle(layer.presentation() ?? layer, in: window.layer.presentation() ?? window.layer)
+                      readsModel || isUnmodifiedRectangle(layer.presentation() ?? layer, in: window.layer.presentation() ?? window.layer)
                 else {
                     return false
                 }

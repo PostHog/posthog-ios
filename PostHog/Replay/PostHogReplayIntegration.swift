@@ -1634,16 +1634,46 @@
             )
         }
 
-        /// The render sits between two mask samples instead of one: measure geometry, render
-        /// off-main, measure again, mask the per-owner union — provably covering wherever the
-        /// content sat while the render ran, so no threshold is needed. Always uses
-        /// `drawHierarchy`, never the presentation-tree renderer: that reads `layer.presentation()`,
-        /// which is main-only, and this path's other reads already sit inside `main.sync`.
+        /// Three mask samples around an off-main render: measure geometry, wait
+        /// `backgroundCaptureLeadSeconds`, measure again, render, measure a third time, then mask as
+        /// `backgroundCaptureMaskRects` decides — swept and trailed when the content drifted,
+        /// skipped on motion, an unpaired owner, or a missing sample. Always uses `drawHierarchy`,
+        /// never the presentation-tree renderer: that reads `layer.presentation()`, which is
+        /// main-only, and this path's other reads already sit inside `main.sync`.
+        private func scheduleBracketedBackgroundCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) {
+            var lead = collectMaskedRegions(in: window)
+            guard lead != nil else {
+                finishScreenshotRender()
+                return
+            }
+            PostHogReplayIntegration.dispatchQueue.asyncAfter(deadline: .now() + Self.backgroundCaptureLeadSeconds) { [weak self] in
+                guard let self else {
+                    DispatchQueue.main.async { lead = nil }
+                    return
+                }
+                self.performBracketedBackgroundCapture(window: window, lead: &lead, screenName: screenName, postHog: postHog)
+            }
+        }
+
+        /// `lead` is inout so it can be dropped on main: MaskedRegion retains its view, and a view's
+        /// last release (with its UIKit teardown) must not run on the replay queue.
         @discardableResult
-        private func performBracketedBackgroundCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) -> Bool {
+        private func performBracketedBackgroundCapture(
+            window: UIWindow, lead: inout [MaskedRegion]?, screenName: String?, postHog: PostHogSDK
+        ) -> Bool {
             defer { finishScreenshotRender() }
 
-            guard let before = DispatchQueue.main.sync(execute: { self.collectMaskedRegions(in: window) }) else {
+            var before = DispatchQueue.main.sync { () -> [MaskedRegion]? in
+                let sample = self.collectMaskedRegions(in: window)
+                // The lead pair alone decides most motion frames; skip them before paying for a render.
+                guard Self.backgroundCaptureMaskRects(before: lead, after: sample) != nil else {
+                    lead = nil
+                    hedgeLog("[Session Replay] Skipping snapshot: mask geometry could not be covered during background capture")
+                    return nil
+                }
+                return sample
+            }
+            guard before != nil else {
                 return false
             }
             // Off-main on purpose, and the reason this mode exists: drawHierarchy on main was too
@@ -1652,9 +1682,13 @@
             // aligned with pixels despite the render happening on this thread.
             let image = window.toImage(preferFidelityRenderer: true)
             let capture = DispatchQueue.main.sync { () -> ScreenshotCapture? in
+                defer {
+                    lead = nil
+                    before = nil
+                }
                 let after = self.collectMaskedRegions(in: window)
-                guard let rects = Self.sweptRects(before: before, after: after) else {
-                    hedgeLog("[Session Replay] Skipping snapshot: mask samples could not be paired")
+                guard let rects = Self.backgroundCaptureMaskRects(lead: lead, before: before, after: after) else {
+                    hedgeLog("[Session Replay] Skipping snapshot: mask geometry could not be covered during background capture")
                     return nil
                 }
                 // No renderer preference: `renderImage: false` means this call never renders — the
@@ -1735,9 +1769,7 @@
                 }
 
                 if postHog.config.sessionReplayConfig.screenshotModeBackgroundCapture {
-                    PostHogReplayIntegration.dispatchQueue.async { [weak self] in
-                        self?.performBracketedBackgroundCapture(window: window, screenName: screenName, postHog: postHog)
-                    }
+                    scheduleBracketedBackgroundCapture(window: window, screenName: screenName, postHog: postHog)
                 } else {
                     scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)
                 }

@@ -141,22 +141,23 @@
                 return nil
             }
 
-            // Use native screen scale for best drawHierarchy performance.
-            // Using a non-native scale can trigger internal rescaling overhead.
+            // Use native screen scale and gamut for best drawHierarchy performance.
+            // Using a non-native scale can trigger internal rescaling overhead, and a bitmap in
+            // another gamut makes drawHierarchy convert every pixel on the main thread.
             let nativeScale = (self as? UIWindow ?? window)?.screen.scale ?? 1
-            let renderer = PostHogGraphicsImageRenderer(size: size, scale: nativeScale)
+            let drawsHierarchy = afterScreenUpdates || preferFidelityRenderer
+            let gamut = screenshotGamut(drawingHierarchy: drawsHierarchy)
+            let renderer = PostHogGraphicsImageRenderer(size: size, scale: nativeScale, gamut: gamut)
 
             var drawn = true
             let image = autoreleasepool {
                 renderer.image { context in
-                    if afterScreenUpdates {
-                        /// The bridge capture passes `true`: a freshly-presented native VC renders black otherwise.
-                        drawn = drawHierarchy(in: bounds, afterScreenUpdates: true)
-                    } else if preferFidelityRenderer {
-                        // Chosen when the settle check measured little enough movement that the
-                        // displayed frame still matches the current tree, so drawHierarchy's
-                        // full fidelity (blur, video, Metal) is worth lagging the render server.
-                        drawn = drawHierarchy(in: bounds, afterScreenUpdates: false)
+                    if drawsHierarchy {
+                        // The bridge capture passes `afterScreenUpdates: true`: a freshly-presented native VC
+                        // renders black otherwise. Without it, drawHierarchy is chosen when the settle check
+                        // measured little enough movement that the displayed frame still matches the current
+                        // tree, so its full fidelity (blur, video, Metal) is worth lagging the render server.
+                        drawn = drawHierarchy(in: bounds, afterScreenUpdates: afterScreenUpdates)
                     } else {
                         // drawHierarchy lags the render server, so mask rects could sit ahead of
                         // the pixels during scroll or animation; the presentation tree is the same
@@ -173,6 +174,13 @@
                 return nil
             }
             return image
+        }
+
+        func screenshotGamut(drawingHierarchy: Bool) -> UIDisplayGamut {
+            guard drawingHierarchy, let screen = (self as? UIWindow ?? window)?.screen else {
+                return .unspecified
+            }
+            return screen.traitCollection.displayGamut
         }
 
         // you need this because of SwiftUI otherwise the coordinates always zeroed for some reason

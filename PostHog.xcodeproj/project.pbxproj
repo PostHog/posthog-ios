@@ -280,6 +280,7 @@
 		DA0C944B2D54CDD000BFD9FB /* PostHogStorageMigrationTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0C944A2D54CDD000BFD9FB /* PostHogStorageMigrationTest.swift */; };
 		DA0CA6F12CFF6B6300AF9500 /* UIWindow+.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0CA6F02CFF6B6300AF9500 /* UIWindow+.swift */; };
 		DA0E43BE2D70438100D39B93 /* PostHogSurveyIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0E43B82D70437D00D39B93 /* PostHogSurveyIntegration.swift */; };
+		A1C4E1022F0B4A0100C4E102 /* PostHogSurveyIntegration+CancelEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C4E1012F0B4A0100C4E101 /* PostHogSurveyIntegration+CancelEvents.swift */; };
 		AAC0FFEE2E20000100000002 /* PostHogMaskingCharacterizationTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC0FFEE2E20000100000001 /* PostHogMaskingCharacterizationTest.swift */; };
 		DA0SAMP22E2302260001FF01 /* PostHogSampling.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0SAMP12E2302260001FF01 /* PostHogSampling.swift */; };
 		DA1044882D0B1D2D00C4ACF3 /* View+PostHogLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1044852D0B1D2D00C4ACF3 /* View+PostHogLabel.swift */; };
@@ -596,6 +597,7 @@
 		DAA1B2E32F8C100000112233 /* RageClickControlsSwiftUIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA1B2E22F8C100000112233 /* RageClickControlsSwiftUIView.swift */; };
 		DAA1B2F12F8C100000112233 /* View+PostHogNoRageClick.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA1B2F02F8C100000112233 /* View+PostHogNoRageClick.swift */; };
 		DAA5ED972D4043A500D437E0 /* PostHogSurveysTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA5ED962D4043A500D437E0 /* PostHogSurveysTest.swift */; };
+		B7C4E2022F0B4A0100C4E202 /* PostHogSurveyCancelEventsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C4E2012F0B4A0100C4E201 /* PostHogSurveyCancelEventsTest.swift */; };
 		DAA5EE212D43605000D437E0 /* fixture_survey_branching_response_based_linkert.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA5EE1A2D43605000D437E0 /* fixture_survey_branching_response_based_linkert.json */; };
 		DAA5EE242D43605000D437E0 /* fixture_survey_branching_response_based_empty.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA5EE192D43605000D437E0 /* fixture_survey_branching_response_based_empty.json */; };
 		DAA5EE262D43605000D437E0 /* fixture_survey_branching_end.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA5EE162D43605000D437E0 /* fixture_survey_branching_end.json */; };
@@ -1151,6 +1153,7 @@
 		DA0C944A2D54CDD000BFD9FB /* PostHogStorageMigrationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStorageMigrationTest.swift; sourceTree = "<group>"; };
 		DA0CA6F02CFF6B6300AF9500 /* UIWindow+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIWindow+.swift"; sourceTree = "<group>"; };
 		DA0E43B82D70437D00D39B93 /* PostHogSurveyIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveyIntegration.swift; sourceTree = "<group>"; };
+		A1C4E1012F0B4A0100C4E101 /* PostHogSurveyIntegration+CancelEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PostHogSurveyIntegration+CancelEvents.swift"; sourceTree = "<group>"; };
 		AAC0FFEE2E20000100000001 /* PostHogMaskingCharacterizationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskingCharacterizationTest.swift; sourceTree = "<group>"; };
 		DA0SAMP12E2302260001FF01 /* PostHogSampling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSampling.swift; sourceTree = "<group>"; };
 		DA1044852D0B1D2D00C4ACF3 /* View+PostHogLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+PostHogLabel.swift"; sourceTree = "<group>"; };
@@ -1524,6 +1527,7 @@
 		DAA1B2E22F8C100000112233 /* RageClickControlsSwiftUIView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RageClickControlsSwiftUIView.swift; sourceTree = "<group>"; };
 		DAA1B2F02F8C100000112233 /* View+PostHogNoRageClick.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+PostHogNoRageClick.swift"; sourceTree = "<group>"; };
 		DAA5ED962D4043A500D437E0 /* PostHogSurveysTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveysTest.swift; sourceTree = "<group>"; };
+		B7C4E2012F0B4A0100C4E201 /* PostHogSurveyCancelEventsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveyCancelEventsTest.swift; sourceTree = "<group>"; };
 		DAA5EE132D43605000D437E0 /* fixture_survey_basic.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_basic.json; sourceTree = "<group>"; };
 		DAA5EE162D43605000D437E0 /* fixture_survey_branching_end.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_branching_end.json; sourceTree = "<group>"; };
 		DAA5EE172D43605000D437E0 /* fixture_survey_branching_next.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_branching_next.json; sourceTree = "<group>"; };
@@ -1949,6 +1953,7 @@
 				A4A01BCD917E4C46A4F11103 /* PostHogAutocaptureTextPrivacyTest.swift */,
 				DA703C1D2D66346E0069097B /* PostHogAppLifeCycleIntegrationTest.swift */,
 				DAA5ED962D4043A500D437E0 /* PostHogSurveysTest.swift */,
+				B7C4E2012F0B4A0100C4E201 /* PostHogSurveyCancelEventsTest.swift */,
 				DABF95042E8FEB6F0029CBBB /* PostHogSurveyEventsTest.swift */,
 				F85AB3DFD5C84D3EB5FF4A5B /* PostHogSurveySharedStorageTest.swift */,
 				B58DAE01C4B44F928E985217 /* StoredSurveyResponseTest.swift */,
@@ -2227,6 +2232,7 @@
 				DAFF02652D7B1A9000BD5B1D /* SurveysRootView.swift */,
 				DAD4B2EF2D79E24D00DA503C /* SurveysWindow.swift */,
 				DA0E43B82D70437D00D39B93 /* PostHogSurveyIntegration.swift */,
+				A1C4E1012F0B4A0100C4E101 /* PostHogSurveyIntegration+CancelEvents.swift */,
 				EFAA01000000000000000002 /* SurveyProgressStore.swift */,
 				DA263D452D800EA9004C100D /* Utils */,
 			);
@@ -3694,6 +3700,7 @@
 				69EE82BA2BA9C50400EB9542 /* PostHogReplayIntegration.swift in Sources */,
 				C0FFEE832FA000020000E001 /* PostHogReplayCaptureBackoff.swift in Sources */,
 				DA0E43BE2D70438100D39B93 /* PostHogSurveyIntegration.swift in Sources */,
+				A1C4E1022F0B4A0100C4E102 /* PostHogSurveyIntegration+CancelEvents.swift in Sources */,
 				EFAA01000000000000000001 /* SurveyProgressStore.swift in Sources */,
 				DAFEC4572E03F91A0064535E /* PostHogDisplaySurveyQuestion.swift in Sources */,
 				3AE3FB472992AB0000AFFC18 /* Hedgelog.swift in Sources */,
@@ -3824,6 +3831,7 @@
 				DA6A2A5E2F39BE9300BD1B4C /* PostHogPropertiesSerializationTest.swift in Sources */,
 				DA53DE7E2D3E66AA00C38DCA /* PostHogRemoteConfigTest.swift in Sources */,
 				DAA5ED972D4043A500D437E0 /* PostHogSurveysTest.swift in Sources */,
+				B7C4E2022F0B4A0100C4E202 /* PostHogSurveyCancelEventsTest.swift in Sources */,
 				DAF95F612D077C21001E82BB /* PostHogWebPTest.swift in Sources */,
 				69ED1AB62C90711D00FE7A91 /* PostHogSDKPersonProfilesTest.swift in Sources */,
 				DA578E9E2D6858BA00B3A56C /* PostHogScreenViewIntegrationTest.swift in Sources */,

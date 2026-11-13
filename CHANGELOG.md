@@ -1,5 +1,29 @@
 ## Next
 
+## 3.96.1
+
+### Patch Changes
+
+- b692550: Treat failed detailed feature flag records as unavailable instead of serving their placeholder values or payloads, including previously persisted placeholders. Preserve successful cached results on response-wide errors and retain failed-read evaluation diagnostics across restarts.
+
+## 3.96.0
+
+### Minor Changes
+
+- 86bb436: Support survey cancel events to clear unconsumed activation and cancel the built-in popup delay before display. Already-visible surveys and presentations owned by custom survey delegates remain active.
+
+## 3.95.0
+
+### Minor Changes
+
+- 8cfbaef: Honor survey appearance.position instead of always presenting a bottom sheet, and expose the configured position to custom survey renderers.
+
+## 3.94.4
+
+### Patch Changes
+
+- 32f78c6: Draw session replay screenshots in the screen's own color space, so a capture on a wide-gamut screen no longer converts every pixel on the main thread. The conversion now happens off the main thread on the replay queue: a resized or masked screenshot is redrawn in device RGB, and an image that reaches the WebP encoder in a wide gamut, such as a native-resolution screenshot with nothing to mask, is converted to sRGB. The WebP encoder is shared, so wide-gamut images in wireframe mode and from `imageToBase64` are converted to sRGB too, and upload in their true colors instead of having their Display P3 values read as sRGB. The JPEG fallback does not convert.
+
 ## 3.94.3
 
 ### Patch Changes

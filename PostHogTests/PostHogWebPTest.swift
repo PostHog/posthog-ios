@@ -91,4 +91,57 @@
             #expect(modified != encoded)
         }
     }
+
+    @Suite("WebP color space")
+    struct PostHogWebPColorSpaceTests {
+        private let sRGB = CGColorSpace(name: CGColorSpace.sRGB)!
+        private let displayP3 = CGColorSpace(name: CGColorSpace.displayP3)!
+
+        @Test("encodes a wide-gamut image in sRGB")
+        func wideGamutEncodesInSRGB() {
+            #expect(UIImage.webPColorSpace(for: displayP3).name == CGColorSpace.sRGB)
+        }
+
+        @Test("encodes an sRGB or device RGB image in its own color space")
+        func standardGamutKeepsItsColorSpace() {
+            let deviceRGB = CGColorSpaceCreateDeviceRGB()
+            #expect(UIImage.webPColorSpace(for: sRGB) === sRGB)
+            #expect(UIImage.webPColorSpace(for: deviceRGB) === deviceRGB)
+        }
+
+        @Test("encodes an image without an RGB color space in linear sRGB")
+        func otherModelsEncodeInLinearSRGB() {
+            #expect(UIImage.webPColorSpace(for: CGColorSpaceCreateDeviceGray()).name == CGColorSpace.linearSRGB)
+            #expect(UIImage.webPColorSpace(for: nil).name == CGColorSpace.linearSRGB)
+        }
+
+        @Test("keeps a Display P3 image's colors when it is encoded")
+        func displayP3ImageKeepsItsColors() throws {
+            let fill = try #require(
+                CGColor(colorSpace: sRGB, components: [0.8, 0.2, 0.2, 1])?
+                    .converted(to: displayP3, intent: .defaultIntent, options: nil)
+            )
+            var pixels = [UInt8](repeating: 0, count: 32 * 32 * 4)
+            let source = try #require(CGContext(
+                data: &pixels, width: 32, height: 32, bitsPerComponent: 8, bytesPerRow: 32 * 4,
+                space: displayP3, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ))
+            source.setFillColor(fill)
+            source.fill(CGRect(x: 0, y: 0, width: 32, height: 32))
+            let image = try UIImage(cgImage: #require(source.makeImage()))
+
+            let data = try #require(image.webpData(compressionQuality: 1))
+            let decoded = try #require(UIImage(data: data)?.cgImage)
+            var rgba = [UInt8](repeating: 0, count: 4)
+            let reader = try #require(CGContext(
+                data: &rgba, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ))
+            reader.draw(decoded, in: CGRect(x: -16, y: -16, width: decoded.width, height: decoded.height))
+
+            #expect(abs(Int(rgba[0]) - 204) <= 6)
+            #expect(abs(Int(rgba[1]) - 51) <= 6)
+            #expect(abs(Int(rgba[2]) - 51) <= 6)
+        }
+    }
 #endif

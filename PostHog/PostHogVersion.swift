@@ -11,7 +11,7 @@ import Foundation
 /// Current SDK version string.
 ///
 /// - Warning: This is intended for SDK internals and integrations. Application code should not mutate it.
-@_spi(PostHogInternal) public var postHogVersion = "3.96.2"
+@_spi(PostHogInternal) public var postHogVersion = "3.97.0"
 
 /// Default SDK name reported by the native iOS SDK.
 let postHogiOSSdkName = "posthog-ios"

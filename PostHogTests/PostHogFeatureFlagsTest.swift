@@ -149,7 +149,7 @@ enum PostHogFeatureFlagsTest {
             let calls = events.filter { $0.event == "$feature_flag_called" }
             #expect(calls.count == 2)
             let failed = try #require(calls.first { $0.properties["$feature_flag"] as? String == "failed-variant" })
-            #expect(failed.properties["$feature_flag_response"] is NSNull)
+            #expect(failed.properties["$feature_flag_response"] == nil)
             let error = failed.properties["$feature_flag_error"] as? String
             #expect(error == (errors == true ? "evaluation_failed,errors_while_computing_flags" : "evaluation_failed"))
             #expect(failed.properties["$feature_flag_reason"] as? String == "Evaluation failed")
@@ -197,7 +197,7 @@ enum PostHogFeatureFlagsTest {
             if errors == true {
                 #expect(call.properties["$feature_flag_response"] as? Bool == true)
             } else {
-                #expect(call.properties["$feature_flag_response"] is NSNull)
+                #expect(call.properties["$feature_flag_response"] == nil)
             }
         }
 
@@ -221,7 +221,7 @@ enum PostHogFeatureFlagsTest {
             sut.flush()
             let events = try await getServerEvents(server)
             let call = try #require(events.first { $0.event == "$feature_flag_called" })
-            #expect(call.properties["$feature_flag_response"] is NSNull)
+            #expect(call.properties["$feature_flag_response"] == nil)
             #expect(call.properties["$feature_flag_error"] == nil)
         }
 
@@ -237,7 +237,7 @@ enum PostHogFeatureFlagsTest {
             sut.flush()
             let events = try await getServerEvents(server)
             let call = try #require(events.first { $0.event == "$feature_flag_called" })
-            #expect(call.properties["$feature_flag_response"] is NSNull)
+            #expect(call.properties["$feature_flag_response"] == nil)
             #expect(call.properties["$feature_flag_error"] == nil)
         }
 
@@ -278,7 +278,7 @@ enum PostHogFeatureFlagsTest {
             sut.flush()
             let events = try await getServerEvents(server)
             let call = try #require(events.first { $0.event == "$feature_flag_called" })
-            #expect(call.properties["$feature_flag_response"] is NSNull)
+            #expect(call.properties["$feature_flag_response"] == nil)
             #expect(call.properties["$feature_flag_error"] as? String == "evaluation_failed")
         }
 
@@ -295,7 +295,7 @@ enum PostHogFeatureFlagsTest {
             reopened.flush()
             let events = try await getServerEvents(server)
             let call = try #require(events.first { $0.event == "$feature_flag_called" })
-            #expect(call.properties["$feature_flag_response"] is NSNull)
+            #expect(call.properties["$feature_flag_response"] == nil)
             #expect(call.properties["$feature_flag_error"] as? String == "evaluation_failed,errors_while_computing_flags")
 
             stubFlags(failedFlags(), errors: refreshErrors)
@@ -372,7 +372,7 @@ enum PostHogFeatureFlagsTest {
             if source == "success" {
                 #expect(call.properties["$feature_flag_response"] as? String == "blue")
             } else {
-                #expect(call.properties["$feature_flag_response"] is NSNull)
+                #expect(call.properties["$feature_flag_response"] == nil)
             }
             #expect(server.flagsRequests.isEmpty)
             second.close()

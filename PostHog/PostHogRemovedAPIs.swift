@@ -121,6 +121,13 @@ public extension PostHogSDK {
             set {} // swiftlint:disable:this unused_setter_value
         }
 
+        /// Removed in PostHog 4.0. Use `captureMethod = .gpu` instead.
+        @available(*, unavailable, message: "Removed in PostHog 4.0. Set captureMethod = .gpu instead of screenshotModeGPUCapture = true.")
+        var screenshotModeGPUCapture: Bool {
+            get { captureMethod == .gpu }
+            set {} // swiftlint:disable:this unused_setter_value
+        }
+
         /// Removed in PostHog 4.0. It had no effect.
         @available(*, unavailable, message: "Removed in PostHog 4.0. It had no effect: delete the assignment.")
         var maskPhotoLibraryImages: Bool {

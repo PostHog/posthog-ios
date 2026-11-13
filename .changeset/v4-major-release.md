@@ -22,7 +22,7 @@ To upgrade to posthog-ios 4.0.0 from 3.x.x, follow the [migration guide](https:/
 - **Breaking:** remove the no-op `PostHogConfig.remoteConfig` and `PostHogSessionReplayConfig.maskPhotoLibraryImages` options
 - **Breaking:** remove `PostHogSDK.getFeatureFlagPayload(_:)`. Use `getFeatureFlagResult(_:sendFeatureFlagEvent:)?.payload`
 - **Breaking:** remove `PostHogSessionReplayConfig.debouncerDelay`. Use `throttleDelay`
-- **Breaking:** replace `PostHogSessionReplayConfig.screenshotModeBackgroundCapture` with `captureMethod`. Use `captureMethod = .background`
+- **Breaking:** replace `PostHogSessionReplayConfig.screenshotModeBackgroundCapture` and `screenshotModeGPUCapture` with `captureMethod`. Use `captureMethod = .background` or `captureMethod = .gpu`
 - **Breaking:** remove the `PostHogSDK.didReceiveFeatureFlags` notification. Use `onFeatureFlags(_:)`
 - **Breaking:** remove `PostHogDataMode.cellular`. Use `.any`
 - **Breaking:** move `postHogSdkName`, `postHogVersion`, `PostHogConfig.snapshotEndpoint`, `PostHogSessionManager`, `PostHogStorageManager`, `PostHogConfig.storageManager`, `dateToMillis(_:)` and `imageToBase64(_:_:)` behind `@_spi(PostHogInternal)`. Use `PostHogSDK` session and identity methods
@@ -47,7 +47,7 @@ To upgrade to posthog-ios 4.0.0 from 3.x.x, follow the [migration guide](https:/
 - Add per-event capture options with `capture(..., timestamp:options:)` and `PostHogEvent.options`, also accepted by `screen`, `identify`, `setPersonProperties`, `alias`, `group` and `captureException`
 - Add `captureAi(...)` to send AI events such as `$ai_generation` to `/i/v1/ai/events`, tuned with `captureAiCompression`, `captureAiMaxQueueSize`, `captureAiTimeout` and `captureAiMaxEventBytes`
 - Add the `$app_language` property with the language the app displays, and `setAppLanguage(_:)` to set it when the app translates some other way
-- Add the experimental `.gpu` session replay capture method, which renders screenshots on the GPU to cut the main-thread cost of each capture. `screenshotScale` and the `.background` capture method are no longer experimental
+- `screenshotScale` and the `.background` session replay capture method are no longer experimental
 - Add `SessionReplay`, `CrashReporting` and `Surveys` Swift package traits (on by default) that remove the feature and its public API when turned off
 - Add `isFeatureEnabled(_:defaultValue:)` and `isFeatureEnabled(_:defaultValue:sendFeatureFlagEvent:)` to return a default you choose when a flag has no value
 - Add `PostHogSDK.setSdkName(_:version:)` behind `@_spi(PostHogInternal)`, exposed to Objective-C so wrapper SDKs that can't assign `postHogSdkName` and `postHogVersion`, such as Kotlin Multiplatform, can report their own name and version

@@ -240,6 +240,7 @@ Replace these session replay APIs:
 | `sessionReplayConfig.maskPhotoLibraryImages` | Delete the assignment |
 | `sessionReplayConfig.debouncerDelay` | `sessionReplayConfig.throttleDelay` |
 | `sessionReplayConfig.screenshotModeBackgroundCapture = true` | `sessionReplayConfig.captureMethod = .background` |
+| `sessionReplayConfig.screenshotModeGPUCapture = true` | `sessionReplayConfig.captureMethod = .gpu` |
 | `PostHogLogLevel` | `PostHogConsoleLogLevel` |
 | `PostHogLogEntry` | `PostHogConsoleLogEntry` |
 | ObjC: `PostHogLogLevelInfo` | ObjC: `PostHogConsoleLogLevelInfo` |

@@ -1,6 +1,6 @@
 # Migrate the iOS SDK from 3.x.x to 4.0.0
 
-The iOS SDK 4.x.x sends every event to the [capture v1](https://posthog.com/docs/api/capture-v1) endpoints, `/i/v1/analytics/events` and `/i/v1/ai/events`.
+The iOS SDK 4.x.x sends analytics and AI events to the [capture v1](https://posthog.com/docs/api/capture-v1) endpoints, `/i/v1/analytics/events` and `/i/v1/ai/events`.
 
 Use the top right copy page button to work through this with your agents.
 
@@ -8,7 +8,7 @@ You don't need to make every change on the day you upgrade your SDK. Required ch
 
 - **Before you upgrade**: you should make these changes before you upgrade your SDK to posthog-ios 4.x.x.
 - **During your upgrade**: These are changes that you need to make in the same PR that upgrades your SDK version.
-- **Follow ups**: These are changes that can come in follow up PRs because posthog-ios 4.x.x has limited backward compatibility for methods that are to be deprecated.
+- **Follow ups**: These are changes that can come in follow up PRs, because 4.x.x still accepts the old names and options.
 
 ## Checklist
 
@@ -40,6 +40,7 @@ Read the checklist first, then the sections that apply to you.
 - [ ] An insight, cohort, or action uses `version` or `build` on lifecycle events → [Update lifecycle filters](#update-lifecycle-filters)
 - [ ] A cohort, insight, or action matches `$locale`, which now includes the region → [Update locale filters](#update-locale-filters)
 - [ ] You set event properties to `NSNull()` or a `nil` optional → [Check null properties](#check-null-properties)
+- [ ] You filter insights, cohorts, or actions on a `null` `$feature_flag_response` of `$feature_flag_called` to find missing flags → [Check null properties](#check-null-properties)
 - [ ] You use `$network_wifi` or `$network_cellular` on events → [Check network reachability](#check-network-reachability)
 - [ ] Your users can update from a 2.x.x SDK straight to 4.x.x → [Check 2.x.x upgrades](#check-2xx-upgrades)
 - [ ] You capture events with an empty event name, or with an event name over 200 bytes → [Check dropped events](#check-dropped-events)
@@ -467,7 +468,7 @@ An event property set to `NSNull()` or to a `nil` optional is left out of the ev
 - **Other values.** `false`, `0`, `""`, and empty arrays are sent as before.
 - **`NSNull()`.** You can still pass it.
 - **Person and group properties.** To clear a person or group property, `$set`, `$set_once`, and `$group_set` still send `null` values.
-- **Flag events.** A `$feature_flag_called` event for a flag with no value has no `$feature_flag_response` instead of `null`.
+- **Flag events.** A `$feature_flag_called` event for a flag with no value has no `$feature_flag_response` instead of `null`. Filters on a `null` `$feature_flag_response` stop matching new events without any error, so use an `is not set` filter instead.
 
 ### Check network reachability
 
@@ -590,7 +591,7 @@ A 4.x.x request holds at most `maxBatchSize` events and about 5 MiB. The SDK sen
 
 In 4.x.x, PostHog drops only the analytics event that is over 1,000,000 serialized bytes. With `debug` on, the drop line says `event_too_big`. In 3.x.x, the event got a 413 for its whole batch, and was dropped once the SDK had split the batch down to it.
 
-Six more rules apply to failed requests and batches:
+These rules also apply:
 
 - **Other statuses.** A status that isn't retried, such as a 402 when you're over your billing limit, drops the whole request. A product quota, such as for exceptions or AI events, instead drops only those events inside a 200.
 - **Partial retries.** When the response asks to retry only some events, the SDK keeps those events queued and removes the rest.
@@ -605,7 +606,7 @@ If you ship 4.x.x and then go back to 3.x.x, 3.x.x sends the events still queued
 
 - **Personless events.** Events that 4.x.x marked as personless (`process_person_profile: false`) are processed as person events.
 - **Other options.** Options such as `cookieless_mode` passed through `options` are lost.
-- **AI events.** AI events queued by 4.x.x in their own queue are never sent.
+- **AI events.** AI events queued by 4.x.x in their own queue aren't sent while the app runs 3.x.x. If you upgrade to 4.x.x again, 4.x.x sends them.
 
 ## Follow ups
 
@@ -660,6 +661,8 @@ For the changes every capture v1 SDK shares, such as event options, limits, and 
 posthog-ios 4.x.x adds `captureAi`. It sends AI events, such as `$ai_generation`, to PostHog's AI endpoint (`/i/v1/ai/events`) instead of the analytics endpoint.
 
 `capture` never sends events to the AI endpoint, even ones named `$ai_*`.
+
+`$ai_*` events you keep sending with `capture` still reach PostHog through the analytics endpoint, as in 3.x.x. Moving them to `captureAi` gets you the AI endpoint's much larger event size limit, and a queue of their own, so large AI events don't hold up your other events.
 
 `captureAi` takes the same arguments as `capture`, and the events go through the same `beforeSend` hooks:
 

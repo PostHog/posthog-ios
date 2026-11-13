@@ -49,7 +49,10 @@
             if isHidden || !hasRenderedOpacity {
                 return false
             }
-            if frame == .zero, clipsToBounds, (layer.presentation()?.bounds ?? bounds).isEmpty {
+            // An app-defined layer that's animating can't be read, so it isn't taken as collapsed.
+            if frame == .zero, clipsToBounds,
+               layer.readablePresentation.map(\.bounds.isEmpty) ?? (!layer.isAppDefined && bounds.isEmpty)
+            {
                 return false
             }
             return true
@@ -64,8 +67,9 @@
             if alpha > 0 {
                 return true
             }
-            guard let presentationOpacity = layer.presentation()?.opacity else {
-                return false
+            guard let presentationOpacity = layer.readablePresentation?.opacity else {
+                // An app-defined layer animating can't be read, so it counts as drawn and stays masked.
+                return layer.isAppDefined
             }
             return presentationOpacity > 0
         }
@@ -131,6 +135,12 @@
                 return nil
             }
 
+            // Rendering the presentation tree copies every layer in it, which can trap on an app-defined one.
+            if !afterScreenUpdates, !preferFidelityRenderer, layer.containsAppDefinedLayer {
+                hedgeLog("[Session Replay] Skipping snapshot: the window holds an app-defined layer the motion renderer can't copy")
+                return nil
+            }
+
             // Use native screen scale for best drawHierarchy performance.
             // Using a non-native scale can trigger internal rescaling overhead.
             let nativeScale = (self as? UIWindow ?? window)?.screen.scale ?? 1
@@ -176,6 +186,9 @@
         /// consumer with no pixels to agree with and stays on `toAbsoluteRect`.
         /// `outsets` grows the rect past the bounds, for content drawn outside them.
         func toPresentationRect(_ window: UIWindow?, outsets: UIEdgeInsets = .zero) -> CGRect {
+            if layer.hasAppDefinedLayerInChain {
+                return layer.failingClosedWhileAnimating(convert(bounds.outset(by: outsets), to: window), in: window)
+            }
             guard layer.presentation() != nil else {
                 // UIView's own convert, not the layer's: it resolves a nil window to the view's.
                 return convert(bounds.outset(by: outsets), to: window)
@@ -217,7 +230,7 @@
         /// can't land further out. Contents whose size can't be read reach arbitrarily far. Nil when nothing was
         /// replaced.
         var replacedImageExtent: CGRect? {
-            guard let presented = layer.presentation(), let contents = presented.contents,
+            guard let presented = layer.readablePresentation, let contents = presented.contents,
                   layer.contents.map({ $0 as AnyObject !== contents as AnyObject }) ?? true
             else { return nil }
             let gravity = presented.contentsGravity
@@ -292,6 +305,9 @@
 
     extension CALayer {
         func toPresentationRect(_ window: UIWindow?, outsets: UIEdgeInsets = .zero) -> CGRect {
+            if hasAppDefinedLayerInChain {
+                return failingClosedWhileAnimating(convert(bounds.outset(by: outsets), to: window?.layer), in: window)
+            }
             guard let presentationLayer = presentation() else {
                 return convert(bounds.outset(by: outsets), to: window?.layer)
             }
@@ -299,6 +315,76 @@
                 presentationLayer.bounds.outset(by: outsets),
                 to: window?.layer.presentation() ?? window?.layer
             )
+        }
+
+        /// Whether the app defines this layer's class. `presentation()` copies a layer through its class's
+        /// `init(layer:)`, which traps for a Swift subclass that declares its own initializer but not that one. The
+        /// runtime can't tell that subclass from one that implements it, so every class whose `initWithLayer:` comes
+        /// from neither CALayer nor a system image counts.
+        var isAppDefined: Bool {
+            Self.isAppDefined(type(of: self))
+        }
+
+        /// The layer as the screen shows it, read without copying an app-defined layer: `presentation()` for a system
+        /// layer (nil before its first commit), the model for an app-defined one while nothing animates it, and nil
+        /// while something does. Callers treat an unreadable app-defined layer as drawn, so it stays masked.
+        var readablePresentation: CALayer? {
+            guard isAppDefined else { return presentation() }
+            return animationKeys() == nil ? self : nil
+        }
+
+        /// Whether this layer or an ancestor is app-defined. Converting a presentation copies every ancestor's.
+        var hasAppDefinedLayerInChain: Bool {
+            isAppDefined || superlayer?.hasAppDefinedLayerInChain == true
+        }
+
+        /// Whether this layer or a sublayer, at any depth, is app-defined. Rendering a presentation copies them all.
+        var containsAppDefinedLayer: Bool {
+            isAppDefined || mask?.containsAppDefinedLayer == true || sublayers?.contains(where: \.containsAppDefinedLayer) == true
+        }
+
+        /// `modelRect` for a layer in an app-defined chain, whose presentation can't be read. The model matches the
+        /// screen only while nothing in the chain animates; while something does, the mask covers the whole window.
+        func failingClosedWhileAnimating(_ modelRect: CGRect, in window: UIWindow?) -> CGRect {
+            var layer: CALayer? = self
+            while let current = layer {
+                if current.animationKeys() != nil {
+                    return modelRect.union(window?.bounds ?? modelRect)
+                }
+                layer = current.superlayer
+            }
+            return modelRect
+        }
+
+        private static func isAppDefined(_ cls: AnyClass) -> Bool {
+            let key = ObjectIdentifier(cls)
+            appDefinedLock.lock()
+            defer { appDefinedLock.unlock() }
+            if let cached = appDefinedClasses[key] {
+                return cached
+            }
+            let appDefined = !hasSystemInitWithLayer(cls)
+            appDefinedClasses[key] = appDefined
+            return appDefined
+        }
+
+        private static let appDefinedLock = NSLock()
+        private static var appDefinedClasses: [ObjectIdentifier: Bool] = [:]
+
+        private static func hasSystemInitWithLayer(_ cls: AnyClass) -> Bool {
+            let selector = NSSelectorFromString("initWithLayer:")
+            let implementation = class_getMethodImplementation(cls, selector)
+            if implementation == class_getMethodImplementation(CALayer.self, selector) {
+                return true
+            }
+            var info = Dl_info()
+            guard let implementation, dladdr(unsafeBitCast(implementation, to: UnsafeRawPointer.self), &info) != 0,
+                  let image = info.dli_fname
+            else {
+                return false
+            }
+            let path = String(cString: image)
+            return path.contains("/System/Library/") || path.contains("/usr/lib/")
         }
 
         /// The size `contents` draws at before gravity places it, in points. Nil for contents the layer draws itself.

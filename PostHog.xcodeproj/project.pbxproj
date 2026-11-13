@@ -345,6 +345,7 @@
 		C0FFEE842FA000030000E001 /* DrainMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE842FA000030000E002 /* DrainMain.swift */; };
 		C08700012E00000100000870 /* PostHogReplayCameraTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08700022E00000100000870 /* PostHogReplayCameraTest.swift */; };
 		C0A1E0DA7E57000000000A01 /* PostHogClearedContentMaskingTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1E0DA7E57000000000A02 /* PostHogClearedContentMaskingTest.swift */; };
+		C0A1E0DA7E57000000000C01 /* PostHogAppLayerPresentationTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1E0DA7E57000000000C02 /* PostHogAppLayerPresentationTest.swift */; };
 		C0A1E0DA7E57000000000B01 /* ReplayLayerFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1E0DA7E57000000000B02 /* ReplayLayerFixtures.swift */; };
 		C08700032E00000100000870 /* PostHogReplayScreenshotSizeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08700042E00000100000870 /* PostHogReplayScreenshotSizeTest.swift */; };
 		C02440012E00000100000244 /* PostHogViewControllerTraversalTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02440022E00000100000244 /* PostHogViewControllerTraversalTest.swift */; };
@@ -1213,6 +1214,7 @@
 		C0FFEE842FA000030000E002 /* DrainMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrainMain.swift; sourceTree = "<group>"; };
 		C08700022E00000100000870 /* PostHogReplayCameraTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReplayCameraTest.swift; sourceTree = "<group>"; };
 		C0A1E0DA7E57000000000A02 /* PostHogClearedContentMaskingTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogClearedContentMaskingTest.swift; sourceTree = "<group>"; };
+		C0A1E0DA7E57000000000C02 /* PostHogAppLayerPresentationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAppLayerPresentationTest.swift; sourceTree = "<group>"; };
 		C0A1E0DA7E57000000000B02 /* ReplayLayerFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayLayerFixtures.swift; sourceTree = "<group>"; };
 		C08700042E00000100000870 /* PostHogReplayScreenshotSizeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReplayScreenshotSizeTest.swift; sourceTree = "<group>"; };
 		C02440022E00000100000244 /* PostHogViewControllerTraversalTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogViewControllerTraversalTest.swift; sourceTree = "<group>"; };
@@ -1939,6 +1941,7 @@
 				DA578E9D2D6858B200B3A56C /* PostHogScreenViewIntegrationTest.swift */,
 				C08700022E00000100000870 /* PostHogReplayCameraTest.swift */,
 				C0A1E0DA7E57000000000A02 /* PostHogClearedContentMaskingTest.swift */,
+				C0A1E0DA7E57000000000C02 /* PostHogAppLayerPresentationTest.swift */,
 				C08700042E00000100000870 /* PostHogReplayScreenshotSizeTest.swift */,
 				C02440022E00000100000244 /* PostHogViewControllerTraversalTest.swift */,
 				DACF6D5C2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift */,
@@ -3826,6 +3829,7 @@
 				DA578E9E2D6858BA00B3A56C /* PostHogScreenViewIntegrationTest.swift in Sources */,
 				C08700012E00000100000870 /* PostHogReplayCameraTest.swift in Sources */,
 				C0A1E0DA7E57000000000A01 /* PostHogClearedContentMaskingTest.swift in Sources */,
+				C0A1E0DA7E57000000000C01 /* PostHogAppLayerPresentationTest.swift in Sources */,
 				C08700032E00000100000870 /* PostHogReplayScreenshotSizeTest.swift in Sources */,
 				C02440012E00000100000244 /* PostHogViewControllerTraversalTest.swift in Sources */,
 				3A62646A29C9E385007E8C07 /* MockPostHogServer.swift in Sources */,

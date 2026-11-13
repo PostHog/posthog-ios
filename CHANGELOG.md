@@ -1,5 +1,11 @@
 ## Next
 
+## 3.96.0
+
+### Minor Changes
+
+- 86bb436: Support survey cancel events to clear unconsumed activation and cancel the built-in popup delay before display. Already-visible surveys and presentations owned by custom survey delegates remain active.
+
 ## 3.95.0
 
 ### Minor Changes

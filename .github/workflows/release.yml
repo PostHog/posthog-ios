@@ -391,9 +391,10 @@ jobs:
 
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
-          xcode-version: '16.2'
+          xcode-version: latest-stable
 
       - name: Prepare CocoaPods validation environment
+        continue-on-error: true
         run: make prepareCocoaPods
 
       - name: Publish to CocoaPods

@@ -64,6 +64,29 @@
             try expectMagentaMasked(image, rects)
         }
 
+        @Test("A sensitive label cleared under a fade stays masked after it redraws, while the transition still shows the old text")
+        func labelClearedUnderTransitionStaysMasked() throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+            let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
+            let label = UILabel(frame: CGRect(x: 20, y: 40, width: 160, height: 80))
+            label.text = "SECRET"
+            window.addSubview(label)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+
+            let fade = CATransition()
+            fade.type = .fade
+            fade.duration = 1000
+            label.layer.add(fade, forKey: nil)
+            label.text = ""
+            label.layer.displayIfNeeded()
+            try #require(!label.layer.needsDisplay())
+
+            #expect(try #require(sut.integration.collectMaskableRects(in: window)).contains(label.frame))
+        }
+
         @Test("A sensitive image view cleared since its last commit stays masked while its layer still shows the old image")
         func clearedImageViewStaysMaskedUntilCommitted() async throws {
             let sut = makeSut()

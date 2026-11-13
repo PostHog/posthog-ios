@@ -389,6 +389,11 @@
             hasAnimationInChain ? modelRect.union(window?.bounds ?? modelRect) : modelRect
         }
 
+        /// Whether a `CATransition` is running on this layer: it draws the layer's previous contents until it ends.
+        var hasContentTransition: Bool {
+            animationKeys()?.contains { animation(forKey: $0) is CATransition } == true
+        }
+
         /// Whether this layer or an ancestor has an animation, so the model may not match the screen.
         var hasAnimationInChain: Bool {
             animationKeys() != nil || superlayer?.hasAnimationInChain == true

@@ -1402,8 +1402,8 @@
         }
 
         private func isLabelSensitive(_ view: UILabel) -> Bool {
-            // Cleared text stays on screen until the label redraws.
-            isTextInputSensitive(view) && (hasText(view.text) || view.layer.needsDisplay())
+            // Cleared text stays on screen until the label redraws, and a content transition keeps drawing it after.
+            isTextInputSensitive(view) && (hasText(view.text) || view.layer.needsDisplay() || view.layer.hasContentTransition)
         }
 
         private func isButtonSensitive(_ view: UIButton) -> Bool {
@@ -2703,8 +2703,10 @@
 
             /// Whether the mirror left out the full-window cover, or a presented view that may be one, or an ancestor.
             private func leftOutCover(of frame: PostHogGPUMirrorCapture.Frame, in window: UIWindow) -> Bool {
-                if let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer {
-                    return isCulledWithAncestors(cover, frame.culledLayers)
+                if let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer,
+                   isCulledWithAncestors(cover, frame.culledLayers)
+                {
+                    return true
                 }
                 return PostHogPresentationCover.unreadablePresentedViews(in: window).contains {
                     isCulledWithAncestors($0.layer, frame.culledLayers)

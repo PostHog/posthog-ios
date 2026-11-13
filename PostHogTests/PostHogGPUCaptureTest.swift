@@ -1140,6 +1140,38 @@
             try await expectNoUnmaskedMagenta(window, mirror: mirror, expect: .fallback)
         }
 
+        @Test("A full-window cover presenting a view the mirror leaves out, under an animating app layer, falls back to the default capture")
+        func readableCoverPresentingUnreadableViewFallsBack() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+            let presenter = CoveredController()
+            window.rootViewController = presenter
+            defer { window.rootViewController = nil }
+            presenter.view.frame = window.bounds
+            let outer = CoveredController()
+            outer.view.frame = window.bounds
+            outer.view.backgroundColor = .white
+            presenter.cover = outer
+            window.addSubview(outer.view)
+            let inner = UIViewController()
+            inner.view = try appLayerView()
+            inner.view.frame = window.bounds.insetBy(dx: 0, dy: -30)
+            inner.view.addSubview(secretField(CGRect(x: 20, y: 70, width: 120, height: 60)))
+            outer.cover = inner
+            outer.view.addSubview(inner.view)
+            CATransaction.flush()
+            let presented = inner.view.layer.position
+            inner.view.layer.position.y += 20
+            try await hold(inner.view.layer, keyPath: "position", at: NSValue(cgPoint: presented))
+            try #require(PostHogPresentationCover.frontmostFullWindowCover(in: window) === outer.view)
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            defer { frame.release() }
+            try #require(frame.culledLayers.contains(ObjectIdentifier(inner.view.layer)))
+            #expect(PostHogReplayIntegration().maskableRects(for: frame, in: window) == .fallback)
+        }
+
         @Test("A full-window cover under a far-culled container falls back to the default capture instead of exposing the presenter")
         func farCulledCoverFallsBack() async throws {
             let mirror = try makeMirror()

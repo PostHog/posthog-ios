@@ -27,8 +27,9 @@
         /// `.background`.
         ///
         /// Layers whose presentation can't be copied safely (an app's or a framework's own `CALayer`
-        /// subclasses) are drawn from their model state instead. While one of them has an animation that moves or reshapes it, a playing Lottie animation
-        /// for example, it is left out of the frame with everything under it.
+        /// subclasses) are drawn from their model state instead. While one of them has an animation that
+        /// moves or reshapes it, a playing Lottie animation for example, it is left out of the frame with
+        /// everything under it.
         ///
         /// Not captured exactly:
         /// - Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped

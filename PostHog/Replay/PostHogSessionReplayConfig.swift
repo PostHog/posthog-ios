@@ -7,6 +7,48 @@
 #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
 
+    /// How session replay captures a screenshot. Set it with `PostHogSessionReplayConfig.captureMethod`.
+    @objc(PostHogSessionReplayCaptureMethod) public enum PostHogSessionReplayCaptureMethod: Int {
+        /// Renders the window with `drawHierarchy` on the main thread, once the screen has settled.
+        case standard
+
+        /// Renders the window on a background queue, so capture takes the least main-thread time.
+        ///
+        /// Try this if session replay causes main-thread hangs or dropped frames on complex screens.
+        /// A frame is skipped when masked content moves while it renders.
+        ///
+        /// Warning: this triggers Main Thread Checker warnings and may briefly freeze the app the first
+        /// time a screenshot is captured. Consider disabling Main Thread Checker in your scheme's run
+        /// diagnostics when using it.
+        case background
+
+        /// Copies the window's layer tree on the main thread and renders the copy on the GPU with Metal,
+        /// so the main thread only builds the copy. Takes less main-thread time than `.standard`, more than
+        /// `.background`.
+        ///
+        /// Layers whose presentation can't be copied safely (an app's or a framework's own `CALayer`
+        /// subclasses) are drawn from their model state instead. While one of them has an animation that moves or reshapes it, a playing Lottie animation
+        /// for example, it is left out of the frame with everything under it.
+        ///
+        /// Not captured exactly:
+        /// - Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped
+        ///   "Metal content" placeholder.
+        /// - Video and camera previews stay blank, as with `.standard`.
+        /// - Liquid Glass is approximated without refraction: sheets, alerts and dialogs as a blur of what's
+        ///   behind them, smaller glass as a flat fill in its shape. Tinted glass keeps its tint. The labels and
+        ///   icons on it are reproduced. On iOS 27, sheets, alerts and dialogs currently show as a flat panel
+        ///   instead of a blur.
+        ///
+        /// Captures fall back to `.standard` when the device has no Metal or a render fails.
+        ///
+        /// While recording, the app keeps roughly 25 to 30 MB more memory resident on average (GPU memory held
+        /// by Metal and Core Animation); peak memory is about the same as with `.standard`. Measured on an
+        /// iPhone 17 Pro with `screenshotScale` unset, one pixel per point; a larger scale holds more.
+        ///
+        /// Experimental. iOS and Mac Catalyst only.
+        case gpu
+    }
+
     /// Configuration for iOS session replay capture.
     ///
     /// Mutate fields on `config.sessionReplayConfig` before calling `PostHogSDK.setup(_:)`.
@@ -35,34 +77,6 @@
         /// Note: When enabled, can be disabled remotely via project settings
         @objc public var captureNetworkTelemetry: Bool = true
 
-        /// Render screenshots on the GPU instead of with `drawHierarchy`.
-        ///
-        /// Each capture commits pending changes, copies the window's layer tree and renders the copy into a
-        /// Metal texture, so the main thread only builds the copy. Layers whose presentation can't be copied
-        /// safely (an app's or a framework's own `CALayer` subclasses) are drawn from their model state
-        /// instead. While one of them has an animation that moves or reshapes it, a playing Lottie animation
-        /// for example, it is left out of the frame with everything under it.
-        ///
-        /// Not captured exactly:
-        /// - Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped
-        ///   "Metal content" placeholder.
-        /// - Video and camera previews stay blank, as they do today.
-        /// - Liquid Glass is approximated without refraction: sheets, alerts and dialogs as a blur of what's
-        ///   behind them, smaller glass as a flat fill in its shape. Tinted glass keeps its tint. The labels and
-        ///   icons on it are reproduced. On iOS 27, sheets, alerts and dialogs currently show as a flat panel
-        ///   instead of a blur.
-        ///
-        /// Captures fall back to the default path when the device has no Metal or a render fails.
-        /// Takes precedence over `screenshotModeBackgroundCapture` when both are enabled.
-        ///
-        /// While recording, the app keeps roughly 25 to 30 MB more memory resident on average (GPU memory held
-        /// by Metal and Core Animation); peak memory is about the same as the default capture. Measured on an
-        /// iPhone 17 Pro with `screenshotScale` unset, one pixel per point; a larger scale holds more.
-        ///
-        /// Experimental. iOS and Mac Catalyst only.
-        /// Default: false
-        @objc public var screenshotModeGPUCapture: Bool = false
-
         /// Resolution of screenshots, as a multiplier of the screen's native resolution.
         ///
         /// - `nil`: one pixel per point on every device, so a 402×874 pt screen uploads 402×874 pixels.
@@ -71,9 +85,8 @@
         ///
         /// Values are clamped to 0.1...1.0, and NaN or infinite values reset it to `nil`. The replay's viewport in
         /// points is unchanged. Does not affect compression quality. Exposed as `NSNumber` so
-        /// Objective-C can leave it unset.
+        /// Objective-C can leave it unset. Applies to every `captureMethod`.
         ///
-        /// Experimental.
         /// Default: nil (one pixel per point)
         @objc public var screenshotScale: NSNumber? {
             didSet {
@@ -86,17 +99,10 @@
             screenshotScale.map { nativeScale * CGFloat($0.doubleValue) } ?? 1
         }
 
-        /// Schedule screenshot image capture on a background queue.
+        /// How session replay captures each screenshot. See `PostHogSessionReplayCaptureMethod`.
         ///
-        /// Try this if session replay causes main-thread hangs or dropped frames on complex screens.
-        ///
-        /// Warning: Enabling this option will trigger Main Thread Checker warnings and may
-        /// briefly freeze the app the first time a screenshot is captured. Consider disabling
-        /// Main Thread Checker in your scheme's run diagnostics when enabling this.
-        ///
-        /// Experimental.
-        /// Default: false
-        @objc public var screenshotModeBackgroundCapture: Bool = false
+        /// Default: `.standard`
+        @objc public var captureMethod: PostHogSessionReplayCaptureMethod = .standard
 
         /// Throttle delay used to reduce the number of snapshots captured and reduce performance impact
         /// This is used for capturing the screenshot

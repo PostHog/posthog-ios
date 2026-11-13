@@ -114,6 +114,13 @@ public extension PostHogSDK {
             set {} // swiftlint:disable:this unused_setter_value
         }
 
+        /// Removed in PostHog 4.0. Use `captureMethod = .background` instead.
+        @available(*, unavailable, message: "Removed in PostHog 4.0. Set captureMethod = .background instead of screenshotModeBackgroundCapture = true.")
+        var screenshotModeBackgroundCapture: Bool {
+            get { captureMethod == .background }
+            set {} // swiftlint:disable:this unused_setter_value
+        }
+
         /// Removed in PostHog 4.0. It had no effect.
         @available(*, unavailable, message: "Removed in PostHog 4.0. It had no effect: delete the assignment.")
         var maskPhotoLibraryImages: Bool {

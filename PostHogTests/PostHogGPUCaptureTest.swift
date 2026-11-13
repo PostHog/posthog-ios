@@ -576,7 +576,7 @@
         func gpuReplacedImageUploadsNoOldPixels(replacedWithSymbol: Bool, noCapture: Bool) async throws {
             let mirror = try makeMirror()
             let (sut, integration, _) = try makeScreenshotReplaySut {
-                $0.screenshotModeGPUCapture = true
+                $0.captureMethod = .gpu
                 $0.maskAllImages = !noCapture
             }
             defer { sut.close() }
@@ -2354,7 +2354,7 @@
         // MARK: - Lifecycle
 
         private func makeSut(gpuCapture: Bool = true) throws -> (PostHogSDK, PostHogReplayIntegration, ReplaySnapshots) {
-            try makeScreenshotReplaySut { $0.screenshotModeGPUCapture = gpuCapture }
+            try makeScreenshotReplaySut { $0.captureMethod = gpuCapture ? .gpu : .standard }
         }
 
         /// Waits for the capture to give the render slot back, through both turns and the readback.
@@ -2510,7 +2510,7 @@
         func uploadedScreenshotSize(screenshotScale: Double?, gpu: Bool) async throws {
             let mirror = try makeMirror()
             let (sut, integration, snapshots) = try makeScreenshotReplaySut {
-                $0.screenshotModeGPUCapture = gpu
+                $0.captureMethod = gpu ? .gpu : .standard
                 $0.screenshotScale = screenshotScale.map { NSNumber(value: $0) }
             }
             integration.gpuMirror = mirror
@@ -2572,7 +2572,7 @@
         @Test("Mirrored layer trees are freed after each capture")
         func mirroredLayersAreFreed() async throws {
             let mirror = try makeMirror()
-            let (sut, integration, _) = try makeScreenshotReplaySut { $0.screenshotModeGPUCapture = true }
+            let (sut, integration, _) = try makeScreenshotReplaySut { $0.captureMethod = .gpu }
             integration.gpuMirror = mirror
             defer { sut.close() }
             let mockLifecycle = MockApplicationLifecyclePublisher()
@@ -2750,17 +2750,9 @@
 
         // MARK: - Routing
 
-        @Test("GPU capture is used only when its flag is on, and wins over background capture", arguments: [
-            (gpu: false, background: false, expected: PostHogReplayIntegration.ScreenshotCapturePath.settled),
-            (gpu: false, background: true, expected: .background),
-            (gpu: true, background: false, expected: .gpu),
-            (gpu: true, background: true, expected: .gpu),
-        ])
-        func capturePath(_ flags: (gpu: Bool, background: Bool, expected: PostHogReplayIntegration.ScreenshotCapturePath)) {
-            let config = PostHogSessionReplayConfig()
-            config.screenshotModeGPUCapture = flags.gpu
-            config.screenshotModeBackgroundCapture = flags.background
-            #expect(PostHogReplayIntegration.screenshotCapturePath(config) == flags.expected)
+        @Test("captures with the standard method by default")
+        func defaultCaptureMethod() {
+            #expect(PostHogSessionReplayConfig().captureMethod == .standard)
         }
 
         // MARK: - Shared contents

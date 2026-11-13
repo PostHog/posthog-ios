@@ -992,7 +992,7 @@
         @Test("With GPU capture off, the default path collects the same rects and never builds a mirror or copy map")
         func defaultPathIsUnchanged() async throws {
             let mirror = try makeMirror()
-            let (sut, integration, _) = try makeScreenshotReplaySut { $0.screenshotModeGPUCapture = false }
+            let (sut, integration, _) = try makeScreenshotReplaySut { $0.captureMethod = .standard }
             // drawHierarchy draws nothing in this hostless bundle.
             PostHogReplayIntegration.screenshotRendererForTesting = .presentationTree
             defer { PostHogReplayIntegration.screenshotRendererForTesting = nil }

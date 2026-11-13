@@ -63,6 +63,415 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
+    @Suite("Test failed detailed flag records")
+    class TestFailedFlagRecords: BaseTestClass {
+        private func stubFlags(_ flags: [String: Any], errors: Bool?, minimal: Bool = false) {
+            var response: [String: Any] = [
+                "flags": flags,
+                "minimalFlagCalledEvents": minimal,
+                // Detailed records are authoritative even when flat mirrors accompany them.
+                "featureFlags": ["failed-boolean": false, "failed-variant": "placeholder"],
+                "featureFlagPayloads": ["failed-variant": "\"placeholder\""],
+            ]
+            if let errors { response["errorsWhileComputingFlags"] = errors }
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(jsonObject: response, statusCode: 200, headers: nil)
+            }
+        }
+
+        private func failedFlags() -> [String: Any] {
+            [
+                "failed-boolean": ["enabled": false, "failed": true],
+                "failed-variant": [
+                    "enabled": true, "variant": "placeholder", "failed": true,
+                    "reason": ["description": "Evaluation failed"],
+                    "metadata": ["id": 123, "version": 7, "payload": "\"placeholder\"", "has_experiment": false],
+                ],
+                "healthy-false": ["enabled": false, "failed": false],
+                "healthy-false-absent": ["enabled": false],
+                "healthy-true": ["enabled": true],
+                "healthy-variant": ["enabled": true, "variant": "blue", "metadata": ["payload": "\"healthy\""]],
+            ]
+        }
+
+        private func reload(_ sut: PostHogSDK) async {
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags { continuation.resume() }
+            }
+        }
+
+        @Test("Failed records supply neither values nor payloads regardless of the global bit", arguments: [nil, false, true] as [Bool?])
+        func failedRecordsDoNotSupplyValues(errors: Bool?) async throws {
+            stubFlags(failedFlags(), errors: errors)
+            let sut = track(PostHogSDK.with(config))
+            await reload(sut)
+
+            for key in ["failed-boolean", "failed-variant"] {
+                #expect(sut.getFeatureFlagResult(key, sendFeatureFlagEvent: false) == nil)
+                #expect(sut.getFeatureFlag(key, sendFeatureFlagEvent: false) == nil)
+                #expect(sut.isFeatureEnabled(key, sendFeatureFlagEvent: false) == false)
+                #expect(sut.remoteConfig?.getFeatureFlagPayload(key) == nil)
+            }
+            #expect(sut.getFeatureFlagResult("healthy-false", sendFeatureFlagEvent: false)?.enabled == false)
+            let results = try #require(sut.getAllFeatureFlags())
+            #expect(Set(results.map(\.key)) == ["healthy-false", "healthy-false-absent", "healthy-true", "healthy-variant"])
+            #expect(results.first { $0.key == "healthy-false-absent" }?.enabled == false)
+            #expect(results.first { $0.key == "healthy-variant" }?.payload as? String == "healthy")
+
+            server.reset(batchCount: 1)
+            sut.capture("filtered-enrichment")
+            sut.flush()
+            let events = try await getServerEvents(server)
+            let event = try #require(events.first { $0.event == "filtered-enrichment" })
+            #expect(event.properties["$feature/failed-boolean"] == nil)
+            #expect(event.properties["$feature/failed-variant"] == nil)
+            #expect(event.properties["$feature/healthy-true"] as? Bool == true)
+            #expect(events.allSatisfy { $0.event != "$feature_flag_called" })
+        }
+
+        @Test("Failed reads report failure with a null response and preserve controls", arguments: [nil, false, true] as [Bool?], [false, true])
+        func failedReadEvents(errors: Bool?, minimal: Bool) async throws {
+            stubFlags(failedFlags(), errors: errors, minimal: minimal)
+            let sut = track(PostHogSDK.with(config))
+            await reload(sut)
+            server.reset(batchCount: 1)
+
+            _ = sut.getFeatureFlagResult("failed-variant", sendFeatureFlagEvent: false)
+            _ = sut.getFeatureFlagResult("failed-variant")
+            _ = sut.getFeatureFlag("failed-variant")
+            _ = sut.isFeatureEnabled("failed-variant")
+            _ = sut.getFeatureFlagResult("healthy-false")
+            _ = sut.getFeatureFlagResult("failed-boolean", sendFeatureFlagEvent: false)
+            sut.capture("flush-marker")
+            sut.flush()
+
+            let events = try await getServerEvents(server)
+            let calls = events.filter { $0.event == "$feature_flag_called" }
+            #expect(calls.count == 2)
+            let failed = try #require(calls.first { $0.properties["$feature_flag"] as? String == "failed-variant" })
+            #expect(failed.properties["$feature_flag_response"] is NSNull)
+            let error = failed.properties["$feature_flag_error"] as? String
+            #expect(error == (errors == true ? "evaluation_failed,errors_while_computing_flags" : "evaluation_failed"))
+            #expect(failed.properties["$feature_flag_reason"] as? String == "Evaluation failed")
+            #expect(failed.properties["$feature_flag_id"] as? Int == 123)
+            #expect(failed.properties["$feature_flag_version"] as? Int == 7)
+            let healthy = try #require(calls.first { $0.properties["$feature_flag"] as? String == "healthy-false" })
+            #expect(healthy.properties["$feature_flag_response"] as? Bool == false)
+            #expect(healthy.properties["$feature_flag_error"] as? String == (errors == true ? "errors_while_computing_flags" : nil))
+        }
+
+        @Test("Only response-wide errors retain prior successful values and payloads", arguments: [nil, false, true] as [Bool?])
+        func refreshRetainsOnlyOnResponseWideErrors(errors: Bool?) async throws {
+            let previous: [String: Any] = [
+                "enabled": ["enabled": true, "metadata": ["payload": "\"local-true\""]],
+                "disabled": ["enabled": false],
+                "variant": ["enabled": true, "variant": "blue", "metadata": ["payload": "\"local-variant\""]],
+            ]
+            stubFlags(previous, errors: false)
+            let sut = track(PostHogSDK.with(config))
+            await reload(sut)
+
+            let failed = ["enabled": false, "variant": "placeholder", "failed": true, "metadata": ["payload": "\"remote\""]] as [String: Any]
+            stubFlags(["enabled": failed, "disabled": failed, "variant": failed, "fresh": failed], errors: errors)
+            await reload(sut)
+
+            let results = try #require(sut.getAllFeatureFlags())
+            if errors == true {
+                #expect(Set(results.map(\.key)) == ["enabled", "disabled", "variant"])
+                #expect(sut.getFeatureFlagResult("enabled", sendFeatureFlagEvent: false)?.enabled == true)
+                #expect(sut.getFeatureFlagResult("enabled", sendFeatureFlagEvent: false)?.payload as? String == "local-true")
+                #expect(sut.getFeatureFlagResult("disabled", sendFeatureFlagEvent: false)?.enabled == false)
+                #expect(sut.getFeatureFlagResult("variant", sendFeatureFlagEvent: false)?.variant == "blue")
+                #expect(sut.getFeatureFlagResult("variant", sendFeatureFlagEvent: false)?.payload as? String == "local-variant")
+            } else {
+                #expect(results.isEmpty)
+            }
+            #expect(sut.getFeatureFlagResult("fresh", sendFeatureFlagEvent: false) == nil)
+
+            server.reset(batchCount: 1)
+            _ = sut.getFeatureFlagResult("enabled")
+            sut.flush()
+            let events = try await getServerEvents(server)
+            let call = try #require(events.first { $0.event == "$feature_flag_called" })
+            #expect(call.properties["$feature_flag_error"] as? String == (errors == true ? "errors_while_computing_flags" : "evaluation_failed"))
+            if errors == true {
+                #expect(call.properties["$feature_flag_response"] as? Bool == true)
+            } else {
+                #expect(call.properties["$feature_flag_response"] is NSNull)
+            }
+        }
+
+        @Test("A complete legacy response clears prior failure diagnostics without changing flat values")
+        func legacyRefreshClearsFailureDiagnostics() async throws {
+            stubFlags(failedFlags(), errors: true)
+            let sut = track(PostHogSDK.with(config))
+            await reload(sut)
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(jsonObject: [
+                    "featureFlags": ["legacy-disabled": false, "legacy-variant": "blue"],
+                    "featureFlagPayloads": ["legacy-variant": "\"legacy\""],
+                ], statusCode: 200, headers: nil)
+            }
+            await reload(sut)
+            #expect(sut.getFeatureFlagResult("legacy-disabled", sendFeatureFlagEvent: false)?.enabled == false)
+            #expect(sut.getFeatureFlagResult("legacy-variant", sendFeatureFlagEvent: false)?.variant == "blue")
+            #expect(sut.getFeatureFlagResult("legacy-variant", sendFeatureFlagEvent: false)?.payload as? String == "legacy")
+            server.reset(batchCount: 1)
+            #expect(sut.getFeatureFlagResult("failed-variant") == nil)
+            sut.flush()
+            let events = try await getServerEvents(server)
+            let call = try #require(events.first { $0.event == "$feature_flag_called" })
+            #expect(call.properties["$feature_flag_response"] is NSNull)
+            #expect(call.properties["$feature_flag_error"] == nil)
+        }
+
+        @Test("Reset clears both per-record and response-wide failure diagnostics")
+        func resetClearsFailureDiagnostics() async throws {
+            stubFlags(failedFlags(), errors: true)
+            let sut = track(PostHogSDK.with(config))
+            await reload(sut)
+            sut.remoteConfig?.canReloadFlagsForTesting = false
+            sut.reset()
+            server.reset(batchCount: 1)
+            #expect(sut.getFeatureFlagResult("failed-variant") == nil)
+            sut.flush()
+            let events = try await getServerEvents(server)
+            let call = try #require(events.first { $0.event == "$feature_flag_called" })
+            #expect(call.properties["$feature_flag_response"] is NSNull)
+            #expect(call.properties["$feature_flag_error"] == nil)
+        }
+
+        @Test("Persisted failed placeholders from older SDKs are removed before offline reads")
+        func persistedFailedPlaceholdersAreNotServed() async throws {
+            config.disableRemoteConfigForTesting = true
+            let storage = PostHogStorage(config)
+            storage.setDictionary(forKey: .flags, contents: [
+                "failed-variant": ["enabled": true, "variant": "placeholder", "failed": true, "metadata": ["payload": "\"placeholder\""]],
+                "failed-boolean": ["enabled": false, "failed": true],
+                "healthy-false": ["enabled": false, "failed": false],
+                "healthy-variant": ["enabled": true, "variant": "blue"],
+            ])
+            storage.setDictionary(forKey: .enabledFeatureFlags, contents: [
+                "failed-variant": "placeholder", "failed-boolean": false,
+                "healthy-false": false, "healthy-variant": "blue", "legacy": true,
+            ])
+            storage.setDictionary(forKey: .enabledFeatureFlagPayloads, contents: [
+                "failed-variant": "\"placeholder\"", "failed-boolean": "\"placeholder\"",
+                "healthy-variant": "\"healthy\"", "legacy": "\"legacy\"",
+            ])
+            let sut = track(PostHogSDK.with(config))
+            for key in ["failed-variant", "failed-boolean"] {
+                #expect(sut.getFeatureFlagResult(key, sendFeatureFlagEvent: false) == nil)
+                #expect(sut.getFeatureFlag(key, sendFeatureFlagEvent: false) == nil)
+                #expect(sut.remoteConfig?.getFeatureFlagPayload(key) == nil)
+                let persisted = PostHogStorage(config)
+                #expect(persisted.getDictionary(forKey: .enabledFeatureFlags)?[key] == nil)
+                #expect(persisted.getDictionary(forKey: .enabledFeatureFlagPayloads)?[key] == nil)
+            }
+            #expect(Set((sut.getAllFeatureFlags() ?? []).map(\.key)) == ["healthy-false", "healthy-variant", "legacy"])
+            #expect(sut.getFeatureFlagResult("healthy-false", sendFeatureFlagEvent: false)?.enabled == false)
+            #expect(sut.getFeatureFlagResult("healthy-variant", sendFeatureFlagEvent: false)?.payload as? String == "healthy")
+            #expect(sut.getFeatureFlagResult("legacy", sendFeatureFlagEvent: false)?.payload as? String == "legacy")
+
+            server.reset(batchCount: 1)
+            _ = sut.getFeatureFlagResult("failed-variant")
+            sut.flush()
+            let events = try await getServerEvents(server)
+            let call = try #require(events.first { $0.event == "$feature_flag_called" })
+            #expect(call.properties["$feature_flag_response"] is NSNull)
+            #expect(call.properties["$feature_flag_error"] as? String == "evaluation_failed")
+        }
+
+        @Test("Reopening a failed cache preserves both causes until a complete refresh", arguments: [nil, false] as [Bool?])
+        func persistedResponseWideErrorsSurviveReopen(refreshErrors: Bool?) async throws {
+            config.disableRemoteConfigForTesting = true
+            stubFlags(failedFlags(), errors: true)
+            let first = track(PostHogSDK.with(config))
+            await reload(first)
+            first.close()
+            let reopened = track(PostHogSDK.with(config))
+            server.reset(batchCount: 1)
+            #expect(reopened.getFeatureFlagResult("failed-variant") == nil)
+            reopened.flush()
+            let events = try await getServerEvents(server)
+            let call = try #require(events.first { $0.event == "$feature_flag_called" })
+            #expect(call.properties["$feature_flag_response"] is NSNull)
+            #expect(call.properties["$feature_flag_error"] as? String == "evaluation_failed,errors_while_computing_flags")
+
+            stubFlags(failedFlags(), errors: refreshErrors)
+            await reload(reopened)
+            reopened.close()
+            let refreshed = track(PostHogSDK.with(config))
+            #expect(refreshed.remoteConfig?.getFeatureFlagErrors("failed-variant") == ["evaluation_failed"])
+            stubFlags(failedFlags(), errors: true)
+            await reload(refreshed)
+            refreshed.remoteConfig?.canReloadFlagsForTesting = false
+            refreshed.reset()
+            refreshed.close()
+            let reset = track(PostHogSDK.with(config))
+            #expect(reset.remoteConfig?.getFeatureFlagErrors("failed-variant").isEmpty == true)
+        }
+
+        @Test("Reopening an errored cache preserves successful retained values and payloads")
+        func persistedRetainedSuccessesSurviveReopen() async throws {
+            config.disableRemoteConfigForTesting = true
+            stubFlags([
+                "enabled": ["enabled": true, "metadata": ["payload": "\"true-payload\""]],
+                "disabled": ["enabled": false],
+                "variant": ["enabled": true, "variant": "blue", "metadata": ["payload": "\"variant-payload\""]],
+            ], errors: false)
+            let first = track(PostHogSDK.with(config))
+            await reload(first)
+            let failed: [String: Any] = ["enabled": false, "failed": true]
+            stubFlags(["enabled": failed, "disabled": failed, "variant": failed, "fresh": failed], errors: true)
+            await reload(first)
+            first.close()
+            let reopened = track(PostHogSDK.with(config))
+            #expect(reopened.getFeatureFlagResult("enabled", sendFeatureFlagEvent: false)?.enabled == true)
+            #expect(reopened.getFeatureFlagResult("enabled", sendFeatureFlagEvent: false)?.payload as? String == "true-payload")
+            #expect(reopened.getFeatureFlagResult("disabled", sendFeatureFlagEvent: false)?.enabled == false)
+            #expect(reopened.getFeatureFlagResult("variant", sendFeatureFlagEvent: false)?.variant == "blue")
+            #expect(reopened.getFeatureFlagResult("variant", sendFeatureFlagEvent: false)?.payload as? String == "variant-payload")
+            #expect(reopened.getFeatureFlagResult("fresh", sendFeatureFlagEvent: false) == nil)
+            #expect(reopened.remoteConfig?.getFeatureFlagErrors("enabled") == ["errors_while_computing_flags"])
+        }
+
+        @Test("Only fresh bootstrap values clear prior-session errors across restart", arguments: ["absent", "empty", "success"])
+        func bootstrapClearsPreviousSessionResponseErrors(source: String) async throws {
+            config.disableRemoteConfigForTesting = true
+            stubFlags(failedFlags(), errors: true)
+            let first = track(PostHogSDK.with(config))
+            await reload(first)
+            #expect(first.remoteConfig?.getFeatureFlagErrors("failed-variant") == ["evaluation_failed", "errors_while_computing_flags"])
+            first.capture("first-session-marker")
+            first.flush()
+            let firstEvents = try await getServerEvents(server)
+            #expect(firstEvents.contains { $0.event == "first-session-marker" })
+            first.close()
+
+            if source == "success" {
+                config.bootstrap = PostHogBootstrapConfig(featureFlags: ["failed-variant": "blue"], featureFlagPayloads: ["failed-variant": "successful"])
+            } else if source == "empty" {
+                config.bootstrap = PostHogBootstrapConfig(featureFlags: [:], featureFlagPayloads: nil)
+            }
+            server.reset(batchCount: 1)
+            let second = track(PostHogSDK.with(config))
+            let expectedErrors = source == "success" ? [] : ["evaluation_failed", "errors_while_computing_flags"]
+            #expect(second.remoteConfig?.getFeatureFlagErrors("failed-variant") == expectedErrors)
+            let result = second.getFeatureFlagResult("failed-variant")
+            if source == "success" {
+                #expect(result?.variant == "blue")
+                #expect(result?.payload as? String == "successful")
+            } else {
+                #expect(result == nil)
+            }
+            second.flush()
+            let events = try await getServerEvents(server)
+            let call = try #require(events.first { $0.event == "$feature_flag_called" && $0.properties["$feature_flag"] as? String == "failed-variant" })
+            #expect(call.properties["$feature_flag_error"] as? String == (expectedErrors.isEmpty ? nil : expectedErrors.joined(separator: ",")))
+            if source == "success" {
+                #expect(call.properties["$feature_flag_response"] as? String == "blue")
+            } else {
+                #expect(call.properties["$feature_flag_response"] is NSNull)
+            }
+            #expect(server.flagsRequests.isEmpty)
+            second.close()
+
+            config.bootstrap = nil
+            let reopened = track(PostHogSDK.with(config))
+            #expect(reopened.remoteConfig?.getFeatureFlagErrors("failed-variant") == expectedErrors)
+            let persistedResult = reopened.getFeatureFlagResult("failed-variant", sendFeatureFlagEvent: false)
+            if source == "success" {
+                #expect(persistedResult?.variant == "blue")
+                #expect(persistedResult?.payload as? String == "successful")
+            } else {
+                #expect(persistedResult == nil)
+            }
+            #expect(server.flagsRequests.isEmpty)
+        }
+
+        @Test("Successful bootstrap and legacy values supersede stale failed details across restart", arguments: ["bootstrap", "bootstrap-errored", "legacy"])
+        func successfulFallbackSurvivesSanitizer(source: String) async throws {
+            config.disableRemoteConfigForTesting = true
+            let failed: [String: Any] = [
+                "enabled": false, "failed": true,
+                "metadata": ["id": 123], "reason": ["description": "Failed evaluation"],
+            ]
+            stubFlags([
+                "flag": failed,
+                "retained": [
+                    "enabled": true, "metadata": ["id": 456, "version": 7],
+                    "reason": ["description": "Successful evaluation"],
+                ],
+            ], errors: false)
+            let first = track(PostHogSDK.with(config))
+            await reload(first)
+            first.close()
+
+            if source.hasPrefix("bootstrap") {
+                config.bootstrap = PostHogBootstrapConfig(featureFlags: ["flag": "blue"], featureFlagPayloads: ["flag": "successful"])
+                stubFlags(["flag": failed], errors: true)
+            } else {
+                server.flagsResponseHandler = { _ in
+                    HTTPStubsResponse(jsonObject: [
+                        "featureFlags": ["flag": "blue"],
+                        "featureFlagPayloads": ["flag": "\"successful\""],
+                        "errorsWhileComputingFlags": true,
+                    ], statusCode: 200, headers: nil)
+                }
+            }
+            let second = track(PostHogSDK.with(config))
+            if source != "bootstrap" {
+                await reload(second)
+            }
+            #expect(second.getFeatureFlagResult("flag", sendFeatureFlagEvent: false)?.variant == "blue")
+            #expect(second.getFeatureFlagResult("flag", sendFeatureFlagEvent: false)?.payload as? String == "successful")
+            #expect(second.remoteConfig?.getFeatureFlagDetails("flag") == nil)
+            second.close()
+
+            config.bootstrap = nil
+            let reopened = track(PostHogSDK.with(config))
+            #expect(reopened.getFeatureFlagResult("flag", sendFeatureFlagEvent: false)?.variant == "blue")
+            #expect(reopened.getFeatureFlagResult("flag", sendFeatureFlagEvent: false)?.payload as? String == "successful")
+            let expectedErrors = source == "bootstrap" ? [] : ["errors_while_computing_flags"]
+            #expect(reopened.remoteConfig?.getFeatureFlagErrors("flag") == expectedErrors)
+            #expect(reopened.remoteConfig?.getFeatureFlagDetails("flag") == nil)
+
+            server.reset(batchCount: 1)
+            _ = reopened.getFeatureFlagResult("flag")
+            if source == "legacy" {
+                #expect(reopened.getFeatureFlagResult("retained")?.enabled == true)
+            }
+            reopened.flush()
+            let events = try await getServerEvents(server)
+            let call = try #require(events.first { $0.event == "$feature_flag_called" && $0.properties["$feature_flag"] as? String == "flag" })
+            #expect(call.properties["$feature_flag_response"] as? String == "blue")
+            #expect(call.properties["$feature_flag_error"] as? String == expectedErrors.first)
+            #expect(call.properties["$feature_flag_id"] == nil)
+            #expect(call.properties["$feature_flag_reason"] == nil)
+            if source == "legacy" {
+                let retained = try #require(events.first { $0.event == "$feature_flag_called" && $0.properties["$feature_flag"] as? String == "retained" })
+                #expect(retained.properties["$feature_flag_id"] as? Int == 456)
+                #expect(retained.properties["$feature_flag_version"] as? Int == 7)
+                #expect(retained.properties["$feature_flag_reason"] as? String == "Successful evaluation")
+            }
+        }
+
+        @Test("The instance event setting also suppresses failed reads")
+        func instanceEventSuppression() async throws {
+            config.sendFeatureFlagEvent = false
+            stubFlags(failedFlags(), errors: true)
+            let sut = track(PostHogSDK.with(config))
+            await reload(sut)
+            server.reset(batchCount: 1)
+            _ = sut.getFeatureFlagResult("failed-variant")
+            sut.capture("flush-marker")
+            sut.flush()
+            let events = try await getServerEvents(server)
+            #expect(events.allSatisfy { $0.event != "$feature_flag_called" })
+        }
+    }
+
     @Suite("Test getFeatureFlag")
     class TestGetFeatureFlagValue: BaseTestClass {
         @Test("Returns true for enabled Bool flag")

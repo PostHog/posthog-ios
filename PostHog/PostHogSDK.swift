@@ -2658,6 +2658,7 @@ let maxRetryDelay = 30.0
         "$feature_flag_reason",
         "$feature_flag_request_id",
         "$feature_flag_evaluated_at",
+        "$feature_flag_error",
         "$groups",
         "$process_person_profile",
         "$session_id",
@@ -2683,9 +2684,8 @@ let maxRetryDelay = 30.0
         "fbclid",
         // Forward-looking cross-SDK contract entries: not produced by buildProperties for
         // $feature_flag_called on iOS today ($device_id is added later by PostHogApi on the
-        // /flags request only; $window_id is snapshot-only; $feature_flag_error isn't emitted
-        // by this SDK yet). Kept so the allowlist matches the shared contract as those signals land.
-        "$feature_flag_error",
+        // /flags request only; $window_id is snapshot-only). Kept so the allowlist matches the
+        // shared contract as those signals land.
         "$window_id",
         "$device_id",
     ]
@@ -2727,6 +2727,10 @@ let maxRetryDelay = 30.0
 
             if let evaluatedAt {
                 properties["$feature_flag_evaluated_at"] = evaluatedAt
+            }
+
+            if let errors = remoteConfig?.getFeatureFlagErrors(flagKey), !errors.isEmpty {
+                properties["$feature_flag_error"] = errors.joined(separator: ",")
             }
 
             if let details = details as? [String: Any] {

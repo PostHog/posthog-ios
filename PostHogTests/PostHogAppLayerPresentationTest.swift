@@ -182,7 +182,7 @@
             try await commit()
 
             #expect(!window.layer.containsAppDefinedLayer)
-            #expect(window.toImage(preferFidelityRenderer: false) != nil)
+            #expect(window.toImage(renderer: .presentationTree) != nil)
         }
 
         @Test("A motion frame of a window holding an app-defined layer is skipped")
@@ -191,7 +191,7 @@
             defer { window.isHidden = true }
             _ = try await fieldUnderAppLayer(in: window)
 
-            #expect(window.toImage(preferFidelityRenderer: false) == nil)
+            #expect(window.toImage(renderer: .presentationTree) == nil)
             #expect(AppLayer.copies == 0)
         }
     }

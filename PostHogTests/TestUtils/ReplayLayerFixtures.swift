@@ -8,12 +8,18 @@
     struct RGBA: Equatable {
         let red: UInt8, green: UInt8, blue: UInt8, alpha: UInt8
 
+        static let magenta = RGBA(red: 255, green: 0, blue: 255, alpha: 255)
+        static let blue = RGBA(red: 0, green: 0, blue: 255, alpha: 255)
+        static let white = RGBA(red: 255, green: 255, blue: 255, alpha: 255)
+        static let red = RGBA(red: 255, green: 0, blue: 0, alpha: 255)
+        static let green = RGBA(red: 0, green: 255, blue: 0, alpha: 255)
+
         var isMagenta: Bool {
             red > 200 && green < 60 && blue > 200
         }
     }
 
-    /// RGBA8 pixels, 1x.
+    /// RGBA8 pixels.
     struct Pixels {
         let width: Int
         let height: Int
@@ -31,6 +37,10 @@
             self.bytes = bytes
         }
 
+        init(_ image: UIImage) throws {
+            try self.init(#require(image.cgImage))
+        }
+
         subscript(x: Int, y: Int) -> RGBA {
             let index = (y * width + x) * 4
             return RGBA(red: bytes[index], green: bytes[index + 1], blue: bytes[index + 2], alpha: bytes[index + 3])
@@ -44,6 +54,33 @@
                 }
             }
             return points
+        }
+
+        func count(in rect: CGRect? = nil, where predicate: (RGBA) -> Bool) -> Int {
+            let area = (rect ?? CGRect(x: 0, y: 0, width: width, height: height)).intersection(CGRect(x: 0, y: 0, width: width, height: height))
+            guard !area.isNull else { return 0 }
+            var count = 0
+            for y in Int(area.minY) ..< Int(area.maxY) {
+                for x in Int(area.minX) ..< Int(area.maxX) where predicate(self[x, y]) {
+                    count += 1
+                }
+            }
+            return count
+        }
+
+        func maxNeighbourStep(in rect: CGRect) -> Int {
+            var step = 0
+            for y in Int(rect.minY) ..< Int(rect.maxY) - 1 {
+                for x in Int(rect.minX) ..< Int(rect.maxX) - 1 {
+                    let pixel = self[x, y], right = self[x + 1, y], below = self[x, y + 1]
+                    for (a, b) in [(pixel.red, right.red), (pixel.green, right.green), (pixel.blue, right.blue),
+                                   (pixel.red, below.red), (pixel.green, below.green), (pixel.blue, below.blue)]
+                    {
+                        step = max(step, abs(Int(a) - Int(b)))
+                    }
+                }
+            }
+            return step
         }
     }
 

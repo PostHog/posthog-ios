@@ -30,7 +30,7 @@
         private func motionCapture(_ window: UIWindow, integration: PostHogReplayIntegration) throws -> (image: UIImage, rects: [CGRect]) {
             window.layoutIfNeeded()
             let rects = try #require(integration.collectMaskableRects(in: window))
-            let image = try #require(window.toImage(preferFidelityRenderer: false))
+            let image = try #require(window.toImage(renderer: .presentationTree))
             return (image, rects)
         }
 

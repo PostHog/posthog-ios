@@ -158,13 +158,19 @@ jobs:
       - name: Verify masking goldens
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make maskSnapshots
+      - name: Verify GPU masking goldens
+        # always(): a CPU golden failure must not hide the GPU result.
+        if: always() && needs.detect-markdown-only.outputs.markdown_only != 'true'
+        run: make gpuMaskSnapshots
       - name: Upload diff images on failure
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         id: diff-upload
         if: failure() && needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           name: mask-snapshot-diffs
-          path: PostHogTests/__MaskSnapshotFailures__/*.png
+          path: |
+            PostHogTests/__MaskSnapshotFailures__/*.png
+            PostHogTests/__GPUMaskSnapshotFailures__/*.png
           if-no-files-found: ignore
 
   # GitHub never renders artifacts on the PR page, so surface a download link there. This is
@@ -201,7 +207,7 @@ jobs:
 
             **[Download the diff artifact](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ needs.mask-snapshots.outputs.artifact_id }})** — per failing case: `expected` (committed golden), `actual` (this run), `diff` (heatmap of changed pixels).
 
-            If the change is intended, refresh with `make recordMaskSnapshots` and commit the updated PNGs.
+            If the change is intended, refresh with `make recordMaskSnapshots` (cases in `__MaskSnapshotFailures__`) or `make recordGPUMaskSnapshots` (cases in `__GPUMaskSnapshotFailures__`) and commit the updated PNGs.
           edit-mode: replace
       # Job failed before rendering snapshots (build/simulator/infra): no artifact to link,
       # but still flag the red on the PR rather than going silent.

@@ -5,6 +5,21 @@
     import UIKit
 
     extension PostHogReplayIntegration {
+        /// How GPU capture may mask a region in its mirror instead of painting its rect.
+        enum InlineMasking: Equatable {
+            /// The object owns the pixels the rect covers: its copies are masked.
+            case owned
+            /// A `postHogMask()` reporter: the content under each of its drawn copies, or under the rect when it has none, is
+            /// masked.
+            case extent
+            /// Rect pass only (a source shown through a portal): over each of the object's drawn copies, or the rect
+            /// when it has none.
+            case rectOnly
+            /// A whole portal that shows its source elsewhere: like `rectOnly`, unless every region whose owner is in
+            /// `coveredBy` was masked inline, since that masks the portal's copy too. Empty means always.
+            case portal(coveredBy: Set<ObjectIdentifier>)
+        }
+
         /// A maskable rect tagged with its view/layer identity, so two samples taken moments
         /// apart pair by identity rather than array index — traversal order isn't stable across
         /// cell recycling or z-order changes. `object` is retained because a deallocation would
@@ -13,20 +28,23 @@
             let owner: ObjectIdentifier
             let object: AnyObject
             let rect: CGRect
+            /// See `InlineMasking`.
+            let inline: InlineMasking
 
-            init(_ object: AnyObject, rect: CGRect) {
+            init(_ object: AnyObject, rect: CGRect, inline: InlineMasking) {
                 owner = ObjectIdentifier(object)
                 self.object = object
                 self.rect = rect
+                self.inline = inline
             }
 
             /// Covers everything the view draws itself, including content past its bounds.
             init(_ view: UIView, in window: UIWindow?) {
-                self.init(view, rect: view.toPresentationRect(window, outsets: view.drawnOutsets))
+                self.init(view, rect: view.toPresentationRect(window, outsets: view.drawnOutsets), inline: .owned)
             }
 
             init(_ layer: CALayer, in window: UIWindow?) {
-                self.init(layer, rect: layer.toPresentationRect(window, outsets: layer.drawnOutsets(of: layer.bounds)))
+                self.init(layer, rect: layer.toPresentationRect(window, outsets: layer.drawnOutsets(of: layer.bounds)), inline: .owned)
             }
         }
 

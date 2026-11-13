@@ -165,12 +165,13 @@ class PostHogReplayQueueTests {
         server.start(snapshotCount: 1)
         defer { server.stop() }
 
-        let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
         let storage = PostHogStorage(config)
         storage.reset()
         let api = PostHogApi(config)
         let queue = PostHogReplayQueue(config, storage, api, nil)
-        queue.start(disableReachabilityForTesting: true, disableQueueTimerForTesting: false)
+        queue.start(disableReachabilityForTesting: true, disableQueueTimerForTesting: true)
+        defer { queue.stop() }
         mockDelegate.isBuffering = false
         queue.bufferDelegate = mockDelegate
 
@@ -181,6 +182,10 @@ class PostHogReplayQueueTests {
         // Flush and wait for server to receive snapshot events
         queue.flush()
         try await waitForSnapshotRequest(server)
+        // Request arrival precedes the response callback that removes the queued snapshot.
+        await waitUntil(timeoutNanoseconds: UInt64(testRequestTimeout * 1_000_000_000)) {
+            queue.depth == 0
+        }
 
         #expect(queue.depth == 0)
     }

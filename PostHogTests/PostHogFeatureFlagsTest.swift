@@ -336,6 +336,60 @@ enum PostHogFeatureFlagsTest {
             #expect(reopened.remoteConfig?.getFeatureFlagErrors("enabled") == ["errors_while_computing_flags"])
         }
 
+        @Test("Only fresh bootstrap values clear prior-session errors across restart", arguments: ["absent", "empty", "success"])
+        func bootstrapClearsPreviousSessionResponseErrors(source: String) async throws {
+            config.disableRemoteConfigForTesting = true
+            stubFlags(failedFlags(), errors: true)
+            let first = track(PostHogSDK.with(config))
+            await reload(first)
+            #expect(first.remoteConfig?.getFeatureFlagErrors("failed-variant") == ["evaluation_failed", "errors_while_computing_flags"])
+            first.capture("first-session-marker")
+            first.flush()
+            let firstEvents = try await getServerEvents(server)
+            #expect(firstEvents.contains { $0.event == "first-session-marker" })
+            first.close()
+
+            if source == "success" {
+                config.bootstrap = PostHogBootstrapConfig(featureFlags: ["failed-variant": "blue"], featureFlagPayloads: ["failed-variant": "successful"])
+            } else if source == "empty" {
+                config.bootstrap = PostHogBootstrapConfig(featureFlags: [:], featureFlagPayloads: nil)
+            }
+            server.reset(batchCount: 1)
+            let second = track(PostHogSDK.with(config))
+            let expectedErrors = source == "success" ? [] : ["evaluation_failed", "errors_while_computing_flags"]
+            #expect(second.remoteConfig?.getFeatureFlagErrors("failed-variant") == expectedErrors)
+            let result = second.getFeatureFlagResult("failed-variant")
+            if source == "success" {
+                #expect(result?.variant == "blue")
+                #expect(result?.payload as? String == "successful")
+            } else {
+                #expect(result == nil)
+            }
+            second.flush()
+            let events = try await getServerEvents(server)
+            let call = try #require(events.first { $0.event == "$feature_flag_called" && $0.properties["$feature_flag"] as? String == "failed-variant" })
+            #expect(call.properties["$feature_flag_error"] as? String == (expectedErrors.isEmpty ? nil : expectedErrors.joined(separator: ",")))
+            if source == "success" {
+                #expect(call.properties["$feature_flag_response"] as? String == "blue")
+            } else {
+                #expect(call.properties["$feature_flag_response"] is NSNull)
+            }
+            #expect(server.flagsRequests.isEmpty)
+            second.close()
+
+            config.bootstrap = nil
+            let reopened = track(PostHogSDK.with(config))
+            #expect(reopened.remoteConfig?.getFeatureFlagErrors("failed-variant") == expectedErrors)
+            let persistedResult = reopened.getFeatureFlagResult("failed-variant", sendFeatureFlagEvent: false)
+            if source == "success" {
+                #expect(persistedResult?.variant == "blue")
+                #expect(persistedResult?.payload as? String == "successful")
+            } else {
+                #expect(persistedResult == nil)
+            }
+            #expect(server.flagsRequests.isEmpty)
+        }
+
         @Test("Successful bootstrap and legacy values supersede stale failed details across restart", arguments: ["bootstrap", "bootstrap-errored", "legacy"])
         func successfulFallbackSurvivesSanitizer(source: String) async throws {
             config.disableRemoteConfigForTesting = true

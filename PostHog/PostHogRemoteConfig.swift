@@ -981,6 +981,7 @@ class PostHogRemoteConfig {
             guard !bootstrappedFlags.isEmpty else { return false }
             // Bootstrap replaces the served snapshot and carries no remote evaluation details.
             setCachedFlags([:])
+            setCachedErrorsWhileComputingFlags(nil)
             setCachedFeatureFlags(bootstrappedFlags)
             setCachedFeatureFlagPayload(bootstrappedPayloads)
             return true

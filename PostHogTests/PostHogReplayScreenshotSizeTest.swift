@@ -87,7 +87,7 @@
             let window = try window()
             defer { window.isHidden = true }
             // drawHierarchy has no window scene in this hostless bundle and failed draws are dropped, so only the presentation-tree renderer yields a frame.
-            let image = try #require(window.toImage(preferFidelityRenderer: false))
+            let image = try #require(window.toImage(renderer: .presentationTree))
             #expect(try pixelSize(uploaded(image, masks: [])) == window.bounds.size)
         }
 
@@ -95,7 +95,7 @@
         func wireframeImageKeepsItsSize() throws {
             let window = try window()
             defer { window.isHidden = true }
-            let image = try #require(window.toImage(preferFidelityRenderer: false))
+            let image = try #require(window.toImage(renderer: .presentationTree))
             let wireframe = RRScreenshotFrame()
             wireframe.type = "image"
             wireframe.image = image
@@ -108,7 +108,7 @@
         func maskLandsOnUnmaskedPixels() throws {
             let window = try window()
             defer { window.isHidden = true }
-            let image = try #require(window.toImage(preferFidelityRenderer: false))
+            let image = try #require(window.toImage(renderer: .presentationTree))
             let unmasked = try uploaded(image, masks: [])
             let masked = try uploaded(image, masks: [Self.secretRect])
             #expect(pixelSize(masked) == pixelSize(unmasked))
@@ -133,7 +133,7 @@
         func nilScaleUploadsPointSize() throws {
             let window = try window()
             defer { window.isHidden = true }
-            let image = try #require(window.toImage(preferFidelityRenderer: false))
+            let image = try #require(window.toImage(renderer: .presentationTree))
             let scale = pixelScale(screenshotScale: nil, on: window)
             #expect(scale == 1)
             #expect(try pixelSize(uploaded(image, masks: [], pixelScale: scale)) == window.bounds.size)
@@ -144,7 +144,7 @@
         func explicitScaleUploadsFractionOfNative(screenshotScale: Double) throws {
             let window = try window()
             defer { window.isHidden = true }
-            let image = try #require(window.toImage(preferFidelityRenderer: false))
+            let image = try #require(window.toImage(renderer: .presentationTree))
             let scale = pixelScale(screenshotScale: NSNumber(value: screenshotScale), on: window)
             #expect(scale == window.screen.scale * CGFloat(screenshotScale))
 
@@ -174,7 +174,7 @@
         func maskLandsAtNonUnitScale() throws {
             let window = try window()
             defer { window.isHidden = true }
-            let image = try #require(window.toImage(preferFidelityRenderer: false))
+            let image = try #require(window.toImage(renderer: .presentationTree))
             let scale = pixelScale(screenshotScale: 0.5, on: window)
             let unmasked = try uploaded(image, masks: [], pixelScale: scale)
             let masked = try uploaded(image, masks: [Self.secretRect], pixelScale: scale)
@@ -213,7 +213,7 @@
         func nativeScaleSkipsRedraw() throws {
             let window = try window()
             defer { window.isHidden = true }
-            let image = try #require(window.toImage(preferFidelityRenderer: false))
+            let image = try #require(window.toImage(renderer: .presentationTree))
             let native = pixelScale(screenshotScale: 1, on: window)
             #expect(RRScreenshotFrame.unmaskedScreenshot(image, pixelScale: native) === image)
             #expect(RRScreenshotFrame.unmaskedScreenshot(image, pixelScale: 1) !== image)

@@ -37,6 +37,21 @@
             return view != nil && isInsideCover
         }
 
+        /// Whether this view and its superviews up to and including `ancestor` are all shown.
+        func isVisible(upTo ancestor: UIView) -> Bool {
+            var view: UIView? = self
+            while let current = view {
+                if current.isHidden || !current.hasRenderedOpacity {
+                    return false
+                }
+                if current === ancestor {
+                    return true
+                }
+                view = current.superview
+            }
+            return false
+        }
+
         /// Visibility for the mask walk, stricter than `isVisible()` because anything it
         /// calls invisible is never masked while the screenshot may still draw it:
         /// - A view fading out parks its model `alpha` at 0 on the first frame of the
@@ -114,7 +129,7 @@
             setPostHogFlag(&AssociatedKeys.phNoRageClick, enabled: enabled, owner: owner)
         }
 
-        func toImage(afterScreenUpdates: Bool = false, preferFidelityRenderer: Bool = true) -> UIImage? {
+        func toImage(afterScreenUpdates: Bool = false, renderer screenshotRenderer: PostHogScreenshotRenderer = .fidelity) -> UIImage? {
             // Background capture also enters here; controller traversal belongs on main.
             let hasCamera = {
                 (self as? UIWindow ?? self.window)?.hasCameraForReplay() ?? false
@@ -134,25 +149,22 @@
             // Using a non-native scale can trigger internal rescaling overhead, and a bitmap in
             // another gamut makes drawHierarchy convert every pixel on the main thread.
             let nativeScale = (self as? UIWindow ?? window)?.screen.scale ?? 1
-            let drawsHierarchy = afterScreenUpdates || preferFidelityRenderer
+            let drawsHierarchy = afterScreenUpdates || screenshotRenderer == .fidelity
             let gamut = screenshotGamut(drawingHierarchy: drawsHierarchy)
             let renderer = PostHogGraphicsImageRenderer(size: size, scale: nativeScale, gamut: gamut)
 
             var drawn = true
             let image = autoreleasepool {
                 renderer.image { context in
-                    if drawsHierarchy {
-                        // The bridge capture passes `afterScreenUpdates: true`: a freshly-presented native VC
-                        // renders black otherwise. Without it, drawHierarchy is chosen when the settle check
-                        // measured little enough movement that the displayed frame still matches the current
-                        // tree, so its full fidelity (blur, video, Metal) is worth lagging the render server.
-                        drawn = drawHierarchy(in: bounds, afterScreenUpdates: afterScreenUpdates)
-                    } else {
-                        // drawHierarchy lags the render server, so mask rects could sit ahead of
-                        // the pixels during scroll or animation; the presentation tree is the same
-                        // source toPresentationRect measures, at the same instant, so the two agree.
-                        // Trade-off: blur, video and Metal render flat, and render(in:) also skips
-                        // filters and layer.mask — content that must stay hidden needs postHogMask().
+                    if afterScreenUpdates {
+                        /// The bridge capture passes `true`: a freshly-presented native VC renders black otherwise.
+                        drawn = drawHierarchy(in: bounds, afterScreenUpdates: true)
+                        return
+                    }
+                    switch screenshotRenderer {
+                    case .fidelity:
+                        drawn = drawHierarchy(in: bounds, afterScreenUpdates: false)
+                    case .presentationTree:
                         (layer.presentation() ?? layer).render(in: context)
                     }
                 }
@@ -199,6 +211,17 @@
             }
             return layer.drawnOutsets(of: content)
         }
+    }
+
+    /// How `toImage` draws a view that isn't captured after screen updates.
+    enum PostHogScreenshotRenderer {
+        /// `drawHierarchy`, at full fidelity (blur, video, Metal), for when the settle check measured little enough
+        /// movement that the render server's last frame, which it shows, still matches the tree the masks measure.
+        case fidelity
+        /// `render(in:)` of the presentation tree, the source `toPresentationRect` measures, at the same instant, so
+        /// masks agree with pixels mid-motion. Blur, video and Metal render flat, and filters and `layer.mask` are
+        /// skipped: content that must stay hidden needs `postHogMask()`.
+        case presentationTree
     }
 
     extension UIImageView {
@@ -279,16 +302,32 @@
         /// How far past `bounds` the layer draws, given `content`, the extent of its own drawing
         /// in bounds coordinates. A shadow without a `shadowPath` repeats the content's shape,
         /// text included, so it counts; `masksToBounds` clips the shadow away.
+        /// Either the model's shadow or the presentation's can be drawn (the GPU capture copies the
+        /// presentation's, mid-animation or before a commit), so the larger of the two counts.
         func drawnOutsets(of content: CGRect) -> UIEdgeInsets {
+            let clips = masksToBounds
+            let modelOutsets = Self.outsets(of: self, content: content, clips: clips)
+            guard let presented = presentation() else { return modelOutsets }
+            let presentedOutsets = Self.outsets(of: presented, content: presented.bounds.outset(by: Self.outsets(of: content, past: bounds)),
+                                                clips: clips && presented.masksToBounds)
+            return UIEdgeInsets(top: max(modelOutsets.top, presentedOutsets.top), left: max(modelOutsets.left, presentedOutsets.left),
+                                bottom: max(modelOutsets.bottom, presentedOutsets.bottom), right: max(modelOutsets.right, presentedOutsets.right))
+        }
+
+        private static func outsets(of layer: CALayer, content: CGRect, clips: Bool) -> UIEdgeInsets {
             var drawn = content
-            if !masksToBounds, shadowOpacity > 0, shadowColor != nil, shadowPath == nil {
+            if !clips, layer.shadowOpacity > 0, layer.shadowColor != nil, layer.shadowPath == nil {
                 // Pad by twice the blur radius so the shadow's soft edge is covered too.
-                let blur = shadowRadius * 2
+                let blur = layer.shadowRadius * 2
                 drawn = drawn.union(
-                    content.offsetBy(dx: shadowOffset.width, dy: shadowOffset.height).insetBy(dx: -blur, dy: -blur)
+                    content.offsetBy(dx: layer.shadowOffset.width, dy: layer.shadowOffset.height).insetBy(dx: -blur, dy: -blur)
                 )
             }
-            return UIEdgeInsets(
+            return outsets(of: drawn, past: layer.bounds)
+        }
+
+        private static func outsets(of drawn: CGRect, past bounds: CGRect) -> UIEdgeInsets {
+            UIEdgeInsets(
                 top: max(0, bounds.minY - drawn.minY),
                 left: max(0, bounds.minX - drawn.minX),
                 bottom: max(0, drawn.maxY - bounds.maxY),

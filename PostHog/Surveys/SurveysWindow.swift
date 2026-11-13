@@ -10,7 +10,14 @@
     import UIKit
 
     final class SurveysWindow: PassthroughWindow {
+        private let displayController: SurveyDisplayController?
+
+        override var allowsBackgroundInteraction: Bool {
+            displayController?.displayedSurvey == nil
+        }
+
         init(controller: SurveyDisplayController, scene: UIWindowScene) {
+            displayController = controller
             super.init(windowScene: scene)
             let rootView = SurveysRootView().environmentObject(controller)
             let hostingController = UIHostingController(rootView: rootView)
@@ -19,11 +26,14 @@
         }
 
         required init?(coder _: NSCoder) {
+            displayController = nil
             super.init(frame: .zero)
         }
     }
 
     class PassthroughWindow: UIWindow {
+        var allowsBackgroundInteraction: Bool { true }
+
         override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
             guard
                 let hitView = super.hitTest(point, with: event),
@@ -32,8 +42,15 @@
                 return nil
             }
 
-            // if test comes back as our own view, ignore (this is the passthrough part)
-            return hitView == rootView ? nil : hitView
+            guard hitView == rootView else { return hitView }
+
+            // SwiftUI can return its root even when an embedded hosting view contains the hit.
+            for subview in rootView.subviews.reversed() {
+                if let hit = subview.hitTest(subview.convert(point, from: self), with: event) {
+                    return hit
+                }
+            }
+            return allowsBackgroundInteraction ? nil : rootView
         }
     }
 

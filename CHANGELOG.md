@@ -1,5 +1,29 @@
 ## Next
 
+## 3.96.2
+
+### Patch Changes
+
+- d401bd7: With `screenshotModeBackgroundCapture` on, session replay masks drifting content over the position its pixels can trail to, and skips frames captured while the screen scrolls or animates, or while a masked cell is recycled, instead of uploading them with misaligned masks.
+
+## 3.96.1
+
+### Patch Changes
+
+- b692550: Treat failed detailed feature flag records as unavailable instead of serving their placeholder values or payloads, including previously persisted placeholders. Preserve successful cached results on response-wide errors and retain failed-read evaluation diagnostics across restarts.
+
+## 3.96.0
+
+### Minor Changes
+
+- 86bb436: Support survey cancel events to clear unconsumed activation and cancel the built-in popup delay before display. Already-visible surveys and presentations owned by custom survey delegates remain active.
+
+## 3.95.0
+
+### Minor Changes
+
+- 8cfbaef: Honor survey appearance.position instead of always presenting a bottom sheet, and expose the configured position to custom survey renderers.
+
 ## 3.94.4
 
 ### Patch Changes

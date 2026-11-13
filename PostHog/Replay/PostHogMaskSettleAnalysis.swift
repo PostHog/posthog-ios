@@ -5,6 +5,21 @@
     import UIKit
 
     extension PostHogReplayIntegration {
+        /// How GPU capture may mask a region in its mirror instead of painting its rect.
+        enum InlineMasking: Equatable {
+            /// The object owns the pixels the rect covers: its copies are masked.
+            case owned
+            /// A `postHogMask()` reporter: the content under each of its drawn copies, or under the rect when it has none, is
+            /// masked.
+            case extent
+            /// Rect pass only (a source shown through a portal): over each of the object's drawn copies, or the rect
+            /// when it has none.
+            case rectOnly
+            /// A whole portal that shows its source elsewhere: like `rectOnly`, unless every region whose owner is in
+            /// `coveredBy` was masked inline, since that masks the portal's copy too. Empty means always.
+            case portal(coveredBy: Set<ObjectIdentifier>)
+        }
+
         /// A maskable rect tagged with its view/layer identity, so two samples taken moments
         /// apart pair by identity rather than array index — traversal order isn't stable across
         /// cell recycling or z-order changes. `object` is retained because a deallocation would
@@ -13,20 +28,23 @@
             let owner: ObjectIdentifier
             let object: AnyObject
             let rect: CGRect
+            /// See `InlineMasking`.
+            let inline: InlineMasking
 
-            init(_ object: AnyObject, rect: CGRect) {
+            init(_ object: AnyObject, rect: CGRect, inline: InlineMasking) {
                 owner = ObjectIdentifier(object)
                 self.object = object
                 self.rect = rect
+                self.inline = inline
             }
 
             /// Covers everything the view draws itself, including content past its bounds.
             init(_ view: UIView, in window: UIWindow?) {
-                self.init(view, rect: view.toPresentationRect(window, outsets: view.drawnOutsets))
+                self.init(view, rect: view.toPresentationRect(window, outsets: view.drawnOutsets), inline: .owned)
             }
 
             init(_ layer: CALayer, in window: UIWindow?) {
-                self.init(layer, rect: layer.toPresentationRect(window, outsets: layer.drawnOutsets(of: layer.bounds)))
+                self.init(layer, rect: layer.toPresentationRect(window, outsets: layer.drawnOutsets(of: layer.bounds)), inline: .owned)
             }
         }
 
@@ -40,6 +58,12 @@
         /// The band thresholds derive from it, so changing it rescales them rather than
         /// invalidating them.
         static let settleWindowSeconds: TimeInterval = 0.025
+
+        /// Gap between the first mask sample and the off-main background render. On device, a render
+        /// taken right after an abrupt scroll stop still showed the pre-stop position; a still
+        /// verdict must span longer than that lag. 25ms already avoided it in testing, so this
+        /// leaves margin for slower devices.
+        static let backgroundCaptureLeadSeconds: TimeInterval = 0.1
 
         /// At or below 80pt/s, geometry counts as unmoved and rects are used exactly as sampled.
         /// Raise only to stop idle screens paying for inflation, and only a little: this much
@@ -111,35 +135,39 @@
             return oldRects
         }
 
-        /// Per-owner union of two samples taken either side of a render: covers wherever the
-        /// content sat while the render ran. An owner present in only one sample was still on
-        /// screen for part of that window, so its rect is emitted as collected rather than
-        /// discarding the frame — a scroll that recycles cells changes the owner set constantly,
-        /// and dropping every such frame freezes the recording across the whole interaction.
-        /// Unlike `pairedOldRects` the result is a mask list, not positionally tied to `after`.
-        /// nil only for a repeated owner within one sample, where the pairing is genuinely
-        /// ambiguous and there is no safe rect to emit.
-        static func sweptRects(before: [MaskedRegion]?, after: [MaskedRegion]?) -> [CGRect]? {
-            guard let before, let after, let beforeByOwner = rectsByOwner(before) else {
+        /// Masks for a frame rendered off-main between two samples, or nil to skip the frame.
+        /// The off-main render copies the last committed frame, which can trail `before`, so
+        /// drifted masks take `settleVerdict`'s inflation, including its trail behind `before`.
+        /// Motion, an unpaired owner (a cell recycled mid-render), or a nil sample skips the frame:
+        /// no rect is known to cover where that content sat when the pixels were committed, and
+        /// the presentation-tree renderer the settled path falls back to is main-only.
+        static func backgroundCaptureMaskRects(before: [MaskedRegion]?, after: [MaskedRegion]?) -> [CGRect]? {
+            let verdict = settleVerdict(before: before, after: after)
+            switch verdict.band {
+            case .still:
+                // Within tolerance, but the pixels may still show `before`.
+                guard let after, let oldRects = pairedOldRects(before: before, after: after) else { return nil }
+                return zip(oldRects, after).map { $0.union($1.rect) }
+            case .drift:
+                return verdict.inflatedRects
+            case .motion:
                 return nil
             }
+        }
 
-            var rects: [CGRect] = []
-            rects.reserveCapacity(max(before.count, after.count))
-            var seenAfterOwners: Set<ObjectIdentifier> = []
-            seenAfterOwners.reserveCapacity(after.count)
-            for region in after {
-                guard seenAfterOwners.insert(region.owner).inserted else {
-                    return nil
-                }
-                // No counterpart means the owner appeared mid-render; cover where it landed.
-                rects.append(beforeByOwner[region.owner].map { $0.union(region.rect) } ?? region.rect)
+        /// Three-sample form: `lead` is taken `backgroundCaptureLeadSeconds` before `before`, so a
+        /// still span covers the render's lag, while `before` stays adjacent to the render and
+        /// catches anything that moved, appeared or vanished during the wait. Each consecutive
+        /// pair must be coverable on its own; the masks are the union of both.
+        static func backgroundCaptureMaskRects(
+            lead: [MaskedRegion]?, before: [MaskedRegion]?, after: [MaskedRegion]?
+        ) -> [CGRect]? {
+            guard let leading = backgroundCaptureMaskRects(before: lead, after: before),
+                  let trailing = backgroundCaptureMaskRects(before: before, after: after)
+            else {
+                return nil
             }
-            // Owners that went away mid-render were still displayed for part of it.
-            for region in before where !seenAfterOwners.contains(region.owner) {
-                rects.append(region.rect)
-            }
-            return rects
+            return leading + trailing
         }
 
         /// Banded by measured drift:

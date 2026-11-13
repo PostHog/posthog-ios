@@ -44,32 +44,14 @@
             }
         }
 
-        private final class Snapshots {
-            private let lock = NSLock()
-            private var values: [[String: Any]] = []
-
-            func record(_ event: PostHogEvent) {
-                guard event.event == "$snapshot",
-                      let data = event.properties["$snapshot_data"] as? [[String: Any]]
-                else { return }
-                lock.withLock { values.append(contentsOf: data) }
-            }
-
-            var touches: [[String: Any]] {
-                lock.withLock {
-                    values.filter { $0["type"] as? Int == 3 }
-                        .compactMap { $0["data"] as? [String: Any] }
-                        .filter { $0["source"] as? Int == 2 }
+        private func makeSut(captureTouches: Bool? = nil, maskAllTextInputs: Bool = true) throws
+            -> (PostHogSDK, PostHogReplayIntegration, ReplaySnapshots)
+        {
+            try makeScreenshotReplaySut { config in
+                if let captureTouches {
+                    config.captureTouches = captureTouches
                 }
-            }
-
-            var screenshots: [[String: Any]] {
-                lock.withLock {
-                    values.filter { $0["type"] as? Int == 2 }
-                        .compactMap { $0["data"] as? [String: Any] }
-                        .flatMap { $0["wireframes"] as? [[String: Any]] ?? [] }
-                        .filter { $0["type"] as? String == "screenshot" }
-                }
+                config.maskAllTextInputs = maskAllTextInputs
             }
         }
 
@@ -96,40 +78,6 @@
             window.makeKeyAndVisible()
             root.view.frame = window.bounds
             return window
-        }
-
-        private func makeSut(captureTouches: Bool? = nil, maskAllTextInputs: Bool = true) throws -> (PostHogSDK, PostHogReplayIntegration, Snapshots) {
-            let config = PostHogConfig(projectToken: UUID().uuidString)
-            config.sessionReplay = true
-            config.sessionReplayConfig.captureNetworkTelemetry = false
-            if let captureTouches {
-                config.sessionReplayConfig.captureTouches = captureTouches
-            }
-            config.sessionReplayConfig.maskAllTextInputs = maskAllTextInputs
-            config.disableReachabilityForTesting = true
-            config.disableQueueTimerForTesting = true
-            config.disableFlushOnBackgroundForTesting = true
-            config.disableRemoteConfigForTesting = true
-            config.preloadFeatureFlags = false
-            config.captureApplicationLifecycleEvents = false
-            config.captureScreenViews = false
-            let snapshots = Snapshots()
-            config.setBeforeSend { event in
-                snapshots.record(event)
-                return nil
-            }
-            PostHogStorage(config).setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
-            PostHogReplayIntegration.clearInstalls()
-            let sut = PostHogSDK.with(config)
-            let integration = try #require(sut.getReplayIntegration())
-            #expect(sut.isSessionReplayActive())
-            return (sut, integration, snapshots)
-        }
-
-        private func drainReplayQueue() async {
-            await withCheckedContinuation { continuation in
-                PostHogReplayIntegration.dispatchQueue.async { continuation.resume() }
-            }
         }
 
         @Test("Touch capture defaults to enabled and preserves began/ended coordinates")
@@ -375,7 +323,7 @@
             // through the presentation tree and hand the frame to the emission step the bridge would reach.
             let wireframe = RRScreenshotFrame()
             wireframe.type = "screenshot"
-            wireframe.image = try #require(window.toImage(preferFidelityRenderer: false))
+            wireframe.image = try #require(window.toImage(renderer: .presentationTree))
             integration.captureSnapshot(
                 wireframe,
                 window: window,

@@ -140,7 +140,7 @@
             window.makeKeyAndVisible()
             defer { window.isHidden = true }
 
-            let image = try #require(window.toImage(preferFidelityRenderer: false))
+            let image = try #require(window.toImage(renderer: .presentationTree))
             #expect(colorSpaceName(image) == Self.deviceRGBName)
         }
 

@@ -12,10 +12,10 @@
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 50, height: 50))
             window.backgroundColor = .green
 
-            #expect(window.toImage(preferFidelityRenderer: true) == nil)
+            #expect(window.toImage(renderer: .fidelity) == nil)
             #expect(window.toImage(afterScreenUpdates: true) == nil)
-            #expect(window.toImage(afterScreenUpdates: true, preferFidelityRenderer: false) == nil)
-            #expect(window.toImage(preferFidelityRenderer: false) != nil)
+            #expect(window.toImage(afterScreenUpdates: true, renderer: .presentationTree) == nil)
+            #expect(window.toImage(renderer: .presentationTree) != nil)
         }
     }
 #endif

@@ -23,15 +23,16 @@
         private let kSurveyResponseKey = "$survey_response"
 
         var postHog: PostHogSDK?
-        private var config: PostHogConfig? { postHog?.config }
+        var config: PostHogConfig? { postHog?.config }
         private var storage: PostHogStorage? { postHog?.storage }
         private var remoteConfig: PostHogRemoteConfig? { postHog?.remoteConfig }
 
         private var allSurveysLock = NSLock()
         private var allSurveys: [PostHogSurvey]?
 
-        private var eventsToSurveysLock = NSLock()
-        private var eventsToSurveys: [String: [(surveyId: String, condition: PostHogEventCondition)]] = [:]
+        var eventsToSurveysLock = NSLock()
+        var eventsToSurveys: [String: [(surveyId: String, condition: PostHogEventCondition)]] = [:]
+        var cancelEventsToSurveys: [String: [(surveyId: String, condition: PostHogEventCondition)]] = [:]
 
         let eventActivatedSurveysLock = NSLock()
         var eventActivatedSurveys: [String: [PostHogEventCondition]] = [:]
@@ -51,9 +52,9 @@
         var remoteConfigLoadedToken: RegistrationToken?
         var featureFlagsLoadedToken: RegistrationToken?
 
-        private var activeSurveyLock = NSLock()
-        private var activeSurvey: PostHogSurvey?
-        private var activeSurveyAttemptId: UUID?
+        var activeSurveyLock = NSLock()
+        var activeSurvey: PostHogSurvey?
+        var activeSurveyAttemptId: UUID?
         private var activeSurveyGeneration: String?
         /// Whether the delegate reported this attempt on screen. A survey closed before then (for example
         /// while its popup delay runs) was never shown, so it is not marked seen or reported dismissed.
@@ -178,6 +179,7 @@
         }
 
         private func onEvent(event: PostHogEvent) {
+            cancelSurveys(matching: event)
             let candidates = eventsToSurveysLock.withLock { eventsToSurveys[event.event] } ?? []
             guard !candidates.isEmpty else { return }
 
@@ -266,10 +268,11 @@
 
         func updateSurveyCache(
             _ surveys: [PostHogSurvey],
-            events: [String: [(surveyId: String, condition: PostHogEventCondition)]]
+            events: [String: [(surveyId: String, condition: PostHogEventCondition)]],
+            cancelEvents: [String: [(surveyId: String, condition: PostHogEventCondition)]] = [:]
         ) {
             allSurveysLock.withLock { allSurveys = surveys }
-            eventsToSurveysLock.withLock { eventsToSurveys = events }
+            storeSurveyEvents(events, cancelEvents: cancelEvents)
             reconcileEventActivations(with: surveys)
             progressStore?.reconcile(surveys)
         }
@@ -310,12 +313,18 @@
                               self.freshFeatureFlagsLock.withLock({ self.surveyRefreshGeneration == refreshGeneration }),
                               self.hasActiveSurveyWindow(),
                               self.canShowNextSurvey(),
-                              let survey = activeSurveys.first(where: self.canRenderSurvey)
+                              let survey = activeSurveys.first(where: { candidate in
+                                  self.canRenderSurvey(survey: candidate) &&
+                                      (!candidate.hasEvents || self.isSurveyEventActivated(survey: candidate))
+                              })
                         else { return }
 
                         let language = self.resolveDisplayLanguage()
                         let translations = resolveSurveyTranslations(survey: survey, targetLanguage: language)
-                        self.setActiveSurvey(survey: survey, language: translations.matchedKey, questionTranslations: translations.questions)
+                        guard self.setActiveSurvey(
+                            survey: survey, language: translations.matchedKey, questionTranslations: translations.questions,
+                            requireEventActivation: true
+                        ) else { return }
 
                         let callbacks = self.makeSurveyCallbacks()
                         // render the survey
@@ -475,7 +484,7 @@
 
         /// Checks if the given event properties satisfy all property filters.
         /// Returns true if propertyFilters is nil or empty (no filters = match all).
-        private func matchPropertyFilters(
+        func matchPropertyFilters(
             _ propertyFilters: [String: PostHogPropertyFilter]?,
             eventProperties: [String: Any]
         ) -> Bool {
@@ -838,17 +847,23 @@
             postHog.capture(event, distinctId: distinctId, properties: properties)
         }
 
-        private func setActiveSurvey(survey: PostHogSurvey, language: String? = nil, questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil) {
+        @discardableResult
+        private func setActiveSurvey(
+            survey: PostHogSurvey, language: String? = nil, questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil,
+            requireEventActivation: Bool = false
+        ) -> Bool {
             activeSurveyLock.withLock {
-                guard let storage else { return }
-                storage.withSurveyState { generation in
+                guard let storage else { return false }
+                return storage.withSurveyState { generation in
                     if activeSurvey == nil {
+                        // Cancellation either clears activation before this check or observes the reserved attempt.
+                        guard !requireEventActivation || !survey.hasEvents || isSurveyEventActivated(survey: survey) else { return false }
                         let saved = supportsSurveyResume ? progressStore?.load(survey) : nil
                         let progress = saved ?? SurveyProgress(
                             resetEpoch: generation, submissionId: UUID().uuidString,
                             questionOrder: SurveyProgress.questionOrder(for: survey)
                         )
-                        guard storage.isSurveyGenerationCurrent(generation) else { return }
+                        guard storage.isSurveyGenerationCurrent(generation) else { return false }
                         activeSurvey = survey
                         activeSurveyAttemptId = UUID()
                         activeSurveyGeneration = generation
@@ -864,7 +879,9 @@
                         activeSurveyResponseLanguage = progress.language
                         activeSurveyQuestionIndex = progress.questionIndex
                         activeProgressWasPersisted = saved != nil
+                        return true
                     }
+                    return false
                 }
             }
         }

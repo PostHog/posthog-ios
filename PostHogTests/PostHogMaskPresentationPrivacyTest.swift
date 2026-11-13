@@ -582,11 +582,22 @@
             h.window.addSubview(banner)
             try await settle(h.window)
             try h.expectMasked(overlay)
-            UIView.animate(withDuration: 2, delay: 0, options: .curveLinear) { banner.alpha = 0 }
-            try await Task.sleep(nanoseconds: 300_000_000)
+            let animation = CABasicAnimation(keyPath: "opacity")
+            animation.fromValue = 1
+            animation.toValue = 0
+            animation.duration = 2
+            animation.timingFunction = CAMediaTimingFunction(name: .linear)
+            // Hold an in-flight frame so assertions cannot race the animation's completion.
+            animation.speed = 0
+            animation.timeOffset = 0.5
+            banner.alpha = 0
+            banner.layer.add(animation, forKey: "privacy-opacity")
+            try await settle(h.window)
             let renderedOpacity = try #require(banner.layer.presentation()?.opacity)
             try #require(renderedOpacity > 0 && renderedOpacity < 1)
+            try #require(banner.alpha == 0)
             try h.expectMasked(overlay, context: "banner still fading")
+            banner.layer.removeAnimation(forKey: "privacy-opacity")
             try await wait { (banner.layer.presentation()?.opacity ?? banner.layer.opacity) == 0 }
             #expect(try h.rects().isEmpty, "Fully faded banner must not veto the opaque cover")
         }
@@ -709,7 +720,7 @@
 
             let rects = try h.rects()
             let wireframe = RRScreenshotFrame()
-            wireframe.image = try #require(h.window.toImage(preferFidelityRenderer: true))
+            wireframe.image = try #require(h.window.toImage(renderer: .fidelity))
             wireframe.maskableWidgets = rects
             let raw = try #require(wireframe.image)
             let center = CGPoint(x: view.frame.midX, y: view.frame.midY)

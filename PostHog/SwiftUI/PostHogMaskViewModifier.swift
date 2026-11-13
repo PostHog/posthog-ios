@@ -70,6 +70,8 @@
             /// A reporter in this window hasn't been laid out yet, so its region can't
             /// be reported. Callers must skip the frame instead of masking nothing.
             let hasUnsettledReporters: Bool
+            /// Any reporter was counted, laid out or not, whatever its rect.
+            let hasReporters: Bool
 
             var rects: [CGRect] { regions.map(\.rect) }
         }
@@ -100,18 +102,49 @@
 
             var regions: [PostHogReplayIntegration.MaskedRegion] = []
             var hasUnsettledReporters = false
+            var hasReporters = false
             for reporter in liveReporters {
                 guard reporter.isVisibleToWindow(window, insideCover: cover) else { continue }
+                hasReporters = true
                 guard reporter.hasCompletedFirstLayout else {
                     hasUnsettledReporters = true
                     continue
                 }
-                let rect = reporter.toPresentationRect(window)
-                if !rect.isEmpty {
-                    regions.append(.init(reporter, rect: rect))
+                if let region = region(of: reporter, in: window) {
+                    regions.append(region)
                 }
             }
-            return MaskedRects(regions: regions, hasUnsettledReporters: hasUnsettledReporters)
+            return MaskedRects(regions: regions, hasUnsettledReporters: hasUnsettledReporters, hasReporters: hasReporters)
+        }
+
+        /// The rects of the reporters under `source`, for a portal that draws `source` wherever it shows it: whether
+        /// `source`'s own ancestors hide it doesn't matter there, so visibility is checked only up to `source`.
+        /// `hasReporters` counts a reporter with an empty rect too: a portal can draw it at a size it doesn't have where
+        /// it sits.
+        func maskedRects(drawnWith source: UIView, in window: UIWindow) -> MaskedRects {
+            dispatchPrecondition(condition: .onQueue(.main))
+
+            let liveReporters = lock.withLock { reporters.values.compactMap(\.value) }
+            var regions: [PostHogReplayIntegration.MaskedRegion] = []
+            var hasUnsettledReporters = false
+            var hasReporters = false
+            for reporter in liveReporters where reporter.isDescendant(of: source) && reporter.isVisible(upTo: source) {
+                hasReporters = true
+                guard reporter.hasCompletedFirstLayout else {
+                    hasUnsettledReporters = true
+                    continue
+                }
+                if let region = region(of: reporter, in: window) {
+                    regions.append(region)
+                }
+            }
+            return MaskedRects(regions: regions, hasUnsettledReporters: hasUnsettledReporters, hasReporters: hasReporters)
+        }
+
+        /// nil for a reporter presented at no size.
+        private func region(of reporter: PostHogMaskReporterUIView, in window: UIWindow) -> PostHogReplayIntegration.MaskedRegion? {
+            let rect = reporter.toPresentationRect(window)
+            return rect.isEmpty ? nil : .init(reporter, rect: rect)
         }
 
         #if TESTING

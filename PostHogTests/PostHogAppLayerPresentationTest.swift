@@ -83,6 +83,24 @@
             #expect(rects.contains { $0.contains(window.bounds) }, "\(rects)")
         }
 
+        @Test("A masked view moved under an app-defined layer in this turn is masked where it draws")
+        func viewMovedUnderAppLayerBeforeCommitIsMaskedWhereItDraws() async throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+            let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
+            let (container, field) = try await fieldUnderAppLayer(in: window)
+
+            // No animation and no commit: until Core Animation commits, the model is ahead of what's drawn.
+            field.frame.origin.y = 150
+
+            let rects = try #require(sut.integration.collectMaskableRects(in: window))
+            // The field's own layer is a system one, so its presentation is safe to read; the container doesn't move.
+            let drawn = try #require(field.layer.presentation()).frame.offsetBy(dx: container.frame.minX, dy: container.frame.minY)
+            #expect(AppLayer.copies == 0)
+            #expect(rects.contains { $0.contains(drawn) }, "drawn at \(drawn), masked \(rects)")
+        }
+
         @Test("A transparent app-defined masked view that's animating stays masked")
         func animatingTransparentAppLayerStaysMasked() async throws {
             let sut = makeSut()

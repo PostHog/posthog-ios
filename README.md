@@ -5,7 +5,7 @@
 
 # PostHog iOS
 
-Upgrading from 3.x? See the [migration guide](MIGRATION.md).
+Upgrading from posthog-ios 3.x.x? See the [migration guide](MIGRATION.md).
 
 Please see the main [PostHog docs](https://posthog.com/docs).
 
@@ -23,11 +23,11 @@ dependencies: [
 
 ### Moving from CocoaPods
 
-PostHog 4.0 and later is only published to Swift Package Manager. Versions 3.x stay on CocoaPods, but no new versions will be pushed there: [CocoaPods trunk becomes read-only on December 2, 2026](https://blog.cocoapods.org/CocoaPods-Specs-Repo/).
+posthog-ios 4.0.0 and later is only published to Swift Package Manager. Versions 3.x.x stay on CocoaPods, but no new versions will be pushed there: [CocoaPods trunk becomes read-only on December 2, 2026](https://blog.cocoapods.org/CocoaPods-Specs-Repo/).
 
 To move an app from CocoaPods, remove `pod 'PostHog'` from your `Podfile`, run `pod install`, then add the package as shown above.
 
-React Native and Flutter apps get this SDK through their PostHog package; follow that package's installation docs instead.
+React Native and Flutter apps get this SDK through their PostHog package. Follow that package's installation docs instead.
 
 ## Questions?
 

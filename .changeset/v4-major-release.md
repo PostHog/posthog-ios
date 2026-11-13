@@ -2,34 +2,34 @@
 'posthog-ios': major
 ---
 
-PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-ios/blob/main/MIGRATION.md) to upgrade from 3.x.
+To upgrade to posthog-ios 4.0.0 from 3.x.x, follow the [migration guide](https://github.com/PostHog/posthog-ios/blob/main/MIGRATION.md).
 
-- **Breaking:** stop publishing to CocoaPods — install with Swift Package Manager (3.x versions stay on CocoaPods)
+- **Breaking:** stop publishing to CocoaPods. Install with Swift Package Manager (3.x.x versions stay on CocoaPods)
 - **Breaking:** raise minimum deployment targets to iOS and Mac Catalyst 15.0, macOS 11.0, tvOS 15.0 and watchOS 10.0
 - **Breaking:** require Xcode 26 or later (`swift-tools-version` 6.2)
-- **Breaking:** always record session replay as masked screenshots, which shows custom-drawn content and uses more bandwidth and CPU than wireframes — remove `screenshotMode` assignments and mask sensitive content with `postHogMask()` or `ph-no-capture`
-- **Breaking:** pass a `PostHogFeatureFlagsLoaded` to the `reloadFeatureFlags(_:)` callback — use `{ result in ... }` or `{ _ in ... }`
+- **Breaking:** always record session replay as masked screenshots, which shows custom-drawn content and uses more bandwidth and CPU than wireframes. Remove `screenshotMode` assignments and mask sensitive content with `postHogMask()` or `ph-no-capture`
+- **Breaking:** pass a `PostHogFeatureFlagsLoaded` to the `reloadFeatureFlags(_:)` callback. Use `{ result in ... }` or `{ _ in ... }`
 - **Breaking:** mark `reloadFeatureFlags(_:)`, `setBeforeSend(_:)`, `getAnonymousId`, `pushIdentityProvider` and `logSanitizer` callbacks `@Sendable`, fixing a crash in Swift 6 apps
 - **Breaking:** rename `PostHogLogLevel` to `PostHogConsoleLogLevel` and `PostHogLogEntry` to `PostHogConsoleLogEntry`
 - **Breaking:** return `nil` instead of the raw string for a malformed, empty or whitespace-only feature flag payload
 - **Breaking:** treat a feature flag whose variant is an empty string as disabled in `isFeatureEnabled`, `getFeatureFlagResult(_:).enabled`, `PostHogFeatureFlagsLoaded` and `$active_feature_flags`
 - **Breaking:** stop decoding string payloads in `PostHogBootstrapConfig.featureFlagPayloads` a second time, so a bootstrapped `"123"` stays a `String`
-- **Breaking:** delete events still queued on disk by a 2.x SDK instead of sending them, and ignore a top-level `$set` and `message_id` in queued events
-- **Breaking:** remove `version` and `build` from `Application Installed`, `Application Updated` and `Application Opened` events — use `$app_version` and `$app_build`
-- **Breaking:** remove `PostHogConfig.apiKey`, `PostHogConfig(apiKey:)` and `PostHogConfig(apiKey:host:)` — use `projectToken`, `PostHogConfig(projectToken:)` and `PostHogConfig(projectToken:host:)`
-- **Breaking:** remove `PostHogConfig.propertiesSanitizer` and `PostHogPropertiesSanitizer` — use `setBeforeSend(_:)`
-- **Breaking:** remove `PostHogConfig.evaluationEnvironments` — use `evaluationContexts`
+- **Breaking:** delete events still queued on disk by a 2.x.x SDK instead of sending them, and ignore a top-level `$set` and `message_id` in queued events
+- **Breaking:** remove `version` and `build` from `Application Installed`, `Application Updated` and `Application Opened` events. Use `$app_version` and `$app_build`
+- **Breaking:** remove `PostHogConfig.apiKey`, `PostHogConfig(apiKey:)` and `PostHogConfig(apiKey:host:)`. Use `projectToken`, `PostHogConfig(projectToken:)` and `PostHogConfig(projectToken:host:)`
+- **Breaking:** remove `PostHogConfig.propertiesSanitizer` and `PostHogPropertiesSanitizer`. Use `setBeforeSend(_:)`
+- **Breaking:** remove `PostHogConfig.evaluationEnvironments`. Use `evaluationContexts`
 - **Breaking:** remove the no-op `PostHogConfig.remoteConfig` and `PostHogSessionReplayConfig.maskPhotoLibraryImages` options
-- **Breaking:** remove `PostHogSDK.getFeatureFlagPayload(_:)` — use `getFeatureFlagResult(_:sendFeatureFlagEvent:)?.payload`
-- **Breaking:** remove `PostHogSessionReplayConfig.debouncerDelay` — use `throttleDelay`
-- **Breaking:** remove the `PostHogSDK.didReceiveFeatureFlags` notification — use `onFeatureFlags(_:)`
-- **Breaking:** remove `PostHogDataMode.cellular` — use `.any`
-- **Breaking:** move `postHogSdkName`, `postHogVersion`, `PostHogConfig.snapshotEndpoint`, `PostHogSessionManager`, `PostHogStorageManager`, `PostHogConfig.storageManager`, `dateToMillis(_:)` and `imageToBase64(_:_:)` behind `@_spi(PostHogInternal)` — use `PostHogSDK` session and identity methods
+- **Breaking:** remove `PostHogSDK.getFeatureFlagPayload(_:)`. Use `getFeatureFlagResult(_:sendFeatureFlagEvent:)?.payload`
+- **Breaking:** remove `PostHogSessionReplayConfig.debouncerDelay`. Use `throttleDelay`
+- **Breaking:** remove the `PostHogSDK.didReceiveFeatureFlags` notification. Use `onFeatureFlags(_:)`
+- **Breaking:** remove `PostHogDataMode.cellular`. Use `.any`
+- **Breaking:** move `postHogSdkName`, `postHogVersion`, `PostHogConfig.snapshotEndpoint`, `PostHogSessionManager`, `PostHogStorageManager`, `PostHogConfig.storageManager`, `dateToMillis(_:)` and `imageToBase64(_:_:)` behind `@_spi(PostHogInternal)`. Use `PostHogSDK` session and identity methods
 - **Breaking:** remove `toISO8601String(_:)`, `toISO8601Date(_:)`, `sanitizeDictionary(_:)`, `deleteSafely(_:)`, `postHogiOSSdkName`, `Gzip`, `GzipError`, `CompressionLevel`, `ReachabilityError`, `ReachabilityChangedNotification`, `UIColor.init(hex:)` and `UIColor.hexDescription(_:)` from the public API
-- **Breaking:** send analytics events to capture V1 (`/i/v1/analytics/events`) with the project token in an `Authorization: Bearer` header, replacing any `Authorization` from `requestHeaders` — serve this path on reverse proxies and self-hosted instances
+- **Breaking:** send analytics events to capture V1 (`/i/v1/analytics/events`) with the project token in an `Authorization: Bearer` header, replacing any `Authorization` from `requestHeaders`. Update your reverse proxy to serve this path
 - **Breaking:** follow only 307 and 308 redirects to the same origin as `host`, at most 5 times, and drop events on any other redirect
 - **Breaking:** drop an event whose distinct ID is over 200 UTF-8 bytes instead of shortening the ID
-- **Breaking:** disable the SDK at setup when `projectToken` is a personal API key (`phx_...`) — use your project token (`phc_...`)
+- **Breaking:** disable the SDK at setup when `projectToken` is a personal API key (`phx_...`). Use your project token (`phc_...`)
 - **Breaking:** pause sending for at most 30 seconds on `Retry-After`, including session replay and logs
 - **Breaking:** send `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` as capture options, so PostHog drops an event whose option value it can't read
 - **Breaking:** let registered super properties override SDK properties such as `$os`, and let super and event properties override `$is_identified`, `$process_person_profile`, `$geoip_disable` and the session replay debug values
@@ -38,11 +38,11 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - **Breaking:** let `userProperties`, `userPropertiesSetOnce` and `groups` win key by key over `$set`, `$set_once` and `$groups` passed in the same call's properties
 - **Breaking:** rename `maxRetries` to `pushNotificationSubscriptionMaxRetries`
 - **Breaking:** send `$session_id` and `$window_id` as top-level `session_id` and `window_id` fields, and drop a value that isn't a string
-- **Breaking:** omit event properties whose value is `NSNull` or a `nil` optional, including in nested dictionaries and dictionaries inside arrays, instead of sending them as `null` — `null` array elements and `$set`, `$set_once` and `$group_set` values are still sent
+- **Breaking:** omit event properties whose value is `NSNull` or a `nil` optional, including in nested dictionaries and dictionaries inside arrays, instead of sending them as `null`. `null` array elements and `$set`, `$set_once` and `$group_set` values are still sent
 - **Breaking:** let PostHog drop an event whose name is over 200 UTF-8 bytes, or whose distinct ID is empty or whitespace-only, instead of rejecting the whole batch
 - **Breaking:** retry a capture request that gets a 404 and keep its events queued, with no fallback to `/batch`, and stop retrying 3xx responses
-- **Breaking:** with `debug` on, log capture failures as one line per batch with counts and PostHog's drop reasons, and stop logging each queued event and PostHog's response body — update log-based alerts
-- **Breaking:** change `$locale` to the device's preferred language with its region, such as `de-CH` instead of `de` — filter on `$app_language` for the language the app shows
+- **Breaking:** with `debug` on, log capture failures as one line per batch with counts and PostHog's drop reasons, and stop logging each queued event and PostHog's response body. Update log-based alerts
+- **Breaking:** change `$locale` to the device's preferred language with its region, such as `de-CH` instead of `de`. Filter on `$app_language` for the language the app shows
 - Add per-event capture options with `capture(..., timestamp:options:)` and `PostHogEvent.options`, also accepted by `screen`, `identify`, `setPersonProperties`, `alias`, `group` and `captureException`
 - Add `captureAi(...)` to send AI events such as `$ai_generation` to `/i/v1/ai/events`, tuned with `captureAiCompression`, `captureAiMaxQueueSize`, `captureAiTimeout` and `captureAiMaxEventBytes`
 - Add the `$app_language` property with the language the app displays, and `setAppLanguage(_:)` to set it when the app translates some other way
@@ -50,7 +50,7 @@ PostHog iOS 4.0: see the [migration guide](https://github.com/PostHog/posthog-io
 - Add `isFeatureEnabled(_:defaultValue:)` and `isFeatureEnabled(_:defaultValue:sendFeatureFlagEvent:)` to return a default you choose when a flag has no value
 - Add `PostHogSDK.setSdkName(_:version:)` behind `@_spi(PostHogInternal)`, exposed to Objective-C so wrapper SDKs that can't assign `postHogSdkName` and `postHogVersion`, such as Kotlin Multiplatform, can report their own name and version
 - Add `registerOptionsForWrapper(_:)` and `unregisterOptionsForWrapper(_:)` behind `@_spi(PostHogInternal)` so wrapper SDKs can register capture options sent with every event
-- Add compile errors that name the replacement, with an Xcode fix-it for renames, when Swift code uses most removed or renamed 3.x APIs
+- Add compile errors that name the replacement, with an Xcode fix-it for renames, when Swift code uses most removed or renamed 3.x.x APIs
 - Change the wait after a failed send to double from 1 second up to 30 seconds with jitter, for events, session replay and logs
 - Change network reachability detection to `NWPathMonitor`, so a path needing user action counts as reachable, queues pause while cellular data is off for the app, and early events may omit `$network_wifi` and `$network_cellular`
 - Change the replay screen name to the visible screen, reporting the view name for SwiftUI screens and no longer using a plain `UIViewController`'s `title`

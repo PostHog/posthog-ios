@@ -640,10 +640,19 @@ let maxRetryDelay = 30.0
     /// the SDK doesn't process person profiles for this event, unless an option or the legacy
     /// `$process_person_profile` property already says otherwise. Nothing is added otherwise: PostHog
     /// processes person profiles by default. `personProcessingPending` counts a person-processing
-    /// change a wrapper build defers to its send.
-    private func optionsForEvent(_ options: [String: Any]?, properties: [String: Any], personProcessingPending: Bool = false) -> [String: Any]? {
+    /// change a wrapper build defers to its send. An identity `event` skips the registered
+    /// `process_person_profile`.
+    private func optionsForEvent(
+        _ options: [String: Any]?,
+        properties: [String: Any],
+        event: String? = nil,
+        personProcessingPending: Bool = false
+    ) -> [String: Any]? {
         // Storage writes aren't atomic, so a read racing a registration could see a partial file.
-        let registered = personPropsLock.withLock { getRegisteredOptions() }
+        var registered = personPropsLock.withLock { getRegisteredOptions() }
+        if let event, Self.identityEvents.contains(event) {
+            registered.removeValue(forKey: "process_person_profile")
+        }
         let merged = registered.isEmpty ? options : registered.merging(options ?? [:]) { _, event in event }
         guard !hasPersonProcessing(), !(personProcessingPending && config.personProfiles != .never) else { return merged }
         if !isNullValue(properties["$process_person_profile"]) {
@@ -670,6 +679,13 @@ let maxRetryDelay = 30.0
 
     /// The app reads these from individual events (recording buttons, capture diagnostics), so
     /// they go on every event. The rest of the replay bundle is gated and throttled.
+    /// Events that change a person or group. PostHog drops or ignores them when person processing is
+    /// off, so a registered `process_person_profile` option or `$process_person_profile` property
+    /// doesn't apply to them. A value set on the call still does.
+    private static let identityEvents: Set<String> = [
+        "$identify", "$create_alias", "$merge_dangerously", "$groupidentify", "$set", "$set_once",
+    ]
+
     private static let requiredReplayDebugPropertyKeys: Set<String> = [
         "$recording_status",
         "$sdk_debug_replay_event_trigger_status",
@@ -873,6 +889,9 @@ let maxRetryDelay = 30.0
         // Registered super properties win over everything the SDK set above.
         if appendSharedProps {
             props.merge(getRegisteredProperties()) { _, new in new }
+            if let event, Self.identityEvents.contains(event) {
+                props.removeValue(forKey: "$process_person_profile")
+            }
 
             // Per-call values, and groups set with `group()`, win over registered ones.
             if userProperties != nil {
@@ -1262,7 +1281,7 @@ let maxRetryDelay = 30.0
                     event: eventName,
                     distinctId: distinctId,
                     properties: properties,
-                    options: optionsForEvent(sanitizeDictionary(options), properties: properties)
+                    options: optionsForEvent(sanitizeDictionary(options), properties: properties, event: eventName)
                 ) else {
                     return
                 }
@@ -2039,7 +2058,7 @@ let maxRetryDelay = 30.0
         // one saved with their crash context.
         let eventOptions = skipBuildProperties || isSnapshotEvent
             ? sanitizeDictionary(options)
-            : optionsForEvent(sanitizeDictionary(options), properties: finalProperties, personProcessingPending: forWrapper && hasPersonData)
+            : optionsForEvent(sanitizeDictionary(options), properties: finalProperties, event: event, personProcessingPending: forWrapper && hasPersonData)
 
         let posthogEvent = makeEvent(
             event: event,
@@ -2582,7 +2601,7 @@ let maxRetryDelay = 30.0
             event: eventName,
             distinctId: distinctId,
             properties: properties,
-            options: optionsForEvent(sanitizeDictionary(options), properties: properties)
+            options: optionsForEvent(sanitizeDictionary(options), properties: properties, event: eventName)
         ) else {
             return
         }
@@ -2653,7 +2672,7 @@ let maxRetryDelay = 30.0
             event: eventName,
             distinctId: distinctId,
             properties: properties,
-            options: optionsForEvent(sanitizeDictionary(options), properties: properties)
+            options: optionsForEvent(sanitizeDictionary(options), properties: properties, event: eventName)
         ) else {
             return
         }

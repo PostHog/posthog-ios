@@ -323,6 +323,48 @@ final class PostHogWrapperEventTest {
         #expect(sent.options["process_person_profile"] as? Bool == true)
     }
 
+    @Test("a registered personless setting doesn't reach identity events")
+    func registeredPersonlessSkipsIdentityEvents() async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        sut.registerOptionsForWrapper(["process_person_profile": false])
+        sut.register(["$process_person_profile": false])
+
+        let calls: [() -> Void] = [
+            { sut.identify("user") },
+            { sut.alias("other") },
+            { sut.group(type: "company", key: "acme", groupProperties: ["name": "Acme"]) },
+            { sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"]) },
+            { sut.capture("plain") },
+        ]
+        var sent: [PostHogEvent] = []
+        for call in calls {
+            server.reset(batchCount: 1)
+            call()
+            sent += try await getServerEvents(server)
+        }
+
+        for name in ["$identify", "$create_alias", "$groupidentify", "$set"] {
+            let event = try #require(sent.first { $0.event == name }, "\(name)")
+            #expect(event.options["process_person_profile"] == nil, "\(name)")
+            #expect(event.properties["$process_person_profile"] == nil, "\(name)")
+        }
+        #expect(sent.first { $0.event == "plain" }?.options["process_person_profile"] as? Bool == false)
+    }
+
+    @Test("a call's personless setting still applies to an identity event")
+    func callPersonlessAppliesToIdentityEvent() async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        sut.registerOptionsForWrapper(["process_person_profile": true])
+
+        server.reset(batchCount: 1)
+        sut.alias("other", options: ["process_person_profile": false])
+        let sent = try #require(try await getServerEvents(server).first)
+
+        #expect(sent.options["process_person_profile"] as? Bool == false)
+    }
+
     @Test("unregister and reset remove registered options")
     func unregisterAndResetRemoveOptions() throws {
         let sut = makeSDK()

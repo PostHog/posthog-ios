@@ -1058,6 +1058,10 @@ let maxRetryDelay = 30.0
     /// New values overwrite existing values for the same keys and persist across app restarts
     /// until removed with `unregister(_:)` or cleared by `reset()`.
     ///
+    /// A registered `$process_person_profile` isn't sent with `$identify`, `$create_alias`,
+    /// `$merge_dangerously`, `$groupidentify`, `$set` or `$set_once`, so it can't stop those
+    /// events from updating persons and groups. A value passed on the call still applies.
+    ///
     /// - Parameter properties: Event properties to persist and attach to future captures.
     @objc(registerProperties:)
     public func register(_ properties: [String: Any]) {
@@ -1107,7 +1111,8 @@ let maxRetryDelay = 30.0
     ///
     /// Registers capture options sent with every later event, under each event's own options. New values
     /// overwrite existing ones for the same keys and persist across app restarts until removed with
-    /// `unregisterOptionsForWrapper(_:)` or cleared by `reset()`.
+    /// `unregisterOptionsForWrapper(_:)` or cleared by `reset()`. A registered `process_person_profile`
+    /// isn't sent with identity events, as described on `register(_:)`.
     @_spi(PostHogInternal) @objc(registerOptionsForWrapper:) public func registerOptionsForWrapper(_ options: [String: Any]) {
         if !isEnabled() {
             return
@@ -1660,7 +1665,8 @@ let maxRetryDelay = 30.0
     ///     These replace the `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and
     ///     `$product_tour_id` properties. Those properties still work: they are removed from the
     ///     event's properties and used as the option, unless you set that option here. A
-    ///     `$process_person_profile` property you pass or register overrides the SDK's default.
+    ///     `$process_person_profile` property you pass or register overrides the SDK's default,
+    ///     except that a registered one doesn't apply to identity events (see `register(_:)`).
     ///     Other keys are sent unchanged and ignored by PostHog. PostHog drops an
     ///     event whose option value it can't read.
     ///     `beforeSend` can change them through `PostHogEvent.options`.

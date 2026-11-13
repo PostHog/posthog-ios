@@ -781,7 +781,7 @@ final class PostHogCaptureV1OptionsTest {
     }
 
     @Test("a $set whose legacy or non-Boolean setting may be personless doesn't suppress the same properties later",
-          arguments: ["registered false", "string false option", "legacy false under a null option"])
+          arguments: ["false option", "string false option", "legacy false under a null option"])
     func maybePersonlessSetDoesNotDeduplicate(setup: String) async throws {
         let legacyFalse = Self.editFirstSet {
             $0.properties["$process_person_profile"] = false
@@ -792,10 +792,8 @@ final class PostHogCaptureV1OptionsTest {
 
         server.reset(batchCount: 1)
         switch setup {
-        case "registered false":
-            sut.register(["$process_person_profile": false])
-            sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"])
-            sut.unregister("$process_person_profile")
+        case "false option":
+            sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"], options: ["process_person_profile": false])
         case "string false option":
             sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"], options: ["process_person_profile": "false"])
         default:

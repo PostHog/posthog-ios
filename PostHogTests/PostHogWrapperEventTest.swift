@@ -323,6 +323,75 @@ final class PostHogWrapperEventTest {
         #expect(sent.options["process_person_profile"] as? Bool == true)
     }
 
+    @Test("a registered personless setting doesn't reach identity events")
+    func registeredPersonlessSkipsIdentityEvents() async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        sut.registerOptionsForWrapper(["process_person_profile": false])
+        sut.register(["$process_person_profile": false])
+
+        let calls: [() -> Void] = [
+            { sut.identify("user") },
+            { sut.alias("other") },
+            { sut.group(type: "company", key: "acme", groupProperties: ["name": "Acme"]) },
+            { sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"]) },
+            { sut.capture("$set_once", userPropertiesSetOnce: ["first": "web"]) },
+            { sut.capture("$merge_dangerously", properties: ["alias": "anon"]) },
+            { sut.capture("plain") },
+        ]
+        var sent: [PostHogEvent] = []
+        for call in calls {
+            server.reset(batchCount: 1)
+            call()
+            sent += try await getServerEvents(server)
+        }
+
+        for name in ["$identify", "$create_alias", "$groupidentify", "$set", "$set_once", "$merge_dangerously"] {
+            let event = try #require(sent.first { $0.event == name }, "\(name)")
+            #expect(event.options["process_person_profile"] == nil, "\(name)")
+            #expect(event.properties["$process_person_profile"] == nil, "\(name)")
+        }
+        #expect(sent.first { $0.event == "plain" }?.options["process_person_profile"] as? Bool == false)
+    }
+
+    @Test("a call's personless setting still applies to an identity event")
+    func callPersonlessAppliesToIdentityEvent() async throws {
+        let sut = makeSDK()
+        defer { sut.close() }
+        sut.registerOptionsForWrapper(["process_person_profile": true])
+
+        server.reset(batchCount: 1)
+        sut.alias("other", options: ["process_person_profile": false])
+        let sent = try #require(try await getServerEvents(server).first)
+
+        #expect(sent.options["process_person_profile"] as? Bool == false)
+    }
+
+    @Test("a call property or beforeSend can still turn person processing off for an identity event")
+    func callPropertyOrBeforeSendAppliesToIdentityEvent() async throws {
+        let sut = makeSDK { event in
+            if event.event == "$identify" {
+                event.options["process_person_profile"] = false
+            }
+            return event
+        }
+        defer { sut.close() }
+        sut.register(["$process_person_profile": true])
+
+        var sent: [PostHogEvent] = []
+        server.reset(batchCount: 1)
+        sut.capture("$set", properties: ["$process_person_profile": false], userProperties: ["plan": "pro"])
+        sent += try await getServerEvents(server)
+        server.reset(batchCount: 1)
+        sut.identify("user")
+        sent += try await getServerEvents(server)
+
+        for name in ["$set", "$identify"] {
+            let event = try #require(sent.first { $0.event == name }, "\(name)")
+            #expect(event.options["process_person_profile"] as? Bool == false, "\(name)")
+        }
+    }
+
     @Test("unregister and reset remove registered options")
     func unregisterAndResetRemoveOptions() throws {
         let sut = makeSDK()

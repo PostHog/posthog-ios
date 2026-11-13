@@ -6,9 +6,9 @@ Use the top right copy page button to work through this with your agents.
 
 You don't need to make every change on the day you upgrade your SDK. Required changes fall in these categories:
 
-- **Before you upgrade**: you should make these changes before you upgrade your SDK to 4.x.x.
+- **Before you upgrade**: you should make these changes before you upgrade your SDK to posthog-ios 4.x.x.
 - **During your upgrade**: These are changes that you need to make in the same PR that upgrades your SDK version.
-- **Follow ups**: These are changes that can come in follow up PRs because 4.x.x has limited backward compatibility for methods that are to be deprecated.
+- **Follow ups**: These are changes that can come in follow up PRs because posthog-ios 4.x.x has limited backward compatibility for methods that are to be deprecated.
 
 ## Checklist
 
@@ -62,7 +62,7 @@ Read the checklist first, then the sections that apply to you.
 
 ### Check your toolchain
 
-4.x.x raises the Xcode version and the deployment targets:
+posthog-ios 4.x.x raises the Xcode version and the deployment targets:
 
 | | 3.x.x | 4.x.x |
 | --- | --- | --- |
@@ -80,9 +80,9 @@ App Store Connect uploads already require Xcode 26. The toolchain floor mainly a
 
 ### Leave CocoaPods
 
-4.x.x isn't published to CocoaPods. The repository no longer has a `PostHog.podspec`, so `pod 'PostHog', :git => ...` can't install 4.x.x either.
+posthog-ios 4.x.x isn't published to CocoaPods. The repository no longer has a `PostHog.podspec`, so `pod 'PostHog', :git => ...` can't install 4.x.x either.
 
-3.x.x versions stay installable from CocoaPods, but [CocoaPods trunk becomes read-only on December 2, 2026](https://blog.cocoapods.org/CocoaPods-Specs-Repo/).
+posthog-ios 3.x.x versions stay installable from CocoaPods, but [CocoaPods trunk becomes read-only on December 2, 2026](https://blog.cocoapods.org/CocoaPods-Specs-Repo/).
 
 Move to Swift Package Manager:
 
@@ -106,15 +106,17 @@ Upgrade to the version of that package that moves to the iOS SDK 4.x.x, and foll
 
 ### Prepare your proxy
 
-4.x.x sends data to these endpoints:
+posthog-ios 4.x.x sends data to these endpoints:
 
 | Data | 3.x.x | 4.x.x |
 | --- | --- | --- |
 | Analytics events | `/batch` | `/i/v1/analytics/events` |
 | Session replay | `/s/` | `/s/`, unchanged |
-| AI events (`captureAi`) | None | `/i/v1/ai/events` (see [Send AI events with captureAi](#send-ai-events-with-captureai)) |
+| AI events (`captureAi`) | None | `/i/v1/ai/events` |
 | Logs | `/i/v1/logs` | `/i/v1/logs`, unchanged |
 | Feature flags | `/flags` | `/flags`, unchanged |
+
+For AI events, see [Send AI events with captureAi](#send-ai-events-with-captureai).
 
 Capture v1 requests send the project token in an `Authorization: Bearer <projectToken>` header instead of an `api_key` body field.
 
@@ -337,7 +339,7 @@ The same applies to `config.logs.setBeforeSend(_:)`, with `PostHogBeforeSendLogB
 
 ### Choose package traits
 
-4.x.x splits three features into Swift package traits, all on by default:
+posthog-ios 4.x.x splits three features into Swift package traits, all on by default:
 
 | Trait | What it includes |
 | --- | --- |
@@ -388,12 +390,12 @@ Text inputs, images, and system pickers are masked by default: `maskAllTextInput
 
 | To mask | SwiftUI | UIKit |
 | --- | --- | --- |
-| A view and everything inside it | `.postHogMask()` | add `ph-no-capture` to the view's `accessibilityIdentifier` |
+| A view and everything inside it | `.postHogMask()` | `ph-no-capture` in the view's `accessibilityIdentifier` |
 | All text and text inputs | `sessionReplayConfig.maskAllTextInputs = true` (default) | same |
-| Every image | `sessionReplayConfig.maskAllImages = true` (default) | same, except SF Symbols and images bundled with your app |
+| Every image | `sessionReplayConfig.maskAllImages = true` (default) | same |
 | System pickers (photos, contacts) | `sessionReplayConfig.maskAllSandboxedViews = true` (default) | same |
 
-To mask an exempt image, tag its image view with `ph-no-capture`. `ph-no-capture` also works in `accessibilityLabel`. To keep pixels out of recordings entirely, turn replay off with `config.sessionReplay = false`.
+In UIKit, `maskAllImages` doesn't mask SF Symbols or images bundled with your app. To mask an exempt image, tag its image view with `ph-no-capture`. `ph-no-capture` also works in `accessibilityLabel`. To keep pixels out of recordings entirely, turn replay off with `config.sessionReplay = false`.
 
 Secure-entry text fields stay masked inside a `.postHogNoMask()` or `ph-no-mask` subtree.
 
@@ -469,7 +471,7 @@ An event property set to `NSNull()` or to a `nil` optional is left out of the ev
 
 ### Check network reachability
 
-4.x.x detects connectivity with `NWPathMonitor`:
+posthog-ios 4.x.x detects connectivity with `NWPathMonitor`:
 
 - **Connections that need user action.** A connection that needs user action, such as a VPN waiting for a password, counts as reachable.
 - **Cellular data turned off.** Queues pause while cellular data is turned off for your app.
@@ -587,11 +589,13 @@ To create no person profiles at all, set `personProfiles` to `.never` instead. T
 
 | Behavior | 4.x.x | 3.x.x |
 | --- | --- | --- |
-| Statuses retried | Network errors and 404, 408, 429, 500, 502, 503, and 504 responses | Didn't retry 404, and retried 3xx responses |
+| Statuses retried | Network errors and 404, 408, 429, 500, 502, 503, and 504 responses | Also 3xx, but not 404 |
 | `Retry-After` cap | 30 seconds | None, or 5 minutes for logs |
 | Wait after a failed send | Doubles, from 1 to 30 seconds | Grew by 1 second per failure |
 | Request size limit | `maxBatchSize` events and about 5 MiB | Event count only |
 | An analytics event over 1,000,000 serialized bytes | Dropped on its own | Dropped after a 413 |
+
+In 3.x.x, the SDK didn't retry 404, and retried 3xx responses.
 
 In 4.x.x, `Retry-After` sets the minimum wait before the next send, up to 30 seconds. This also applies to session replay and logs. In 3.x.x, analytics events and session replay had no cap, and logs allowed up to 5 minutes.
 
@@ -668,7 +672,7 @@ For the changes every capture v1 SDK shares, such as event options, limits, and 
 
 ### Send AI events with captureAi
 
-4.x.x adds `captureAi`. It sends AI events, such as `$ai_generation`, to PostHog's AI endpoint (`/i/v1/ai/events`) instead of the analytics endpoint.
+posthog-ios 4.x.x adds `captureAi`. It sends AI events, such as `$ai_generation`, to PostHog's AI endpoint (`/i/v1/ai/events`) instead of the analytics endpoint.
 
 `capture` never sends events to the AI endpoint, even ones named `$ai_*`.
 

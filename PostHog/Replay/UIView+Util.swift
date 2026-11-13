@@ -230,6 +230,15 @@
         /// can't land further out. Contents whose size can't be read reach arbitrarily far. Nil when nothing was
         /// replaced.
         var replacedImageExtent: CGRect? {
+            // An app-defined layer's presentation can't be read, so an image replaced since the last commit can't be
+            // measured.
+            if layer.isAppDefined {
+                let gravity = layer.contentsGravity
+                if gravity == .resize || gravity == .resizeAspect {
+                    return nil
+                }
+                return bounds.insetBy(dx: -Self.unmeasuredImageReach, dy: -Self.unmeasuredImageReach)
+            }
             guard let presented = layer.readablePresentation, let contents = presented.contents,
                   layer.contents.map({ $0 as AnyObject !== contents as AnyObject }) ?? true
             else { return nil }

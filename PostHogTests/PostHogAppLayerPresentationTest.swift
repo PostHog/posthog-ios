@@ -125,6 +125,26 @@
             #expect(rects.contains { $0.contains(window.bounds) }, "\(rects)")
         }
 
+        @Test("An unclipped masked image view with an app-defined layer is masked wherever a replaced image could draw")
+        func unclippedAppLayerImageViewFailsClosed() async throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+            let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
+            let imageView = AppLayerImageView(image: try magentaImage(CGSize(width: 20, height: 20)))
+            imageView.frame = CGRect(x: 80, y: 120, width: 40, height: 40)
+            imageView.contentMode = .center
+            imageView.accessibilityIdentifier = "ph-no-capture"
+            window.addSubview(imageView)
+            window.layoutIfNeeded()
+            try await commit()
+            AppLayer.copies = 0
+
+            let rects = try #require(sut.integration.collectMaskableRects(in: window))
+            #expect(AppLayer.copies == 0)
+            #expect(rects.contains { $0.contains(window.bounds) }, "\(rects)")
+        }
+
         @Test("A window of UIKit views holds no app-defined layer and keeps its motion frames")
         func uikitWindowKeepsMotionFrames() async throws {
             let window = makeReplayTestWindow()
@@ -179,6 +199,12 @@
     }
 
     private final class AppLayerView: UIView {
+        override class var layerClass: AnyClass {
+            AppLayer.self
+        }
+    }
+
+    private final class AppLayerImageView: UIImageView {
         override class var layerClass: AnyClass {
             AppLayer.self
         }

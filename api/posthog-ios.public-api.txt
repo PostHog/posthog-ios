@@ -152,6 +152,7 @@ PostHog | PostHogDisplaySurveyAppearance.introScreenDescription | property | let
 PostHog | PostHogDisplaySurveyAppearance.introScreenDescriptionContentType | property | let introScreenDescriptionContentType: PostHogDisplaySurveyTextContentType? | s:7PostHog0aB23DisplaySurveyAppearanceC33introScreenDescriptionContentTypeAA0abcd4TextiJ0OSgvp
 PostHog | PostHogDisplaySurveyAppearance.introScreenHeader | property | let introScreenHeader: String? | s:7PostHog0aB23DisplaySurveyAppearanceC17introScreenHeaderSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.placeholder | property | let placeholder: String? | s:7PostHog0aB23DisplaySurveyAppearanceC11placeholderSSSgvp
+PostHog | PostHogDisplaySurveyAppearance.position | property | let position: String? | s:7PostHog0aB23DisplaySurveyAppearanceC8positionSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.ratingButtonActiveColor | property | let ratingButtonActiveColor: String? | s:7PostHog0aB23DisplaySurveyAppearanceC23ratingButtonActiveColorSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.ratingButtonColor | property | let ratingButtonColor: String? | s:7PostHog0aB23DisplaySurveyAppearanceC17ratingButtonColorSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.submitButtonColor | property | let submitButtonColor: String? | s:7PostHog0aB23DisplaySurveyAppearanceC17submitButtonColorSSSgvp

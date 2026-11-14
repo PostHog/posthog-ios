@@ -1,5 +1,14 @@
 ## Next
 
+## 3.97.1
+
+### Patch Changes
+
+- 7dd82ef: Keep tracking foreground and background transitions after `reset()`. Previously `reset()` unsubscribed the session manager from app lifecycle and UI events, so sessions stopped clearing in the background, or were never created again after a reset in the background, until the app restarted.
+- 97ea8d3: Keep a masked label whose text was just cleared, and a masked image view whose image was just cleared or replaced, masked in session replay until the screen updates
+- 97ea8d3: Fix a crash in screenshot session replay when the app uses a Swift `CALayer` subclass that doesn't implement `init(layer:)`. While the app shows a custom `CALayer` subclass, replay may skip frames during fast scrolling, and masks the whole screen while a masked view's custom-layer ancestor animates.
+- 78e6184: Fix `Application Opened` sometimes missing `$session_id` after the app spent more than 30 minutes in the background: lifecycle subscribers now run in subscription order, so the session manager starts the new session before the event is captured.
+
 ## 3.97.0
 
 ### Minor Changes

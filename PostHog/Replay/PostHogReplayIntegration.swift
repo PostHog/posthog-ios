@@ -1022,6 +1022,13 @@
                 }
             }
 
+            // Compose Multiplatform draws text fields, text and images into one surface with no UIKit
+            // view per element, so like a web view, mask the whole of it
+            if Self.isComposeMultiplatformView(type(of: view)), isAnyInputSensitive(view) {
+                maskableWidgets.append(.init(view, in: window))
+                return
+            }
+
             /// SwiftUI: `SwiftUI.UIKitIconPreferringButton` and other subclasses will land here
             if let button = view as? UIButton {
                 if isButtonSensitive(button) {
@@ -2352,6 +2359,14 @@
             "SwiftUI.RBDrawingView", // up to iOS 18
         ].compactMap(NSClassFromString)
 
+        /// Whether `viewClass` is one of the views Compose Multiplatform draws its UI into: a container, a Metal
+        /// surface and input views, all in the `androidx.compose.ui.window` Kotlin package. Kotlin/Native registers
+        /// them under names such as `Sharedandroidx.compose.ui.window.ComposeContainerView3` (module name, Kotlin
+        /// class name, counter), so they're matched by name.
+        static func isComposeMultiplatformView(_ viewClass: AnyClass) -> Bool {
+            NSStringFromClass(viewClass).contains("androidx.compose.ui.window.")
+        }
+
         /// Masks `content`, a view or a layer drawn by `view`, when it is a `.drawingGroup()` or `Canvas`
         /// surface. Returns whether a mask was added.
         @discardableResult
@@ -2394,7 +2409,7 @@
                 if isA(viewClass, [reactNativeTextView, reactNativeParagraphView]) { return .unreadableText }
                 if isA(viewClass, [UILabel.self]) { return .label }
                 if isA(viewClass, [WKWebView.self, UISwitch.self, UIPickerView.self, reactNativeSvgView, systemSandboxedView] + swiftUIGenericTypes
-                    + Self.swiftUIFlattenedContentTypes)
+                    + Self.swiftUIFlattenedContentTypes) || Self.isComposeMultiplatformView(viewClass)
                 {
                     return .opaque
                 }

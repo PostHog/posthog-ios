@@ -20,7 +20,7 @@
                 return ph_topViewController(base: selected)
             } else if let presented = base?.presentedViewController {
                 return ph_topViewController(base: presented)
-            } else if let split = base as? UISplitViewController, let screen = splitScreen(split) {
+            } else if let split = base as? UISplitViewController, isSplitViewController(split), let screen = splitScreen(split) {
                 return screen
             }
 
@@ -45,6 +45,18 @@
                 return ph_topViewController(base: visibleChildren[0])
             }
             return base
+        }
+
+        /// Swift's `as?` trusts `isKind(of:)`, and some private UIKit controllers,
+        /// such as the iPad print panel, claim to be a split there without its API.
+        /// Only the real class chain proves that the split API is implemented.
+        private static func isSplitViewController(_ viewController: UIViewController) -> Bool {
+            var cls: AnyClass? = object_getClass(viewController)
+            while let current = cls {
+                if current == UISplitViewController.self { return true }
+                cls = class_getSuperclass(current)
+            }
+            return false
         }
 
         private enum SplitLayout {

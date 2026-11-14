@@ -38,6 +38,13 @@
             override var transitionCoordinator: UIViewControllerTransitionCoordinator? { stubCoordinator ?? super.transitionCoordinator }
         }
 
+        /// Like the iPad print panel: a split for `isKind(of:)`, without the split API.
+        private final class SplitImpostorViewController: UIViewController {
+            override func isKind(of aClass: AnyClass) -> Bool {
+                aClass == UISplitViewController.self || super.isKind(of: aClass)
+            }
+        }
+
         private final class StubTransitionCoordinator: NSObject, UIViewControllerTransitionCoordinator {
             private let from: UIViewController?
             private let to: UIViewController?
@@ -300,6 +307,19 @@
                 root.present(presented, animated: false)
                 defer { root.dismiss(animated: false) }
                 #expect(root.presentedViewController === presented)
+                #expect(UIViewController.ph_topViewController(base: root) === presented)
+            }
+        }
+
+        @Test("Presented controllers that only claim to be a split are not read as one")
+        func presentedSplitImpostor() {
+            let root = InitialViewController()
+            let presented = SplitImpostorViewController()
+            withWindow(root: root) { _ in
+                root.present(presented, animated: false)
+                defer { root.dismiss(animated: false) }
+                let base: UIViewController = presented
+                #expect(base is UISplitViewController)
                 #expect(UIViewController.ph_topViewController(base: root) === presented)
             }
         }

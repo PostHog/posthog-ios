@@ -106,6 +106,22 @@
             #expect(sut.integration.collectMaskableRects(in: window) == [])
         }
 
+        @Test("A ph-no-capture Compose Multiplatform view masks its descendants too")
+        func noCaptureMasksDescendants() {
+            let sut = makeSut(maskText: false, maskImages: false)
+            defer { teardown(sut) }
+
+            let screen = makeComposeScreen(frame: CGRect(x: 0, y: 60, width: 320, height: 500))
+            screen.accessibilityIdentifier = "ph-no-capture"
+            // an unclipped subview drawing below the screen's rect
+            screen.addSubview(UIView(frame: CGRect(x: 0, y: 500, width: 320, height: 40)))
+            let window = makeWindow(containing: screen)
+
+            let rects = sut.integration.collectMaskableRects(in: window) ?? []
+            #expect(rects.contains(CGRect(x: 0, y: 60, width: 320, height: 500)))
+            #expect(rects.contains(CGRect(x: 0, y: 560, width: 320, height: 40)))
+        }
+
         @Test("A Compose Multiplatform surface is masked without its container")
         func surfaceMaskedAlone() {
             let sut = makeSut(maskText: true, maskImages: false)

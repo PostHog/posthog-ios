@@ -1023,8 +1023,9 @@
             }
 
             // Compose Multiplatform draws text fields, text and images into one surface with no UIKit
-            // view per element, so like a web view, mask the whole of it
-            if Self.isComposeMultiplatformView(type(of: view)), isAnyInputSensitive(view) {
+            // view per element, so like a web view, mask the whole of it. A no-capture one is left to
+            // the end of the walk, which also masks its descendants.
+            if Self.isComposeMultiplatformView(type(of: view)), !maskChildren, !view.isNoCapture(), isAnyInputSensitive(view) {
                 maskableWidgets.append(.init(view, in: window))
                 return
             }

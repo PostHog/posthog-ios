@@ -288,6 +288,39 @@ final class PostHogAppLifeCycleIntegrationTest {
             #expect(!afterForegrounding)
             withExtendedLifetime((activeToken, backgroundToken)) {}
         }
+
+        #if !os(macOS)
+            @Test("setup before UIKit creates the shared app preserves cold launch")
+            @MainActor
+            func preservesColdLaunchBeforeSharedApplication() async throws {
+                setVersionDefaults()
+                let center = NotificationCenter()
+                // A SwiftUI `App.init` runs before UIKit creates the shared app.
+                let publisher = ApplicationLifecyclePublisher(notificationCenter: center, applicationState: { nil })
+                #expect(!publisher.isActive)
+                #expect(!publisher.hasBecomeActive)
+                #expect(!publisher.isInBackground)
+                DI.main.appLifecyclePublisher = publisher
+                let sut = getSut(flushAt: 100)
+                defer { sut.close() }
+
+                center.post(name: UIApplication.didFinishLaunchingNotification, object: nil)
+                center.post(name: lifecycleNotifications.active, object: nil)
+                center.post(name: lifecycleNotifications.background, object: nil)
+                center.post(name: lifecycleNotifications.active, object: nil)
+                sut.flush()
+
+                let events = try await getServerEvents(server)
+                #expect(events.map(\.event) == [
+                    "Application Installed",
+                    "Application Opened",
+                    "Application Backgrounded",
+                    "Application Opened",
+                ])
+                let opens = events.filter { $0.event == "Application Opened" }
+                #expect(opens.map { $0.properties["from_background"] as? Bool } == [false, true])
+            }
+        #endif
     #endif
 
     @Test("installs lifecycle integration even when event capture is disabled")

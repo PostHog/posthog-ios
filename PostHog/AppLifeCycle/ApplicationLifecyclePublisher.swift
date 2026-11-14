@@ -60,8 +60,8 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
     /// transitions without blocking callers that may hold SDK locks needed by main.
     var isInBackground: Bool {
         #if os(iOS) || os(tvOS) || os(visionOS)
-            if Thread.isMainThread {
-                return UIApplication.shared.applicationState == .background
+            if Thread.isMainThread, let state = applicationState() {
+                return state == .background
             }
         #endif
         return stateLock.withLock { isBackgrounded }
@@ -71,10 +71,21 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
     private var hasObservedActivation = false
     private var isBackgrounded = false
 
+    #if os(iOS) || os(tvOS) || os(visionOS)
+        /// Nil until UIKit creates the shared app, for example in a SwiftUI `App.init`.
+        /// `UIApplication.shared` would then message nil and read `.active`.
+        private var applicationState: () -> UIApplication.State? = ApplicationLifecyclePublisher.sharedApplicationState
+
+        private static func sharedApplicationState() -> UIApplication.State? {
+            let sharedApplication = UIApplication.perform(NSSelectorFromString("sharedApplication"))?.takeUnretainedValue()
+            return (sharedApplication as? UIApplication)?.applicationState
+        }
+    #endif
+
     var isActive: Bool {
         guard Thread.isMainThread else { return false }
         #if os(iOS) || os(tvOS) || os(visionOS)
-            return UIApplication.shared.applicationState == .active
+            return applicationState() == .active
         #elseif os(macOS)
             return NSApplication.shared.isActive
         #elseif os(watchOS)
@@ -155,6 +166,13 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
             }
         #endif
     }
+
+    #if os(iOS) || os(tvOS) || os(visionOS)
+        convenience init(notificationCenter: NotificationCenter, applicationState: @escaping () -> UIApplication.State?) {
+            self.init(notificationCenter: notificationCenter)
+            self.applicationState = applicationState
+        }
+    #endif
 
     @objc private func appDidEnterBackground() {
         stateLock.withLock { isBackgrounded = true }

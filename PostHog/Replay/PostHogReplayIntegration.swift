@@ -934,10 +934,10 @@
 
             /// SwiftUI: Some control images like the ones in `Picker` view may land here
             if let image = view as? UIImageView {
-                if isImageViewSensitive(image) {
+                if isImageViewSensitive(image) || showsReplacedImage(image) {
                     maskableWidgets.append(.init(view, in: window))
                     // subviews can draw outside the image view's bounds, so its mask may not cover them
-                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren, culled)
+                    findMaskableWidgets(inSubviewsOf: view, window, &maskableWidgets, maskChildren || view.isNoCapture(), culled)
                     return
                 }
             }
@@ -1176,6 +1176,13 @@
                 return nil
             }
 
+            // Under an app-defined layer, masks come from the model, which runs ahead of what's drawn until Core
+            // Animation commits. A capture outside the run-loop opportunity (the bridge, background capture's samples)
+            // can land mid-turn, so commit first; at the opportunity there's nothing left to commit.
+            if window.layer.containsAppDefinedLayer {
+                CATransaction.flush()
+            }
+
             // A cover such as a SwiftUI `fullScreenCover` leaves the screen it hides attached to
             // the window, and rects from that screen would be redacted over the cover's own
             // pixels. Everything still on screen sits inside the cover, so both rect sources
@@ -1369,7 +1376,9 @@
         }
 
         private func isLabelSensitive(_ view: UILabel) -> Bool {
-            (isTextInputSensitive(view) && hasText(view.text)) || hasSensitiveImageAttachment(view.attributedText)
+            // Cleared text stays on screen until the label redraws, and a content transition keeps drawing it after.
+            (isTextInputSensitive(view) && (hasText(view.text) || view.layer.needsDisplay() || view.layer.animatesContents(outside: [])))
+                || hasSensitiveImageAttachment(view.attributedText)
         }
 
         private func isButtonSensitive(_ view: UIButton) -> Bool {
@@ -1734,6 +1743,28 @@
             if !source.hasInPlaceCopies, over.contains(where: { $0.inline == .extent && !owners.contains($0.owner) }) { return [] }
             owners.formUnion(over.map(\.owner))
             return owners.isEmpty ? nil : owners
+        }
+    }
+
+    private extension PostHogReplayIntegration {
+        /// An image replaced since the last commit stays on screen until then: the presentation layer still holds it.
+        /// An animating view presents its current frames, which aren't replaced images.
+        /// Once replaced, the old contents can't be classified, so even a symbol swapped for another symbol is masked
+        /// until the commit. An animation drawing an image the view no longer holds, such as a transition from it,
+        /// counts too.
+        func showsReplacedImage(_ view: UIImageView) -> Bool {
+            guard view.isNoCapture() || config?.sessionReplayConfig.maskAllImages == true else { return false }
+            if view.animatesReplacedImage {
+                return true
+            }
+            // presentation() copies the layer through init(layer:), which an app-defined layer class may not support
+            guard type(of: view.layer) == CALayer.self else { return false }
+            guard let presented = view.layer.presentation()?.contents else { return false }
+            let shown = presented as AnyObject
+            if view.layer.contents as AnyObject? === shown {
+                return false
+            }
+            return !view.imageSources.contains { $0.cgImage === shown }
         }
     }
 
@@ -2458,10 +2489,16 @@
                 return leftOutCover(of: frame, in: window) ? .fallback : .rects(regions.map(\.rect))
             }
 
-            /// Whether the mirror left out the full-window cover or one of its ancestors.
+            /// Whether the mirror left out the full-window cover, or a presented view that may be one, or an ancestor.
             private func leftOutCover(of frame: PostHogGPUMirrorCapture.Frame, in window: UIWindow) -> Bool {
-                guard let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer else { return false }
-                return isCulledWithAncestors(cover, frame.culledLayers)
+                if let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)?.layer,
+                   isCulledWithAncestors(cover, frame.culledLayers)
+                {
+                    return true
+                }
+                return PostHogPresentationCover.unreadablePresentedViews(in: window).contains {
+                    isCulledWithAncestors($0.layer, frame.culledLayers)
+                }
             }
 
             private struct MirroredCapture {

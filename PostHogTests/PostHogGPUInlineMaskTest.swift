@@ -861,9 +861,8 @@
             fixture.window.layer.addSublayer(try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false))
             fixture.window.layoutIfNeeded()
             move(mover)
-            // Measured where the moving layer is presented, not where the portal shows it.
-            let liveRect = reporter.toPresentationRect(fixture.window)
-            try #require(!liveRect.intersects(portalRect) && !liveRect.intersects(bystander.frame))
+            // Where the moving app layer is presented can't be read without copying it.
+            try #require(reporter.toPresentationRect(fixture.window).contains(fixture.window.bounds))
 
             let result = try await capture(fixture)
             let pixels = try Pixels(result.image)
@@ -872,7 +871,7 @@
             #expect(pixels.count(in: bystander.frame, where: Self.isMagenta) == 180 * 60, "content outside the overlay was masked")
         }
 
-        @Test("A postHogMask overlay on a moving app layer, which the mirror leaves out, keeps its live rect and nothing on the layer is drawn")
+        @Test("A postHogMask overlay on a moving app layer, which the mirror leaves out, masks the whole window and nothing on the layer is drawn")
         func reporterOnMovingAppLayerKeepsItsLiveRect() async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
@@ -886,8 +885,8 @@
 
             let result = try await capture(fixture)
             #expect(fixture.mask.extentStatsForTesting.count == 0)
-            // Its presented rect, measured mid-animation: the reporter's size, not the window's.
-            #expect(result.rectRegions.contains { $0.size == reporter.bounds.size && $0.intersects(mover.frame) })
+            // Where the moving app layer is presented can't be read without copying it.
+            #expect(result.rectRegions.contains { $0.contains(fixture.window.bounds) })
             #expect(try Pixels(result.image).count(where: Self.isMagentaHue) == 0)
         }
 

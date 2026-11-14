@@ -401,11 +401,13 @@
         /// Whether an animation on this layer draws contents other than `known`, read off the animations without
         /// copying the layer: a `CATransition` draws the cached previous contents, and a `contents` animation draws
         /// its values, or the previous contents when it has no `fromValue`.
-        func animatesContents(outside known: [AnyObject]) -> Bool {
+        func animatesContents(outside known: @autoclosure () -> [AnyObject]) -> Bool {
+            guard let keys = animationKeys() else { return false }
+            let knownIDs = Set(known().map(ObjectIdentifier.init))
             func isKnown(_ value: Any) -> Bool {
-                known.contains { $0 === value as AnyObject }
+                knownIDs.contains(ObjectIdentifier(value as AnyObject))
             }
-            return animationKeys()?.contains { key in
+            return keys.contains { key in
                 switch animation(forKey: key) {
                 case is CATransition:
                     return true

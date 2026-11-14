@@ -88,7 +88,7 @@ Alerts reply to the approval thread in the release approvals Slack channel. The 
 
 CocoaPods publishing is best-effort and does not block the release. If the "Publish to CocoaPods" job fails, the run still succeeds once the tag and GitHub release exist, the "released" Slack notification still goes out, and the Slack release thread gets a reply saying whether the version was published to CocoaPods, so you know when the pod is missing.
 
-The workflow prepares SDKs and simulators with `make prepareCocoaPods` before running `make publishCocoaPods`. Preparation failures stop before the push and do not trigger Trunk polling. A failed push still polls Trunk to detect versions accepted before a response timeout. When Trunk explicitly reports read-only, polling and the PostHog failure event are skipped; the threaded CocoaPods-status warning still reports that the pod was not published. The manual `make releaseCocoaPods` command runs both preparation and publishing.
+The workflow runs `make prepareCocoaPods` before `make publishCocoaPods`. Preparation only ensures an Apple Vision Pro simulator device exists for the podspec validation and is best-effort: a preparation failure is reported as a step failure but no longer stops the push. A failed push still polls Trunk to detect versions accepted before a response timeout. When Trunk explicitly reports read-only, polling and the PostHog failure event are skipped; the threaded CocoaPods-status warning still reports that the pod was not published. The manual `make releaseCocoaPods` command runs both preparation and publishing.
 
 CocoaPods Trunk becomes permanently read-only on December 2nd 2026, after which new pod versions can no longer be published.
 

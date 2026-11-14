@@ -335,7 +335,9 @@ let maxRetryDelay = 30.0
             #endif
 
             if !config.optOut {
-                // don't install integrations if in opt-out state
+                // don't install integrations if in opt-out state. They subscribe to lifecycle events after
+                // sessionManager.setup above on purpose: subscribers fire in subscription order, and the
+                // session manager has to see a foreground before Application Opened is captured.
                 installIntegrations()
 
                 createExceptionStepsBufferIfNeeded()

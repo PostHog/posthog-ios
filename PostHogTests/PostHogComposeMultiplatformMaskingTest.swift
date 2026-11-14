@@ -71,7 +71,9 @@
 
             let window = makeWindow(containing: makeComposeScreen(frame: CGRect(x: 0, y: 60, width: 320, height: 500)))
 
-            #expect(sut.integration.collectMaskableRects(in: window) == [CGRect(x: 0, y: 60, width: 320, height: 500)])
+            // the container and the surface filling it
+            let rects = sut.integration.collectMaskableRects(in: window) ?? []
+            #expect(!rects.isEmpty && rects.allSatisfy { $0 == CGRect(x: 0, y: 60, width: 320, height: 500) })
         }
 
         @Test("A Compose Multiplatform view is masked whole under maskAllImages")
@@ -81,7 +83,9 @@
 
             let window = makeWindow(containing: makeComposeScreen(frame: CGRect(x: 0, y: 60, width: 320, height: 500)))
 
-            #expect(sut.integration.collectMaskableRects(in: window) == [CGRect(x: 0, y: 60, width: 320, height: 500)])
+            // the container and the surface filling it
+            let rects = sut.integration.collectMaskableRects(in: window) ?? []
+            #expect(!rects.isEmpty && rects.allSatisfy { $0 == CGRect(x: 0, y: 60, width: 320, height: 500) })
         }
 
         @Test("A Compose Multiplatform view isn't masked when text and image masking are off")
@@ -104,6 +108,23 @@
             let window = makeWindow(containing: screen)
 
             #expect(sut.integration.collectMaskableRects(in: window) == [])
+        }
+
+        @Test("A sensitive UIKit view drawing outside a Compose Multiplatform view stays masked")
+        func unclippedSensitiveSubviewMasked() {
+            let sut = makeSut(maskText: true, maskImages: false)
+            defer { teardown(sut) }
+
+            let screen = makeComposeScreen(frame: CGRect(x: 0, y: 60, width: 320, height: 500))
+            // an interop text field drawing below the screen's rect
+            let field = UITextField(frame: CGRect(x: 0, y: 500, width: 320, height: 40))
+            field.text = "secret"
+            screen.addSubview(field)
+            let window = makeWindow(containing: screen)
+
+            let rects = sut.integration.collectMaskableRects(in: window) ?? []
+            #expect(rects.contains(CGRect(x: 0, y: 60, width: 320, height: 500)))
+            #expect(rects.contains(CGRect(x: 0, y: 560, width: 320, height: 40)))
         }
 
         @Test("A ph-no-capture Compose Multiplatform view masks its descendants too")

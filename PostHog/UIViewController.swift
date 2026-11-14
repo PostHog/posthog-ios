@@ -49,7 +49,7 @@
 
         /// Swift's `as?` trusts `isKind(of:)`, and some private UIKit controllers,
         /// such as the iPad print panel, claim to be a split there without its API.
-        /// Only the real class chain proves that the split API is implemented.
+        /// `isSubclass(of:)` can be overridden too, so walk the runtime class chain.
         private static func isSplitViewController(_ viewController: UIViewController) -> Bool {
             var cls: AnyClass? = object_getClass(viewController)
             while let current = cls {

@@ -14,46 +14,10 @@
     import Testing
     import UIKit
 
-    /// A layer that reports an in-flight fade: the model opacity is 0 while the
-    /// presentation layer the screenshot renders is still opaque. Deterministic stand-in
-    /// for `UIView.animate { view.alpha = 0 }`, whose presentation values need a real
-    /// render server commit.
-    private final class FadingOutLayer: CALayer {
-        override func presentation() -> Self? {
-            let presentation = FadingOutLayer()
-            presentation.bounds = bounds
-            presentation.position = position
-            presentation.opacity = 1
-            // `presentationLayer` is imported as `-> Self?`, and this class is final,
-            // so the cast always succeeds.
-            return presentation as? Self
-        }
-    }
-
-    private final class FadingOutView: UIView {
-        override class var layerClass: AnyClass { FadingOutLayer.self }
-    }
-
     private final class CustomDrawnSecretView: UIView {
         override func draw(_ rect: CGRect) {
             ("Sensitive content" as NSString).draw(in: rect, withAttributes: [.foregroundColor: UIColor.black])
         }
-    }
-
-    private final class CollapsingLayer: CALayer {
-        var renderedBounds: CGRect = .zero
-
-        override func presentation() -> Self? {
-            let presentation = CollapsingLayer()
-            presentation.bounds = renderedBounds
-            presentation.position = position
-            presentation.opacity = opacity
-            return presentation as? Self
-        }
-    }
-
-    private final class CollapsingView: UIView {
-        override class var layerClass: AnyClass { CollapsingLayer.self }
     }
 
     @Suite("Replay masking fails closed", .serialized)
@@ -82,6 +46,15 @@
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
             window.addSubview(view)
             window.layoutIfNeeded()
+            return window
+        }
+
+        /// `makeWindow`, shown and committed so its layers have presentation copies to hold animations on.
+        private func makeCommittedWindow(containing view: UIView) async throws -> UIWindow {
+            let window = makeWindow(containing: view)
+            window.isHidden = false
+            CATransaction.flush()
+            try await Task.sleep(nanoseconds: 50_000_000)
             return window
         }
 
@@ -346,38 +319,42 @@
         }
 
         @Test("an unclipped child drawing outside a shrinking no-capture view stays masked")
-        func overflowingChildOfShrinkingNoCaptureViewIsMasked() throws {
+        func overflowingChildOfShrinkingNoCaptureViewIsMasked() async throws {
             let sut = makeSut()
             defer { teardown(sut) }
 
             // The model frame fills the window while the rendered bounds animate down to 100pt.
-            let tagged = CollapsingView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let tagged = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
             tagged.accessibilityIdentifier = "ph-no-capture"
-            let layer = try #require(tagged.layer as? CollapsingLayer)
-            layer.renderedBounds = CGRect(x: 0, y: 0, width: 100, height: 100)
             let secret = CustomDrawnSecretView(frame: CGRect(x: 24, y: 600, width: 200, height: 32))
             tagged.addSubview(secret)
-            let window = makeWindow(containing: tagged)
+            let window = try await makeCommittedWindow(containing: tagged)
+            defer { window.isHidden = true }
+            // Shrunk around its centre, its subviews where the model puts them.
+            try await hold(tagged.layer, keyPath: "bounds", at: NSValue(cgRect: CGRect(x: 110, y: 270, width: 100, height: 100)))
 
             let rects = try #require(sut.integration.collectMaskableRects(in: window))
             let taggedRect = tagged.toPresentationRect(window)
             let secretRect = secret.toPresentationRect(window)
+            #expect(secretRect == secret.frame)
             #expect(!taggedRect.contains(secretRect))
             #expect(rects == [taggedRect, secretRect])
         }
 
         @Test("a collapsed clipping parent is walked while its presentation bounds remain visible", arguments: [true, false])
-        func collapsingClippingParentUsesRenderedBounds(presentationIsVisible: Bool) throws {
+        func collapsingClippingParentUsesRenderedBounds(presentationIsVisible: Bool) async throws {
             let sut = makeSut()
             defer { teardown(sut) }
 
-            let wrapper = CollapsingView(frame: .zero)
+            let wrapper = UIView(frame: .zero)
             wrapper.clipsToBounds = true
-            let layer = try #require(wrapper.layer as? CollapsingLayer)
-            layer.renderedBounds = presentationIsVisible ? CGRect(x: 0, y: 0, width: 320, height: 640) : .zero
             let label = makeSecretLabel(frame: CGRect(x: 24, y: 120, width: 200, height: 32))
             wrapper.addSubview(label)
-            let window = makeWindow(containing: wrapper)
+            let window = try await makeCommittedWindow(containing: wrapper)
+            defer { window.isHidden = true }
+            // Rendered over the whole window around the model's zero-size frame, its subviews where the model puts them.
+            let rendered = presentationIsVisible ? CGRect(x: -160, y: -320, width: 320, height: 640) : .zero
+            try await hold(wrapper.layer, keyPath: "bounds", at: NSValue(cgRect: rendered))
 
             #expect(wrapper.frame == .zero)
             #expect(sut.integration.collectMaskableRects(in: window) == (presentationIsVisible ? [label.frame] : []))
@@ -386,14 +363,16 @@
         // MARK: - Fading views
 
         @Test("text inside a view that is fading out is masked")
-        func fadingOutParentIsTraversed() {
+        func fadingOutParentIsTraversed() async throws {
             let sut = makeSut()
             defer { teardown(sut) }
 
-            let fading = FadingOutView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let fading = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
             fading.alpha = 0
             fading.addSubview(makeSecretLabel(frame: CGRect(x: 24, y: 120, width: 200, height: 32)))
-            let window = makeWindow(containing: fading)
+            let window = try await makeCommittedWindow(containing: fading)
+            defer { window.isHidden = true }
+            try await hold(fading.layer, keyPath: "opacity", at: 1)
 
             #expect(sut.integration.collectMaskableRects(in: window) == [CGRect(x: 24, y: 120, width: 200, height: 32)])
         }

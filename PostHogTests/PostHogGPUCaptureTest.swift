@@ -679,7 +679,7 @@
                      measured.rect.maxY - placed.maxY].allSatisfy { abs($0) < 0.01 }, "\(measured.rect) vs \(placed)")
         }
 
-        @Test("An app layer moved since its last commit, without an animation, keeps what the screen shows masked through the settle check",
+        @Test("An app layer moved since its last commit, without an animation, keeps what the screen shows masked through the settle check, or skips the frame",
               arguments: [20, 150] as [CGFloat])
         func uncommittedAppLayerMoveStaysMaskedThroughTheSettleCheck(distance: CGFloat) async throws {
             let window = makeWindow()
@@ -699,6 +699,11 @@
             try #require(container.layer.animationKeys() == nil)
             let regions = integration.collectMaskedRegions(in: window)
             let verdict = PostHogReplayIntegration.settleVerdict(before: sentinel, after: regions)
+            if verdict.band == .motion {
+                // Too far to inflate over: the motion renderer would draw it, and it can't copy the app layer.
+                #expect(window.toImage(renderer: .presentationTree) == nil)
+                return
+            }
             let rects = try #require(verdict.inflatedRects ?? regions?.map(\.rect))
             #expect(rects.contains { $0.insetBy(dx: -1, dy: -1).contains(committed) }, "\(rects)")
         }
@@ -951,20 +956,6 @@
             return content
         }
 
-        @Test("postHogMask content with a copyable app layer animating away is masked on the presentation tree")
-        func copyableAppLayerMovingUnderReporterIsMaskedOnPresentationTree() async throws {
-            let mirror = try makeMirror()
-            let window = makeSceneWindow()
-            defer { closeSceneWindow(window) }
-            await prewarm(mirror, for: window)
-            let content = try await hostMaskedAppLayerContent(in: window, mirror: mirror)
-            try await animateDown(content.layer, by: 150)
-            // AppAnimatableLayer implements init(layer:), so main's presentation-tree render doesn't trap on it.
-            let regions = try #require(PostHogReplayIntegration().collectMaskedRegions(in: window))
-            let image = try #require(window.toImage(renderer: .presentationTree))
-            try expectMagentaMasked(image, regions.map(\.rect))
-        }
-
         @Test("postHogMask content animating away under a static app layer is masked in the GPU mirror")
         func contentMovingUnderStaticAppLayerIsMaskedInMirror() async throws {
             let mirror = try makeMirror()
@@ -1128,7 +1119,9 @@
             let presented = cover.view.layer.position
             cover.view.layer.position.y += 20
             try await hold(cover.view.layer, keyPath: "position", at: NSValue(cgPoint: presented))
-            try #require(PostHogPresentationCover.frontmostFullWindowCover(in: window) === cover.view)
+            // Its presentation can't be read without copying the app layer, so it isn't measured as a cover.
+            try #require(PostHogPresentationCover.frontmostFullWindowCover(in: window) == nil)
+            try #require(PostHogPresentationCover.unreadablePresentedViews(in: window).contains { $0 === cover.view })
             window.layoutIfNeeded()
             return cover.view
         }
@@ -1147,15 +1140,57 @@
             try await expectNoUnmaskedMagenta(window, mirror: mirror, expect: .fallback)
         }
 
+        @Test("A full-window cover presenting a view the mirror leaves out, under an animating app layer, falls back to the default capture")
+        func readableCoverPresentingUnreadableViewFallsBack() async throws {
+            let mirror = try makeMirror()
+            let window = makeWindow()
+            await prewarm(mirror, for: window)
+            let presenter = CoveredController()
+            window.rootViewController = presenter
+            defer { window.rootViewController = nil }
+            presenter.view.frame = window.bounds
+            let outer = CoveredController()
+            outer.view.frame = window.bounds
+            outer.view.backgroundColor = .white
+            presenter.cover = outer
+            window.addSubview(outer.view)
+            let inner = UIViewController()
+            inner.view = try appLayerView()
+            inner.view.frame = window.bounds.insetBy(dx: 0, dy: -30)
+            inner.view.addSubview(secretField(CGRect(x: 20, y: 70, width: 120, height: 60)))
+            outer.cover = inner
+            outer.view.addSubview(inner.view)
+            CATransaction.flush()
+            let presented = inner.view.layer.position
+            inner.view.layer.position.y += 20
+            try await hold(inner.view.layer, keyPath: "position", at: NSValue(cgPoint: presented))
+            try #require(PostHogPresentationCover.frontmostFullWindowCover(in: window) === outer.view)
+
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            defer { frame.release() }
+            try #require(frame.culledLayers.contains(ObjectIdentifier(inner.view.layer)))
+            #expect(PostHogReplayIntegration().maskableRects(for: frame, in: window) == .fallback)
+        }
+
         @Test("A full-window cover under a far-culled container falls back to the default capture instead of exposing the presenter")
         func farCulledCoverFallsBack() async throws {
             let mirror = try makeMirror()
             let window = makeWindow()
             await prewarm(mirror, for: window)
+            defer { window.rootViewController = nil }
+            let container = try farCulledCover(in: window)
 
+            let frame = try #require(mirror.build(window: window, scale: 1))
+            defer { frame.release() }
+            try #require(frame.culledLayers.contains(ObjectIdentifier(container.layer)))
+            #expect(PostHogReplayIntegration().maskableRects(for: frame, in: window) == .fallback)
+        }
+
+        /// A full-window cover over a presenter with a masked view, under a container placed far enough off screen for
+        /// the mirror to leave it out. Returns the container.
+        private func farCulledCover(in window: UIWindow) throws -> UIView {
             let presenter = CoveredController()
             window.rootViewController = presenter
-            defer { window.rootViewController = nil }
             presenter.view.frame = window.bounds
             presenter.view.addSubview(secretField(CGRect(x: 20, y: 200, width: 120, height: 60)))
             let offset = window.bounds.height * 10
@@ -1169,11 +1204,7 @@
             window.addSubview(container)
             window.layoutIfNeeded()
             try #require(PostHogPresentationCover.frontmostFullWindowCover(in: window) === cover.view)
-
-            let frame = try #require(mirror.build(window: window, scale: 1))
-            defer { frame.release() }
-            try #require(frame.culledLayers.contains(ObjectIdentifier(container.layer)))
-            #expect(PostHogReplayIntegration().maskableRects(for: frame, in: window) == .fallback)
+            return container
         }
 
         @Test("A masked view whose shadow is fading out, the model already at no shadow, keeps the shadow it still draws masked")
@@ -2414,7 +2445,7 @@
             let window = makeWindow()
             await prewarm(mirror, for: window)
             defer { window.rootViewController = nil }
-            _ = try await animatingAppLayerCover(in: window)
+            _ = try farCulledCover(in: window)
             let frame = try #require(mirror.build(window: window, scale: 1))
             try #require(integration.maskableRects(for: frame, in: window) == .fallback)
             frame.release()

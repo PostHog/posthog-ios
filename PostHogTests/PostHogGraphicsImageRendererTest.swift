@@ -78,7 +78,7 @@
         }
 
         private func uploaded(_ image: UIImage, masks: [CGRect], pixelScale: CGFloat) throws -> CGImage {
-            let wireframe = RRWireframe()
+            let wireframe = RRScreenshotFrame()
             wireframe.type = "screenshot"
             wireframe.image = image
             wireframe.maskableWidgets = masks

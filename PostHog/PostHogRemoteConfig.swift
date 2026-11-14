@@ -72,7 +72,7 @@ class PostHogRemoteConfig {
     private var flagsLoadedFromRemote = false
     /// Bumped by `clear()` (on `reset()`) under `featureFlagsLock`. A `/flags` load, or a flags-loaded
     /// notification, from an earlier generation carries the discarded identity's flags, so it is
-    /// dropped: it doesn't write the cache, reach `onFeatureFlagsLoaded` or post `didReceiveFeatureFlags`.
+    /// dropped: it doesn't write the cache or reach `onFeatureFlagsLoaded`.
     private var featureFlagsResetGeneration = 0
 
     private let personPropertiesForFlagsLock = NSLock()
@@ -166,7 +166,7 @@ class PostHogRemoteConfig {
         preloadErrorTrackingConfig()
         preloadPushConfig()
 
-        // Remote config is always loaded (config.remoteConfig is now a no-op)
+        // Remote config is always loaded
         preloadRemoteConfig()
     }
 
@@ -234,7 +234,7 @@ class PostHogRemoteConfig {
     func reloadRemoteConfig(
         callback: (([String: Any]?) -> Void)? = nil
     ) {
-        // Remote config is always loaded (config.remoteConfig is now a no-op)
+        // Remote config is always loaded
         // Note: this guard has the same withLock closure-return bug as loadFeatureFlags
         // had, but for remote config duplicate concurrent requests are harmless (no
         // identity-sensitive params). Fixing it properly requires a pending callback
@@ -290,7 +290,7 @@ class PostHogRemoteConfig {
     }
 
     func reloadFeatureFlags(
-        callback: (([String: Any]?) -> Void)? = nil
+        callback: ((FeatureFlagsLoadResult) -> Void)? = nil
     ) {
         reloadFeatureFlags(callback: callback, surveyCompletion: nil)
     }
@@ -300,7 +300,7 @@ class PostHogRemoteConfig {
     }
 
     private func reloadFeatureFlags(
-        callback: (([String: Any]?) -> Void)?,
+        callback: ((FeatureFlagsLoadResult) -> Void)?,
         surveyCompletion: (([String: Any]?) -> Void)?
     ) {
         guard canReloadFlagsForTesting else {
@@ -310,7 +310,7 @@ class PostHogRemoteConfig {
 
         guard let storageManager = config.storageManager else {
             hedgeLog("No PostHogStorageManager found in config, skipping loading feature flags")
-            callback?(nil)
+            callback?(failedLoadResult())
             surveyCompletion?(nil)
             return
         }
@@ -436,7 +436,7 @@ class PostHogRemoteConfig {
         deviceId: String? = nil,
         groups: [String: String],
         generation: Int? = nil,
-        callback: (([String: Any]?) -> Void)? = nil,
+        callback: ((FeatureFlagsLoadResult) -> Void)? = nil,
         surveyCompletion: (([String: Any]?) -> Void)? = nil,
         coalesceWithCurrentRequest: Bool = false
     ) {
@@ -515,20 +515,21 @@ class PostHogRemoteConfig {
 
                     // quota-limited /flags carries no config; re-arm from the cached remote config
                     #if os(iOS)
-                        self.processSessionRecordingConfig(nil, featureFlags: cachedFeatureFlags, generation: generation)
+                        self.processSessionRecordingConfig(nil, featureFlags: cachedFeatureFlags)
                     #endif
                     self.processErrorTrackingConfig(nil)
 
                     self.notifyFeatureFlagsAndRelease(cachedFeatureFlags, generation: generation)
-                    callback?(cachedFeatureFlags)
+                    callback?(FeatureFlagsLoadResult(featureFlags: cachedFeatureFlags, lastKnownFeatureFlags: cachedFeatureFlags))
                     return
                 }
 
                 // Safely handle optional data
                 guard var data = data else {
                     hedgeLog("Error: Flags response data is nil")
+                    let result = self.failedLoadResult()
                     self.notifyFeatureFlagsAndRelease(nil, generation: generation)
-                    callback?(nil)
+                    callback?(result)
                     return
                 }
 
@@ -540,14 +541,15 @@ class PostHogRemoteConfig {
                       let featureFlagPayloads = data["featureFlagPayloads"] as? [String: Any]
                 else {
                     hedgeLog("Error: Flags response missing correct featureFlags format")
+                    let result = self.failedLoadResult()
                     self.notifyFeatureFlagsAndRelease(nil, generation: generation)
-                    callback?(nil)
+                    callback?(result)
                     return
                 }
 
                 // /flags carries no config; re-arm from the cached remote config
                 #if os(iOS)
-                    self.processSessionRecordingConfig(nil, featureFlags: featureFlags, generation: generation)
+                    self.processSessionRecordingConfig(nil, featureFlags: featureFlags)
                 #endif
                 self.processErrorTrackingConfig(nil)
 
@@ -620,16 +622,13 @@ class PostHogRemoteConfig {
                 }
 
                 self.notifyFeatureFlagsAndRelease(loadedFeatureFlags, generation: generation)
-                callback?(loadedFeatureFlags)
+                callback?(FeatureFlagsLoadResult(featureFlags: loadedFeatureFlags, lastKnownFeatureFlags: loadedFeatureFlags ?? [:]))
             }
         }
     }
 
     #if os(iOS)
-        /// `generation` is the reset generation of the `/flags` load that supplied `featureFlags`. It is
-        /// re-checked under `sessionReplayLock`: reset() bumps it before clearing replay state, so a load
-        /// that reset() discarded can't apply the previous identity's linked flag to the new one.
-        private func processSessionRecordingConfig(_ data: [String: Any]?, featureFlags: [String: Any], generation: Int? = nil) {
+        private func processSessionRecordingConfig(_ data: [String: Any]?, featureFlags: [String: Any]) {
             let cachedRemoteConfig = remoteConfigLock.withLock { getCachedRemoteConfig() }
             // fall back to the cached remote config (survives reset()) so replay re-arms; only Bool false disables
             var sessionRecording: Any? = data?["sessionRecording"] ?? cachedRemoteConfig?["sessionRecording"]
@@ -643,7 +642,6 @@ class PostHogRemoteConfig {
             var exposureValue: Any?
             if let sessionRecording = sessionRecording as? Bool {
                 sessionReplayLock.withLock {
-                    if let generation, isStaleFeatureFlagsLoad(generation) { return }
                     sessionReplayFlagActive = sessionRecording
                     sessionReplayLinkedFlagConfigured = false
                 }
@@ -652,12 +650,11 @@ class PostHogRemoteConfig {
                 if let endpoint = sessionRecording["endpoint"] as? String {
                     config.snapshotEndpoint = endpoint
                 }
-                let exposure = sessionReplayLock.withLock { () -> (flagKey: String?, flagValue: Any?)? in
-                    if let generation, isStaleFeatureFlagsLoad(generation) { return nil }
-                    return applySessionRecordingConfigLocked(sessionRecording, featureFlags: featureFlags)
+                let exposure = sessionReplayLock.withLock {
+                    applySessionRecordingConfigLocked(sessionRecording, featureFlags: featureFlags)
                 }
-                exposureKey = exposure?.flagKey
-                exposureValue = exposure?.flagValue
+                exposureKey = exposure.flagKey
+                exposureValue = exposure.flagValue
             }
             // `$feature_flag_called` reads replay state under sessionReplayLock. Report after releasing it.
             reportLinkedFlagExposure(flagKey: exposureKey, flagValue: exposureValue)
@@ -842,8 +839,13 @@ class PostHogRemoteConfig {
                 self.latestFeatureFlagsLoadFailed = featureFlags == nil
             }
             self.onFeatureFlagsLoaded.invoke(featureFlags)
-            NotificationCenter.default.post(name: PostHogSDK.didReceiveFeatureFlags, object: nil)
         }
+    }
+
+    /// Snapshots the cached flags for a failed load. Taken before listeners and callbacks run.
+    private func failedLoadResult() -> FeatureFlagsLoadResult {
+        let cached = featureFlagsLock.withLock { getCachedFeatureFlags() ?? [:] }
+        return FeatureFlagsLoadResult(featureFlags: nil, lastKnownFeatureFlags: cached)
     }
 
     private func isStaleFeatureFlagsLoad(_ generation: Int) -> Bool {
@@ -851,9 +853,8 @@ class PostHogRemoteConfig {
     }
 
     /// Ends a load that reset() discarded without writing the cache or notifying listeners. Its callback
-    /// is moved onto the queued post-reset load, so the caller gets that load's flags instead, or `nil`
-    /// when no load is queued.
-    private func releaseStaleFeatureFlagsLoad(callback: (([String: Any]?) -> Void)?) {
+    /// is moved onto the queued post-reset load, so the caller gets that load's result instead.
+    private func releaseStaleFeatureFlagsLoad(callback: ((FeatureFlagsLoadResult) -> Void)?) {
         hedgeLog("Dropping a feature flags response requested before reset()")
         let (pending, surveyWaiters) = takeNextFeatureFlagsLoad(staleCallback: callback)
         if let pending {
@@ -862,14 +863,14 @@ class PostHogRemoteConfig {
             for waiter in surveyWaiters {
                 waiter(nil)
             }
-            callback?(nil)
+            callback?(failedLoadResult())
         }
     }
 
     /// Marks the current load finished and takes the queued one, if any. Without a queued load it
     /// takes the survey waiters instead. A `staleCallback` is appended to the queued load's callbacks.
     private func takeNextFeatureFlagsLoad(
-        staleCallback: (([String: Any]?) -> Void)? = nil
+        staleCallback: ((FeatureFlagsLoadResult) -> Void)? = nil
     ) -> (PendingFeatureFlagsRequest?, [([String: Any]?) -> Void]) {
         loadingFeatureFlagsLock.withLock {
             self.loadingFeatureFlags = false
@@ -893,7 +894,7 @@ class PostHogRemoteConfig {
             deviceId: pending.deviceId,
             groups: pending.groups,
             generation: pending.generation,
-            callback: { flags in pending.callbacks.forEach { $0(flags) } }
+            callback: { result in pending.callbacks.forEach { $0(result) } }
         )
     }
 
@@ -983,7 +984,12 @@ class PostHogRemoteConfig {
             setCachedFlags([:])
             setCachedErrorsWhileComputingFlags(nil)
             setCachedFeatureFlags(bootstrappedFlags)
-            setCachedFeatureFlagPayload(bootstrappedPayloads)
+            // Bootstrap payloads are already decoded; serialize them like /flags payloads so reads
+            // decode every cached payload exactly once (a bootstrapped "123" stays a String).
+            setCachedFeatureFlagPayload(bootstrappedPayloads.compactMapValues { payload in
+                (try? JSONSerialization.data(withJSONObject: payload, options: .fragmentsAllowed))
+                    .flatMap { String(data: $0, encoding: .utf8) }
+            })
             return true
         }
     }
@@ -1182,22 +1188,19 @@ class PostHogRemoteConfig {
             flags = getCachedFeatureFlagPayload()
         }
 
-        let value = flags?[key]
+        return Self.decodePayload(flags?[key], key: key)
+    }
 
-        guard let stringValue = value as? String else {
-            return value
-        }
-
+    /// Decodes a cached payload, which is stored as serialized JSON (mimicking posthog-js's `JSON.parse`).
+    /// Malformed, empty, or whitespace-only input returns `nil`, never the raw string.
+    private static func decodePayload(_ value: Any?, key: String) -> Any? {
+        guard let serialized = value as? String else { return value }
         do {
-            // The payload value is stored as a string and is not pre-parsed...
-            // We need to mimic the JSON.parse of JS which is what posthog-js uses
-            return try JSONSerialization.jsonObject(with: stringValue.data(using: .utf8)!, options: .fragmentsAllowed)
+            return try JSONSerialization.jsonObject(with: Data(serialized.utf8), options: .fragmentsAllowed)
         } catch {
-            hedgeLog("Error parsing the object \(String(describing: value)): \(error)")
+            hedgeLog("Ignoring malformed payload for feature flag \(key): \(error)")
+            return nil
         }
-
-        // fallback to original value if not possible to serialize
-        return value
     }
 
     func getFeatureFlagResult(_ key: String) -> PostHogFeatureFlagResult? {
@@ -1231,23 +1234,13 @@ class PostHogRemoteConfig {
     }
 
     private func makeFeatureFlagResult(key: String, flagValue: Any?, payloadValue: Any?) -> PostHogFeatureFlagResult {
-        let payload: Any?
-        if let stringValue = payloadValue as? String {
-            do {
-                payload = try JSONSerialization.jsonObject(with: stringValue.data(using: .utf8)!, options: .fragmentsAllowed)
-            } catch {
-                hedgeLog("Error parsing the object \(String(describing: payloadValue)): \(error)")
-                payload = payloadValue
-            }
-        } else {
-            payload = payloadValue
-        }
+        let payload = Self.decodePayload(payloadValue, key: key)
 
         let isEnabled: Bool
         let variant: String?
 
         if let stringValue = flagValue as? String {
-            isEnabled = true
+            isEnabled = !stringValue.isEmpty
             variant = stringValue
         } else if let boolValue = flagValue as? Bool {
             isEnabled = boolValue
@@ -1464,9 +1457,9 @@ private struct PendingFeatureFlagsRequest {
     let groups: [String: String]
     /// The reset generation read with this identity, so a reset() before the load starts drops it.
     let generation: Int
-    let callbacks: [([String: Any]?) -> Void]
+    let callbacks: [(FeatureFlagsLoadResult) -> Void]
 
-    func appending(_ callback: @escaping ([String: Any]?) -> Void) -> PendingFeatureFlagsRequest {
+    func appending(_ callback: @escaping (FeatureFlagsLoadResult) -> Void) -> PendingFeatureFlagsRequest {
         PendingFeatureFlagsRequest(
             distinctId: distinctId,
             anonymousId: anonymousId,
@@ -1476,6 +1469,15 @@ private struct PendingFeatureFlagsRequest {
             callbacks: callbacks + [callback]
         )
     }
+}
+
+/// The outcome of one feature flags load, captured once when it completes so every coalesced
+/// callback sees the same values even if the cache changes while they run (for example a `reset()`).
+struct FeatureFlagsLoadResult {
+    /// The loaded flags, or `nil` if the load failed.
+    let featureFlags: [String: Any]?
+    /// The loaded flags, or the cached flags when the load failed.
+    let lastKnownFeatureFlags: [String: Any]
 }
 
 #if TESTING

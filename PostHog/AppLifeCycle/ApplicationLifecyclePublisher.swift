@@ -78,11 +78,7 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
         #elseif os(macOS)
             return NSApplication.shared.isActive
         #elseif os(watchOS)
-            if #available(watchOS 7.0, *) {
-                return WKApplication.shared().applicationState == .active
-            } else {
-                return WKExtension.shared().applicationState == .active
-            }
+            return WKApplication.shared().applicationState == .active
         #else
             return false
         #endif
@@ -142,17 +138,10 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
                                       name: NSApplication.didBecomeActiveNotification,
                                       object: nil)
         #elseif os(watchOS)
-            if #available(watchOS 7.0, *) {
-                defaultCenter.addObserver(self,
-                                          selector: #selector(appDidBecomeActive),
-                                          name: WKApplication.didBecomeActiveNotification,
-                                          object: nil)
-            } else {
-                defaultCenter.addObserver(self,
-                                          selector: #selector(appDidBecomeActive),
-                                          name: .init("UIApplicationDidBecomeActiveNotification"),
-                                          object: nil)
-            }
+            defaultCenter.addObserver(self,
+                                      selector: #selector(appDidBecomeActive),
+                                      name: WKApplication.didBecomeActiveNotification,
+                                      object: nil)
         #endif
     }
 

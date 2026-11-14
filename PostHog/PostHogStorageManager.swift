@@ -9,10 +9,10 @@ import Foundation
 
 /// Manages persisted identity metadata for a PostHog SDK instance.
 ///
-/// - Warning: This class is public for backwards compatibility, but is intended for
-///   SDK-internal use only. Application code should use `PostHogSDK` identity APIs
+/// - Warning: For PostHog's wrapper SDKs only, which import it with
+///   `@_spi(PostHogInternal)`. Application code should use `PostHogSDK` identity APIs
 ///   instead of interacting with storage directly.
-public class PostHogStorageManager {
+@_spi(PostHogInternal) public class PostHogStorageManager {
     private let storage: PostHogStorage!
 
     private let anonLock = NSLock()
@@ -231,11 +231,15 @@ public class PostHogStorageManager {
 
     /// Persists the hash of the last queued person properties update.
     ///
-    /// - Parameter hash: New hash to store.
-    func setPersonPropertiesHash(_ hash: String) {
+    /// - Parameter hash: New hash to store, or `nil` to clear it.
+    func setPersonPropertiesHash(_ hash: String?) {
         personPropertiesHashLock.withLock {
             personPropertiesHash = hash
-            storage.setString(forKey: .personPropertiesHash, contents: hash)
+            if let hash {
+                storage.setString(forKey: .personPropertiesHash, contents: hash)
+            } else {
+                storage.remove(key: .personPropertiesHash)
+            }
         }
     }
 

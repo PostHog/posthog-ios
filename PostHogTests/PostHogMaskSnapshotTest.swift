@@ -625,7 +625,7 @@
             private let integration = PostHogReplayIntegration()
 
             init() {
-                let config = PostHogConfig(apiKey: "phc_maskSnapshotTest")
+                let config = PostHogConfig(projectToken: "phc_maskSnapshotTest")
                 config.disableReachabilityForTesting = true
                 sdk = PostHogSDK.with(config)
                 _ = integration.install(sdk)
@@ -637,10 +637,10 @@
             func composite(for scenario: Scenario) -> UIImage {
                 let (window, controller) = host(scenario)
                 let original = render(controller.view)
-                // Redact through the exact production painter (RRWireframe.maskImage) so the golden
+                // Redact through the exact production painter (RRScreenshotFrame.maskImage) so the golden
                 // reflects real replay output (scale-1), not hand-drawn rects.
                 let rects = integration.collectMaskableRects(in: window) ?? []
-                let masked = RRWireframe.maskImage(original, maskableWidgets: rects) ?? original
+                let masked = RRScreenshotFrame.maskImage(original, maskableWidgets: rects) ?? original
                 return compose(scenario, original: original, masked: masked)
             }
 

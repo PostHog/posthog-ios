@@ -10,7 +10,7 @@
 //  layer-scan logic is covered separately in PostHogMaskingCharacterizationTest;
 //  rendered-pixel coverage lives in PostHogMaskSnapshotTest.
 
-#if os(iOS) && canImport(SwiftUI)
+#if os(iOS) && canImport(SwiftUI) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import SwiftUI

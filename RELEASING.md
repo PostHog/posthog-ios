@@ -30,12 +30,12 @@ When the PR is merged to `main`, the release workflow will automatically:
 2. Notify the client libraries team in Slack for approval
 3. Wait for approval from a maintainer (via GitHub environment protection)
 4. Once approved:
-   - Apply changesets and bump the version (in `package.json`, `PostHogVersion.swift`, and `PostHog.podspec`)
+   - Apply changesets and bump the version (in `package.json` and `PostHogVersion.swift`)
    - Update the `CHANGELOG.md`
    - Commit the version bump to `main`
    - Create a git tag and GitHub release
-   - Publish the pod to CocoaPods (best-effort, see [CocoaPods publish failed](#cocoapods-publish-failed))
-   - SPM uses the tag name to determine the version, directly from the repo
+
+Swift Package Manager reads the version from the git tag, so the tag is the release. posthog-ios 4.x.x is distributed only through Swift Package Manager. See [CocoaPods](#cocoapods).
 
 ### Manual Trigger
 
@@ -76,150 +76,20 @@ Make sure the PR includes a changeset file and was merged to `main`, or trigger 
 
 ### Failed or cancelled release
 
-The independent [release failure notification workflow](.github/workflows/release-failure-notification.yml) checks every completed main-branch release attempt and alerts if a job failed, timed out, or was cancelled. This includes runner startup failures and cancellations with job records. A best-effort CocoaPods failure does not generate a duplicate alert when the CocoaPods-status reply was delivered. The workflow still alerts if that reply failed or if the GitHub release exists but the released Slack notification was skipped. Once the GitHub/SPM release exists, alerts describe follow-up problems rather than claiming the release failed. It only acts on runs that a push or a manual dispatch started in this repository.
+The independent [release failure notification workflow](.github/workflows/release-failure-notification.yml) checks every completed main-branch release attempt and alerts if a job failed, timed out, or was cancelled. This includes runner startup failures and cancellations with job records. The workflow also alerts if the GitHub release exists but the released Slack notification was skipped. Once the GitHub/SPM release exists, alerts describe follow-up problems rather than claiming the release failed. It only acts on runs that a push or a manual dispatch started in this repository.
 
 Cancelled runs with no jobs are ignored, including superseded queued runs and manual cancellations before any job is created. A version-bump failure before any steps ran is also ignored when the rejection-reply step confirms an explicit rejection in the same attempt and no other job failed.
 
 Job inspection retries transient GitHub API failures up to three times. If inspection still fails, it logs the HTTP status or error type and message, then posts a fallback alert with the overall run status and logs link so the release can be checked manually. Error diagnostics stay in the run log, not in the Slack message.
 
-Alerts reply to the approval thread in the release approvals Slack channel. The release workflow preserves the thread timestamp in a run artifact for 30 days, independently of release approval. Failed-job reruns reuse the latest available thread from the same or an earlier attempt. If the timestamp is missing, invalid, or unavailable, the alert falls back to a new channel message, so it does not depend on the approval notification succeeding. The CocoaPods-status reply is attempted even if the released reply fails, unless the job is cancelled. The released/status messages and the independent failure message surface Slack API errors rather than silently ignoring them, allowing the completion check to detect a failed release notification. The completion workflow must be present on the default branch to run; local tests do not send Slack messages.
+Alerts reply to the approval thread in the release approvals Slack channel. The release workflow preserves the thread timestamp in a run artifact for 30 days, independently of release approval. Failed-job reruns reuse the latest available thread from the same or an earlier attempt. If the timestamp is missing, invalid, or unavailable, the alert falls back to a new channel message, so it does not depend on the approval notification succeeding. The released message and the independent failure message surface Slack API errors rather than silently ignoring them, allowing the completion check to detect a failed release notification. The completion workflow must be present on the default branch to run. Local tests do not send Slack messages.
 
-### CocoaPods publish failed
+## CocoaPods
 
-CocoaPods publishing is best-effort and does not block the release. If the "Publish to CocoaPods" job fails, the run still succeeds once the tag and GitHub release exist, the "released" Slack notification still goes out, and the Slack release thread gets a reply saying whether the version was published to CocoaPods, so you know when the pod is missing.
+posthog-ios 4.0.0 and later is not published to CocoaPods. The release workflow has no CocoaPods step, and the repository no longer has a podspec or a `make releaseCocoaPods` target.
 
-The workflow prepares SDKs and simulators with `make prepareCocoaPods` before running `make publishCocoaPods`. Preparation failures stop before the push and do not trigger Trunk polling. A failed push still polls Trunk to detect versions accepted before a response timeout. When Trunk explicitly reports read-only, polling and the PostHog failure event are skipped; the threaded CocoaPods-status warning still reports that the pod was not published. The manual `make releaseCocoaPods` command runs both preparation and publishing.
+[CocoaPods trunk becomes read-only on December 2, 2026](https://blog.cocoapods.org/CocoaPods-Specs-Repo/). After that date nobody can push a new version of the `PostHog` pod:
 
-CocoaPods Trunk becomes permanently read-only on December 2nd 2026, after which new pod versions can no longer be published.
-
-To publish a missed pod manually, check out the release tag and push it:
-
-```bash
-git fetch --tags
-git checkout <version>  # e.g. 3.93.3
-make releaseCocoaPods
-```
-
-You'll need to be authenticated with CocoaPods trunk and have push access to the `PostHog` pod.
-
-# CocoaPods Management
-
-The PostHog iOS SDK is published to CocoaPods automatically via GitHub Actions when a release is created. This section covers the management of CocoaPods permissions and tokens.
-
-### Check Your Current Session
-
-```bash
-# Check if you're logged in and your permissions
-pod trunk me
-```
-
-Expected output should show:
-
-```text
-- Name:     Your Name
-- Email:    your.email@posthog.com
-- Since:    Date
-- Pods:
-  - PostHog
-- Sessions:
-  - Session details...
-```
-
-### Check Pod Ownership
-
-```bash
-# Check who owns the PostHog pod
-pod trunk info PostHog
-```
-
-This will show:
-
-- Current version
-- All owners with push permissions
-
-### Adding a co-owner
-
-1. **With an existing owner**:
-
-   ```bash
-   # Run this as an existing owner
-   pod trunk add-owner PostHog dev.email@posthog.com
-   ```
-
-2. **Verify**:
-   ```bash
-   # Check that the new owner was added
-   pod trunk info PostHog
-   ```
-
-### Removing a co-owner
-
-1. **With an existing owner**:
-
-   ```bash
-   # Run this as an existing owner
-   pod trunk remove-owner PostHog dev.email@posthog.com
-   ```
-
-2. **Verify**:
-   ```bash
-   # Check that the new owner was removed
-   pod trunk info PostHog
-   ```
-
-### Rotating COCOAPODS_TRUNK_TOKEN
-
-The `COCOAPODS_TRUNK_TOKEN` is used in GitHub Actions for automated releases. Here's how to rotate it:
-
-The token is stored as a GitHub secret and used in `.github/workflows/release.yml`:
-
-```yaml
-env:
-  COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
-```
-
-#### Step 1: Create a new session
-
-1. **Login to CocoaPods Trunk**
-   As the account that will own the token, create a new session with:
-   ```bash
-   pod trunk register your.email@posthog.com 'Your Name'
-   # Verify email if needed
-   ```
-
-2. **Extract the token**:
-   The token is stored in `~/.netrc` file:
-   ```bash
-   # View your .netrc file
-   grep -A2 'trunk.cocoapods.org' ~/.netrc
-   # or look for the line with `trunk.cocoapods.org` in ~/.netrc
-   cat ~/.netrc
-   ```
-
-#### Step 2: Update GitHub Secret
-
-1. **Go to GitHub repository settings**:
-   - Request temp access if needed
-   - Navigate to `https://github.com/organizations/PostHog/settings/secrets/actions`
-   - Or: Org → Settings → Secrets and variables → Actions
-
-2. **Update the secret**:
-   - Find `COCOAPODS_TRUNK_TOKEN` in the list
-   - Update the secret
-
-#### Step 3: Revoking Old Sessions
-
-1. **Revoke old sessions**:
-   ```bash
-   # Clear current sessions (from the user that owned the previous token)
-   pod trunk me clean-sessions
-   ```
-
-#### Step 4: Update workflow docs
-
-Update `./.github/workflows/release.yml` with a comment on the new token owner.
-
-```yaml
-env:
-  COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }} # Using @username token
-```
+- posthog-ios 3.x.x versions already on trunk stay installable with `pod 'PostHog', '~> 3.0'`, but they are frozen. No new 3.x.x pod can be published after the lock.
+- Before the lock, a 3.x.x fix can only reach CocoaPods from a branch cut from the latest 3.x.x tag, because the release workflow runs on `main`, which is 4.x.x. That branch still has `PostHog.podspec`, `make releaseCocoaPods` and the pod-ownership and `COCOAPODS_TRUNK_TOKEN` docs (see [RELEASING.md at 3.92.5](https://github.com/PostHog/posthog-ios/blob/3.92.5/RELEASING.md#cocoapods-management)). Get maintainer approval before publishing from it.
+- Once no further 3.x.x pod is planned, and at the latest after the lock, delete the `COCOAPODS_TRUNK_TOKEN` secret and revoke its trunk session with `pod trunk me clean-sessions`.

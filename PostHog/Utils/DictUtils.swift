@@ -45,7 +45,7 @@ func fromJSONData(_ data: Data, options: JSONSerialization.ReadingOptions = []) 
 ///
 /// - Parameter dict: Dictionary to sanitize.
 /// - Returns: A sanitized dictionary, or `nil` when the input is `nil` or empty.
-public func sanitizeDictionary(_ dict: [String: Any]?) -> [String: Any]? {
+func sanitizeDictionary(_ dict: [String: Any]?) -> [String: Any]? {
     if dict == nil || dict!.isEmpty {
         return nil
     }
@@ -77,11 +77,42 @@ private func sanitizeInvalidValue(_ value: Any) -> Any? {
     if let nested = value as? [String: Any] {
         return sanitizeDictionary(nested) ?? [:]
     }
+    if let nested = value as? [AnyHashable: Any] {
+        return sanitizeDictionary(stringKeyed(nested)) ?? [:]
+    }
     if let array = value as? [Any] {
         let sanitized = sanitizeArray(array)
         return sanitized.isEmpty ? nil : sanitized
     }
     return nil
+}
+
+/// Converts a key with a natural string form (number, boolean or `NSNull`) the way a JSON encoder
+/// writes it, and drops only a key with no such form, so the rest of the dictionary is kept.
+private func stringKeyed(_ dict: [AnyHashable: Any]) -> [String: Any] {
+    var result: [String: Any] = [:]
+    for (key, value) in dict {
+        if let string = jsonKeyString(key.base) {
+            result[string] = value
+        }
+    }
+    return result
+}
+
+private func jsonKeyString(_ key: Any) -> String? {
+    switch key {
+    case let string as String:
+        return string
+    case let number as NSNumber:
+        if CFGetTypeID(number) == CFBooleanGetTypeID() {
+            return number.boolValue ? "true" : "false"
+        }
+        return number.stringValue
+    case is NSNull:
+        return "null"
+    default:
+        return nil
+    }
 }
 
 private func sanitizeArray(_ array: [Any]) -> [Any] {
@@ -101,6 +132,80 @@ private func sanitizeArray(_ array: [Any]) -> [Any] {
     }
 
     return sanitized
+}
+
+/// Person and group property updates keep their null values: `$set: ["plan": NSNull()]` is how a
+/// caller clears a person property, so these values are sent as given.
+private let nullPreservingPropertyKeys: Set<String> = ["$set", "$set_once", "$group_set"]
+
+/// Removes null-valued object members from event properties before they are written to the queue
+/// or sent, as the sdk-specs capture requirement "Capture drops null-valued object properties" asks.
+///
+/// Recurses into nested dictionaries, including dictionaries inside arrays. Null array elements are
+/// kept at their index, and a dictionary emptied by the cleanup stays `{}`. Other values (`false`,
+/// `0`, `""`, `"null"`, empty containers) are unchanged. `$set`, `$set_once` and `$group_set` are
+/// left as given.
+///
+/// - Parameter properties: Event properties, after `beforeSend`.
+/// - Returns: The properties without null-valued object members.
+func droppingNullProperties(_ properties: [String: Any]) -> [String: Any] {
+    var result = properties
+    for (key, value) in properties where !nullPreservingPropertyKeys.contains(key) {
+        if let cleaned = droppingNulls(in: value) {
+            result[key] = cleaned
+        } else if isNullValue(value) {
+            result.removeValue(forKey: key)
+        }
+    }
+    return result
+}
+
+/// Returns `value` with null object members removed, or `nil` when it is not a container or has
+/// nothing to remove, so unchanged containers are not copied.
+private func droppingNulls(in value: Any) -> Any? {
+    if let dict = value as? [String: Any] {
+        return droppingNulls(inDictionary: dict)
+    }
+    // Number or boolean keys are stringified later by `sanitizeDictionary`, so clean these too.
+    if let dict = value as? [AnyHashable: Any] {
+        return droppingNulls(inDictionary: dict)
+    }
+    if let array = value as? [Any] {
+        var result = array
+        var changed = false
+        for (index, element) in array.enumerated() {
+            // Null elements stay at their index; only objects inside the array are cleaned.
+            if let cleaned = droppingNulls(in: element) {
+                result[index] = cleaned
+                changed = true
+            }
+        }
+        return changed ? result : nil
+    }
+    return nil
+}
+
+private func droppingNulls<Key: Hashable>(inDictionary dict: [Key: Any]) -> [Key: Any]? {
+    var result = dict
+    var changed = false
+    for (key, member) in dict {
+        if let cleaned = droppingNulls(in: member) {
+            result[key] = cleaned
+            changed = true
+        } else if isNullValue(member) {
+            result.removeValue(forKey: key)
+            changed = true
+        }
+    }
+    return changed ? result : nil
+}
+
+/// Whether a value is missing or serializes as JSON `null`: `nil`, `NSNull`, or a `nil` optional boxed in `Any`.
+func isNullValue(_ value: Any?) -> Bool {
+    guard let value else { return true }
+    if value is NSNull { return true }
+    let mirror = Mirror(reflecting: value)
+    return mirror.displayStyle == .optional && mirror.children.isEmpty
 }
 
 private func isValidObject(_ object: Any) -> Bool {

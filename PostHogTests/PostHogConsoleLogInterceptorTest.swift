@@ -5,7 +5,7 @@
 //  Regression coverage for https://github.com/PostHog/posthog-ios/issues/780
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import Testing
@@ -13,7 +13,7 @@
     @Suite("Console Log Interceptor Tests", .serialized)
     class PostHogConsoleLogInterceptorTest {
         private func getConfig() -> PostHogConfig {
-            PostHogConfig(apiKey: "test-api-key")
+            PostHogConfig(projectToken: "test-api-key")
         }
 
         /// A broken pipe on a descriptor the SDK owns has to surface as `EPIPE`, not as a

@@ -141,13 +141,7 @@ After `setup`, PostHog captures app lifecycle events, such as `Application Opene
 
 ### Install
 
-PostHog 4.x is published with Swift Package Manager only. In Xcode, choose **File > Add Package Dependencies…** and enter `https://github.com/PostHog/posthog-ios`, or add it to your `Package.swift`:
-
-```swift
-dependencies: [
-    .package(url: "https://github.com/PostHog/posthog-ios.git", from: "4.0.0")
-]
-```
+Add the package with Swift Package Manager, `https://github.com/PostHog/posthog-ios.git`. 4.x.x isn't published to CocoaPods.
 
 ### Initialize
 
@@ -179,6 +173,14 @@ Events are sent in batches. Call `flush()` to send queued events now, or `close(
 ```swift
 PostHogSDK.shared.close()
 ```
+
+### Custom keyboard extensions
+
+A custom keyboard can only send events when it has [Open Access](https://developer.apple.com/documentation/uikit/configuring-open-access-for-a-custom-keyboard). Network requests and writes to the shared App Group container both need it. Users grant it in **Settings > General > Keyboard > Keyboards > [Your Keyboard] > Allow Full Access**.
+
+### IDFA
+
+The SDK doesn't collect the IDFA. It has had no references to Apple's AdSupport framework since 1.2.0, so it doesn't trip App Store static analysis.
 
 ## Setup
 
@@ -2487,7 +2489,18 @@ Creates a configuration with an explicit PostHog ingestion host.
 @objc var appGroupIdentifier: String?
 ```
 
-The identifier of the App Group that should be used to store shared analytics data. PostHog will try to get the physical location of the App Group’s shared container, otherwise fallback to the default location Default: nil
+The identifier of the App Group that should be used to store shared analytics data.
+
+##### Discussion
+
+Configure an App Group in Xcode for both the main app and its extension targets. Set the same identifier in each target before calling `setup`:
+
+```swift
+config.appGroupIdentifier = "group.com.yourcompany.yourapp"
+PostHogSDK.shared.setup(config)
+```
+
+PostHog uses the shared container when available, otherwise it falls back to the default location. Default: nil
 
 #### `PostHogConfig.bootstrap`
 
@@ -3132,6 +3145,10 @@ Replaces the event `beforeSend` chain with the provided blocks.
 ##### Discussion
 
 Blocks run synchronously in array order before an event is cached or sent. Returning `nil` from any block drops the event and skips the remaining blocks.
+
+Prefer sampling or modifying your own custom events. Preserve PostHog internal events unchanged, since core features can require every event to work correctly.
+
+To sample an event, return `nil` for the share you drop. On the events you keep, set `$sample_type` to `["sampleByEvent"]`, `$sample_threshold` to the rate you keep, and `$sampled_events` to the sampled event names.
 
 #### `PostHogConfig.defaultHost`
 
@@ -4648,6 +4665,22 @@ When set, takes precedence over the remote config sample rate. When `nil`, the r
 Values outside the 0.0–1.0 range are ignored and treated as `nil`.
 
 Defaults to `nil`
+
+#### `PostHogSessionReplayConfig.screenshotModeBackgroundCapture`
+
+```swift
+@objc var screenshotModeBackgroundCapture: Bool
+```
+
+Schedule screenshot image capture on a background queue.
+
+##### Discussion
+
+Try this if session replay causes main-thread hangs or dropped frames on complex screens.
+
+Warning: Enabling this option will trigger Main Thread Checker warnings and may briefly freeze the app the first time a screenshot is captured. Consider disabling Main Thread Checker in your scheme’s run diagnostics when enabling this.
+
+Experimental. Default: false
 
 #### `PostHogSessionReplayConfig.screenshotScale`
 

@@ -1,4 +1,4 @@
-#if os(iOS) && canImport(Metal)
+#if os(iOS) && canImport(Metal) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     import IOSurface
     @testable import PostHog
@@ -220,7 +220,7 @@
             #expect(Self.isMagenta(pixel(inner.maxX - 1 / scale, inner.maxY - 1 / scale)))
 
             let uiImage = UIImage(cgImage: image, scale: scale, orientation: .up)
-            let maskedImage = try #require(RRWireframe.maskImage(uiImage, maskableWidgets: rects, pixelScale: scale)?.cgImage)
+            let maskedImage = try #require(RRScreenshotFrame.maskImage(uiImage, maskableWidgets: rects, pixelScale: scale)?.cgImage)
             let masked = try Pixels(maskedImage)
             #expect(masked.width == pixels.width && masked.height == pixels.height)
             #expect(masked.points(where: Self.isMagenta).isEmpty)
@@ -1715,7 +1715,7 @@
             #expect(count(pixels, in: secretRect, where: Self.isMagenta) > Int(secretRect.width * secretRect.height) * 9 / 10)
             #expect(rects.contains(fieldRect))
 
-            let masked = try Pixels(#require(RRWireframe.maskImage(UIImage(cgImage: image), maskableWidgets: rects, pixelScale: 1)?.cgImage))
+            let masked = try Pixels(#require(RRScreenshotFrame.maskImage(UIImage(cgImage: image), maskableWidgets: rects, pixelScale: 1)?.cgImage))
             #expect(masked.points(where: Self.isMagenta).isEmpty)
         }
 
@@ -1789,7 +1789,7 @@
         }
 
         private func maskedPixels(_ image: UIImage, _ rects: [CGRect]) throws -> Pixels {
-            try Pixels(#require(RRWireframe.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
+            try Pixels(#require(RRScreenshotFrame.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
         }
 
         @Test("A lens portal draws its source on the portal, and masked text in it masks the whole portal and where it sits")

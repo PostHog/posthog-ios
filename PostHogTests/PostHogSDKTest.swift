@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import OHHTTPStubs
+import OHHTTPStubsSwift
 @_spi(PostHogInternal) @testable import PostHog
 #if SWIFT_PACKAGE
     import PostHogTestsObjC
@@ -64,7 +66,6 @@ private final class SDKTestFixture {
                 captureApplicationLifecycleEvents: Bool = false,
                 flushAt: Int = 1,
                 optOut: Bool = false,
-                propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly,
                 setDefaultPersonProperties: Bool = true,
                 beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
@@ -78,7 +79,6 @@ private final class SDKTestFixture {
         config.disableFlushOnBackgroundForTesting = true
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.optOut = optOut
-        config.propertiesSanitizer = propertiesSanitizer
         config.personProfiles = personProfiles
         config.setDefaultPersonProperties = setDefaultPersonProperties
 
@@ -145,15 +145,13 @@ final class PostHogSDKTests {
                         sendFeatureFlagEvent: Bool = false,
                         captureApplicationLifecycleEvents: Bool = false,
                         flushAt: Int = 1,
-                        optOut: Bool = false,
-                        propertiesSanitizer: PostHogPropertiesSanitizer? = nil) -> PostHogSDK
+                        optOut: Bool = false) -> PostHogSDK
     {
         fixture.getSut(preloadFeatureFlags: preloadFeatureFlags,
                        sendFeatureFlagEvent: sendFeatureFlagEvent,
                        captureApplicationLifecycleEvents: captureApplicationLifecycleEvents,
                        flushAt: flushAt,
-                       optOut: optOut,
-                       propertiesSanitizer: propertiesSanitizer)
+                       optOut: optOut)
     }
 
     private func bootstrapReconcileConfig(existing: (anon: String, distinct: String?, identified: Bool)) -> PostHogConfig {
@@ -177,18 +175,6 @@ final class PostHogSDKTests {
     @Test("no-ops setup when project token is empty after trimming")
     func noOpsSetupWhenProjectTokenIsEmpty() {
         let config = PostHogConfig(projectToken: " \n\t ", host: "http://localhost:9001")
-
-        let sut = PostHogSDK.with(config)
-
-        #expect(sut.config.projectToken.isEmpty)
-        #expect(sut.storage == nil)
-        #expect(sut.getDistinctId().isEmpty)
-        #expect(sut.getSessionId() == nil)
-    }
-
-    @Test("no-ops setup when legacy api key is empty after trimming")
-    func noOpsSetupWhenLegacyApiKeyIsEmpty() {
-        let config = PostHogConfig(apiKey: " \n\t ", host: "http://localhost:9001")
 
         let sut = PostHogSDK.with(config)
 
@@ -369,7 +355,7 @@ final class PostHogSDKTests {
         let events = getBatchedEvents(server)
         #expect(events.count == 1)
         #expect(events.first?.event == "$set")
-        #expect(events.first?.properties["$process_person_profile"] as? Bool == true)
+        #expect(events.first?.options["process_person_profile"] == nil)
         #expect(config.storageManager?.isIdentified() == true)
     }
 
@@ -408,7 +394,7 @@ final class PostHogSDKTests {
 
         let event = try #require(events.first)
         #expect(event.event == "$set")
-        #expect(event.properties["$process_person_profile"] as? Bool == true)
+        #expect(event.options["process_person_profile"] == nil)
 
         let set = event.properties["$set"] as? [String: Any] ?? [:]
         #expect(set["foo"] as? String == "bar")
@@ -503,42 +489,44 @@ final class PostHogSDKTests {
     }
 
     #if os(iOS)
-        @Test("captures $recording_status on every event and the full replay debug bundle on the first eligible SDK event only")
-        func capturesRecordingStatusAndReplayDebugBundle() throws {
-            server.reset(batchCount: 1)
-            let sut = getSut(flushAt: 3)
+        #if !SWIFT_PACKAGE || SessionReplay
+            @Test("captures $recording_status on every event and the full replay debug bundle on the first eligible SDK event only")
+            func capturesRecordingStatusAndReplayDebugBundle() throws {
+                server.reset(batchCount: 1)
+                let sut = getSut(flushAt: 3)
 
-            sut.capture("test event")
-            sut.screen("theScreen")
-            sut.capture("$exception", properties: ["foo": "bar"])
+                sut.capture("test event")
+                sut.screen("theScreen")
+                sut.capture("$exception", properties: ["foo": "bar"])
 
-            let events = getBatchedEvents(server)
-            try #require(events.count == 3)
+                let events = getBatchedEvents(server)
+                try #require(events.count == 3)
 
-            #expect(events[0].properties["$recording_status"] as? String == "disabled")
-            #expect(events[0].properties["$sdk_debug_session_start"] == nil)
-            #expect(events[0].properties["$sdk_debug_replay_capture_mode"] == nil)
+                #expect(events[0].properties["$recording_status"] as? String == "disabled")
+                #expect(events[0].properties["$sdk_debug_session_start"] == nil)
+                #expect(events[0].properties["$sdk_debug_replay_capture_mode"] == nil)
 
-            #expect(events[1].properties["$recording_status"] as? String == "disabled")
-            #expect(events[1].properties["$sdk_debug_replay_capture_mode"] as? String == "wireframe")
-            #expect(events[1].properties["$sdk_debug_session_start"] != nil)
+                #expect(events[1].properties["$recording_status"] as? String == "disabled")
+                #expect(events[1].properties["$sdk_debug_replay_capture_mode"] as? String == "screenshot")
+                #expect(events[1].properties["$sdk_debug_session_start"] != nil)
 
-            // Inside the 30s window opened by $screen.
-            #expect(events[2].properties["$recording_status"] as? String == "disabled")
-            #expect(events[2].properties["$sdk_debug_session_start"] == nil)
-            #expect(events[2].properties["$sdk_debug_replay_capture_mode"] == nil)
+                // Inside the 30s window opened by $screen.
+                #expect(events[2].properties["$recording_status"] as? String == "disabled")
+                #expect(events[2].properties["$sdk_debug_session_start"] == nil)
+                #expect(events[2].properties["$sdk_debug_replay_capture_mode"] == nil)
 
-            for event in events {
-                #expect(event.properties["$sdk_debug_pending_queue_size"] != nil)
+                for event in events {
+                    #expect(event.properties["$sdk_debug_pending_queue_size"] != nil)
+                }
+
+                sut.reset()
+                sut.close()
             }
-
-            sut.reset()
-            sut.close()
-        }
+        #endif
 
         @Test("excludes $recording_status and $sdk_debug_* properties from $snapshot events")
         func excludesRecordingStatusAndDebugPropertiesFromSnapshotEvents() throws {
-            // $snapshot events route to the replay queue and the /s/ endpoint, not /batch —
+            // $snapshot events route to the replay queue and the /s/ endpoint, not capture V1 —
             // read the raw request body rather than getBatchedEvents.
             server.reset(batchCount: 0, snapshotCount: 1)
             let sut = getSut()
@@ -571,41 +559,6 @@ final class PostHogSDKTests {
             sut.close()
         }
 
-        @Test("reports screenshot capture mode for the flutter host")
-        func reportsScreenshotCaptureModeForFlutterHost() {
-            server.reset(batchCount: 1)
-            let original = postHogSdkName
-            postHogSdkName = "posthog-flutter"
-            defer { postHogSdkName = original }
-
-            let sut = getSut()
-            sut.screen("theScreen")
-
-            let events = getBatchedEvents(server)
-            #expect(events.first?.properties["$sdk_debug_replay_capture_mode"] as? String == "screenshot")
-
-            sut.reset()
-            sut.close()
-        }
-
-        @Test("SDK-computed debug keys win over a same-named registered super property")
-        func sdkComputedDebugKeysWinOverRegisteredSuperProperty() throws {
-            server.reset(batchCount: 1)
-            let sut = getSut()
-            sut.register(["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
-
-            sut.capture("test event")
-
-            let events = getBatchedEvents(server)
-            let props = try #require(events.first).properties
-            #expect(props["$recording_status"] as? String == "disabled")
-            let pendingQueueSize = try #require(props["$sdk_debug_pending_queue_size"] as? Int)
-            #expect(pendingQueueSize != -1)
-
-            sut.reset()
-            sut.close()
-        }
-
     #else
         @Test("reports disabled recording status with no replay keys on non-iOS platforms")
         func reportsDisabledRecordingStatusOnNonIOSPlatforms() throws {
@@ -632,12 +585,11 @@ final class PostHogSDKTests {
         let sut = getSut()
         sut.close()
 
-        var called = false
-        sut.reloadFeatureFlags {
-            called = true
-        }
+        var result: PostHogFeatureFlagsLoaded?
+        sut.reloadFeatureFlags { result = $0 }
 
-        #expect(called)
+        #expect(result?.errorsLoading == true)
+        #expect(result?.flags.isEmpty == true)
     }
 
     @Test("captures a screen event")
@@ -791,7 +743,7 @@ final class PostHogSDKTests {
         let group = DispatchGroup()
         group.enter()
 
-        sut.reloadFeatureFlags {
+        sut.reloadFeatureFlags { _ in
             group.leave()
         }
 
@@ -809,6 +761,152 @@ final class PostHogSDKTests {
 
         waitForFeatureFlagsLoaded(server, sut)
         #expect(sut.isFeatureEnabled("bool-value") == true)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("isFeatureEnabled returns the default for a flag missing from loaded flags", arguments: [true, false])
+    func isFeatureEnabledDefaultForMissingFlag(defaultValue: Bool) {
+        let sut = getSut(preloadFeatureFlags: true)
+
+        waitForFeatureFlagsLoaded(server, sut)
+        #expect(sut.isFeatureEnabled("missing", defaultValue: defaultValue) == defaultValue)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("isFeatureEnabled returns the default before flags load")
+    func isFeatureEnabledDefaultBeforeFlagsLoad() {
+        let sut = getSut()
+
+        // A key the mock server never returns: an earlier test's late flags load can still write mock flags into the shared storage.
+        #expect(sut.isFeatureEnabled("missing", defaultValue: true) == true)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("isFeatureEnabled returns the default after a failed flags request")
+    func isFeatureEnabledDefaultAfterFailedFlagsRequest() {
+        server.flagsResponseHandler = { _ in
+            HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+        }
+        let sut = getSut()
+
+        let group = DispatchGroup()
+        group.enter()
+        sut.reloadFeatureFlags { _ in
+            group.leave()
+        }
+        group.wait()
+
+        // A key the mock server never returns: an earlier test's late flags load can still write mock flags into the shared storage.
+        #expect(sut.isFeatureEnabled("missing", defaultValue: true) == true)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("isFeatureEnabled prefers a flag value over the default")
+    func isFeatureEnabledPrefersFlagValueOverDefault() {
+        let sut = getSut(preloadFeatureFlags: true)
+
+        waitForFeatureFlagsLoaded(server, sut)
+        #expect(sut.isFeatureEnabled("disabled-flag", defaultValue: true) == false)
+        #expect(sut.isFeatureEnabled("string-value", defaultValue: false) == true)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("an empty variant reads as disabled, ignoring the isFeatureEnabled default", arguments: [true, false])
+    func emptyVariantIsDisabled(defaultValue: Bool) {
+        server.flagsResponseHandler = { _ in
+            HTTPStubsResponse(
+                jsonObject: ["flags": ["empty-variant": ["key": "empty-variant", "enabled": true, "variant": ""]]],
+                statusCode: 200,
+                headers: nil
+            )
+        }
+        let sut = getSut()
+
+        let group = DispatchGroup()
+        group.enter()
+        var loaded: PostHogFeatureFlagsLoaded?
+        sut.reloadFeatureFlags { result in
+            loaded = result
+            group.leave()
+        }
+        group.wait()
+
+        #expect(sut.isFeatureEnabled("empty-variant") == false)
+        #expect(sut.isFeatureEnabled("empty-variant", defaultValue: defaultValue) == false)
+        let result = sut.getFeatureFlagResult("empty-variant")
+        #expect(result?.enabled == false)
+        #expect(result?.variant == "")
+        #expect(loaded?.flags.contains("empty-variant") == false)
+        #expect(loaded?.variants["empty-variant"] == nil)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("captured events leave a flag with an empty variant out of $active_feature_flags")
+    func emptyVariantIsNotActiveOnEvents() throws {
+        server.flagsResponseHandler = { _ in
+            HTTPStubsResponse(
+                jsonObject: ["flags": [
+                    "on": ["key": "on", "enabled": true],
+                    "empty-variant": ["key": "empty-variant", "enabled": true, "variant": ""],
+                ]],
+                statusCode: 200,
+                headers: nil
+            )
+        }
+        let sut = getSut(preloadFeatureFlags: true)
+        waitForFeatureFlagsLoaded(server, sut)
+
+        sut.capture("event")
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.properties["$feature/empty-variant"] as? String == "")
+        #expect(event.properties["$active_feature_flags"] as? [String] == ["on"])
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("isFeatureEnabled does not report the default in the feature flag event")
+    func isFeatureEnabledDoesNotReportDefault() throws {
+        let sut = getSut(preloadFeatureFlags: true)
+
+        waitForFeatureFlagsLoaded(server, sut)
+        #expect(sut.isFeatureEnabled("missing", defaultValue: true, sendFeatureFlagEvent: true) == true)
+
+        let events = getBatchedEvents(server)
+        let event = try #require(events.first)
+        #expect(events.count == 1)
+        #expect(event.event == "$feature_flag_called")
+        #expect(event.properties["$feature_flag"] as? String == "missing")
+        #expect(event.properties.keys.contains("$feature_flag_response") == false)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("isFeatureEnabled with a default honors a disabled feature flag event")
+    func isFeatureEnabledDefaultHonorsDisabledEvent() {
+        let sut = getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+
+        waitForFeatureFlagsLoaded(server, sut)
+        #expect(sut.isFeatureEnabled("bool-value", defaultValue: false, sendFeatureFlagEvent: false) == true)
+
+        sut.capture("marker")
+
+        let events = getBatchedEvents(server)
+        #expect(events.map(\.event) == ["marker"])
 
         sut.reset()
         sut.close()
@@ -977,6 +1075,28 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("keeps legacy option properties on minimal feature flag events")
+    func keepsLegacyOptionPropertiesOnMinimalFeatureFlagEvents() throws {
+        server.minimalFlagCalledEvents = true
+        let sut = getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+
+        waitForFeatureFlagsLoaded(server, sut)
+        sut.register(["$cookieless_mode": true, "$ignore_sent_at": true, "$product_tour_id": "tour"])
+        #expect(sut.isFeatureEnabled("string-value") == true)
+
+        let events = getBatchedEvents(server)
+
+        let event = try #require(events.first)
+        #expect(event.event == "$feature_flag_called")
+        // They reach capture V1 as options.
+        #expect(event.options["cookieless_mode"] as? Bool == true)
+        #expect(event.options["disable_skew_correction"] as? Bool == true)
+        #expect(event.options["product_tour_id"] as? String == "tour")
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("keeps $groups on minimal feature flag events")
     func keepsGroupsOnMinimalFeatureFlagEvents() throws {
         server.minimalFlagCalledEvents = true
@@ -996,7 +1116,8 @@ final class PostHogSDKTests {
         let event = try #require(events.last)
         #expect(event.event == "$feature_flag_called")
         // $groups is correctness-required (ingestion dedup key + personful routing for group
-        // flags), so it must survive minimization when groups are registered.
+        // flags), so it must survive minimization when groups are registered. group() turns person
+        // processing on, so there's no process_person_profile option or property.
         #expect(Set(event.properties.keys) == Set([
             "$feature_flag",
             "$feature_flag_response",
@@ -1007,7 +1128,6 @@ final class PostHogSDKTests {
             "$feature_flag_request_id",
             "$feature_flag_evaluated_at",
             "$groups",
-            "$process_person_profile",
             "$session_id",
             "$lib",
             "$lib_version",
@@ -1212,6 +1332,52 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("setAppLanguage overrides detection, survives reset and clears back to detection")
+    func setAppLanguageOverridesDetection() async throws {
+        let sut = getSut(flushAt: 3)
+
+        sut.setAppLanguage(" pt_BR ")
+        sut.capture("first")
+        sut.reset()
+        sut.capture("second")
+        sut.setAppLanguage(nil)
+        sut.capture("third")
+
+        let events = try await getServerEvents(fixture.server)
+        #expect(events[0].properties["$app_language"] as? String == "pt-BR")
+        #expect(events[1].properties["$app_language"] as? String == "pt-BR")
+        #expect(events[2].properties["$app_language"] as? String == PostHogContext.detectedAppLanguage)
+    }
+
+    @Test("blank setAppLanguage clears, and a registered value wins")
+    func setAppLanguageBlankAndRegistered() async throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.setAppLanguage("   ")
+        sut.capture("blank")
+        sut.setAppLanguage("de")
+        sut.register(["$app_language": "fr"])
+        sut.capture("registered")
+
+        let events = try await getServerEvents(fixture.server)
+        #expect(events[0].properties["$app_language"] as? String == PostHogContext.detectedAppLanguage)
+        #expect(events[1].properties["$app_language"] as? String == "fr")
+    }
+
+    @Test("detectAppLanguage off sends no language until the wrapper sets one")
+    func detectAppLanguageOff() async throws {
+        let sut = getSut(flushAt: 2)
+        sut.config.detectAppLanguage = false
+
+        sut.capture("first")
+        sut.setAppLanguage("de")
+        sut.capture("second")
+
+        let events = try await getServerEvents(fixture.server)
+        #expect(events[0].properties["$app_language"] == nil)
+        #expect(events[1].properties["$app_language"] as? String == "de")
+    }
+
     @Test("register and unregister properties")
     func registerAndUnregisterProperties() throws {
         let sut = getSut(flushAt: 1)
@@ -1254,11 +1420,11 @@ final class PostHogSDKTests {
     func callerPropertiesWinOverSdkContext() throws {
         let sut = getSut()
 
-        sut.capture("event", properties: ["$os_name": "caller-os", "$lib": "caller-lib"])
+        sut.capture("event", properties: ["$os_name": "caller-os", "$app_version": "caller-version"])
 
         let event = try #require(getBatchedEvents(server).first)
         #expect(event.properties["$os_name"] as? String == "caller-os")
-        #expect(event.properties["$lib"] as? String == "caller-lib")
+        #expect(event.properties["$app_version"] as? String == "caller-version")
 
         sut.reset()
         sut.close()
@@ -1294,45 +1460,174 @@ final class PostHogSDKTests {
         sut.close()
     }
 
-    @Test("blank or non-string caller $session_id keeps the SDK session", arguments: ["", "  ", 1] as [AnyHashable])
-    func invalidCallerSessionIdKeepsSdkSession(sessionId: AnyHashable) throws {
+    @Test("caller-supplied $groups with a non-string value still merge key by key")
+    func callerGroupsWithNonStringValueMerge() throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.group(type: "project", key: "stored")
+        sut.capture(
+            "event",
+            properties: ["$groups": ["company": "caller", "team": 42]],
+            groups: ["company": "typed"]
+        )
+
+        let event = try #require(getBatchedEvents(server).first { $0.event == "event" })
+        let groups = try #require(event.properties["$groups"] as? [String: Any])
+        #expect(groups["project"] as? String == "stored")
+        #expect(groups["company"] as? String == "typed")
+        #expect(groups["team"] as? Int == 42)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("typed per-call values win key by key over the same maps in properties")
+    func typedPerCallValuesWinKeyByKeyOverCallerMaps() throws {
+        let sut = getSut()
+
+        sut.capture(
+            "event",
+            properties: [
+                "$set": ["plan": "free", "seen": true],
+                "$set_once": ["first": "a", "source": "ad"],
+                "$groups": ["company": "caller", "team": "t1"],
+            ],
+            userProperties: ["plan": "pro"],
+            userPropertiesSetOnce: ["first": "b"],
+            groups: ["company": "typed"]
+        )
+
+        let event = try #require(getBatchedEvents(server).first)
+        let set = try #require(event.properties["$set"] as? [String: Any])
+        #expect(set["plan"] as? String == "pro")
+        #expect(set["seen"] as? Bool == true)
+        let setOnce = try #require(event.properties["$set_once"] as? [String: String])
+        #expect(setOnce == ["first": "b", "source": "ad"])
+        let groups = try #require(event.properties["$groups"] as? [String: String])
+        #expect(groups == ["company": "typed", "team": "t1"])
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("per-call userProperties, userPropertiesSetOnce and groups, and group() groups, win over registered ones")
+    func perCallTypedValuesWinOverRegistered() throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.group(type: "project", key: "stored")
+        sut.register([
+            "$set": ["plan": "registered"],
+            "$set_once": ["source": "registered"],
+            "$groups": ["company": "registered", "team": "registered"],
+        ])
+        sut.capture("event",
+                    userProperties: ["plan": "caller"],
+                    userPropertiesSetOnce: ["source": "caller"],
+                    groups: ["company": "caller"])
+
+        let event = try #require(getBatchedEvents(server).first { $0.event == "event" })
+        #expect(event.properties["$set"] as? [String: String] == ["plan": "caller"])
+        #expect(event.properties["$set_once"] as? [String: String] == ["source": "caller"])
+        #expect(event.properties["$groups"] as? [String: String] == ["project": "stored", "company": "caller"])
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("a blank caller $session_id is sent unchanged", arguments: ["", "  "])
+    func blankCallerSessionIdIsSent(sessionId: String) throws {
         let sut = getSut()
 
         sut.capture("event", properties: ["$session_id": sessionId])
 
         let event = try #require(getBatchedEvents(server).first)
-        let sentSessionId = try #require(event.properties["$session_id"] as? String)
-        #expect(!sentSessionId.trimmingCharacters(in: .whitespaces).isEmpty)
+        #expect(event.properties["$session_id"] as? String == sessionId)
 
         sut.reset()
         sut.close()
     }
 
-    @Test("caller can't override $is_identified")
-    func callerCannotOverrideIsIdentified() throws {
-        let sut = getSut(flushAt: 2)
-
-        sut.identify("user")
-        sut.capture("event", properties: ["$is_identified": false])
-
-        let event = try #require(getBatchedEvents(server).first { $0.event == "event" })
-        #expect(event.properties["$is_identified"] as? Bool == true)
-
-        sut.reset()
-        sut.close()
-    }
-
-    @Test("caller can't override SDK debug properties")
-    func callerCannotOverrideSdkDebugProperties() throws {
+    @Test("a non-string caller $session_id is dropped, not replaced by the SDK session")
+    func nonStringCallerSessionIdIsDropped() throws {
         let sut = getSut()
 
-        sut.capture("event", properties: ["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
+        sut.capture("event", properties: ["$session_id": 1])
 
         let event = try #require(getBatchedEvents(server).first)
-        let recordingStatus = try #require(event.properties["$recording_status"] as? String)
-        let pendingQueueSize = try #require(event.properties["$sdk_debug_pending_queue_size"] as? Int)
-        #expect(recordingStatus != "bogus")
-        #expect(pendingQueueSize != -1)
+        #expect(event.properties["$session_id"] == nil)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("a null caller $session_id falls back to the SDK session")
+    func nullCallerSessionIdUsesSdkSession() throws {
+        let sut = getSut()
+        sut.sessionManager.setSessionId("00000000-0000-7000-8000-000000000042")
+
+        sut.capture("event", properties: ["$session_id": NSNull()])
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.properties["$session_id"] as? String == "00000000-0000-7000-8000-000000000042")
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("a $snapshot without a usable $session_id is dropped", arguments: ["", "  ", 1] as [AnyHashable])
+    func snapshotWithoutUsableSessionIdIsDropped(sessionId: AnyHashable) throws {
+        server.reset(batchCount: 0, snapshotCount: 1)
+        let sut = getSut()
+        let validSessionId = "00000000-0000-7000-8000-000000000043"
+
+        sut.capture("$snapshot", properties: ["$session_id": sessionId, "$snapshot_data": ["marker": "invalid"]])
+        sut.capture("$snapshot", properties: ["$session_id": validSessionId, "$snapshot_data": ["marker": "valid"]])
+        sut.flush()
+
+        let result = XCTWaiter.wait(for: [server.snapshotExpectation!], timeout: testRequestTimeout)
+        #expect(result == .completed)
+        let request = try #require(server.snapshotRequests.first)
+        let data = try #require(request.body()).gunzipped()
+        let events = try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        let sessionIds = events.compactMap { ($0["properties"] as? [String: Any])?["$session_id"] as? String }
+        #expect(sessionIds == [validSessionId])
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("a registered $is_identified overrides the SDK's, and a caller one overrides both")
+    func registeredAndCallerOverrideIsIdentified() throws {
+        let sut = getSut(flushAt: 3)
+
+        sut.identify("user")
+        sut.register(["$is_identified": false])
+        sut.capture("registered")
+        sut.capture("caller", properties: ["$is_identified": true])
+
+        let events = getBatchedEvents(server)
+        #expect(events.first { $0.event == "registered" }?.properties["$is_identified"] as? Bool == false)
+        #expect(events.first { $0.event == "caller" }?.properties["$is_identified"] as? Bool == true)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("registered debug properties override the SDK's, and caller ones override both")
+    func registeredAndCallerOverrideSdkDebugProperties() throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.register(["$recording_status": "registered", "$sdk_debug_pending_queue_size": -1])
+        sut.capture("registered")
+        sut.capture("caller", properties: ["$recording_status": "caller", "$sdk_debug_pending_queue_size": -2])
+
+        let events = getBatchedEvents(server)
+        let registered = try #require(events.first { $0.event == "registered" })
+        #expect(registered.properties["$recording_status"] as? String == "registered")
+        #expect(registered.properties["$sdk_debug_pending_queue_size"] as? Int == -1)
+        let caller = try #require(events.first { $0.event == "caller" })
+        #expect(caller.properties["$recording_status"] as? String == "caller")
+        #expect(caller.properties["$sdk_debug_pending_queue_size"] as? Int == -2)
 
         sut.reset()
         sut.close()
@@ -1548,24 +1843,6 @@ final class PostHogSDKTests {
         #expect(FileManager.default.fileExists(atPath: appFolder.path) == true)
     }
 
-    @Test("client sanitize properties")
-    func clientSanitizeProperties() throws {
-        let sanitizer = ExampleSanitizer()
-        let sut = getSut(propertiesSanitizer: sanitizer)
-
-        let props: [String: Any] = ["empty": ""]
-
-        sut.capture("event", properties: props)
-
-        let events = getBatchedEvents(server)
-
-        let event = try #require(events.first)
-        #expect(event.properties["empty"] as? String == nil)
-
-        sut.reset()
-        sut.close()
-    }
-
     @Test("reset reloads flags as anon user")
     func resetReloadsFlagsAsAnonUser() {
         let sut = getSut()
@@ -1668,7 +1945,7 @@ final class PostHogSDKTests {
         _ = sut.getFeatureFlag("some_key")
 
         let reloaded = XCTestExpectation(description: "second flag lookup completed")
-        sut.reloadFeatureFlags {
+        sut.reloadFeatureFlags { _ in
             _ = sut.getFeatureFlag("some_key")
             reloaded.fulfill()
         }
@@ -1694,7 +1971,7 @@ final class PostHogSDKTests {
         // Change the mock server to return a different value for the same key
         server.disabledFlag = true
 
-        sut.reloadFeatureFlags {
+        sut.reloadFeatureFlags { _ in
             // Second call gets a true value
             _ = sut.getFeatureFlag("disabled-flag")
             sut.capture("force_batch_flush")
@@ -1944,10 +2221,18 @@ extension PostHogSDKTests {
             ]
             PHBeforeSendExceptionTestFixture.setBeforeSend(boxes, on: sut.config)
 
-            let returnedNormally = PHBeforeSendExceptionTestFixture.invokeWithoutException {
-                sut.capture("objc_exception_event")
+            let wasLogging = hedgeLogEnabled
+            hedgeLogEnabled = true
+            defer { hedgeLogEnabled = wasLogging }
+            var returnedNormally = false
+            let output = try captureStdout {
+                returnedNormally = PHBeforeSendExceptionTestFixture.invokeWithoutException {
+                    sut.capture("objc_exception_event")
+                }
             }
             sut.flush()
+            #expect(output.contains("Dropping event 'objc_exception_event'"))
+            #expect(!output.contains("beforeSend failure"))
 
             let storage = try #require(sut.storage, "Expected analytics storage to be configured")
             let persistedQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue))

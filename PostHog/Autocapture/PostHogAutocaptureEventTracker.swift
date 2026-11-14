@@ -315,7 +315,7 @@
 
     extension UIControl {
         func event(for action: Selector, to target: Any?) -> UIControl.Event? {
-            var events: [UIControl.Event] = [
+            let events: [UIControl.Event] = [
                 .valueChanged,
                 .touchDown,
                 .touchDownRepeat,
@@ -331,11 +331,8 @@
                 .editingDidEnd,
                 .editingDidEndOnExit,
                 .primaryActionTriggered,
+                .menuActionTriggered,
             ]
-
-            if #available(iOS 14.0, tvOS 14.0, macCatalyst 14.0, *) {
-                events.append(.menuActionTriggered)
-            }
 
             // latest event for action
             return events.first { event in
@@ -376,7 +373,7 @@
                     return EventType.kToggle
                 }
                 return EventType.kValueChange
-            } else if #available(iOS 14.0, tvOS 14.0, macCatalyst 14.0, *), self == .menuActionTriggered {
+            } else if self == .menuActionTriggered {
                 return EventType.kMenuAction
             }
 
@@ -475,9 +472,7 @@
     }
 
     extension UIToolbar {
-        override var ph_autocaptureEvents: UIControl.Event {
-            if #available(iOS 14.0, *) { .menuActionTriggered } else { .primaryActionTriggered }
-        }
+        override var ph_autocaptureEvents: UIControl.Event { .menuActionTriggered }
     }
 
     extension UITextField {

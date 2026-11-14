@@ -151,27 +151,69 @@ struct PostHogReplayBatchBoundaryTest {
 
     @Test("Reachability pauses continuation between groups")
     func pauseBetweenGroups() async throws {
-        let reachability = try Reachability(notificationQueue: nil)
+        let reachability = Reachability(notificationQueue: nil, monitorsPaths: false)
+        reachability.update(.wifi)
         let sender = Sender()
         let queue = queue(config(), sender, reachability: reachability)
         queue.start(disableReachabilityForTesting: false, disableQueueTimerForTesting: true)
-        reachability.stopNotifier()
         defer { queue.clear()
             queue.stop()
         }
         queue.add(event("first"))
         queue.add(event("later", session: "b"))
         try await flush(queue, sender, count: 1)
-        reachability.onUnreachable.invoke(reachability)
+        reachability.update(.unavailable)
         sender.complete(0, status: 200)
         try await Task.sleep(nanoseconds: 50_000_000)
         #expect(sender.batches.count == 1)
         #expect(queue.depth == 1)
-        reachability.onReachable.invoke(reachability)
+        reachability.update(.wifi)
         await waitUntil { sender.batches.count == 2 }
         try #require(sender.batches.count == 2)
         sender.complete(1, status: 200)
         #expect(queue.depth == 0)
+    }
+
+    @Test("Wi-Fi data mode waits for a Wi-Fi path and stays paused on cellular")
+    func wifiModeWaitsForWifi() async throws {
+        let reachability = Reachability(notificationQueue: nil, monitorsPaths: false)
+        let sender = Sender()
+        let config = config()
+        config.dataMode = .wifi
+        let queue = queue(config, sender, reachability: reachability)
+        queue.start(disableReachabilityForTesting: false, disableQueueTimerForTesting: true)
+        defer { queue.clear()
+            queue.stop()
+        }
+        queue.add(event("first"))
+
+        // No path yet.
+        queue.flush()
+        try await Task.sleep(nanoseconds: 50_000_000)
+        #expect(sender.batches.isEmpty)
+
+        reachability.update(.cellular)
+        queue.flush()
+        try await Task.sleep(nanoseconds: 50_000_000)
+        #expect(sender.batches.isEmpty)
+
+        // The reachable callback unpauses and flushes.
+        reachability.update(.wifi)
+        await waitUntil { sender.batches.count == 1 }
+        #expect(sender.batches.count == 1)
+    }
+
+    @Test("Any data mode sends before the first path arrives")
+    func anyModeSendsWithoutPath() async throws {
+        let reachability = Reachability(notificationQueue: nil, monitorsPaths: false)
+        let sender = Sender()
+        let queue = queue(config(), sender, reachability: reachability)
+        queue.start(disableReachabilityForTesting: false, disableQueueTimerForTesting: true)
+        defer { queue.clear()
+            queue.stop()
+        }
+        queue.add(event("first"))
+        try await flush(queue, sender, count: 1)
     }
 
     @Test("Terminal responses continue to the next group", arguments: [400, 413])

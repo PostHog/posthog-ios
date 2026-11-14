@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import Testing
@@ -49,7 +49,6 @@
     ) throws -> (PostHogSDK, PostHogReplayIntegration, ReplaySnapshots) {
         let config = PostHogConfig(projectToken: UUID().uuidString)
         config.sessionReplay = true
-        config.sessionReplayConfig.screenshotMode = true
         config.sessionReplayConfig.captureNetworkTelemetry = false
         configure(config.sessionReplayConfig)
         config.disableReachabilityForTesting = true

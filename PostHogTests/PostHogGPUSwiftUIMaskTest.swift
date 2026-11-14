@@ -1,4 +1,4 @@
-#if os(iOS) && canImport(Metal)
+#if os(iOS) && canImport(Metal) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import QuartzCore

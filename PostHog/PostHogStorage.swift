@@ -236,11 +236,13 @@ class PostHogStorage {
         case oldReplayQueue = "posthog.replayFolder" // replay queue with legacy timestamp filenames
         case replayBufferQueue = "posthog.replayBufferFolder"
         case logsQueue = "posthog.logsFolder"
+        case aiQueue = "posthog.aiFolder"
         case enabledFeatureFlags = "posthog.enabledFeatureFlags"
         case enabledFeatureFlagPayloads = "posthog.enabledFeatureFlagPayloads"
         case flags = "posthog.flags"
         case groups = "posthog.groups"
         case registerProperties = "posthog.registerProperties"
+        case registerOptions = "posthog.registerOptions"
         case optOut = "posthog.optOut"
         case sessionReplay = "posthog.sessionReplay"
         case isIdentified = "posthog.isIdentified"
@@ -498,7 +500,7 @@ class PostHogStorage {
             if !keepAnonymousId {
                 deleteSafely(url(forKey: .anonymousId))
             }
-            // .queue, .replayQeueue, .logsQueue not deleted here — each queue manages its own
+            // .queue, .replayQeueue, .logsQueue, .aiQueue not deleted here — each queue manages its own
             // disk state via clear() and the per-record distinctId captured at enqueue time
             // (see PostHogLogRecord) lets in-flight telemetry survive an identity change.
             deleteSafely(url(forKey: .oldQueueFolder))
@@ -509,6 +511,7 @@ class PostHogStorage {
             deleteSafely(url(forKey: .enabledFeatureFlagPayloads))
             deleteSafely(url(forKey: .groups))
             deleteSafely(url(forKey: .registerProperties))
+            deleteSafely(url(forKey: .registerOptions))
             deleteSafely(url(forKey: .optOut))
             deleteSafely(url(forKey: .isIdentified))
             deleteSafely(url(forKey: .personProcessingEnabled))

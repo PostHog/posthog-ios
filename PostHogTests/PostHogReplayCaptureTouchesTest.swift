@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import Testing
@@ -321,7 +321,7 @@
             defer { window.isHidden = true }
             // drawHierarchy has no window scene in this hostless bundle and failed draws are dropped, so render
             // through the presentation tree and hand the frame to the emission step the bridge would reach.
-            let wireframe = RRWireframe()
+            let wireframe = RRScreenshotFrame()
             wireframe.type = "screenshot"
             wireframe.image = try #require(window.toImage(renderer: .presentationTree))
             integration.captureSnapshot(

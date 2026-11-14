@@ -4,11 +4,7 @@
 //
 
 import Foundation
-#if compiler(>=6.0)
-    internal import PostHogObjCExceptionSupport
-#else
-    @_implementationOnly import PostHogObjCExceptionSupport
-#endif
+internal import PostHogObjCExceptionSupport
 
 /// ObjC wrappers for the Swift function-typed `beforeSend` chains: Swift
 /// function types aren't `@objc`-bridgeable, and `@objc` classes can't be
@@ -17,7 +13,7 @@ import Foundation
 
 /// ObjC wrapper for the events `beforeSend` block. Use with
 /// `PostHogConfig.setBeforeSend(_:)`.
-@objc public final class BoxedBeforeSendBlock: NSObject {
+@objc public final class BoxedBeforeSendBlock: NSObject, Sendable {
     /// Wrapped event callback.
     @objc public let block: BeforeSendBlock
 
@@ -31,15 +27,15 @@ import Foundation
 
     func invokeSafely(with event: PostHogEvent) -> PostHogEvent? {
         PHObjCExceptionCatcher.invokeBlock(from: self, with: event) { exception in
-            let reason = exception.reason ?? "No reason provided"
-            hedgeLog("Objective-C beforeSend callback raised \(exception.name.rawValue): \(reason). The event was dropped.")
+            // The exception's name only: its reason can hold the values the hook was redacting.
+            hedgeLog("Dropping event '\(event.event)': Objective-C beforeSend raised \(exception.name.rawValue).")
         } as? PostHogEvent
     }
 }
 
 /// ObjC wrapper for the logs `beforeSend` block. Use with
 /// `PostHogLogsConfig.setBeforeSend(_:)`.
-@objc public final class BoxedBeforeSendLogBlock: NSObject {
+@objc public final class BoxedBeforeSendLogBlock: NSObject, Sendable {
     /// Wrapped log callback.
     @objc public let block: PostHogBeforeSendLogBlock
 
@@ -53,8 +49,7 @@ import Foundation
 
     func invokeSafely(with record: PostHogLogRecord) -> PostHogLogRecord? {
         PHObjCExceptionCatcher.invokeBlock(from: self, with: record) { exception in
-            let reason = exception.reason ?? "No reason provided"
-            hedgeLog("Objective-C log beforeSend callback raised \(exception.name.rawValue): \(reason). The log was dropped.")
+            hedgeLog("Dropping a log: Objective-C beforeSend raised \(exception.name.rawValue).")
         } as? PostHogLogRecord
     }
 }

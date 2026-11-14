@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import QuartzCore
@@ -95,7 +95,7 @@
 
     /// `image` with `rects` masked the way an uploaded screenshot is.
     func maskedPixels(_ image: UIImage, _ rects: [CGRect]) throws -> Pixels {
-        try Pixels(#require(RRWireframe.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
+        try Pixels(#require(RRScreenshotFrame.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
     }
 
     /// `image` shows magenta, and `rects` cover all of it.

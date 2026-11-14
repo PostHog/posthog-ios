@@ -7,13 +7,8 @@
 
 import Foundation
 
-#if os(iOS) || os(macOS) || os(tvOS)
-    #if compiler(>=6.0)
-        internal import PHPLCrashReporter
-    #else
-        // swiftlint:disable:next duplicate_imports
-        @_implementationOnly import PHPLCrashReporter
-    #endif
+#if (os(iOS) || os(macOS) || os(tvOS)) && (!SWIFT_PACKAGE || CrashReporting)
+    internal import PHPLCrashReporter
 
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
         private static let integrationInstallState = PostHogIntegrationInstallState()
@@ -274,6 +269,11 @@ import Foundation
                     return
                 }
 
+                // Steps alone don't count as a saved context: customData always carries the steps key.
+                if savedContext["event_properties"] == nil {
+                    savedContext.merge(postHog.crashContextFallback()) { _, fallback in fallback }
+                }
+
                 // Extract identity and event properties from saved context
                 let crashDistinctId = savedContext["distinct_id"] as? String
                 let crashEventProperties = savedContext["event_properties"] as? [String: Any] ?? [:]
@@ -304,6 +304,7 @@ import Foundation
                     distinctId: crashDistinctId,
                     properties: finalProperties,
                     timestamp: crashTimestamp,
+                    options: savedContext["options"] as? [String: Any],
                     skipBuildProperties: true
                 )
 
@@ -320,12 +321,21 @@ import Foundation
         }
     #endif
 #else
-    // watchOS/visionOS stub - crash reporting is not available on these platforms
+    // Stub for watchOS/visionOS, where crash reporting is not available, and for SPM builds
+    // with the `CrashReporting` trait disabled, where PHPLCrashReporter is not linked.
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
+        static func clearInstalls() { /* no-op */ }
+
         var requiresSwizzling: Bool { false }
 
         func install(_: PostHogSDK) -> PostHogIntegrationInstallResult {
-            .skipped(.notAvailableOnPlatform)
+            // Keep this platform list in sync with the platforms in the gate at the top of the
+            // file: a platform added to only one of them reports the wrong skip reason.
+            #if os(iOS) || os(macOS) || os(tvOS)
+                .skipped(.disabledByPackageTrait)
+            #else
+                .skipped(.notAvailableOnPlatform)
+            #endif
         }
 
         func uninstall(_: PostHogSDK) { /* no-op */ }

@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
 
     /// Replay's own capture cadence policy, kept out of the shared run-loop publisher so it cannot

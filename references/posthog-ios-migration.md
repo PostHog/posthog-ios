@@ -239,6 +239,8 @@ Replace these session replay APIs:
 | `sessionReplayConfig.screenshotMode` | Delete the assignment |
 | `sessionReplayConfig.maskPhotoLibraryImages` | Delete the assignment |
 | `sessionReplayConfig.debouncerDelay` | `sessionReplayConfig.throttleDelay` |
+| `sessionReplayConfig.screenshotModeBackgroundCapture = true` | `sessionReplayConfig.captureMethod = .background` |
+| `sessionReplayConfig.screenshotModeGPUCapture = true` | `sessionReplayConfig.captureMethod = .gpu` |
 | `PostHogLogLevel` | `PostHogConsoleLogLevel` |
 | `PostHogLogEntry` | `PostHogConsoleLogEntry` |
 | ObjC: `PostHogLogLevelInfo` | ObjC: `PostHogConsoleLogLevelInfo` |
@@ -248,6 +250,8 @@ Replace these session replay APIs:
 Replay always records masked screenshots, so `screenshotMode` has nothing to set (see [Review session replay](#review-session-replay)).
 
 `sessionReplayConfig.maskPhotoLibraryImages` had no effect.
+
+`captureMethod` picks how each screenshot is captured: `.standard` (default), `.background`, or the experimental `.gpu`. `screenshotScale` applies to all three. In Objective-C, use `PostHogSessionReplayCaptureMethodBackground`.
 
 Replace these feature flag APIs:
 

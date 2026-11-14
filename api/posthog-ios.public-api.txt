@@ -353,17 +353,21 @@ PostHog | PostHogSDK.stopSessionRecording() | method | @objc func stopSessionRec
 PostHog | PostHogSDK.unregister(_:) | method | @objc(unregisterProperties:) func unregister(_ key: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)unregisterProperties:
 PostHog | PostHogSDK.unregisterPushNotificationToken() | method | @objc func unregisterPushNotificationToken() | c:@M@PostHog@objc(cs)PostHogSDK(im)unregisterPushNotificationToken
 PostHog | PostHogSDK.with(_:) | type.method | @objc static func with(_ config: PostHogConfig) -> PostHogSDK | c:@M@PostHog@objc(cs)PostHogSDK(cm)with:
+PostHog | PostHogSessionReplayCaptureMethod | enum | @objc(PostHogSessionReplayCaptureMethod) enum PostHogSessionReplayCaptureMethod | c:@M@PostHog@E@PostHogSessionReplayCaptureMethod
+PostHog | PostHogSessionReplayCaptureMethod.background | enum.case | case background | c:@M@PostHog@E@PostHogSessionReplayCaptureMethod@PostHogSessionReplayCaptureMethodBackground
+PostHog | PostHogSessionReplayCaptureMethod.gpu | enum.case | case gpu | c:@M@PostHog@E@PostHogSessionReplayCaptureMethod@PostHogSessionReplayCaptureMethodGpu
+PostHog | PostHogSessionReplayCaptureMethod.init(rawValue:) | init | init?(rawValue: Int) | s:7PostHog0aB26SessionReplayCaptureMethodO8rawValueACSgSi_tcfc
+PostHog | PostHogSessionReplayCaptureMethod.standard | enum.case | case standard | c:@M@PostHog@E@PostHogSessionReplayCaptureMethod@PostHogSessionReplayCaptureMethodStandard
 PostHog | PostHogSessionReplayConfig | class | @objc(PostHogSessionReplayConfig) class PostHogSessionReplayConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig
 PostHog | PostHogSessionReplayConfig.captureLogs | property | @objc var captureLogs: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureLogs
 PostHog | PostHogSessionReplayConfig.captureLogsConfig | property | @objc var captureLogsConfig: PostHogSessionReplayConsoleLogConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureLogsConfig
+PostHog | PostHogSessionReplayConfig.captureMethod | property | @objc var captureMethod: PostHogSessionReplayCaptureMethod | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureMethod
 PostHog | PostHogSessionReplayConfig.captureNetworkTelemetry | property | @objc var captureNetworkTelemetry: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureNetworkTelemetry
 PostHog | PostHogSessionReplayConfig.captureTouches | property | @objc var captureTouches: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureTouches
 PostHog | PostHogSessionReplayConfig.maskAllImages | property | @objc var maskAllImages: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllImages
 PostHog | PostHogSessionReplayConfig.maskAllSandboxedViews | property | @objc var maskAllSandboxedViews: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllSandboxedViews
 PostHog | PostHogSessionReplayConfig.maskAllTextInputs | property | @objc var maskAllTextInputs: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllTextInputs
 PostHog | PostHogSessionReplayConfig.sampleRate | property | @objc var sampleRate: NSNumber? { get set } | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)sampleRate
-PostHog | PostHogSessionReplayConfig.screenshotModeBackgroundCapture | property | @objc var screenshotModeBackgroundCapture: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)screenshotModeBackgroundCapture
-PostHog | PostHogSessionReplayConfig.screenshotModeGPUCapture | property | @objc var screenshotModeGPUCapture: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)screenshotModeGPUCapture
 PostHog | PostHogSessionReplayConfig.screenshotScale | property | @objc var screenshotScale: NSNumber? { get set } | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)screenshotScale
 PostHog | PostHogSessionReplayConfig.throttleDelay | property | @objc var throttleDelay: TimeInterval | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)throttleDelay
 PostHog | PostHogSessionReplayConsoleLogConfig | class | @objc class PostHogSessionReplayConsoleLogConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConsoleLogConfig

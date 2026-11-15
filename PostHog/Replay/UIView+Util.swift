@@ -134,7 +134,12 @@
             setPostHogFlag(&AssociatedKeys.phNoRageClick, enabled: enabled, owner: owner)
         }
 
-        func toImage(afterScreenUpdates: Bool = false, renderer screenshotRenderer: PostHogScreenshotRenderer = .fidelity) -> UIImage? {
+        /// `presentationScale` is the pixels per point of a presentation-tree render, at most the screen's. drawHierarchy ignores it.
+        func toImage(
+            afterScreenUpdates: Bool = false,
+            renderer screenshotRenderer: PostHogScreenshotRenderer = .fidelity,
+            presentationScale: CGFloat? = nil
+        ) -> UIImage? {
             // Background capture also enters here; controller traversal belongs on main.
             let hasCamera = {
                 (self as? UIWindow ?? self.window)?.hasCameraForReplay() ?? false
@@ -162,7 +167,9 @@
             let nativeScale = (self as? UIWindow ?? window)?.screen.scale ?? 1
             let drawsHierarchy = afterScreenUpdates || screenshotRenderer == .fidelity
             let gamut = screenshotGamut(drawingHierarchy: drawsHierarchy)
-            let renderer = PostHogGraphicsImageRenderer(size: size, scale: nativeScale, gamut: gamut)
+            // render(in:) draws on the CPU, so its cost grows with the pixel count; nothing finer than upload scale is kept.
+            let scale = drawsHierarchy ? nativeScale : min(presentationScale ?? nativeScale, nativeScale)
+            let renderer = PostHogGraphicsImageRenderer(size: size, scale: scale, roundingUp: scale < nativeScale, gamut: gamut)
 
             var drawn = true
             let image = autoreleasepool {

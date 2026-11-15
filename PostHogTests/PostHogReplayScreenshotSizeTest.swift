@@ -209,6 +209,41 @@
             #expect(try isRed(rgb(masked, at: CGPoint(x: 420, y: row))))
         }
 
+        @Test("a presentation-tree render at upload scale has the upload size and keeps its mask", arguments: [nil, 0.5] as [Double?])
+        func presentationTreeRendersAtUploadScale(screenshotScale: Double?) throws {
+            let window = try window()
+            defer { window.isHidden = true }
+            let scale = pixelScale(screenshotScale: screenshotScale.map { NSNumber(value: $0) }, on: window)
+            let image = try #require(window.toImage(renderer: .presentationTree, presentationScale: scale))
+            #expect(image.scale == scale)
+            #expect(RRWireframe.unmaskedScreenshot(image, pixelScale: scale) === image)
+
+            let masked = try uploaded(image, masks: [Self.secretRect], pixelScale: scale)
+            let expected = CGSize(width: (window.bounds.width * scale).rounded(.up),
+                                  height: (window.bounds.height * scale).rounded(.up))
+            #expect(pixelSize(masked) == expected)
+
+            let rect = Self.secretRect
+            let inside = [CGPoint(x: rect.midX, y: rect.midY), CGPoint(x: rect.minX + 1, y: rect.minY + 1),
+                          CGPoint(x: rect.maxX - 1, y: rect.maxY - 1)]
+            for point in inside {
+                #expect(try isBlack(rgb(masked, at: CGPoint(x: point.x * scale, y: point.y * scale))), "masked frame at \(point)")
+            }
+            let outside = [CGPoint(x: rect.minX - 8, y: rect.midY), CGPoint(x: rect.maxX + 8, y: rect.midY),
+                           CGPoint(x: rect.midX, y: rect.maxY + 8)]
+            for point in outside {
+                #expect(try isWhite(rgb(masked, at: CGPoint(x: point.x * scale, y: point.y * scale))), "masked frame at \(point)")
+            }
+        }
+
+        @Test("a presentation-tree render is never finer than the screen")
+        func presentationScaleIsCappedAtNative() throws {
+            let window = try window()
+            defer { window.isHidden = true }
+            let image = try #require(window.toImage(renderer: .presentationTree, presentationScale: window.screen.scale * 2))
+            #expect(image.scale == window.screen.scale)
+        }
+
         @Test("an unmasked frame already at native resolution is not redrawn")
         func nativeScaleSkipsRedraw() throws {
             let window = try window()

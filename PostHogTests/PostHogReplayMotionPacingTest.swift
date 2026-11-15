@@ -8,10 +8,6 @@
     @Suite("Replay motion renderer pacing", .serialized)
     @MainActor
     struct PostHogReplayMotionPacingTest {
-        private func makeSut() throws -> (PostHogSDK, PostHogReplayIntegration, ReplaySnapshots) {
-            try makeScreenshotReplaySut()
-        }
-
         private func makeWindow() -> UIWindow {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 300))
             window.backgroundColor = .white
@@ -26,15 +22,9 @@
             window.layoutIfNeeded()
         }
 
-        private func waitForCaptureToFinish(_ integration: PostHogReplayIntegration) async {
-            await waitUntil(timeout: 5) { !integration.isScreenshotRenderInFlightForTesting }
-            #expect(!integration.isScreenshotRenderInFlightForTesting)
-            await drainReplayQueue()
-        }
-
         @Test("a motion frame renders the presentation tree and pauses that renderer after it")
         func motionFramePausesRenderer() async throws {
-            let (sut, integration, snapshots) = try makeSut()
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut()
             defer { sut.close() }
             let mockLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockLifecycle
@@ -53,7 +43,7 @@
 
         @Test("a motion frame skips while the presentation-tree renderer is paused, and frees the render slot")
         func pausedMotionFrameSkips() async throws {
-            let (sut, integration, snapshots) = try makeSut()
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut()
             defer { sut.close() }
             let mockLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockLifecycle
@@ -73,7 +63,7 @@
 
         @Test("a settled frame still captures while the presentation-tree renderer is paused")
         func settledFrameCapturesWhilePaused() async throws {
-            let (sut, integration, snapshots) = try makeSut()
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut()
             defer { sut.close() }
             // drawHierarchy draws nothing in this hostless bundle, so the settled frame renders through this instead.
             PostHogReplayIntegration.screenshotRendererForTesting = .presentationTree

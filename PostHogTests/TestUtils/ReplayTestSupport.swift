@@ -72,6 +72,14 @@
         return (sut, integration, snapshots)
     }
 
+    /// Waits for a capture to give the render slot back, then for the snapshot it queued.
+    @MainActor
+    func waitForCaptureToFinish(_ integration: PostHogReplayIntegration) async {
+        await waitUntil(timeout: 5) { !integration.isScreenshotRenderInFlightForTesting }
+        #expect(!integration.isScreenshotRenderInFlightForTesting)
+        await drainReplayQueue()
+    }
+
     /// Waits for work already queued on the replay queue, such as snapshot serialization.
     func drainReplayQueue() async {
         await withCheckedContinuation { continuation in

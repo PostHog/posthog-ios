@@ -1745,7 +1745,7 @@
         /// displayed frame identical to the current tree, so full-fidelity drawHierarchy is safe
         /// (blur/video/Metal intact); drift within budget keeps drawHierarchy with masks swept to
         /// cover it, only motion or an unpairable sample drops to render(in:) for alignment, and
-        /// skips instead while `presentationTreePauseFactor` holds that renderer paused.
+        /// skips instead until `presentationTreeResumeTime`.
         private func scheduleSettledCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) {
             // Same bails prepareScreenshotWireframe applies, hoisted ahead of the two sampling
             // walks: without this a view controller transition pays for both traversals and then
@@ -1762,7 +1762,8 @@
                 // Banded on mask geometry alone, not on layout-event counts: layout events arrive in
                 // bursts, so a count false-positives on the very burst that triggered the capture.
                 let verdict = Self.settleVerdict(before: sentinelRegions, after: regionsNow)
-                if !verdict.band.usesFidelity, CACurrentMediaTime() < self.presentationTreeResumeTime {
+                let renderer: PostHogScreenshotRenderer = verdict.band.usesFidelity ? .fidelity : .presentationTree
+                if renderer == .presentationTree, CACurrentMediaTime() < self.presentationTreeResumeTime {
                     hedgeLog("[Session Replay] Skipping snapshot: the motion renderer is paused after a slow render")
                     self.finishScreenshotRender()
                     return
@@ -1771,7 +1772,7 @@
                     window: window,
                     screenName: screenName,
                     postHog: postHog,
-                    renderer: verdict.band.usesFidelity ? .fidelity : .presentationTree,
+                    renderer: renderer,
                     overrideMaskRects: verdict.inflatedRects ?? regionsNow?.map(\.rect)
                 )
             }

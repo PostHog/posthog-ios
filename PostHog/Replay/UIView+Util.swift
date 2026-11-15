@@ -167,7 +167,7 @@
             let nativeScale = (self as? UIWindow ?? window)?.screen.scale ?? 1
             let drawsHierarchy = afterScreenUpdates || screenshotRenderer == .fidelity
             let gamut = screenshotGamut(drawingHierarchy: drawsHierarchy)
-            // render(in:) draws on the CPU, so its cost grows with the pixel count; nothing finer than upload scale is kept.
+            // render(in:) draws on the CPU, so its cost grows with the pixel count.
             let scale = drawsHierarchy ? nativeScale : min(presentationScale ?? nativeScale, nativeScale)
             let renderer = PostHogGraphicsImageRenderer(size: size, scale: scale, roundingUp: scale < nativeScale, gamut: gamut)
 

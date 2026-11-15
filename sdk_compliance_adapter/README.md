@@ -290,3 +290,11 @@ A GitHub Actions workflow is available at `.github/workflows/sdk-compliance.yml`
 ## References
 
 - Test harness: https://github.com/PostHog/posthog-sdk-test-harness
+
+## Local legacy contract correction (unreleased)
+
+The adapter declares `unbounded_retries` because durable ingestion retains transiently failed events beyond `maxRetries`. Compose upgrades the published harness pin from 1.14.0 to 1.31.1, which still reports 46/47 because its bounded-retry assertion does not recognize this profile. No native SDK retry policy changes are included.
+
+The locally patched, **unreleased** v1 harness replaces only `max_retries_respected` with positive recovery coverage. The full iOS profile passed 47/47, including six requests (five 503s then 200) carrying the same nonempty event, UUID and timestamp. Queued batching remains tested. An existing intermittent UUID observation/flush timing issue is disclosed, not fixed.
+
+Production CI needs the specs changes to land first, then the harness release inputs must pin that real specs commit. After the patched harness is published, update the image pin to that real release. The current 1.31.1 pin does not include these harness corrections.

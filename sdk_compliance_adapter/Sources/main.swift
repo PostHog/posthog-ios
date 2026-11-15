@@ -57,7 +57,8 @@ app.get("health") { req async throws -> Response in
         // (capture_v0) with gzip; it does not implement the /i/v1/e capture_v1
         // protocol. Without this, the harness skips the capability-gated capture
         // suites entirely.
-        "capabilities": ["capture_v0", "encoding_gzip"],
+        // Durable ingestion retries retain events beyond a retry-count budget.
+        "capabilities": ["capture_v0", "encoding_gzip", "unbounded_retries"],
     ]
 
     print("[ADAPTER] GET /health")

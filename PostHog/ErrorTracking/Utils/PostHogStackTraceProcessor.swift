@@ -71,20 +71,20 @@ enum PostHogStackTraceProcessor {
             // simulator or private framework on device), the frame is not user code.
             // inApp stays false — no further action needed.
 
-            // Skip PostHog frames at the top of the stack
-            if !shouldCollectFrame {
-                if isPostHogModule(module) {
-                    continue
-                }
-                shouldCollectFrame = true
-            }
-
             // Function/symbol info (raw symbols without demangling)
             var function: String?
             var symbolAddress: UInt64?
             if let symbolName = info.dli_sname {
                 function = String(cString: symbolName) // Use raw symbol
                 symbolAddress = UInt64(UInt(bitPattern: info.dli_saddr))
+            }
+
+            // Skip PostHog frames at the top of the stack
+            if !shouldCollectFrame {
+                if isPostHogModule(module) || isCaptureExceptionObjCThunk(function) {
+                    continue
+                }
+                shouldCollectFrame = true
             }
 
             let frame = PostHogStackFrame(
@@ -225,5 +225,16 @@ enum PostHogStackTraceProcessor {
     private static func isPostHogModule(_ module: String?) -> Bool {
         guard let module = module else { return false }
         return module == "PostHog" || module.hasPrefix("PostHog.")
+    }
+
+    /// Check if a symbol is the Objective-C thunk of a `PostHogSDK.captureException` overload
+    ///
+    /// The thunk sits between an Objective-C caller and the Swift method that reads the stack, so it's
+    /// left above the caller. Thunk symbols are local, so this only matches in unstripped binaries, where
+    /// they're named accurately. Stripping removes them, so this never matches an app frame, but in a
+    /// stripped binary that statically links the SDK the thunk frame stays on top.
+    private static func isCaptureExceptionObjCThunk(_ function: String?) -> Bool {
+        guard let function = function else { return false }
+        return function.hasPrefix("$s7PostHog0aB3SDKC16captureException") && function.hasSuffix("FTo")
     }
 }

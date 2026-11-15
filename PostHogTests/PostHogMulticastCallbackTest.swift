@@ -95,6 +95,31 @@ class PostHogMulticastCallbackTests {
 
         _ = token // silence read warnings
     }
+
+    @Test("Subscribers are invoked in subscription order")
+    func invokesInSubscriptionOrder() {
+        let callback = PostHogMulticastCallback<Void>()
+        var order: [Int] = []
+
+        let token1 = callback.subscribe { order.append(1) }
+        var token2: RegistrationToken? = callback.subscribe { order.append(2) }
+        let token3 = callback.subscribe { order.append(3) }
+
+        callback.invoke(())
+        #expect(order == [1, 2, 3])
+
+        order.removeAll()
+        token2 = nil
+        callback.invoke(())
+        #expect(order == [1, 3])
+
+        order.removeAll()
+        let token4 = callback.subscribe { order.append(4) }
+        callback.invoke(())
+        #expect(order == [1, 3, 4])
+
+        _ = (token1, token2, token3, token4)
+    }
 }
 
 @MainActor

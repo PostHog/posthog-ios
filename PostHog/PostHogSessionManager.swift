@@ -51,9 +51,6 @@ import Foundation
 
     func reset() {
         resetSession()
-        didBecomeActiveToken = nil
-        didEnterBackgroundToken = nil
-        applicationEventToken = nil
     }
 
     private let queue = DispatchQueue(label: "com.posthog.PostHogSessionManager", target: .global(qos: .utility))

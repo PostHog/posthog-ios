@@ -9,6 +9,7 @@ import Foundation
 
 /// A thread-safe callback that allows multiple subscribers.
 /// Subscribers receive a `RegistrationToken` that automatically unsubscribes when deallocated.
+/// Subscribers are invoked in subscription order.
 ///
 /// Usage:
 /// ```swift
@@ -25,7 +26,13 @@ import Foundation
 /// // Token automatically unsubscribes when deallocated
 /// ```
 final class PostHogMulticastCallback<T> {
-    private var callbacks: [UUID: (T) -> Void] = [:]
+    private struct Subscription {
+        let id: UUID
+        let callback: (T) -> Void
+    }
+
+    // Not a dictionary: its iteration order is unspecified, and subscribers depend on running in order.
+    private var subscriptions: [Subscription] = []
     private let lock = NSLock()
     private let onSubscriberCountChanged: ((Int) -> Void)?
 
@@ -41,24 +48,24 @@ final class PostHogMulticastCallback<T> {
     func subscribe(_ callback: @escaping (T) -> Void) -> RegistrationToken {
         let id = UUID()
         let newCount = lock.withLock {
-            callbacks[id] = callback
-            return callbacks.count
+            subscriptions.append(Subscription(id: id, callback: callback))
+            return subscriptions.count
         }
         onSubscriberCountChanged?(newCount)
         return RegistrationToken { [weak self] in
             guard let self else { return }
             let newCount = self.lock.withLock {
-                self.callbacks[id] = nil
-                return self.callbacks.count
+                self.subscriptions.removeAll { $0.id == id }
+                return self.subscriptions.count
             }
             self.onSubscriberCountChanged?(newCount)
         }
     }
 
-    /// Invoke all subscribed callbacks with the given value.
+    /// Invoke all subscribed callbacks with the given value, in subscription order.
     /// - Parameter value: The value to pass to all callbacks.
     func invoke(_ value: T) {
-        let callbacks = lock.withLock { Array(self.callbacks.values) }
+        let callbacks = lock.withLock { subscriptions.map(\.callback) }
         for callback in callbacks {
             callback(value)
         }
@@ -66,7 +73,7 @@ final class PostHogMulticastCallback<T> {
 
     /// Returns the number of active subscribers.
     var subscriberCount: Int {
-        lock.withLock { callbacks.count }
+        lock.withLock { subscriptions.count }
     }
 }
 

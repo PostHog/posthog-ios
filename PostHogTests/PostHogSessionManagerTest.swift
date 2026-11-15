@@ -202,6 +202,41 @@ enum PostHogSessionManagerTest {
 
             #expect(newSessionId != originalSessionId)
         }
+
+        @Test("reset() keeps tracking the app moving to the background")
+        func resetKeepsBackgroundTracking() throws {
+            let mockNow = MockDate()
+            now = { mockNow.date }
+            let posthog = getSut()
+
+            mockAppLifecycle.simulateAppDidBecomeActive()
+            posthog.reset()
+            try #require(posthog.getSessionManager()?.getSessionId(readOnly: true) != nil)
+
+            mockAppLifecycle.simulateAppDidEnterBackground()
+            mockNow.date.addTimeInterval(60 * 31) // past 30 minutes in the background (session should clear)
+
+            #expect(posthog.getSessionManager()?.getSessionId() == nil)
+        }
+
+        @Test("reset() keeps tracking the app moving to the foreground")
+        func resetKeepsForegroundTracking() throws {
+            let mockNow = MockDate()
+            now = { mockNow.date }
+            let posthog = getSut()
+
+            mockAppLifecycle.simulateAppDidBecomeActive()
+            mockAppLifecycle.simulateAppDidEnterBackground()
+            posthog.reset()
+            let resetSessionId = try #require(posthog.getSessionManager()?.getSessionId(readOnly: true))
+
+            mockAppLifecycle.simulateAppDidBecomeActive()
+            mockNow.date.addTimeInterval(60 * 31) // past 30 minutes in the foreground (session should rotate, not clear)
+            let newSessionId = posthog.getSessionManager()?.getSessionId()
+
+            #expect(newSessionId != nil)
+            #expect(newSessionId != resetSessionId)
+        }
     }
 
     @Suite("Test $session_id property in events")

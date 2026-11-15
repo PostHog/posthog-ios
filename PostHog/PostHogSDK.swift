@@ -3189,6 +3189,8 @@ let maxRetryDelay = 30.0
         _ error: Error,
         properties: [String: Any]? = nil
     ) {
+        guard isEnabled() else { return }
+
         // Read in the public entry point itself; see `captureError(_:properties:callerStack:)`
         let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
         captureError(error, properties: properties, callerStack: callerStack)
@@ -3204,6 +3206,8 @@ let maxRetryDelay = 30.0
     public func captureException(
         _ error: Error
     ) {
+        guard isEnabled() else { return }
+
         let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
         captureError(error, properties: nil, callerStack: callerStack)
     }
@@ -3231,6 +3235,8 @@ let maxRetryDelay = 30.0
         _ exception: NSException,
         properties: [String: Any]? = nil
     ) {
+        guard isEnabled() else { return }
+
         let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
         captureNSException(exception, properties: properties, callerStack: callerStack)
     }
@@ -3245,6 +3251,8 @@ let maxRetryDelay = 30.0
     public func captureException(
         _ exception: NSException
     ) {
+        guard isEnabled() else { return }
+
         let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
         captureNSException(exception, properties: nil, callerStack: callerStack)
     }
@@ -3261,8 +3269,6 @@ let maxRetryDelay = 30.0
         properties: [String: Any]?,
         callerStack: [NSNumber]
     ) {
-        guard isEnabled() else { return }
-
         let errorProperties = PostHogExceptionProcessor.errorToProperties(
             error,
             handled: true,
@@ -3280,8 +3286,6 @@ let maxRetryDelay = 30.0
         properties: [String: Any]?,
         callerStack: [NSNumber]
     ) {
-        guard isEnabled() else { return }
-
         let exceptionProperties = PostHogExceptionProcessor.exceptionToProperties(
             exception,
             handled: true,

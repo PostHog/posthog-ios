@@ -42,11 +42,11 @@ final class PostHogCaptureExceptionStackTest {
     }
 
     /// Innermost frame first.
-    private func functions(_ captured: Captured) throws -> [String] {
+    private func frames(_ captured: Captured) throws -> [(function: String, inApp: Bool)] {
         let exceptions = try #require(captured.properties?["$exception_list"] as? [[String: Any]])
         let stacktrace = try #require(exceptions.first?["stacktrace"] as? [String: Any])
         let frames = try #require(stacktrace["frames"] as? [[String: Any]])
-        return frames.reversed().map { $0["function"] as? String ?? "" }
+        return frames.reversed().map { ($0["function"] as? String ?? "", $0["in_app"] as? Bool ?? false) }
     }
 
     /// Swift symbols the SDK defines start with `$s7PostHog`; this test target's start with `$s12PostHogTests`.
@@ -59,6 +59,33 @@ final class PostHogCaptureExceptionStackTest {
     /// otherwise abbreviate.
     private func isCallSite(_ function: String, _ name: String) -> Bool {
         function.contains("\(name.utf8.count)\(name)")
+    }
+
+    /// The SDK frames that reported the error are kept above the caller, none of them in-app, so the caller
+    /// is the first in-app frame.
+    private func expectSDKFramesNotInAppAbove(
+        _ site: String,
+        in frames: [(function: String, inApp: Bool)],
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        let functions = frames.map(\.function)
+        let callerIndex = try #require(
+            functions.firstIndex { isCallSite($0, site) },
+            "frames: \(functions)",
+            sourceLocation: sourceLocation
+        )
+        let aboveCaller = frames[..<callerIndex]
+        #expect(
+            aboveCaller.contains { isSDKSymbol($0.function) && $0.function.contains("16captureException") },
+            "above the caller: \(aboveCaller.map(\.function))",
+            sourceLocation: sourceLocation
+        )
+        #expect(
+            aboveCaller.allSatisfy { !$0.inApp },
+            "in-app above the caller: \(aboveCaller.filter(\.inApp).map(\.function))",
+            sourceLocation: sourceLocation
+        )
+        #expect(frames[callerIndex].inApp, "the caller should be the first in-app frame", sourceLocation: sourceLocation)
     }
 
     @inline(never)
@@ -86,8 +113,8 @@ final class PostHogCaptureExceptionStackTest {
         _ = sut.perform(NSSelectorFromString("captureExceptionWithError:properties:"), with: TestError() as NSError, with: nil)
     }
 
-    @Test("Swift Error: the top frame is the caller", arguments: ["siteSwiftError", "siteSwiftErrorWithProps"])
-    func swiftErrorTopFrameIsCaller(site: String) throws {
+    @Test("Swift Error: SDK frames are kept above the caller as not in-app", arguments: ["siteSwiftError", "siteSwiftErrorWithProps"])
+    func swiftErrorSDKFramesNotInApp(site: String) throws {
         let captured = Captured()
         let sut = getSut(captured)
         defer { sut.close() }
@@ -98,12 +125,11 @@ final class PostHogCaptureExceptionStackTest {
             siteSwiftErrorWithProps(sut)
         }
 
-        let top = try #require(try functions(captured).first)
-        #expect(isCallSite(top, site), "top frame: \(top)")
+        try expectSDKFramesNotInAppAbove(site, in: frames(captured))
     }
 
-    @Test("unraised NSException: the top frame is the caller", arguments: ["siteNeverRaised", "siteNeverRaisedWithProps"])
-    func unraisedNSExceptionTopFrameIsCaller(site: String) throws {
+    @Test("unraised NSException: SDK frames are kept above the caller as not in-app", arguments: ["siteNeverRaised", "siteNeverRaisedWithProps"])
+    func unraisedNSExceptionSDKFramesNotInApp(site: String) throws {
         let captured = Captured()
         let sut = getSut(captured)
         defer { sut.close() }
@@ -114,22 +140,18 @@ final class PostHogCaptureExceptionStackTest {
             siteNeverRaisedWithProps(sut)
         }
 
-        let top = try #require(try functions(captured).first)
-        #expect(isCallSite(top, site), "top frame: \(top)")
+        try expectSDKFramesNotInAppAbove(site, in: frames(captured))
     }
 
-    @Test("Objective-C dispatch: no SDK frame above the caller")
-    func objCDispatchHasNoSDKFrameAboveCaller() throws {
+    @Test("Objective-C dispatch: SDK frames, @objc thunk included, are kept above the caller as not in-app")
+    func objCDispatchSDKFramesNotInApp() throws {
         let captured = Captured()
         let sut = getSut(captured)
         defer { sut.close() }
 
         siteObjCSelector(sut)
 
-        // The call goes through the SDK's @objc thunk; a libobjc frame may sit above the caller too.
-        let all = try functions(captured)
-        let callerIndex = try #require(all.firstIndex { isCallSite($0, "siteObjCSelector") }, "frames: \(all)")
-        let aboveCaller = all[..<callerIndex]
-        #expect(!aboveCaller.contains(where: isSDKSymbol), "frames above the caller: \(Array(aboveCaller))")
+        // The call goes through the SDK's @objc thunk, which is kept and marked too
+        try expectSDKFramesNotInAppAbove("siteObjCSelector", in: frames(captured))
     }
 }

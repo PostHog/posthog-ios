@@ -3260,10 +3260,11 @@ let maxRetryDelay = 30.0
     /// Captures a handled error with the caller's stack.
     ///
     /// Every public `captureException` overload reads `Thread.callStackReturnAddresses` in its own body
-    /// and drops index 0 (its own frame), so the trace starts at the app's call site. The SDK's frames
-    /// can't be recognized afterwards: when the SDK is statically linked they share the app's binary,
-    /// and stripped release builds have no symbol names. Don't move that read into a helper or route
-    /// one overload through another, as either adds an SDK frame above the caller.
+    /// and drops index 0 (its own frame), so the stack starts at the app's call site. The trace keeps the
+    /// SDK's frames above it but marks them as not in-app, and this stack is how they're found: when the
+    /// SDK is statically linked they share the app's binary, and stripped release builds have no symbol
+    /// names. Don't move that read into a helper or route one overload through another, as either puts an
+    /// SDK frame into the caller's stack.
     private func captureError(
         _ error: Error,
         properties: [String: Any]?,

@@ -19,13 +19,40 @@ enum PostHogStackTraceProcessor {
 
     /// Captures current stack trace using dladdr() for rich metadata
     ///
-    /// Automatically strips PostHog SDK frames from the top of the stack trace
-    /// so the trace starts at user code.
+    /// PostHog SDK frames at the top of the stack are kept but marked as not in-app,
+    /// so the first in-app frame is user code.
     static func captureCurrentStackTraceWithMetadata(
         config: PostHogErrorTrackingConfig
     ) -> [PostHogStackFrame] {
         let addresses = Thread.callStackReturnAddresses
-        return symbolicateAddresses(addresses, config: config, stripTopPostHogFrames: true)
+        return symbolicateAddresses(addresses, config: config, markTopPostHogFramesNotInApp: true)
+    }
+
+    /// Captures the current stack for a handled error, keeping the SDK's own frames but marking them as not in-app
+    ///
+    /// `callerStack` is what the public `captureException` entry point read, starting at the app's call site.
+    /// Its frames have the same return addresses here, so every frame above where it begins is the SDK
+    /// reporting the error. Those frames can't be recognized by name: a statically linked SDK shares the
+    /// app's binary, and stripped release builds have no symbol names.
+    ///
+    /// - Parameters:
+    ///   - callerStack: Return addresses captured in the public API entry point, starting at the caller
+    ///   - config: Error tracking configuration
+    static func captureCurrentStackTrace(
+        callerStack: [NSNumber],
+        config: PostHogErrorTrackingConfig
+    ) -> [PostHogStackFrame] {
+        let addresses = Thread.callStackReturnAddresses
+        guard let callerTop = callerStack.first, let sdkFrameCount = addresses.firstIndex(of: callerTop) else {
+            // The stacks don't line up, so fall back to the caller's frames alone
+            return symbolicateAddresses(callerStack, config: config, markTopPostHogFramesNotInApp: true)
+        }
+        return symbolicateAddresses(
+            addresses,
+            config: config,
+            markTopPostHogFramesNotInApp: true,
+            sdkFrameCount: sdkFrameCount
+        )
     }
 
     /// Symbolicate an array of return addresses using dladdr()
@@ -33,16 +60,18 @@ enum PostHogStackTraceProcessor {
     /// - Parameters:
     ///   - addresses: Array of return addresses to symbolicate
     ///   - config: Error tracking configuration
-    ///   - stripTopPostHogFrames: If true, strips PostHog SDK frames from the top of the stack
+    ///   - markTopPostHogFramesNotInApp: If true, PostHog SDK frames at the top of the stack are marked as not in-app
+    ///   - sdkFrameCount: Number of addresses at the top that are known to be SDK frames, marked as not in-app
     static func symbolicateAddresses(
         _ addresses: [NSNumber],
         config: PostHogErrorTrackingConfig,
-        stripTopPostHogFrames: Bool = false
+        markTopPostHogFramesNotInApp: Bool = false,
+        sdkFrameCount: Int = 0
     ) -> [PostHogStackFrame] {
         var frames: [PostHogStackFrame] = []
-        var shouldCollectFrame = !stripTopPostHogFrames
+        var markingTopSDKFrames = markTopPostHogFramesNotInApp
 
-        for addressNum in addresses {
+        for (index, addressNum) in addresses.enumerated() {
             // Strip PAC bits so the address is a valid instruction pointer on arm64e.
             let address = UInt64(addressNum.uintValue).pacStripped
             var info = Dl_info()
@@ -79,12 +108,15 @@ enum PostHogStackTraceProcessor {
                 symbolAddress = UInt64(UInt(bitPattern: info.dli_saddr))
             }
 
-            // Skip PostHog frames at the top of the stack
-            if !shouldCollectFrame {
+            // PostHog frames at the top of the stack are the SDK reporting the error, not user code
+            if index < sdkFrameCount {
+                inApp = false
+            } else if markingTopSDKFrames {
                 if isPostHogModule(module) || isCaptureExceptionObjCThunk(function) {
-                    continue
+                    inApp = false
+                } else {
+                    markingTopSDKFrames = false
                 }
-                shouldCollectFrame = true
             }
 
             let frame = PostHogStackFrame(
@@ -232,7 +264,7 @@ enum PostHogStackTraceProcessor {
     /// The thunk sits between an Objective-C caller and the Swift method that reads the stack, so it's
     /// left above the caller. Thunk symbols are local, so this only matches in unstripped binaries, where
     /// they're named accurately. Stripping removes them, so this never matches an app frame, but in a
-    /// stripped binary that statically links the SDK the thunk frame stays on top.
+    /// stripped binary that statically links the SDK the thunk frame stays in-app.
     private static func isCaptureExceptionObjCThunk(_ function: String?) -> Bool {
         guard let function = function else { return false }
         return function.hasPrefix("$s7PostHog0aB3SDKC16captureException") && function.hasSuffix("FTo")

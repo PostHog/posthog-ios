@@ -77,6 +77,8 @@ jobs:
     needs: check-changesets
     # Runs on macOS (DocC) while the release waits for approval; version-bump commits the result.
     runs-on: macos-26
+    # version-bump waits on this job, so a stalled DocC build must not hold the release.
+    timeout-minutes: 15
     # Best-effort: a failure never blocks the release. Run generate-references.yml to retry.
     continue-on-error: true
     if: needs.check-changesets.outputs.has-changesets == 'true'
@@ -93,6 +95,15 @@ jobs:
         with:
           repository: PostHog/sdk-specs
           path: .sdk-specs
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+
+      # The generator picks the reference page from the version, so generate for the release version, not main's.
+      - name: Apply the pending version
+        run: |
+          pnpm changeset version
+          ./scripts/bump-version.sh "$(node -p "require('./package.json').version")"
 
       - name: Generate the reference
         run: python3 scripts/generate-markdown.py --sdk-specs .sdk-specs

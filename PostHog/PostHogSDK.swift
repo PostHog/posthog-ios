@@ -4072,13 +4072,9 @@ let maxRetryDelay = 30.0
     ) {
         guard isEnabled() else { return }
 
-        let errorProperties = PostHogExceptionProcessor.errorToProperties(
-            error,
-            handled: true,
-            config: config.errorTrackingConfig
-        )
-
-        captureExceptionEvent(errorProperties, additionalProperties: properties, options: options)
+        // Read in the public entry point itself; see `captureError(_:properties:options:callerStack:)`
+        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
+        captureError(error, properties: properties, options: options, callerStack: callerStack)
     }
 
     // A separate Swift name keeps this out of Swift overload resolution.
@@ -4092,7 +4088,10 @@ let maxRetryDelay = 30.0
     @available(swift, obsoleted: 1.0, message: "Use captureException(_:properties:options:) instead")
     @objc(captureExceptionWithError:properties:)
     public func captureExceptionObjC(_ error: Error, properties: [String: Any]?) {
-        captureException(error, properties: properties, options: nil)
+        guard isEnabled() else { return }
+
+        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
+        captureError(error, properties: properties, options: nil, callerStack: callerStack)
     }
 
     /// Capture a Swift Error or NSError without additional properties
@@ -4105,7 +4104,10 @@ let maxRetryDelay = 30.0
     public func captureException(
         _ error: Error
     ) {
-        captureException(error, properties: nil)
+        guard isEnabled() else { return }
+
+        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
+        captureError(error, properties: nil, options: nil, callerStack: callerStack)
     }
 
     /// Capture an NSException
@@ -4142,13 +4144,8 @@ let maxRetryDelay = 30.0
     ) {
         guard isEnabled() else { return }
 
-        let exceptionProperties = PostHogExceptionProcessor.exceptionToProperties(
-            exception,
-            handled: true,
-            config: config.errorTrackingConfig
-        )
-
-        captureExceptionEvent(exceptionProperties, additionalProperties: properties, options: options)
+        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
+        captureNSException(exception, properties: properties, options: options, callerStack: callerStack)
     }
 
     // A separate Swift name keeps this out of Swift overload resolution.
@@ -4162,7 +4159,10 @@ let maxRetryDelay = 30.0
     @available(swift, obsoleted: 1.0, message: "Use captureException(_:properties:options:) instead")
     @objc(captureExceptionWithNSException:properties:)
     public func captureExceptionObjC(_ exception: NSException, properties: [String: Any]?) {
-        captureException(exception, properties: properties, options: nil)
+        guard isEnabled() else { return }
+
+        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
+        captureNSException(exception, properties: properties, options: nil, callerStack: callerStack)
     }
 
     /// Capture an NSException without additional properties
@@ -4175,7 +4175,51 @@ let maxRetryDelay = 30.0
     public func captureException(
         _ exception: NSException
     ) {
-        captureException(exception, properties: nil)
+        guard isEnabled() else { return }
+
+        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
+        captureNSException(exception, properties: nil, options: nil, callerStack: callerStack)
+    }
+
+    /// Captures a handled error with the caller's stack.
+    ///
+    /// Every public `captureException`/`captureExceptionObjC` overload reads `Thread.callStackReturnAddresses`
+    /// in its own body and drops index 0 (its own frame), so the trace starts at the app's call site. The SDK's
+    /// frames can't be recognized afterwards: when the SDK is statically linked they share the app's binary,
+    /// and stripped release builds have no symbol names. Don't move that read into a helper or route one
+    /// overload through another, as either adds an SDK frame above the caller.
+    private func captureError(
+        _ error: Error,
+        properties: [String: Any]?,
+        options: [String: Any]?,
+        callerStack: [NSNumber]
+    ) {
+        let errorProperties = PostHogExceptionProcessor.errorToProperties(
+            error,
+            handled: true,
+            config: config.errorTrackingConfig,
+            callerStack: callerStack
+        )
+
+        captureExceptionEvent(errorProperties, additionalProperties: properties, options: options)
+    }
+
+    /// Captures a handled NSException; `callerStack` is only used when the exception was never raised.
+    /// See `captureError(_:properties:options:callerStack:)`.
+    private func captureNSException(
+        _ exception: NSException,
+        properties: [String: Any]?,
+        options: [String: Any]?,
+        callerStack: [NSNumber]
+    ) {
+        let exceptionProperties = PostHogExceptionProcessor.exceptionToProperties(
+            exception,
+            handled: true,
+            config: config.errorTrackingConfig,
+            callerStack: callerStack
+        )
+
+        captureExceptionEvent(exceptionProperties, additionalProperties: properties, options: options)
     }
 
     /// Record an exception step (breadcrumb-style context record).

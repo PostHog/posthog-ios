@@ -26,18 +26,22 @@ enum PostHogExceptionProcessor {
     ///   - handled: Whether the error was caught/handled
     ///   - mechanismType: The mechanism that captured the error (e.g., "generic", "onunhandledexception")
     ///   - config: Error tracking configuration for in-app detection
+    ///   - callerStack: Return addresses captured in the public API entry point, starting at the caller.
+    ///     When nil, the current thread's stack is captured instead.
     /// - Returns: Dictionary of properties in PostHog's $exception event format
     static func errorToProperties(
         _ error: Error,
         handled: Bool,
         mechanismType: String = "generic",
-        config: PostHogErrorTrackingConfig
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]? = nil
     ) -> [String: Any] {
         let exceptions = buildExceptionList(
             from: error,
             handled: handled,
             mechanismType: mechanismType,
-            config: config
+            config: config,
+            callerStack: callerStack
         )
 
         return buildProperties(exceptions: exceptions)
@@ -53,18 +57,22 @@ enum PostHogExceptionProcessor {
     ///   - handled: Whether the exception was caught/handled
     ///   - mechanismType: The mechanism type for categorizing the exception
     ///   - config: Error tracking configuration for in-app detection
+    ///   - callerStack: Return addresses captured in the public API entry point, starting at the caller.
+    ///     Only used for an exception that was never raised. When nil, the current thread's stack is captured instead.
     /// - Returns: Dictionary of properties in PostHog's $exception event format
     static func exceptionToProperties(
         _ exception: NSException,
         handled: Bool,
         mechanismType: String = "generic",
-        config: PostHogErrorTrackingConfig
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]? = nil
     ) -> [String: Any] {
         let exceptions = buildExceptionList(
             from: exception,
             handled: handled,
             mechanismType: mechanismType,
-            config: config
+            config: config,
+            callerStack: callerStack
         )
 
         return buildProperties(exceptions: exceptions)
@@ -127,7 +135,8 @@ enum PostHogExceptionProcessor {
         from exception: NSException,
         handled: Bool,
         mechanismType: String,
-        config: PostHogErrorTrackingConfig
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]?
     ) -> [[String: Any]] {
         var exceptions: [[String: Any]] = []
         var nsExceptions: [NSException] = []
@@ -154,7 +163,8 @@ enum PostHogExceptionProcessor {
                 index: exceptions.count,
                 handled: handled,
                 mechanismType: mechanismType,
-                config: config
+                config: config,
+                callerStack: callerStack
             ) {
                 exceptions.append(exceptionDict)
             }
@@ -179,7 +189,8 @@ enum PostHogExceptionProcessor {
         from error: Error,
         handled: Bool,
         mechanismType: String,
-        config: PostHogErrorTrackingConfig
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]?
     ) -> [[String: Any]] {
         var exceptions: [[String: Any]] = []
         var errors: [NSError] = []
@@ -207,7 +218,8 @@ enum PostHogExceptionProcessor {
                 index: exceptions.count,
                 handled: handled,
                 mechanismType: mechanismType,
-                config: config
+                config: config,
+                callerStack: callerStack
             ) {
                 exceptions.append(exception)
             }
@@ -222,7 +234,8 @@ enum PostHogExceptionProcessor {
         index: Int,
         handled: Bool,
         mechanismType: String,
-        config: PostHogErrorTrackingConfig
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]?
     ) -> [String: Any]? {
         var exception: [String: Any] = [:]
 
@@ -245,7 +258,7 @@ enum PostHogExceptionProcessor {
             synthetic: true // Always true for NSError - we capture current stack
         )
 
-        if let stacktrace = buildStacktrace(config: config) {
+        if let stacktrace = buildStacktrace(config: config, callerStack: callerStack) {
             exception["stacktrace"] = stacktrace
         }
 
@@ -258,7 +271,8 @@ enum PostHogExceptionProcessor {
         index: Int,
         handled: Bool,
         mechanismType: String,
-        config: PostHogErrorTrackingConfig
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]?
     ) -> [String: Any]? {
         var exceptionDict: [String: Any] = [:]
 
@@ -284,7 +298,7 @@ enum PostHogExceptionProcessor {
             isSynthetic = false
         } else {
             // Fall back to current stack (synthetic - captured at reporting site)
-            stacktrace = buildStacktrace(config: config)
+            stacktrace = buildStacktrace(config: config, callerStack: callerStack)
             isSynthetic = true
         }
 
@@ -409,10 +423,20 @@ enum PostHogExceptionProcessor {
 
     // MARK: - Stack Trace Capture
 
-    /// Build stacktrace dictionary from current thread (synthetic)
+    /// Build stacktrace dictionary from the caller's stack, or from the current thread when `callerStack` is nil (synthetic)
     ///
-    private static func buildStacktrace(config: PostHogErrorTrackingConfig) -> [String: Any]? {
-        let frames = PostHogStackTraceProcessor.captureCurrentStackTraceWithMetadata(config: config)
+    private static func buildStacktrace(
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]? = nil
+    ) -> [String: Any]? {
+        let frames: [PostHogStackFrame]
+        if let callerStack {
+            // Still strip by module: with a dynamic PostHog framework, an Objective-C caller goes through
+            // an @objc thunk that sits above the caller
+            frames = PostHogStackTraceProcessor.symbolicateAddresses(callerStack, config: config, stripTopPostHogFrames: true)
+        } else {
+            frames = PostHogStackTraceProcessor.captureCurrentStackTraceWithMetadata(config: config)
+        }
 
         guard !frames.isEmpty else { return nil }
 

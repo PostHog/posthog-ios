@@ -167,7 +167,7 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
         #endif
     }
 
-    #if os(iOS) || os(tvOS) || os(visionOS)
+    #if TESTING && (os(iOS) || os(tvOS) || os(visionOS))
         convenience init(notificationCenter: NotificationCenter, applicationState: @escaping () -> UIApplication.State?) {
             self.init(notificationCenter: notificationCenter)
             self.applicationState = applicationState

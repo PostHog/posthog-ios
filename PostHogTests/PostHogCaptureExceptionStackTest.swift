@@ -42,11 +42,16 @@ final class PostHogCaptureExceptionStackTest {
     }
 
     /// Innermost frame first.
-    private func functions(_ captured: Captured) throws -> [String] {
+    private func frames(_ captured: Captured) throws -> [(function: String, inApp: Bool)] {
         let exceptions = try #require(captured.properties?["$exception_list"] as? [[String: Any]])
         let stacktrace = try #require(exceptions.first?["stacktrace"] as? [String: Any])
         let frames = try #require(stacktrace["frames"] as? [[String: Any]])
-        return frames.reversed().map { $0["function"] as? String ?? "" }
+        return frames.reversed().map { ($0["function"] as? String ?? "", $0["in_app"] as? Bool ?? false) }
+    }
+
+    /// Swift symbols the SDK defines start with `$s7PostHog`; this test target's start with `$s12PostHogTests`.
+    private func isSDKSymbol(_ function: String) -> Bool {
+        function.hasPrefix("$s7PostHog")
     }
 
     /// Whether a mangled symbol is the given call site: Swift mangles an identifier as its length followed
@@ -146,20 +151,29 @@ final class PostHogCaptureExceptionStackTest {
         }
     }
 
-    @Test("the top frame is the caller", arguments: [
+    @Test("SDK frames are kept above the caller as not in-app, and the caller is the first in-app frame", arguments: [
         "siteSwiftError", "siteSwiftErrorWithProps", "siteSwiftErrorWithOpts",
         "siteNeverRaised", "siteNeverRaisedWithProps", "siteNeverRaisedWithOpts",
         "siteObjCError", "siteObjCErrorWithProps", "siteObjCErrorWithOpts",
         "siteObjCNeverRaised", "siteObjCNeverRaisedWithProps", "siteObjCNeverRaisedWithOpts",
     ])
-    func topFrameIsCaller(site: String) throws {
+    func sdkFramesNotInAppAboveCaller(site: String) throws {
         let captured = Captured()
         let sut = getSut(captured)
         defer { sut.close() }
 
         callSite(site)(sut)
 
-        let top = try #require(try functions(captured).first)
-        #expect(isCallSite(top, site), "top frame: \(top)")
+        let frames = try frames(captured)
+        let functions = frames.map(\.function)
+        let callerIndex = try #require(functions.firstIndex { isCallSite($0, site) }, "frames: \(functions)")
+        let aboveCaller = frames[..<callerIndex]
+        // The entry point the call came through, @objc thunk included for Objective-C callers
+        #expect(
+            aboveCaller.contains { isSDKSymbol($0.function) && $0.function.contains("captureException") },
+            "above the caller: \(aboveCaller.map(\.function))"
+        )
+        #expect(aboveCaller.allSatisfy { !$0.inApp }, "in-app above the caller: \(aboveCaller.filter(\.inApp).map(\.function))")
+        #expect(frames[callerIndex].inApp, "the caller should be the first in-app frame")
     }
 }

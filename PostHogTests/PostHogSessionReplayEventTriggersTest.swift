@@ -540,5 +540,22 @@
             let pendingAfter = props["$sdk_debug_replay_pending_trigger_conditions"] as? [String] ?? []
             #expect(!pendingAfter.contains("event_trigger"))
         }
+
+        @Test("pending trigger groups are named as a pending condition until one records")
+        func pendingTriggerGroupsAreAPendingCondition() async throws {
+            let sut = getSut(triggerGroups: [eventOnlyTriggerGroup])
+            let integration = try #require(sut.getReplayIntegration())
+            defer { sut.close() }
+
+            var props = integration.debugProperties()
+            #expect(props["$sdk_debug_replay_event_trigger_status"] as? String == "trigger_disabled")
+            #expect(props["$sdk_debug_replay_linked_flag_trigger_status"] as? String == "trigger_disabled")
+            #expect(props["$sdk_debug_replay_pending_trigger_conditions"] as? [String] == ["trigger_groups"])
+
+            sut.capture("purchase_completed")
+
+            props = integration.debugProperties()
+            #expect(props["$sdk_debug_replay_pending_trigger_conditions"] == nil)
+        }
     }
 #endif

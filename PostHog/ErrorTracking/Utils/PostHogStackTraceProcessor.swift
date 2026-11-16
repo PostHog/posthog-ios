@@ -19,8 +19,10 @@ enum PostHogStackTraceProcessor {
 
     /// Captures current stack trace using dladdr() for rich metadata
     ///
-    /// Automatically strips PostHog SDK frames from the top of the stack trace
-    /// so the trace starts at user code.
+    /// Strips frames from the top of the stack only while they come from a binary named `PostHog`,
+    /// so it only starts at user code when the SDK is its own framework. When the SDK is statically
+    /// linked, its frames carry the app's module name and stay. To start at the caller, capture the
+    /// stack in the public entry point and pass it to `symbolicateAddresses` instead.
     static func captureCurrentStackTraceWithMetadata(
         config: PostHogErrorTrackingConfig
     ) -> [PostHogStackFrame] {
@@ -71,20 +73,20 @@ enum PostHogStackTraceProcessor {
             // simulator or private framework on device), the frame is not user code.
             // inApp stays false — no further action needed.
 
-            // Skip PostHog frames at the top of the stack
-            if !shouldCollectFrame {
-                if isPostHogModule(module) {
-                    continue
-                }
-                shouldCollectFrame = true
-            }
-
             // Function/symbol info (raw symbols without demangling)
             var function: String?
             var symbolAddress: UInt64?
             if let symbolName = info.dli_sname {
                 function = String(cString: symbolName) // Use raw symbol
                 symbolAddress = UInt64(UInt(bitPattern: info.dli_saddr))
+            }
+
+            // Skip PostHog frames at the top of the stack
+            if !shouldCollectFrame {
+                if isPostHogModule(module) || isCaptureExceptionObjCThunk(function) {
+                    continue
+                }
+                shouldCollectFrame = true
             }
 
             let frame = PostHogStackFrame(
@@ -225,5 +227,22 @@ enum PostHogStackTraceProcessor {
     private static func isPostHogModule(_ module: String?) -> Bool {
         guard let module = module else { return false }
         return module == "PostHog" || module.hasPrefix("PostHog.")
+    }
+
+    /// Mangled-name prefixes of the `PostHogSDK.captureException` and `captureExceptionObjC` methods
+    private static let captureExceptionSymbolPrefixes = [
+        "$s7PostHog0aB3SDKC16captureException",
+        "$s7PostHog0aB3SDKC20captureExceptionObjC",
+    ]
+
+    /// Check if a symbol is the Objective-C thunk of a `PostHogSDK.captureException` or `captureExceptionObjC` overload
+    ///
+    /// The thunk sits between an Objective-C caller and the Swift method that reads the stack, so it's
+    /// left above the caller. Thunk symbols are local, so this only matches in unstripped binaries, where
+    /// they're named accurately. Stripping removes them, so this never matches an app frame, but in a
+    /// stripped binary that statically links the SDK the thunk frame stays on top.
+    private static func isCaptureExceptionObjCThunk(_ function: String?) -> Bool {
+        guard let function = function, function.hasSuffix("FTo") else { return false }
+        return captureExceptionSymbolPrefixes.contains { function.hasPrefix($0) }
     }
 }

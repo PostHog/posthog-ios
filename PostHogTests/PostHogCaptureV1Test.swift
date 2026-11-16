@@ -652,68 +652,63 @@ final class PostHogCaptureV1OptionsTest {
         return try #require((server.parseRequest(request)?["batch"] as? [[String: Any]])?.first)
     }
 
-    @Test("registered and caller process_person_profile properties and options beat the SDK's")
-    func processPersonProfilePrecedence() async throws {
-        let sut = makeSDK(personProfiles: .never)
+    @Test("SDK policy beats legacy properties, while non-null canonical options override it",
+          arguments: ["never", "always", "anonymous", "identified", "processing"])
+    func processPersonProfilePrecedence(state: String) async throws {
+        let mode: PostHogPersonProfiles = state == "never" ? .never : state == "always" ? .always : .identifiedOnly
+        let expected = state != "never" && state != "anonymous"
+        let sut = makeSDK(personProfiles: mode)
         defer { sut.close() }
-
-        var sent = try await captureAndSend(sut) { $0.capture("test", properties: ["$process_person_profile": true]) }
-        #expect((sent["options"] as? [String: Any])?["process_person_profile"] as? Bool == true)
-        #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
-
-        sut.register(["$process_person_profile": true])
-        sent = try await captureAndSend(sut) { $0.capture("test") }
-        sut.unregister("$process_person_profile")
-        #expect((sent["options"] as? [String: Any])?["process_person_profile"] as? Bool == true)
-
-        sent = try await captureAndSend(sut) {
-            $0.capture("test", options: ["process_person_profile": true, "cookieless_mode": true])
-        }
-        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": true, "cookieless_mode": true])
-    }
-
-    @Test("a nil boxed in Any counts as unset for process_person_profile")
-    func boxedNilProcessPersonProfile() async throws {
-        let sut = makeSDK(personProfiles: .never)
-        defer { sut.close() }
+        let storage = try #require(sut.config.storageManager)
+        storage.setIdentified(state == "identified")
+        storage.setPersonProcessing(state == "processing")
         let unset: Bool? = nil
+        let overrides: [[String: Any]] = [
+            [:], ["process_person_profile": NSNull()], ["process_person_profile": unset as Any],
+            ["process_person_profile": true], ["process_person_profile": false],
+        ]
 
-        var sent = try await captureAndSend(sut) { $0.capture("test", options: ["process_person_profile": unset as Any]) }
-        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
-
-        sent = try await captureAndSend(sut) { $0.capture("test", properties: ["$process_person_profile": unset as Any]) }
-        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
-
-        // The legacy property still fills an option that is only a boxed nil.
-        sent = try await captureAndSend(sut) {
-            $0.capture("test", properties: ["$process_person_profile": true], options: ["process_person_profile": unset as Any])
+        for registered in [false, true] {
+            for legacy in [false, true] {
+                if registered {
+                    sut.register(["$process_person_profile": legacy])
+                }
+                for options in overrides {
+                    let sent = try await captureAndSend(sut) {
+                        $0.capture("test", properties: registered ? nil : ["$process_person_profile": legacy], options: options)
+                    }
+                    let value = options["process_person_profile"] as? Bool ?? expected
+                    #expect((sent["options"] as? [String: Any])?["process_person_profile"] as? Bool == value)
+                    #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
+                    #expect(sut.config.personProfiles == mode)
+                    #expect(storage.isIdentified() == (state == "identified"))
+                    #expect(storage.isPersonProcessing() == (state == "processing"))
+                }
+                // Per-event options leave the registered value and the next event's policy intact.
+                let next = try await captureAndSend(sut) { $0.capture("next") }
+                #expect((next["options"] as? [String: Any])?["process_person_profile"] as? Bool == expected)
+                if registered {
+                    #expect((sut.storage?.getDictionary(forKey: .registerProperties) as? [String: Any])?["$process_person_profile"] as? Bool == legacy)
+                    sut.unregister("$process_person_profile")
+                }
+            }
         }
-        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": true])
     }
 
-    @Test("the SDK sends process_person_profile only as a false option when person processing is off")
-    func processPersonProfileOnlyWhenOff() async throws {
-        let personless = makeSDK(personProfiles: .never)
-        var sent = try await captureAndSend(personless) { $0.capture("test") }
-        personless.close()
-        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
-        #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
-
-        let processed = makeSDK(personProfiles: .always)
-        defer { processed.close() }
-        sent = try await captureAndSend(processed) { $0.capture("test") }
-        #expect((sent["options"] as? [String: Any])?.isEmpty == true)
-        #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
-
-        // A caller property overrides the SDK's state for that event, sent as the option.
-        sent = try await captureAndSend(processed) { $0.capture("test", properties: ["$process_person_profile": false]) }
-        #expect(sent["options"] as? [String: Bool] == ["process_person_profile": false])
-        #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
+    @Test("the SDK sends its person-processing policy as a canonical option")
+    func processPersonProfileDefault() async throws {
+        for (mode, expected) in [(PostHogPersonProfiles.never, false), (.always, true)] {
+            let sut = makeSDK(personProfiles: mode)
+            let sent = try await captureAndSend(sut) { $0.capture("test") }
+            sut.close()
+            #expect(sent["options"] as? [String: Bool] == ["process_person_profile": expected])
+            #expect((sent["properties"] as? [String: Any])?["$process_person_profile"] == nil)
+        }
     }
 
-    @Test("the crash context saves process_person_profile false as an option only when person processing is off")
-    func crashContextSavesPersonlessOption() {
-        for (personProfiles, expected) in [(PostHogPersonProfiles.never, ["process_person_profile": false] as [String: Bool]?), (.always, nil)] {
+    @Test("the crash context saves the current person-processing policy as an option")
+    func crashContextSavesPersonProcessingOption() {
+        for (personProfiles, expected) in [(PostHogPersonProfiles.never, ["process_person_profile": false]), (.always, ["process_person_profile": true])] {
             let sut = makeSDK(personProfiles: personProfiles)
             var context: [String: Any]?
             let token = sut.onEventContextChanged.subscribe { context = $0 }
@@ -737,14 +732,15 @@ final class PostHogCaptureV1OptionsTest {
         let processed = makeSDK(personProfiles: .always)
         processed.config.disableGeoIp = false
         defer { processed.close() }
-        #expect(processed.crashContextFallback().isEmpty)
+        #expect(processed.crashContextFallback()["options"] as? [String: Bool] == ["process_person_profile": true])
     }
 
-    @Test("beforeSend has the final say over options")
-    func beforeSendEditsOptions() async throws {
-        let sut = makeSDK(personProfiles: .never) { event in
+    @Test("beforeSend has the final say over options", arguments: [false, true])
+    func beforeSendEditsOptions(processing: Bool) async throws {
+        let sut = makeSDK(personProfiles: processing ? .always : .never) { event in
             #expect(event.options["product_tour_id"] as? String == "caller-tour")
-            event.options["process_person_profile"] = true
+            #expect(event.options["process_person_profile"] as? Bool == processing)
+            event.options["process_person_profile"] = !processing
             event.options["product_tour_id"] = "edited-tour"
             return event
         }
@@ -752,7 +748,7 @@ final class PostHogCaptureV1OptionsTest {
 
         let sent = try await captureAndSend(sut) { $0.capture("test", options: ["product_tour_id": "caller-tour"]) }
 
-        #expect(sent["options"] as? [String: AnyHashable] == ["process_person_profile": true, "product_tour_id": "edited-tour"])
+        #expect(sent["options"] as? [String: AnyHashable] == ["process_person_profile": !processing, "product_tour_id": "edited-tour"])
     }
 
     @Test("a personless $set doesn't suppress the same properties set later with person processing")
@@ -766,7 +762,7 @@ final class PostHogCaptureV1OptionsTest {
         let events = try await getServerEvents(server)
 
         #expect(events.map(\.event) == ["$set", "$set"])
-        #expect(events.last?.options["process_person_profile"] == nil)
+        #expect(events.last?.options["process_person_profile"] as? Bool == true)
     }
 
     /// `beforeSend` edits only the first `$set`, tagged with `first`, and removes the tag so both
@@ -803,7 +799,7 @@ final class PostHogCaptureV1OptionsTest {
         let events = try await getServerEvents(server)
 
         #expect(events.map(\.event) == ["$set", "$set"])
-        #expect(events.last?.options["process_person_profile"] == nil)
+        #expect(events.last?.options["process_person_profile"] as? Bool == true)
     }
 
     @Test("an update that may be personful clears the stored hash, so going back to the previous properties is sent")
@@ -820,11 +816,13 @@ final class PostHogCaptureV1OptionsTest {
         #expect(events.compactMap { ($0.properties["$set"] as? [String: Any])?["plan"] as? String } == ["a", "b", "a"])
     }
 
-    @Test("an explicit true option beats a legacy false, so the same properties set later are deduplicated")
-    func explicitTrueOptionDeduplicates() async throws {
+    @Test("a canonical true beats a legacy false when deduplicating person updates", arguments: [false, true])
+    func canonicalTrueDeduplicates(explicit: Bool) async throws {
         let sut = makeSDK(personProfiles: .always, flushAt: 2, beforeSend: Self.editFirstSet {
             $0.properties["$process_person_profile"] = false
-            $0.options["process_person_profile"] = true
+            if explicit {
+                $0.options["process_person_profile"] = true
+            }
         })
         defer { sut.close() }
 

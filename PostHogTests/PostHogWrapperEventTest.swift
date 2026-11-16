@@ -271,7 +271,7 @@ final class PostHogWrapperEventTest {
         let built = try #require(build(sut))
 
         #expect(sut.config.storageManager?.isPersonProcessing() == false)
-        #expect(built.options["process_person_profile"] == nil)
+        #expect(built.options["process_person_profile"] as? Bool == true)
 
         sut.sendBuiltEventForWrapper(built, ai: false)
 
@@ -348,8 +348,9 @@ final class PostHogWrapperEventTest {
 
         for name in ["$identify", "$create_alias", "$groupidentify", "$set", "$set_once", "$merge_dangerously"] {
             let event = try #require(sent.first { $0.event == name }, "\(name)")
-            #expect(event.options["process_person_profile"] == nil, "\(name)")
-            #expect(event.properties["$process_person_profile"] == nil, "\(name)")
+            #expect(event.options["process_person_profile"] as? Bool == true, "\(name)")
+            // The mock restores the canonical option as the server-side property.
+            #expect(event.properties["$process_person_profile"] as? Bool == true, "\(name)")
         }
         #expect(sent.first { $0.event == "plain" }?.options["process_person_profile"] as? Bool == false)
     }
@@ -367,8 +368,8 @@ final class PostHogWrapperEventTest {
         #expect(sent.options["process_person_profile"] as? Bool == false)
     }
 
-    @Test("a call property or beforeSend can still turn person processing off for an identity event")
-    func callPropertyOrBeforeSendAppliesToIdentityEvent() async throws {
+    @Test("a call option or beforeSend can still turn person processing off for an identity event")
+    func callOptionOrBeforeSendAppliesToIdentityEvent() async throws {
         let sut = makeSDK { event in
             if event.event == "$identify" {
                 event.options["process_person_profile"] = false
@@ -380,7 +381,7 @@ final class PostHogWrapperEventTest {
 
         var sent: [PostHogEvent] = []
         server.reset(batchCount: 1)
-        sut.capture("$set", properties: ["$process_person_profile": false], userProperties: ["plan": "pro"])
+        sut.capture("$set", properties: ["$process_person_profile": true], userProperties: ["plan": "pro"], options: ["process_person_profile": false])
         sent += try await getServerEvents(server)
         server.reset(batchCount: 1)
         sut.identify("user")

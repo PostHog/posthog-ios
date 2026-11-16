@@ -33,7 +33,8 @@ To upgrade to posthog-ios 4.0.0 from 3.x.x, follow the [migration guide](https:/
 - **Breaking:** disable the SDK at setup when `projectToken` is a personal API key (`phx_...`). Use your project token (`phc_...`)
 - **Breaking:** pause sending for at most 30 seconds on `Retry-After`, including session replay and logs
 - **Breaking:** send `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` as capture options, so PostHog drops an event whose option value it can't read
-- **Breaking:** let registered super properties override SDK properties such as `$os`, and let super and event properties override `$is_identified`, `$process_person_profile`, `$geoip_disable` and the session replay debug values
+- **Breaking:** let registered super properties override SDK properties such as `$os`, and let super and event properties override `$is_identified`, `$geoip_disable` and the session replay debug values
+- Set the canonical `process_person_profile` option from `personProfiles` and identity state, ignoring registered and caller legacy properties; explicit canonical options and `beforeSend` can override it
 - Ignore a registered `$process_person_profile` or `process_person_profile` option on `$identify`, `$create_alias`, `$merge_dangerously`, `$groupidentify`, `$set` and `$set_once`, so a registered `false` doesn't stop identifying users
 - **Breaking:** fill `$lib` and `$lib_version` as a pair after your properties, so a `$lib` you pass without `$lib_version` is sent without one and a `$lib_version` without `$lib` is replaced
 - **Breaking:** let `userProperties`, `userPropertiesSetOnce` and `groups` win key by key over `$set`, `$set_once` and `$groups` passed in the same call's properties

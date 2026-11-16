@@ -50,7 +50,7 @@ Read the checklist first, then the sections that apply to you.
 - [ ] You read `$session_id` or `$window_id` from the raw request body, for example in a proxy → [Check session IDs](#check-session-ids)
 - [ ] You register a super property, or pass an event property, with the same key as one the SDK sets, such as `$os`, `$is_identified`, or `$geoip_disable`, and expect the SDK's value to win → [Check property precedence](#check-property-precedence)
 - [ ] You replace `event.options` in `beforeSend`, or return an event kept from an earlier call → [Keep options in beforeSend](#keep-options-in-beforesend)
-- [ ] You register `$process_person_profile` as `false` and expect it to keep every event personless → [Check registered person processing](#check-registered-person-processing)
+- [ ] You use legacy `$process_person_profile` properties to control person processing → [Check registered person processing](#check-registered-person-processing)
 - [ ] You rely on a `Retry-After` longer than 30 seconds → [Check retries and batches](#check-retries-and-batches)
 - [ ] You use error tracking and ship your own code in a dynamic framework → [Check in-app frames](#check-in-app-frames)
 - [ ] You might go back to 3.x.x after you ship 4.x.x → [Plan your rollback](#plan-your-rollback)
@@ -568,13 +568,13 @@ A hook that replaces `event.options` without keeping that key, or returns an eve
 
 ### Check registered person processing
 
-A registered `$process_person_profile` changes person processing for every event. In 3.x.x, the SDK replaced a registered `$process_person_profile` with its own value, so a registered `false` had no effect.
+The SDK sets the `process_person_profile` option from `personProfiles` and the current identity and processing state. A registered or caller `$process_person_profile` property cannot override that value.
 
-In 4.x.x a registered `false` applies, also after `identify` and with `personProfiles` set to `.always`. Those events don't change the person profile, and their `$set` is ignored. They're still linked to the person and billed as identified events.
+To override person processing for one event, pass a non-null `process_person_profile` option or change `event.options` in `beforeSend`. Wrapper SDKs can register canonical options for ordinary events.
 
 A registered `$process_person_profile`, or a `process_person_profile` option a wrapper SDK registers, doesn't apply to identity events: `$identify`, `$create_alias`, `$merge_dangerously`, `$groupidentify`, `$set`, and `$set_once`. With person processing off, PostHog drops `$identify`, `$create_alias`, `$merge_dangerously`, and `$groupidentify`, and keeps `$set` and `$set_once` but ignores their person update. So a registered `false` would stop `identify`, `alias`, `group`, and `setPersonProperties` from working.
 
-A value you pass on the call, or set in `beforeSend`, still applies. To create no person profiles at all, set `personProfiles` to `.never`. The SDK then skips these calls.
+A canonical option you pass on the call, or set in `beforeSend`, still applies. Setting `personProfiles` to `.never` turns processing off by default and makes the SDK skip these identity calls; explicit canonical options and hook edits remain per-event overrides.
 
 ### Check retries and batches
 
@@ -665,12 +665,12 @@ The legacy option properties still work. They're the `$`-prefixed properties tha
 
 These rules decide which value PostHog reads:
 
-- **Precedence.** An option you pass to any of these methods or set in `beforeSend` wins over its legacy property. An option set to `NSNull()` counts as unset, so the legacy property fills it.
-- **Person processing.** When `personProfiles` turns person processing off, the SDK sets the `process_person_profile` option to `false`. Otherwise it sends neither, because PostHog processes person profiles by default.
-- **One event.** To change person processing for one event, pass the `process_person_profile` option or the `$process_person_profile` property.
+- **Precedence.** A non-null canonical option wins over its legacy property. Before `beforeSend`, missing or null person-processing options use the SDK policy; other options can be filled from their legacy properties at send time. If a hook removes or nulls a canonical option, the legacy property can fill it at send time.
+- **Person processing.** The SDK supplies `process_person_profile: false` or `true` from `personProfiles` and the current identity and processing state, unless a non-null canonical option is already set. Missing or null canonical options use that SDK default before `beforeSend` runs.
+- **One event.** To change person processing for one event, pass the `process_person_profile` option or edit it in `beforeSend`. A legacy `$process_person_profile` property does not override the SDK default.
 - **Later events.** Calling `group()`, or passing `userProperties`, `userPropertiesSetOnce`, or `groups`, still turns person processing on for later events when `personProfiles` is `.identifiedOnly`, as in 3.x.x.
 - **Other keys.** Other option keys are sent unchanged, and PostHog ignores keys it doesn't know.
-- **Every event.** There are no global options. To set one for every event, register its legacy property, for example `register(["$cookieless_mode": true])`.
+- **Every event.** There are no global options. For settings other than person processing, register the legacy property, for example `register(["$cookieless_mode": true])`. Use `personProfiles` for the default person-processing policy.
 - **Queued events.** Events still queued on disk by 3.x.x are sent to capture v1 after the update, with their legacy properties moved to options.
 
 For the changes every capture v1 SDK shares, such as event options, limits, and per-event results, see [Upgrading to capture v1 SDKs](https://posthog.com/docs/api/capture-v1).

@@ -638,15 +638,12 @@ let maxRetryDelay = 30.0
         )
     }
 
-    /// The event's options over the wrapper-registered ones, plus `process_person_profile: false` when
-    /// the SDK doesn't process person profiles for this event, unless an option or the legacy
-    /// `$process_person_profile` property already says otherwise. Nothing is added otherwise: PostHog
-    /// processes person profiles by default. `personProcessingPending` counts a person-processing
-    /// change a wrapper build defers to its send. An identity `event` skips the registered
-    /// `process_person_profile`.
+    /// The event's options over the wrapper-registered ones, defaulting `process_person_profile` to
+    /// the SDK's person-processing policy. Legacy properties don't override this default.
+    /// `personProcessingPending` counts a person-processing change a wrapper build defers to its
+    /// send. An identity `event` skips the registered `process_person_profile`.
     private func optionsForEvent(
         _ options: [String: Any]?,
-        properties: [String: Any],
         event: String? = nil,
         personProcessingPending: Bool = false
     ) -> [String: Any]? {
@@ -656,13 +653,9 @@ let maxRetryDelay = 30.0
             registered.removeValue(forKey: "process_person_profile")
         }
         let merged = registered.isEmpty ? options : registered.merging(options ?? [:]) { _, event in event }
-        guard !hasPersonProcessing(), !(personProcessingPending && config.personProfiles != .never) else { return merged }
-        if !isNullValue(properties["$process_person_profile"]) {
-            return merged
-        }
         var options = merged ?? [:]
         if isNullValue(options["process_person_profile"]) {
-            options["process_person_profile"] = false
+            options["process_person_profile"] = hasPersonProcessing() || (personProcessingPending && config.personProfiles != .never)
         }
         return options
     }
@@ -1062,7 +1055,8 @@ let maxRetryDelay = 30.0
     ///
     /// A registered `$process_person_profile` isn't sent with `$identify`, `$create_alias`,
     /// `$merge_dangerously`, `$groupidentify`, `$set` or `$set_once`, so it can't stop those
-    /// events from updating persons and groups. A value passed on the call still applies.
+    /// events from updating persons and groups. A canonical `process_person_profile` option
+    /// passed on the call still applies.
     ///
     /// - Parameter properties: Event properties to persist and attach to future captures.
     @objc(registerProperties:)
@@ -1288,7 +1282,7 @@ let maxRetryDelay = 30.0
                     event: eventName,
                     distinctId: distinctId,
                     properties: properties,
-                    options: optionsForEvent(sanitizeDictionary(options), properties: properties, event: eventName)
+                    options: optionsForEvent(sanitizeDictionary(options), event: eventName)
                 ) else {
                     return
                 }
@@ -1665,10 +1659,10 @@ let maxRetryDelay = 30.0
     ///     - `product_tour_id` (`String`): the product tour the event belongs to.
     ///
     ///     These replace the `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and
-    ///     `$product_tour_id` properties. Those properties still work: they are removed from the
-    ///     event's properties and used as the option, unless you set that option here. A
-    ///     `$process_person_profile` property you pass or register overrides the SDK's default,
-    ///     except that a registered one doesn't apply to identity events (see `register(_:)`).
+    ///     `$product_tour_id` properties. Legacy properties are removed and fill missing options.
+    ///     The SDK supplies `process_person_profile` from `personProfiles` and the current identity
+    ///     state, so a legacy `$process_person_profile` property doesn't override that policy.
+    ///     Set the canonical option here or in `beforeSend` to override it for this event.
     ///     Other keys are sent unchanged and ignored by PostHog. PostHog drops an
     ///     event whose option value it can't read.
     ///     `beforeSend` can change them through `PostHogEvent.options`.
@@ -2066,7 +2060,7 @@ let maxRetryDelay = 30.0
         // one saved with their crash context.
         let eventOptions = skipBuildProperties || isSnapshotEvent
             ? sanitizeDictionary(options)
-            : optionsForEvent(sanitizeDictionary(options), properties: finalProperties, event: event, personProcessingPending: forWrapper && hasPersonData)
+            : optionsForEvent(sanitizeDictionary(options), event: event, personProcessingPending: forWrapper && hasPersonData)
 
         let posthogEvent = makeEvent(
             event: event,
@@ -2449,7 +2443,7 @@ let maxRetryDelay = 30.0
             event: eventName,
             distinctId: distinctId,
             properties: properties,
-            options: optionsForEvent(sanitizeDictionary(options), properties: properties),
+            options: optionsForEvent(sanitizeDictionary(options)),
             timestamp: Date()
         )
         return PreparedScreen(event: event, screenName: cleaned, screenNameChanged: screenNameChanged)
@@ -2548,7 +2542,7 @@ let maxRetryDelay = 30.0
 
         let properties = buildProperties(event: eventName, distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: optionsForEvent(nil, properties: properties)) else {
+        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties, options: optionsForEvent(nil)) else {
             return
         }
 
@@ -2609,7 +2603,7 @@ let maxRetryDelay = 30.0
             event: eventName,
             distinctId: distinctId,
             properties: properties,
-            options: optionsForEvent(sanitizeDictionary(options), properties: properties, event: eventName)
+            options: optionsForEvent(sanitizeDictionary(options), event: eventName)
         ) else {
             return
         }
@@ -2680,7 +2674,7 @@ let maxRetryDelay = 30.0
             event: eventName,
             distinctId: distinctId,
             properties: properties,
-            options: optionsForEvent(sanitizeDictionary(options), properties: properties, event: eventName)
+            options: optionsForEvent(sanitizeDictionary(options), event: eventName)
         ) else {
             return
         }
@@ -4447,7 +4441,7 @@ let maxRetryDelay = 30.0
         if config.disableGeoIp {
             context["event_properties"] = ["$geoip_disable": true]
         }
-        if let options = optionsForEvent(nil, properties: [:]) {
+        if let options = optionsForEvent(nil) {
             context["options"] = options
         }
         return context
@@ -4494,7 +4488,7 @@ let maxRetryDelay = 30.0
             "event_properties": eventProperties,
         ]
         // Person processing is an option, not a property (see `optionsForEvent`).
-        if let options = optionsForEvent(nil, properties: eventProperties) {
+        if let options = optionsForEvent(nil) {
             context["options"] = options
         }
 

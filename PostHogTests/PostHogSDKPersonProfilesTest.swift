@@ -66,21 +66,21 @@ final class PostHogSDKPersonProfilesTest {
         sut.close()
     }
 
-    @Test("a caller $process_person_profile property overrides the SDK")
-    func callerOverridesProcessPersonProfile() throws {
+    @Test("a caller legacy property cannot enable processing in never mode")
+    func legacyPropertyKeepsPersonProcessingPolicy() throws {
         let sut = getSut(personProfiles: .never)
 
         sut.capture("test event", properties: ["$process_person_profile": true])
 
         let event = try #require(getBatchedEvents(server).first)
-        #expect(event.options["process_person_profile"] as? Bool == true)
+        #expect(event.options["process_person_profile"] as? Bool == false)
 
         sut.reset()
         sut.close()
     }
 
-    @Test("capture sends no process person option if identified only and with user props")
-    func captureSendsNoProcessPersonOptionIfIdentifiedOnlyWithUserProps() throws {
+    @Test("capture sets the process person option to true if identified only and with user props")
+    func captureSetsProcessPersonTrueIfIdentifiedOnlyWithUserProps() throws {
         let sut = getSut()
 
         sut.capture("test event",
@@ -92,14 +92,14 @@ final class PostHogSDKPersonProfilesTest {
 
         let event = try #require(events.first)
 
-        #expect(event.options["process_person_profile"] == nil)
+        #expect(event.options["process_person_profile"] as? Bool == true)
 
         sut.reset()
         sut.close()
     }
 
-    @Test("capture sends no process person option if identified only and with user set once props")
-    func captureSendsNoProcessPersonOptionIfIdentifiedOnlyWithUserSetOnceProps() throws {
+    @Test("capture sets the process person option to true if identified only and with user set once props")
+    func captureSetsProcessPersonTrueIfIdentifiedOnlyWithUserSetOnceProps() throws {
         let sut = getSut()
 
         sut.capture("test event",
@@ -111,14 +111,14 @@ final class PostHogSDKPersonProfilesTest {
 
         let event = try #require(events.first)
 
-        #expect(event.options["process_person_profile"] == nil)
+        #expect(event.options["process_person_profile"] as? Bool == true)
 
         sut.reset()
         sut.close()
     }
 
-    @Test("capture sends no process person option if identified only and with group props")
-    func captureSendsNoProcessPersonOptionIfIdentifiedOnlyWithGroupProps() throws {
+    @Test("capture sets the process person option to true if identified only and with group props")
+    func captureSetsProcessPersonTrueIfIdentifiedOnlyWithGroupProps() throws {
         let sut = getSut()
 
         sut.capture("test event",
@@ -130,14 +130,14 @@ final class PostHogSDKPersonProfilesTest {
 
         let event = try #require(events.first)
 
-        #expect(event.options["process_person_profile"] == nil)
+        #expect(event.options["process_person_profile"] as? Bool == true)
 
         sut.reset()
         sut.close()
     }
 
-    @Test("capture sends no process person option if identified only and identified")
-    func captureSendsNoProcessPersonOptionIfIdentifiedOnlyAndIdentified() throws {
+    @Test("capture sets the process person option to true if identified only and identified")
+    func captureSetsProcessPersonTrueIfIdentifiedOnlyAndIdentified() throws {
         let sut = getSut(flushAt: 2)
 
         sut.identify("distinctId")
@@ -150,14 +150,14 @@ final class PostHogSDKPersonProfilesTest {
 
         let event = try #require(events.last)
 
-        #expect(event.options["process_person_profile"] == nil)
+        #expect(event.options["process_person_profile"] as? Bool == true)
 
         sut.reset()
         sut.close()
     }
 
-    @Test("capture sends no process person option if identified only and with alias")
-    func captureSendsNoProcessPersonOptionIfIdentifiedOnlyWithAlias() throws {
+    @Test("capture sets the process person option to true if identified only and with alias")
+    func captureSetsProcessPersonTrueIfIdentifiedOnlyWithAlias() throws {
         let sut = getSut(flushAt: 2)
 
         sut.alias("distinctId")
@@ -170,14 +170,14 @@ final class PostHogSDKPersonProfilesTest {
 
         let event = try #require(events.last)
 
-        #expect(event.options["process_person_profile"] == nil)
+        #expect(event.options["process_person_profile"] as? Bool == true)
 
         sut.reset()
         sut.close()
     }
 
-    @Test("capture sends no process person option if identified only and with groups")
-    func captureSendsNoProcessPersonOptionIfIdentifiedOnlyWithGroups() throws {
+    @Test("capture sets the process person option to true if identified only and with groups")
+    func captureSetsProcessPersonTrueIfIdentifiedOnlyWithGroups() throws {
         let sut = getSut(flushAt: 2)
 
         sut.group(type: "theType", key: "theKey")
@@ -190,14 +190,14 @@ final class PostHogSDKPersonProfilesTest {
 
         let event = try #require(events.last)
 
-        #expect(event.options["process_person_profile"] == nil)
+        #expect(event.options["process_person_profile"] as? Bool == true)
 
         sut.reset()
         sut.close()
     }
 
-    @Test("capture sends no process person option if always")
-    func captureSendsNoProcessPersonOptionIfAlways() throws {
+    @Test("capture sets the process person option to true if always")
+    func captureSetsProcessPersonTrueIfAlways() throws {
         let sut = getSut(personProfiles: .always)
 
         sut.capture("test event")
@@ -208,7 +208,7 @@ final class PostHogSDKPersonProfilesTest {
 
         let event = try #require(events.first)
 
-        #expect(event.options["process_person_profile"] == nil)
+        #expect(event.options["process_person_profile"] as? Bool == true)
 
         sut.reset()
         sut.close()

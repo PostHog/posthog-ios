@@ -12,7 +12,6 @@
 		ABCD00000000000000000103 /* PostHogErrorTrackingIgnoredTypesTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000203; };
 		ABCD00000000000000000104 /* PostHogExceptionStepsBufferTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000204; };
 		ABCD00000000000000000105 /* PostHogExceptionStepsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000205; };
-		936AE27CCD93789510712CE3 /* PostHogCaptureExceptionStackTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DFB2B82E9C8F0578768B04C /* PostHogCaptureExceptionStackTest.swift */; };
 		ABCD00000000000000000106 /* PostHogFeatureFlagsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000206; };
 		ABCD00000000000000000107 /* PostHogFeatureFlagsV3Test.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000207; };
 		ABCD00000000000000000108 /* PostHogFileBackedQueueAlignmentTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000208; };
@@ -881,7 +880,6 @@
 		ABCD00000000000000000203 /* PostHogErrorTrackingIgnoredTypesTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogErrorTrackingIgnoredTypesTest.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000204 /* PostHogExceptionStepsBufferTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExceptionStepsBufferTest.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000205 /* PostHogExceptionStepsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExceptionStepsTest.swift; sourceTree = "<group>"; };
-		4DFB2B82E9C8F0578768B04C /* PostHogCaptureExceptionStackTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogCaptureExceptionStackTest.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000206 /* PostHogFeatureFlagsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlagsTest.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000207 /* PostHogFeatureFlagsV3Test.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlagsV3Test.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000208 /* PostHogFileBackedQueueAlignmentTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFileBackedQueueAlignmentTest.swift; sourceTree = "<group>"; };
@@ -1907,7 +1905,6 @@
 				ABCD00000000000000000203 /* PostHogErrorTrackingIgnoredTypesTest.swift */,
 				ABCD00000000000000000204 /* PostHogExceptionStepsBufferTest.swift */,
 				ABCD00000000000000000205 /* PostHogExceptionStepsTest.swift */,
-				4DFB2B82E9C8F0578768B04C /* PostHogCaptureExceptionStackTest.swift */,
 				ABCD00000000000000000206 /* PostHogFeatureFlagsTest.swift */,
 				ABCD00000000000000000207 /* PostHogFeatureFlagsV3Test.swift */,
 				ABCD00000000000000000208 /* PostHogFileBackedQueueAlignmentTest.swift */,
@@ -3843,7 +3840,6 @@
 				ABCD00000000000000000103 /* PostHogErrorTrackingIgnoredTypesTest.swift in Sources */,
 				ABCD00000000000000000104 /* PostHogExceptionStepsBufferTest.swift in Sources */,
 				ABCD00000000000000000105 /* PostHogExceptionStepsTest.swift in Sources */,
-				936AE27CCD93789510712CE3 /* PostHogCaptureExceptionStackTest.swift in Sources */,
 				ABCD00000000000000000106 /* PostHogFeatureFlagsTest.swift in Sources */,
 				ABCD00000000000000000107 /* PostHogFeatureFlagsV3Test.swift in Sources */,
 				ABCD00000000000000000108 /* PostHogFileBackedQueueAlignmentTest.swift in Sources */,

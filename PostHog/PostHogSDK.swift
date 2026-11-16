@@ -3191,9 +3191,13 @@ let maxRetryDelay = 30.0
     ) {
         guard isEnabled() else { return }
 
-        // Read in the public entry point itself; see `captureError(_:properties:callerStack:)`
-        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
-        captureError(error, properties: properties, callerStack: callerStack)
+        let errorProperties = PostHogExceptionProcessor.errorToProperties(
+            error,
+            handled: true,
+            config: config.errorTrackingConfig
+        )
+
+        captureExceptionEvent(errorProperties, additionalProperties: properties)
     }
 
     /// Capture a Swift Error or NSError without additional properties
@@ -3206,10 +3210,7 @@ let maxRetryDelay = 30.0
     public func captureException(
         _ error: Error
     ) {
-        guard isEnabled() else { return }
-
-        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
-        captureError(error, properties: nil, callerStack: callerStack)
+        captureException(error, properties: nil)
     }
 
     /// Capture an NSException
@@ -3237,8 +3238,13 @@ let maxRetryDelay = 30.0
     ) {
         guard isEnabled() else { return }
 
-        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
-        captureNSException(exception, properties: properties, callerStack: callerStack)
+        let exceptionProperties = PostHogExceptionProcessor.exceptionToProperties(
+            exception,
+            handled: true,
+            config: config.errorTrackingConfig
+        )
+
+        captureExceptionEvent(exceptionProperties, additionalProperties: properties)
     }
 
     /// Capture an NSException without additional properties
@@ -3251,49 +3257,7 @@ let maxRetryDelay = 30.0
     public func captureException(
         _ exception: NSException
     ) {
-        guard isEnabled() else { return }
-
-        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
-        captureNSException(exception, properties: nil, callerStack: callerStack)
-    }
-
-    /// Captures a handled error with the caller's stack.
-    ///
-    /// Every public `captureException` overload reads `Thread.callStackReturnAddresses` in its own body
-    /// and drops index 0 (its own frame), so the trace starts at the app's call site. The SDK's frames
-    /// can't be recognized afterwards: when the SDK is statically linked they share the app's binary,
-    /// and stripped release builds have no symbol names. Don't move that read into a helper or route
-    /// one overload through another, as either adds an SDK frame above the caller.
-    private func captureError(
-        _ error: Error,
-        properties: [String: Any]?,
-        callerStack: [NSNumber]
-    ) {
-        let errorProperties = PostHogExceptionProcessor.errorToProperties(
-            error,
-            handled: true,
-            config: config.errorTrackingConfig,
-            callerStack: callerStack
-        )
-
-        captureExceptionEvent(errorProperties, additionalProperties: properties)
-    }
-
-    /// Captures a handled NSException; `callerStack` is only used when the exception was never raised.
-    /// See `captureError(_:properties:callerStack:)`.
-    private func captureNSException(
-        _ exception: NSException,
-        properties: [String: Any]?,
-        callerStack: [NSNumber]
-    ) {
-        let exceptionProperties = PostHogExceptionProcessor.exceptionToProperties(
-            exception,
-            handled: true,
-            config: config.errorTrackingConfig,
-            callerStack: callerStack
-        )
-
-        captureExceptionEvent(exceptionProperties, additionalProperties: properties)
+        captureException(exception, properties: nil)
     }
 
     /// Record an exception step (breadcrumb-style context record).

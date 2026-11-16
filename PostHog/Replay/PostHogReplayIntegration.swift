@@ -1166,7 +1166,7 @@
         /// All regions to redact in `window`: heuristic widgets from the hierarchy walk plus the
         /// live regions of `postHogMask()` reporters. Returns nil when a reporter hasn't laid out
         /// yet — the caller must skip the frame rather than capture it under-masked.
-        /// Pre-existing limitation with `screenshotModeBackgroundCapture` (off by default): pixels
+        /// Pre-existing limitation with the `.background` capture method (off by default): pixels
         /// render after this collection, so any rect source can go stale for content committed in
         /// between.
         /// `portalSources` are views a GPU capture also draws through a portal: they're masked wherever they sit,
@@ -1549,8 +1549,8 @@
                 return false
             }
             // Off-main on purpose, and the reason this mode exists: drawHierarchy on main was too
-            // slow to keep up. UIKit documents it as main-thread-only, so it stays experimental
-            // behind `screenshotModeBackgroundCapture` — the bracketing above is what keeps masks
+            // slow to keep up. UIKit documents it as main-thread-only, so it stays opt-in
+            // behind the `.background` capture method — the bracketing above is what keeps masks
             // aligned with pixels despite the render happening on this thread.
             let image = window.toImage()
             let capture = DispatchQueue.main.sync { () -> ScreenshotCapture? in
@@ -2258,19 +2258,7 @@
     }
 
     extension PostHogReplayIntegration {
-        enum ScreenshotCapturePath {
-            case gpu, background, settled
-        }
-
-        /// Which path screenshot mode captures with. GPU capture takes precedence over background capture.
-        static func screenshotCapturePath(_ config: PostHogSessionReplayConfig) -> ScreenshotCapturePath {
-            if config.screenshotModeGPUCapture {
-                return .gpu
-            }
-            return config.screenshotModeBackgroundCapture ? .background : .settled
-        }
-
-        /// Main thread, screenshot mode. Claims the render slot and starts a capture down the configured path;
+        /// Main thread. Claims the render slot and starts a capture down the configured path;
         /// false when a capture is already in flight. The path owns the slot from here and gives it back when done.
         @discardableResult
         func startScreenshotCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) -> Bool {
@@ -2278,12 +2266,12 @@
                 return false
             }
 
-            switch Self.screenshotCapturePath(postHog.config.sessionReplayConfig) {
+            switch postHog.config.sessionReplayConfig.captureMethod {
             case .gpu:
                 scheduleGPUCapture(window: window, screenName: screenName, postHog: postHog)
             case .background:
                 scheduleBracketedBackgroundCapture(window: window, screenName: screenName, postHog: postHog)
-            case .settled:
+            case .standard:
                 scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)
             }
             return true
@@ -2300,7 +2288,7 @@
             /// Any thread. GPU capture's cached renderers are freed on memory warnings, not when recording stops: a new
             /// session would only build them again.
             func observeMemoryWarnings(_ postHog: PostHogSDK) {
-                guard Self.screenshotCapturePath(postHog.config.sessionReplayConfig) == .gpu else { return }
+                guard postHog.config.sessionReplayConfig.captureMethod == .gpu else { return }
                 memoryWarningObserver = NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification,
                                                                                object: nil, queue: .main)
                 { [weak self] _ in
@@ -2324,7 +2312,7 @@
             /// background (no GPU work there); becoming active calls it again.
             func prewarmGPUCapture(_ postHog: PostHogSDK) {
                 let replayConfig = postHog.config.sessionReplayConfig
-                guard Self.screenshotCapturePath(replayConfig) == .gpu,
+                guard replayConfig.captureMethod == .gpu,
                       !DI.main.appLifecyclePublisher.isInBackground
                 else { return }
                 // Metal device creation stays off main.

@@ -52,6 +52,7 @@ Read the checklist first, then the sections that apply to you.
 - [ ] You replace `event.options` in `beforeSend`, or return an event kept from an earlier call → [Keep options in beforeSend](#keep-options-in-beforesend)
 - [ ] You register `$process_person_profile` as `false` and expect it to keep every event personless → [Check registered person processing](#check-registered-person-processing)
 - [ ] You rely on a `Retry-After` longer than 30 seconds → [Check retries and batches](#check-retries-and-batches)
+- [ ] You use error tracking and ship your own code in a dynamic framework → [Check in-app frames](#check-in-app-frames)
 - [ ] You might go back to 3.x.x after you ship 4.x.x → [Plan your rollback](#plan-your-rollback)
 
 **Follow ups**
@@ -603,6 +604,20 @@ These rules also apply:
 - **A 413.** A 413 halves the batch and resends it, until a request carries one event. A single event that still gets a 413 is dropped. 3.x.x did the same.
 - **Large events.** The SDK has no per-event size limit for analytics events, as in 3.x.x. An event larger than about 5 MiB is sent in a request of its own.
 - **`beforeSend`.** It runs when you capture the event, before it's queued, so batching, splitting, and retries never change what it sees.
+
+### Check in-app frames
+
+Error tracking marks a stack frame as in-app only when it comes from your app's executable or from a binary in `errorTrackingConfig.inAppIncludes`. In 3.x.x, frames from any framework that wasn't a system framework were in-app, so third-party frameworks showed up as your code.
+
+- **Swift packages.** Code linked statically into your app, such as most Swift packages, is part of your app's executable, so it stays in-app.
+- **Your own dynamic frameworks.** A framework whose name starts with your app's executable name or bundle identifier stays in-app. Add any other framework that holds your code to `inAppIncludes`:
+
+  ```swift
+  config.errorTrackingConfig.inAppIncludes.append("NetworkingKit")
+  ```
+
+- **3.x.x behavior.** Set `config.errorTrackingConfig.inAppByDefault = true`.
+- **Issues.** Some existing error tracking issues may get a new issue location, or open as new issues.
 
 ### Plan your rollback
 

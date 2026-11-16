@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 #if SWIFT_PACKAGE
     import PostHogTestsObjC
 #endif
@@ -22,6 +22,7 @@ private final class SDKTestFixture {
     // starve the background thread pool, stalling async work (flag loads, flushes) on CI.
     private var trackedSuts: [PostHogSDK] = []
     var server: MockPostHogServer!
+    let projectToken = "sdk-test-\(UUID().uuidString)"
     let mockAppLifecycle = MockApplicationLifecyclePublisher()
 
     init() {
@@ -29,6 +30,8 @@ private final class SDKTestFixture {
 
         Self.deleteDefaults()
         server = MockPostHogServer(version: 4)
+        server.batchProjectToken = projectToken
+        server.flagsProjectToken = projectToken
         server.start()
 
         DI.main.appLifecyclePublisher = mockAppLifecycle
@@ -66,7 +69,7 @@ private final class SDKTestFixture {
                 setDefaultPersonProperties: Bool = true,
                 beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
     {
-        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.preloadFeatureFlags = preloadFeatureFlags
         config.sendFeatureFlagEvent = sendFeatureFlagEvent
@@ -105,6 +108,27 @@ private var hostAppVersionKeys: Set<String> {
     hostAppInfoHas("CFBundleShortVersionString") ? ["$app_version"] : []
 }
 
+/// Runs `onOptOutChange` on the thread that writes `optOut`, so a test can act mid-optIn()/optOut().
+private final class OptOutObservingConfig: PostHogConfig {
+    var onOptOutChange: (() -> Void)?
+
+    override var optOut: Bool {
+        didSet { onOptOutChange?() }
+    }
+}
+
+private final class LockedBox<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _value: T
+    init(_ value: T) {
+        _value = value
+    }
+    var value: T {
+        get { lock.withLock { _value } }
+        set { lock.withLock { _value = newValue } }
+    }
+}
+
 @Suite("PostHogSDK", .serialized, .resetsGlobalState)
 final class PostHogSDKTests {
     private let fixture = SDKTestFixture()
@@ -133,7 +157,7 @@ final class PostHogSDKTests {
     }
 
     private func bootstrapReconcileConfig(existing: (anon: String, distinct: String?, identified: Bool)) -> PostHogConfig {
-        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: fixture.projectToken, host: "http://localhost:9001")
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
         config.disableFlushOnBackgroundForTesting = true
@@ -248,12 +272,41 @@ final class PostHogSDKTests {
         #expect(installed?.distinctId == "user-123")
     }
 
+    @Test("SDK fixtures ignore late batches from other tests")
+    static func fixtureIgnoresBatchesFromOtherTests() throws {
+        let previousProjectToken: String
+        do {
+            let previousFixture = SDKTestFixture()
+            previousProjectToken = previousFixture.getSut().config.projectToken
+        }
+        let fixture = SDKTestFixture()
+        let server: MockPostHogServer = fixture.server
+        let sut = fixture.getSut()
+        #expect(sut.config.projectToken != previousProjectToken)
+
+        let previousEvent = PostHogEvent(event: "Application Installed", distinctId: "user-existing")
+        var delayedRequest = URLRequest(url: URL(string: "http://localhost:9001/batch")!)
+        delayedRequest.httpBody = try JSONSerialization.data(withJSONObject: [
+            "api_key": previousProjectToken,
+            "batch": [previousEvent.toJSON()],
+        ]).gzipped()
+
+        server.trackBatchRequest(delayedRequest)
+        #expect(server.batchRequests.isEmpty)
+
+        sut.capture("current-fixture-event")
+
+        let events = getBatchedEvents(server)
+        #expect(events.map(\.event) == ["current-fixture-event"])
+        #expect(events.first?.distinctId == sut.getDistinctId())
+    }
+
     // The .never asymmetry below is intentional posthog-js parity: the fresh-install seed applies the
     // identity via an ungated write, while the returning-anon path routes through identify(), which
     // no-ops under .never. These lock in that behavior so it isn't "made consistent" by mistake.
     @Test("applies an identified bootstrap on a fresh install even when personProfiles is never")
     func appliesIdentifiedBootstrapOnFreshInstallWhenPersonProfilesNever() {
-        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: fixture.projectToken, host: "http://localhost:9001")
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
         config.disableFlushOnBackgroundForTesting = true
@@ -366,6 +419,36 @@ final class PostHogSDKTests {
         #expect(config.storageManager?.isIdentified() == true)
     }
 
+    @Test("captureException properties can't override the exception list or debug images")
+    func captureExceptionKeepsSDKOwnedKeys() throws {
+        let sut = getSut()
+
+        sut.captureException(
+            NSError(domain: "TestDomain", code: 1),
+            properties: [
+                "$exception_list": [["type": "Fake", "value": "fake"]],
+                "$exception_level": "debug",
+                "$exception_source": "fake.source",
+                "$debug_images": [["debug_id": "fake"]],
+                "foo": "bar",
+            ]
+        )
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.event == "$exception")
+        let exceptionList = event.properties["$exception_list"] as? [[String: Any]]
+        #expect(exceptionList?.first?["type"] as? String == "TestDomain")
+        // the level and source stay caller-overridable, since there's no other way to set the level
+        #expect(event.properties["$exception_level"] as? String == "debug")
+        #expect(event.properties["$exception_source"] as? String == "fake.source")
+        let debugImages = event.properties["$debug_images"] as? [[String: Any]] ?? []
+        #expect(!debugImages.contains { $0["debug_id"] as? String == "fake" })
+        #expect(event.properties["foo"] as? String == "bar")
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("captures the capture event")
     func capturesTheCaptureEvent() throws {
         let sut = getSut()
@@ -396,6 +479,27 @@ final class PostHogSDKTests {
 
         sut.reset()
         sut.close()
+    }
+
+    @Test("close() sends queued events before stopping")
+    func closeSendsQueuedEvents() async throws {
+        server.reset(batchCount: 1)
+        let sut = getSut(flushAt: 10)
+        let queueFolder = PostHogStorage(sut.config).url(forKey: .queue)
+
+        sut.capture("Save")
+        sut.close()
+
+        let events = getBatchedEvents(server)
+        #expect(events.map(\.event) == ["Save"])
+
+        // The delivered event is removed from disk, so the next setup doesn't send it again.
+        let queuedFiles = { (try? FileManager.default.contentsOfDirectory(atPath: queueFolder.path))?.count ?? 0 }
+        let deadline = Date().addingTimeInterval(5)
+        while queuedFiles() > 0, Date() < deadline {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        #expect(queuedFiles() == 0)
     }
 
     #if os(iOS)
@@ -623,6 +727,47 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("a reader never sees opt-out consent before integrations are uninstalled")
+    func optOutAppliesConsentWithItsTransition() {
+        let config = OptOutObservingConfig(projectToken: fixture.projectToken, host: "http://localhost:9001")
+        config.flushAt = 1
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
+        config.captureApplicationLifecycleEvents = true
+        config.persistOptOut = false
+        PostHogStorage(config).reset()
+        let sut = PostHogSDK.with(config)
+        fixture.track(sut)
+        // Setup captures `Application Installed`; drain it so the upload can't land on the next test's server.
+        _ = getBatchedEvents(server)
+        #expect(sut.getAppLifeCycleIntegration() != nil)
+
+        let probeDone = DispatchSemaphore(value: 0)
+        let probed = LockedBox<(optedOut: Bool, installed: Bool)?>(nil)
+        config.onOptOutChange = {
+            config.onOptOutChange = nil
+            // While optOut() writes consent, read it from another thread together with the integrations
+            DispatchQueue.global().async {
+                let optedOut = sut.isOptOut()
+                probed.value = (optedOut, sut.getAppLifeCycleIntegration() != nil)
+                probeDone.signal()
+            }
+            // Give the reader time to run if nothing blocks it; it must not observe a half-applied opt-out
+            if probeDone.wait(timeout: .now() + 0.5) == .success {
+                probeDone.signal()
+            }
+        }
+
+        sut.optOut()
+        #expect(probeDone.wait(timeout: .now() + 5) == .success)
+
+        #expect(probed.value?.optedOut == true)
+        #expect(probed.value?.installed == false)
+        #expect(sut.isOptOut())
+        #expect(sut.getAppLifeCycleIntegration() == nil)
+    }
+
     @Test("does not capture event if opt out")
     func doesNotCaptureEventIfOptOut() {
         let sut = getSut()
@@ -783,6 +928,50 @@ final class PostHogSDKTests {
         // Not on the allowlist, so the minimal shape must never carry the replay debug envelope.
         #expect(event.properties["$recording_status"] == nil)
         #expect(!event.properties.keys.contains { $0.hasPrefix("$sdk_debug_") })
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("keeps session-attribution super properties but not $referrer on minimal feature flag events")
+    func keepsSessionAttributionOnMinimalFeatureFlagEvents() throws {
+        server.minimalFlagCalledEvents = true
+        let sut = getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+
+        waitForFeatureFlagsLoaded(server, sut)
+
+        // Web-analytics reads session-initial attribution from the first event in a session, which
+        // can be a minimized $feature_flag_called, so these keys must survive minimization.
+        let attribution = [
+            "$referring_domain": "google.com",
+            "utm_source": "google",
+            "utm_medium": "cpc",
+            "utm_campaign": "launch",
+            "utm_content": "banner",
+            "utm_term": "posthog",
+            "gad_source": "1",
+            "mc_cid": "mc-123",
+            "gclid": "gclid-123",
+            "fbclid": "fbclid-123",
+        ]
+        sut.register(attribution.merging([
+            "$referrer": "https://google.com/search?q=posthog",
+            "team": "growth",
+        ]) { current, _ in current })
+
+        #expect(sut.isFeatureEnabled("string-value") == true)
+
+        let events = getBatchedEvents(server)
+
+        #expect(events.count == 1)
+
+        let event = try #require(events.first)
+        #expect(event.event == "$feature_flag_called")
+        for (key, value) in attribution {
+            #expect(event.properties[key] as? String == value, "\(key) should survive minimization")
+        }
+        #expect(event.properties["$referrer"] == nil)
+        #expect(event.properties["team"] == nil)
 
         sut.reset()
         sut.close()
@@ -1005,6 +1194,24 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("group drops an empty type or key", arguments: [("", "some-key"), ("some-type", "")])
+    func groupDropsEmptyTypeOrKey(type: String, key: String) throws {
+        let sut = getSut()
+
+        sut.group(type: type, key: key, groupProperties: ["name": "some-company-name"])
+        sut.capture("event")
+
+        let events = getBatchedEvents(server)
+
+        #expect(events.count == 1)
+        let event = try #require(events.first)
+        #expect(event.event == "event")
+        #expect(event.properties["$groups"] == nil)
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("register and unregister properties")
     func registerAndUnregisterProperties() throws {
         let sut = getSut(flushAt: 1)
@@ -1024,6 +1231,108 @@ final class PostHogSDKTests {
         #expect(event.properties["test1"] as? String == "test")
         #expect(event.properties["test3"] as? String == "test")
         #expect(event.properties["test2"] as? String == nil)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("caller-supplied properties win over registered super properties")
+    func callerPropertiesWinOverRegisteredProperties() throws {
+        let sut = getSut()
+
+        sut.register(["plan": "registered"])
+        sut.capture("event", properties: ["plan": "caller"])
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.properties["plan"] as? String == "caller")
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("caller-supplied properties win over SDK context")
+    func callerPropertiesWinOverSdkContext() throws {
+        let sut = getSut()
+
+        sut.capture("event", properties: ["$os_name": "caller-os", "$lib": "caller-lib"])
+
+        let event = try #require(getBatchedEvents(server).first)
+        #expect(event.properties["$os_name"] as? String == "caller-os")
+        #expect(event.properties["$lib"] as? String == "caller-lib")
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("caller-supplied groups win over a registered group of the same type")
+    func callerGroupsWinOverRegisteredGroups() throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.group(type: "company", key: "registered")
+        sut.capture("event", groups: ["company": "caller"])
+
+        let event = try #require(getBatchedEvents(server).first { $0.event == "event" })
+        let groups = try #require(event.properties["$groups"] as? [String: String])
+        #expect(groups["company"] == "caller")
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("caller-supplied $groups add to registered groups")
+    func callerGroupsPropertyAddsToRegisteredGroups() throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.group(type: "company", key: "registered")
+        sut.capture("event", properties: ["$groups": ["project": "caller"]])
+
+        let event = try #require(getBatchedEvents(server).first { $0.event == "event" })
+        let groups = try #require(event.properties["$groups"] as? [String: String])
+        #expect(groups == ["company": "registered", "project": "caller"])
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("blank or non-string caller $session_id keeps the SDK session", arguments: ["", "  ", 1] as [AnyHashable])
+    func invalidCallerSessionIdKeepsSdkSession(sessionId: AnyHashable) throws {
+        let sut = getSut()
+
+        sut.capture("event", properties: ["$session_id": sessionId])
+
+        let event = try #require(getBatchedEvents(server).first)
+        let sentSessionId = try #require(event.properties["$session_id"] as? String)
+        #expect(!sentSessionId.trimmingCharacters(in: .whitespaces).isEmpty)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("caller can't override $is_identified")
+    func callerCannotOverrideIsIdentified() throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.identify("user")
+        sut.capture("event", properties: ["$is_identified": false])
+
+        let event = try #require(getBatchedEvents(server).first { $0.event == "event" })
+        #expect(event.properties["$is_identified"] as? Bool == true)
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("caller can't override SDK debug properties")
+    func callerCannotOverrideSdkDebugProperties() throws {
+        let sut = getSut()
+
+        sut.capture("event", properties: ["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
+
+        let event = try #require(getBatchedEvents(server).first)
+        let recordingStatus = try #require(event.properties["$recording_status"] as? String)
+        let pendingQueueSize = try #require(event.properties["$sdk_debug_pending_queue_size"] as? Int)
+        #expect(recordingStatus != "bogus")
+        #expect(pendingQueueSize != -1)
 
         sut.reset()
         sut.close()
@@ -1207,6 +1516,8 @@ final class PostHogSDKTests {
         fixture.server.stop()
         fixture.server = nil
         fixture.server = MockPostHogServer()
+        fixture.server.batchProjectToken = fixture.projectToken
+        fixture.server.flagsProjectToken = fixture.projectToken
         fixture.server.start()
 
         sut.capture("event captured w/o session")
@@ -1784,7 +2095,7 @@ extension PostHogSDKTests {
 
             @Test("isAutocaptureActive() should be false if disabled by config")
             func isAutocaptureActiveFalseWhenDisabledByConfig() {
-                let config = PostHogConfig(projectToken: testProjectToken)
+                let config = PostHogConfig(projectToken: fixture.projectToken)
                 config.captureElementInteractions = false
                 let sut = PostHogSDK.with(config)
                 defer { sut.close() }
@@ -1794,7 +2105,7 @@ extension PostHogSDKTests {
 
             @Test("isAutocaptureActive() should be false if SDK is not enabled")
             func isAutocaptureActiveFalseWhenSDKNotEnabled() {
-                let config = PostHogConfig(projectToken: testProjectToken)
+                let config = PostHogConfig(projectToken: fixture.projectToken)
                 config.captureElementInteractions = true
                 let sut = PostHogSDK.with(config)
                 sut.close()

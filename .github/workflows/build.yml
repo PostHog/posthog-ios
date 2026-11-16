@@ -65,9 +65,10 @@ jobs:
       - name: Check public API snapshot
         run: make apiCheck
 
-  build-sdk-swift53-compat:
+  build-sdk-swift5-compat:
     needs: detect-markdown-only
-    runs-on: macos-14-xlarge
+    runs-on: macos-15-xlarge
+    # The main ruleset requires this exact legacy check name, even when the Xcode pin changes.
     name: Build SDK (Swift 5 compatibility on Xcode 15.4 with CocoaPods)
     steps:
       - name: Complete markdown-only PR check
@@ -78,7 +79,8 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
-          xcode-version: '15.4'
+          # Oldest Xcode available on macOS 15; keep this separate from latest-stable coverage.
+          xcode-version: '16.0'
       - name: Print toolchain versions
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: |

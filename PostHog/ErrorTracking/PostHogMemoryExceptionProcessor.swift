@@ -20,6 +20,7 @@ struct PostHogDiagnosticFrame {
 enum PostHogMemoryExceptionProcessor {
     static let exceptionType = "OutOfMemory"
     static let exceptionValue = "The app was terminated by the system for exceeding its memory limit"
+    static let exceptionSource = "ios.metrickit_memory_exception"
 
     /// - Parameter frames: the attributed thread's frames, innermost (crash site) first.
     static func processFrames(_ frames: [PostHogDiagnosticFrame], config: PostHogErrorTrackingConfig) -> [String: Any] {
@@ -66,6 +67,7 @@ enum PostHogMemoryExceptionProcessor {
                 "type": "memory_exception",
                 "handled": false,
                 "synthetic": false,
+                "exception_id": 0,
             ],
         ]
         if !stackFrames.isEmpty {
@@ -78,6 +80,7 @@ enum PostHogMemoryExceptionProcessor {
 
         var properties: [String: Any] = [
             "$exception_level": "fatal",
+            "$exception_source": exceptionSource,
             "$exception_list": [exception],
         ]
         if !imagesByLoadAddress.isEmpty {

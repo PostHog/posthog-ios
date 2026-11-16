@@ -27,6 +27,7 @@ import Foundation
 
             // Fatal crash
             properties["$exception_level"] = "fatal"
+            properties["$exception_source"] = "ios.crash_reporter"
 
             // Build stack frames once, reuse for both exception info and debug images
             let stackFrames = buildStackFrames(from: report, config: config)
@@ -76,6 +77,7 @@ import Foundation
                     "type": "nsexception",
                     "handled": false,
                     "synthetic": false,
+                    "exception_id": 0,
                 ]
             } else if let signalInfo = report.signalInfo {
                 // POSIX signal - more familiar to developers (SIGTRAP, SIGABRT, etc.)
@@ -101,6 +103,7 @@ import Foundation
                     "type": "signal",
                     "handled": false,
                     "synthetic": false,
+                    "exception_id": 0,
                     "meta": ["signal": signalMeta].compactMapValues { $0 },
                 ]
             } else if let machException = report.machExceptionInfo {
@@ -112,6 +115,7 @@ import Foundation
                     "type": "mach_exception",
                     "handled": false,
                     "synthetic": false,
+                    "exception_id": 0,
                     "meta": [
                         "mach": [
                             "exception": machException.type,
@@ -236,8 +240,10 @@ import Foundation
             var debugImages: [PostHogBinaryImageInfo] = []
 
             for case let image as PHPLCrashReportBinaryImageInfo in report.images {
+                // Symbolication finds the dSYM by UUID, so an image without one is useless.
                 guard referencedImageAddresses.contains(image.imageBaseAddress),
-                      let imageName = image.imageName
+                      let imageName = image.imageName,
+                      let uuid = image.imageUUID?.formattedAsUUID
                 else { continue }
 
                 let arch: String?
@@ -249,7 +255,7 @@ import Foundation
 
                 let binaryImage = PostHogBinaryImageInfo(
                     name: imageName,
-                    uuid: image.imageUUID?.formattedAsUUID,
+                    uuid: uuid,
                     vmAddress: nil, // PHPLCrashReport doesn't expose vmAddress
                     address: image.imageBaseAddress,
                     size: image.imageSize,

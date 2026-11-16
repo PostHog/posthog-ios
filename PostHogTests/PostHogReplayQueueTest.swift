@@ -165,12 +165,13 @@ class PostHogReplayQueueTests {
         server.start(snapshotCount: 1)
         defer { server.stop() }
 
-        let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
         let storage = PostHogStorage(config)
         storage.reset()
         let api = PostHogApi(config)
         let queue = PostHogReplayQueue(config, storage, api, nil)
-        queue.start(disableReachabilityForTesting: true, disableQueueTimerForTesting: false)
+        queue.start(disableReachabilityForTesting: true, disableQueueTimerForTesting: true)
+        defer { queue.stop() }
         mockDelegate.isBuffering = false
         queue.bufferDelegate = mockDelegate
 
@@ -181,6 +182,10 @@ class PostHogReplayQueueTests {
         // Flush and wait for server to receive snapshot events
         queue.flush()
         try await waitForSnapshotRequest(server)
+        // Request arrival precedes the response callback that removes the queued snapshot.
+        await waitUntil(timeoutNanoseconds: UInt64(testRequestTimeout * 1_000_000_000)) {
+            queue.depth == 0
+        }
 
         #expect(queue.depth == 0)
     }
@@ -381,7 +386,7 @@ class PostHogReplayQueueTests {
     }
 
     @Test("events added while migration is running are not re-buffered")
-    func eventsDuringMigrationGoToInnerQueue() async throws {
+    func eventsDuringMigrationGoToInnerQueue() {
         let queue = createReplayQueue()
 
         final class SlowMigratingDelegate: PostHogReplayBufferDelegate {
@@ -411,8 +416,11 @@ class PostHogReplayQueueTests {
         #expect(queue.depth == 0)
 
         // Trigger migration on a background thread and pause inside delegate callback.
+        // Off the main thread migration runs inline, so add() returns once it finishes.
+        let migrationFinished = DispatchSemaphore(value: 0)
         DispatchQueue.global(qos: .userInitiated).async {
             queue.add(self.createTestEvent("snapshot_3"))
+            migrationFinished.signal()
         }
 
         let entered = slowDelegate.enteredMigration.wait(timeout: .now() + 2)
@@ -422,7 +430,7 @@ class PostHogReplayQueueTests {
         queue.add(createTestEvent("snapshot_4"))
 
         slowDelegate.continueMigration.signal()
-        try await Task.sleep(nanoseconds: 150_000_000)
+        #expect(migrationFinished.wait(timeout: .now() + 5) == .success)
 
         #expect(queue.bufferDepth == 0)
         #expect(queue.depth == 4)

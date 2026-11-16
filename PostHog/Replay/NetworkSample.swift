@@ -32,25 +32,15 @@
                 "initiatorType": initiatorType,
             ]
 
-            if let name = name {
-                dict["name"] = name
-            }
+            dict["name"] = name
 
-            if let responseStatus = responseStatus {
-                dict["responseStatus"] = responseStatus
-            }
+            dict["responseStatus"] = responseStatus
 
-            if let httpMethod = httpMethod {
-                dict["method"] = httpMethod
-            }
+            dict["method"] = httpMethod
 
-            if let duration = duration {
-                dict["duration"] = duration
-            }
+            dict["duration"] = duration
 
-            if let decodedBodySize = decodedBodySize {
-                dict["transferSize"] = decodedBodySize
-            }
+            dict["transferSize"] = decodedBodySize
 
             return dict
         }

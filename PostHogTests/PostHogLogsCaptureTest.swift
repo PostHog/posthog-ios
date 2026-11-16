@@ -449,6 +449,24 @@ final class PostHogLogsCaptureTests {
 
     // MARK: - Lifecycle edge cases
 
+    @Test("close() sends buffered logs before stopping")
+    func closeSendsBufferedLogs() async throws {
+        let sdk = setupSdk(flushAt: 10)
+
+        sdk.captureLog("before-close")
+        sdk.close()
+
+        waitForLogsRequests(count: 1)
+        let request = try #require(server.logsRequests.first)
+        let unzipped = try #require(request.body()).gunzipped()
+        let json = try #require(JSONSerialization.jsonObject(with: unzipped) as? [String: Any])
+        let resourceLogs = try #require(json["resourceLogs"] as? [[String: Any]])
+        let scopeLogs = try #require(resourceLogs[0]["scopeLogs"] as? [[String: Any]])
+        let records = try #require(scopeLogs[0]["logRecords"] as? [[String: Any]])
+        let bodyValue = try #require(records[0]["body"] as? [String: Any])
+        #expect(bodyValue["stringValue"] as? String == "before-close")
+    }
+
     @Test("captureLog after close() is a silent no-op (no crash)")
     func captureAfterClose() async throws {
         let sdk = setupSdk()

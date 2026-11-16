@@ -161,6 +161,21 @@
             #expect(!maskRects(screen).isEmpty)
         }
 
+        @Test("an app-defined sibling animating over the cover keeps the masks behind it")
+        func animatingAppLayerSiblingKeepsMasks() async throws {
+            let screen = host(Text(Self.secret).postHogMask())
+            _ = await presentCover(over: screen, background: .white)
+
+            // Below the cover in the model, while an animation draws it above: its presentation can't be read.
+            let banner = AppLayerBanner(frame: CGRect(x: 0, y: 0, width: 200, height: 60))
+            banner.backgroundColor = .red
+            screen.window.insertSubview(banner, at: 0)
+            #expect(maskRects(screen).isEmpty)
+            let raised = (screen.window.subviews.map(\.layer.zPosition).max() ?? 0) + 1
+            try await hold(banner.layer, keyPath: "zPosition", at: raised)
+            #expect(!maskRects(screen).isEmpty)
+        }
+
         @Test("a sibling that paints nothing over the cover does not keep the masks behind it",
               arguments: [true, false])
         func invisibleSiblingAboveCoverDropsMasks(hidden: Bool) async {
@@ -194,6 +209,14 @@
 
             screen.controller.view.isHidden = false
             #expect(!maskRects(screen).isEmpty)
+        }
+    }
+
+    private final class AppLayerBannerLayer: CALayer {}
+
+    private final class AppLayerBanner: UIView {
+        override class var layerClass: AnyClass {
+            AppLayerBannerLayer.self
         }
     }
 #endif

@@ -27,10 +27,12 @@ struct PostHogMemoryExceptionTest {
         let properties = PostHogMemoryExceptionProcessor.processFrames([], config: makeConfig())
 
         #expect(properties["$exception_level"] as? String == "fatal")
+        #expect(properties["$exception_source"] as? String == "ios.metrickit_memory_exception")
         #expect(exception(properties)["type"] as? String == "OutOfMemory")
         let mechanism = exception(properties)["mechanism"] as? [String: Any]
         #expect(mechanism?["type"] as? String == "memory_exception")
         #expect(mechanism?["handled"] as? Bool == false)
+        #expect(mechanism?["exception_id"] as? Int == 0)
         #expect(exception(properties)["stacktrace"] == nil)
         #expect(properties["$debug_images"] == nil)
     }
@@ -166,6 +168,22 @@ struct PostHogMemoryExceptionTest {
 
         #expect(!FileManager.default.fileExists(atPath: directory.path))
         #expect(store.takeContext(pid: 42, notAfter: Date().addingTimeInterval(60)) == nil)
+    }
+
+    @Test("close writes the pending context, keeps every saved context and ignores later writes")
+    func closeKeepsContexts() throws {
+        let directory = makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try blob("earlier launch").write(to: directory.appendingPathComponent("7.json"))
+        let store = PostHogProcessContextStore(directory: directory, currentPid: 42)
+        store.write(blob("user"))
+        store.close()
+        store.write(blob("late write"))
+
+        let saved = try #require(fromJSONData(try Data(contentsOf: directory.appendingPathComponent("42.json"))))
+        #expect(saved["distinct_id"] as? String == "user")
+        #expect(store.takeContext(pid: 7, notAfter: Date().addingTimeInterval(60))?["distinct_id"] as? String == "earlier launch")
     }
 
     @Test("keeps saving after another process sharing the directory removed it")

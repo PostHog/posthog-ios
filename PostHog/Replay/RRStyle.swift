@@ -1,5 +1,3 @@
-// swiftlint:disable cyclomatic_complexity
-
 //
 //  RRStyle.swift
 //  PostHog
@@ -29,68 +27,22 @@ class RRStyle {
     func toDict() -> [String: Any] {
         var dict: [String: Any] = [:]
 
-        if let color = color {
-            dict["color"] = color
-        }
-
-        if let backgroundColor = backgroundColor {
-            dict["backgroundColor"] = backgroundColor
-        }
-
-        if let backgroundImage = backgroundImage {
-            dict["backgroundImage"] = backgroundImage
-        }
-
-        if let borderWidth = borderWidth {
-            dict["borderWidth"] = borderWidth
-        }
-
-        if let borderRadius = borderRadius {
-            dict["borderRadius"] = borderRadius
-        }
-
-        if let borderColor = borderColor {
-            dict["borderColor"] = borderColor
-        }
-
-        if let fontSize = fontSize {
-            dict["fontSize"] = fontSize
-        }
-
-        if let fontFamily = fontFamily {
-            dict["fontFamily"] = fontFamily
-        }
-
-        if let horizontalAlign = horizontalAlign {
-            dict["horizontalAlign"] = horizontalAlign
-        }
-
-        if let verticalAlign = verticalAlign {
-            dict["verticalAlign"] = verticalAlign
-        }
-
-        if let paddingTop = paddingTop {
-            dict["paddingTop"] = paddingTop
-        }
-
-        if let paddingBottom = paddingBottom {
-            dict["paddingBottom"] = paddingBottom
-        }
-
-        if let paddingLeft = paddingLeft {
-            dict["paddingLeft"] = paddingLeft
-        }
-
-        if let paddingRight = paddingRight {
-            dict["paddingRight"] = paddingRight
-        }
-
-        if let bar = bar {
-            dict["bar"] = bar
-        }
+        dict["color"] = color
+        dict["backgroundColor"] = backgroundColor
+        dict["backgroundImage"] = backgroundImage
+        dict["borderWidth"] = borderWidth
+        dict["borderRadius"] = borderRadius
+        dict["borderColor"] = borderColor
+        dict["fontSize"] = fontSize
+        dict["fontFamily"] = fontFamily
+        dict["horizontalAlign"] = horizontalAlign
+        dict["verticalAlign"] = verticalAlign
+        dict["paddingTop"] = paddingTop
+        dict["paddingBottom"] = paddingBottom
+        dict["paddingLeft"] = paddingLeft
+        dict["paddingRight"] = paddingRight
+        dict["bar"] = bar
 
         return dict
     }
 }
-
-// swiftlint:enable cyclomatic_complexity

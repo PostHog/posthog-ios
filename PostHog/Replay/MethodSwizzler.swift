@@ -113,8 +113,4 @@
             method_setImplementation(found.method, newIMP)
         }
     }
-
-    extension MethodSwizzler.FoundMethod {
-        var swizzlingName: String { "\(klass).\(method_getName(method))" }
-    }
 #endif

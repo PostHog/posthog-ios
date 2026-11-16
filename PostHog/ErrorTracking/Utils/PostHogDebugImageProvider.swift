@@ -94,7 +94,9 @@ enum PostHogDebugImageProvider {
             let slide = _dyld_get_image_vmaddr_slide(index)
             let name = _dyld_get_image_name(index).map { String(cString: $0) } ?? "unknown"
 
+            // Symbolication finds the dSYM by UUID, so an image without one is useless.
             if let imageInfo = parseImageInfo(header: header, slide: slide, name: name),
+               imageInfo.uuid != nil,
                addressValues.contains(imageInfo.address)
             {
                 matchedImages.append(imageInfo)

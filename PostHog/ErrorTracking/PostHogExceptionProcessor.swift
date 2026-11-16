@@ -14,6 +14,9 @@ import Foundation
 /// It automatically attaches binary image metadata (`$debug_images`) needed for server-side symbolication.
 ///
 enum PostHogExceptionProcessor {
+    /// Maximum number of entries in `$exception_list`, including the outermost exception
+    static let maxExceptionCount = 50
+
     // MARK: - Public API
 
     /// Convert Error/NSError to properties
@@ -23,18 +26,22 @@ enum PostHogExceptionProcessor {
     ///   - handled: Whether the error was caught/handled
     ///   - mechanismType: The mechanism that captured the error (e.g., "generic", "onunhandledexception")
     ///   - config: Error tracking configuration for in-app detection
+    ///   - callerStack: Return addresses captured in the public API entry point, starting at the caller.
+    ///     When nil, the current thread's stack is captured instead.
     /// - Returns: Dictionary of properties in PostHog's $exception event format
     static func errorToProperties(
         _ error: Error,
         handled: Bool,
         mechanismType: String = "generic",
-        config: PostHogErrorTrackingConfig
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]? = nil
     ) -> [String: Any] {
         let exceptions = buildExceptionList(
             from: error,
             handled: handled,
             mechanismType: mechanismType,
-            config: config
+            config: config,
+            callerStack: callerStack
         )
 
         return buildProperties(exceptions: exceptions)
@@ -50,18 +57,22 @@ enum PostHogExceptionProcessor {
     ///   - handled: Whether the exception was caught/handled
     ///   - mechanismType: The mechanism type for categorizing the exception
     ///   - config: Error tracking configuration for in-app detection
+    ///   - callerStack: Return addresses captured in the public API entry point, starting at the caller.
+    ///     Only used for an exception that was never raised. When nil, the current thread's stack is captured instead.
     /// - Returns: Dictionary of properties in PostHog's $exception event format
     static func exceptionToProperties(
         _ exception: NSException,
         handled: Bool,
         mechanismType: String = "generic",
-        config: PostHogErrorTrackingConfig
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]? = nil
     ) -> [String: Any] {
         let exceptions = buildExceptionList(
             from: exception,
             handled: handled,
             mechanismType: mechanismType,
-            config: config
+            config: config,
+            callerStack: callerStack
         )
 
         return buildProperties(exceptions: exceptions)
@@ -88,6 +99,7 @@ enum PostHogExceptionProcessor {
             "type": mechanismType,
             "handled": true,
             "synthetic": true, // always true for message exceptions - we capture current stack
+            "exception_id": 0,
         ]
 
         if let stacktrace = buildStacktrace(config: config) {
@@ -123,7 +135,8 @@ enum PostHogExceptionProcessor {
         from exception: NSException,
         handled: Bool,
         mechanismType: String,
-        config: PostHogErrorTrackingConfig
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]?
     ) -> [[String: Any]] {
         var exceptions: [[String: Any]] = []
         var nsExceptions: [NSException] = []
@@ -133,7 +146,9 @@ enum PostHogExceptionProcessor {
 
         var current = exception
         var seen = Set<ObjectIdentifier>([ObjectIdentifier(exception)])
-        while let underlying = current.userInfo?[NSUnderlyingErrorKey] as? NSException {
+        while nsExceptions.count < maxExceptionCount,
+              let underlying = current.userInfo?[NSUnderlyingErrorKey] as? NSException
+        {
             let id = ObjectIdentifier(underlying)
             guard seen.insert(id).inserted else { break } // avoid circular references
             nsExceptions.append(underlying)
@@ -145,9 +160,11 @@ enum PostHogExceptionProcessor {
         for exc in nsExceptions {
             if let exceptionDict = buildException(
                 from: exc,
+                index: exceptions.count,
                 handled: handled,
                 mechanismType: mechanismType,
-                config: config
+                config: config,
+                callerStack: callerStack
             ) {
                 exceptions.append(exceptionDict)
             }
@@ -172,7 +189,8 @@ enum PostHogExceptionProcessor {
         from error: Error,
         handled: Bool,
         mechanismType: String,
-        config: PostHogErrorTrackingConfig
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]?
     ) -> [[String: Any]] {
         var exceptions: [[String: Any]] = []
         var errors: [NSError] = []
@@ -183,7 +201,9 @@ enum PostHogExceptionProcessor {
 
         var current = nsError
         var seen = Set<ObjectIdentifier>([ObjectIdentifier(nsError)])
-        while let underlying = current.userInfo[NSUnderlyingErrorKey] as? NSError {
+        while errors.count < maxExceptionCount,
+              let underlying = current.userInfo[NSUnderlyingErrorKey] as? NSError
+        {
             let id = ObjectIdentifier(underlying)
             guard seen.insert(id).inserted else { break } // avoid circular references
             errors.append(underlying)
@@ -195,9 +215,11 @@ enum PostHogExceptionProcessor {
         for err in errors {
             if let exception = buildException(
                 from: err,
+                index: exceptions.count,
                 handled: handled,
                 mechanismType: mechanismType,
-                config: config
+                config: config,
+                callerStack: callerStack
             ) {
                 exceptions.append(exception)
             }
@@ -209,9 +231,11 @@ enum PostHogExceptionProcessor {
     /// Build a single exception dictionary from an NSError
     private static func buildException(
         from error: NSError,
+        index: Int,
         handled: Bool,
         mechanismType: String,
-        config: PostHogErrorTrackingConfig
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]?
     ) -> [String: Any]? {
         var exception: [String: Any] = [:]
 
@@ -227,13 +251,14 @@ enum PostHogExceptionProcessor {
 
         exception["thread_id"] = Thread.current.threadId
 
-        exception["mechanism"] = [
-            "type": mechanismType,
-            "handled": handled,
-            "synthetic": true, // Always true for NSError - we capture current stack
-        ]
+        exception["mechanism"] = buildMechanism(
+            index: index,
+            handled: handled,
+            mechanismType: mechanismType,
+            synthetic: true // Always true for NSError - we capture current stack
+        )
 
-        if let stacktrace = buildStacktrace(config: config) {
+        if let stacktrace = buildStacktrace(config: config, callerStack: callerStack) {
             exception["stacktrace"] = stacktrace
         }
 
@@ -243,9 +268,11 @@ enum PostHogExceptionProcessor {
     /// Build a single exception dictionary from an NSException
     private static func buildException(
         from exception: NSException,
+        index: Int,
         handled: Bool,
         mechanismType: String,
-        config: PostHogErrorTrackingConfig
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]?
     ) -> [String: Any]? {
         var exceptionDict: [String: Any] = [:]
 
@@ -257,9 +284,8 @@ enum PostHogExceptionProcessor {
             exceptionDict["type"] = typeName
         }
 
-        if let reason = exception.reason, !reason.isEmpty {
-            exceptionDict["value"] = reason
-        }
+        // `value` is required, but may be empty when there's no reason
+        exceptionDict["value"] = exception.reason ?? ""
 
         // Use exception's real stack if available, otherwise capture current (synthetic)
         let exceptionAddresses = exception.callStackReturnAddresses
@@ -272,21 +298,51 @@ enum PostHogExceptionProcessor {
             isSynthetic = false
         } else {
             // Fall back to current stack (synthetic - captured at reporting site)
-            stacktrace = buildStacktrace(config: config)
+            stacktrace = buildStacktrace(config: config, callerStack: callerStack)
             isSynthetic = true
         }
 
-        exceptionDict["mechanism"] = [
-            "type": mechanismType,
-            "handled": handled,
-            "synthetic": isSynthetic,
-        ]
+        exceptionDict["mechanism"] = buildMechanism(
+            index: index,
+            handled: handled,
+            mechanismType: mechanismType,
+            synthetic: isSynthetic
+        )
 
         if let stacktrace = stacktrace {
             exceptionDict["stacktrace"] = stacktrace
         }
 
         return exceptionDict
+    }
+
+    /// Build the mechanism for the entry at `index` of a linear NSUnderlyingErrorKey chain
+    ///
+    /// The outermost entry (index 0) carries the capture metadata. Each nested entry is the
+    /// underlying cause of the previous one, so it's `chained` with `source: cause` and omits
+    /// `handled`, since its handled state isn't known independently.
+    private static func buildMechanism(
+        index: Int,
+        handled: Bool,
+        mechanismType: String,
+        synthetic: Bool
+    ) -> [String: Any] {
+        guard index > 0 else {
+            return [
+                "type": mechanismType,
+                "handled": handled,
+                "synthetic": synthetic,
+                "exception_id": 0,
+            ]
+        }
+
+        return [
+            "type": "chained",
+            "source": "cause",
+            "synthetic": synthetic,
+            "exception_id": index,
+            "parent_id": index - 1,
+        ]
     }
 
     // MARK: - Error Message Extraction
@@ -367,10 +423,20 @@ enum PostHogExceptionProcessor {
 
     // MARK: - Stack Trace Capture
 
-    /// Build stacktrace dictionary from current thread (synthetic)
+    /// Build stacktrace dictionary from the caller's stack, or from the current thread when `callerStack` is nil (synthetic)
     ///
-    private static func buildStacktrace(config: PostHogErrorTrackingConfig) -> [String: Any]? {
-        let frames = PostHogStackTraceProcessor.captureCurrentStackTraceWithMetadata(config: config)
+    private static func buildStacktrace(
+        config: PostHogErrorTrackingConfig,
+        callerStack: [NSNumber]? = nil
+    ) -> [String: Any]? {
+        let frames: [PostHogStackFrame]
+        if let callerStack {
+            // Still strip by module: with a dynamic PostHog framework, an Objective-C caller goes through
+            // an @objc thunk that sits above the caller
+            frames = PostHogStackTraceProcessor.symbolicateAddresses(callerStack, config: config, stripTopPostHogFrames: true)
+        } else {
+            frames = PostHogStackTraceProcessor.captureCurrentStackTraceWithMetadata(config: config)
+        }
 
         guard !frames.isEmpty else { return nil }
 

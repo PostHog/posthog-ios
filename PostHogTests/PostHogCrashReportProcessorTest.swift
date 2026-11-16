@@ -42,6 +42,7 @@ import Testing
                 let properties = PostHogCrashReportProcessor.processReport(report, config: config)
 
                 #expect(properties["$exception_level"] as? String == "fatal")
+                #expect(properties["$exception_source"] as? String == "ios.crash_reporter")
                 #expect(properties["$exception_list"] != nil)
             }
 
@@ -73,6 +74,7 @@ import Testing
                 #expect(mechHandled == false)
                 let mechSynthetic = mechanism?["synthetic"] as? Bool
                 #expect(mechSynthetic == false)
+                #expect(mechanism?["exception_id"] as? Int == 0)
             }
 
             @Test("live report contains stack trace")

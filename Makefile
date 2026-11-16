@@ -1,4 +1,4 @@
-.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
+.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility checkTestRegistration testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots gpuMaskSnapshots recordGPUMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
 
 build: buildSdk buildExamples
 
@@ -32,6 +32,8 @@ buildExamplesPlatforms:
 	set -o pipefail && xcrun xcodebuild clean build -scheme 'PostHogExampleWatchOS Watch App' -destination generic/platform=watchos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleTvOS -destination generic/platform=tvos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty #SPM
+	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleAutocapture -destination generic/platform=ios | xcpretty #Autocapture
+	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleStoryboard -destination generic/platform=ios | xcpretty #Storyboard
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination 'platform=macOS,variant=Mac Catalyst' | xcpretty #Mac Catalyst SPM
 
 buildExamplePodsDynamicFramework:
@@ -186,6 +188,22 @@ recordMaskSnapshots: checkMaskSnapshotRuntime
 	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TEST_MASK_SNAPSHOTS RECORD_MASK_SNAPSHOTS' \
 	  "-only-testing:PostHogTests/PostHogMaskSnapshotTest/recordGoldens()" | xcpretty
 
+# The same scenarios, plus GPU-only ones, through the GPU capture path (__GPUMaskSnapshots__/).
+gpuMaskSnapshots: checkMaskSnapshotRuntime
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog \
+	  -destination "platform=iOS Simulator,id=$(MASK_SNAPSHOT_UDID)" \
+	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TEST_MASK_SNAPSHOTS' \
+	  "-only-testing:PostHogTests/PostHogMaskSnapshotTest/verifyGPUGoldens()" 2>&1 | tee gpu-mask-snapshots.log | xcpretty
+	@grep -qE 'Test "[^"]+" passed' gpu-mask-snapshots.log || { \
+	  echo "error: no GPU masking snapshot test executed (0-test run); the TEST_MASK_SNAPSHOTS gate or -only-testing selector likely broke."; \
+	  exit 1; }
+
+recordGPUMaskSnapshots: checkMaskSnapshotRuntime
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog \
+	  -destination "platform=iOS Simulator,id=$(MASK_SNAPSHOT_UDID)" \
+	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TEST_MASK_SNAPSHOTS RECORD_MASK_SNAPSHOTS' \
+	  "-only-testing:PostHogTests/PostHogMaskSnapshotTest/recordGPUGoldens()" | xcpretty
+
 # Usage: make test filter=<pattern>
 # Examples:
 #   make test                              						# Run all tests
@@ -205,6 +223,9 @@ recordEventShapeSnapshots:
 
 testDowngradeCompatibility:
 	DOWNGRADE_REF="$${DOWNGRADE_REF:-3.48.0}" ./scripts/test-downgrade-compatibility.sh
+
+checkTestRegistration:
+	scripts/check-test-registration.sh
 
 
 lint: swiftFormatCheck swiftLintCheck
@@ -228,14 +249,19 @@ bootstrap:
 	brew install swiftlint
 	brew install swiftformat
 	brew install peripheryapp/periphery/periphery
+	brew install prek
+	prek install
 
-# download SDKs and runtimes
-# create Apple Vision Pro simulator if missing
-# release pod
-releaseCocoaPods:
-	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms 
+.PHONY: prepareCocoaPods publishCocoaPods
+
+releaseCocoaPods: prepareCocoaPods
+	$(MAKE) publishCocoaPods
+
+prepareCocoaPods:
 	@if ! xcrun simctl list devices | grep -q "Apple Vision Pro"; then \
 		LATEST_RUNTIME=$$(xcrun simctl list runtimes | grep "com.apple.CoreSimulator.SimRuntime.xrOS" | sort -r | head -n 1 | awk '{print $$NF}') && \
 		xcrun simctl create "Apple Vision Pro" "Apple Vision Pro" "$$LATEST_RUNTIME"; \
 	fi
+
+publishCocoaPods:
 	pod trunk push PostHog.podspec --allow-warnings

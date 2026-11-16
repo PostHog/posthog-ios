@@ -25,6 +25,14 @@
     @objc(RNSVGText) private final class SvgTextViewStub: SvgGroupViewStub {}
     @objc(RNSVGImage) private final class SvgImageViewStub: SvgRenderableViewStub {}
 
+    /// Derives its label from its subviews the way RCTView does when none is assigned.
+    private final class DerivedLabelContainerView: UIView {
+        override var accessibilityLabel: String? {
+            get { subviews.compactMap(\.accessibilityLabel).joined(separator: " ") }
+            set { _ = newValue }
+        }
+    }
+
     @Suite("Replay masking for React Native (Fabric) component views", .serialized)
     @MainActor
     struct PostHogReactNativeMaskingTest {
@@ -173,6 +181,24 @@
             let window = makeWindow(containing: container)
 
             #expect(sut.integration.collectMaskableRects(in: window) == [])
+        }
+
+        @Test("A full-window container whose derived label contains a ph-no-capture child is not masked whole")
+        func fullWindowContainerWithDerivedLabelIsNotMasked() {
+            let sut = makeSut(maskText: false, maskImages: false)
+            defer { teardown(sut) }
+
+            // RCTView answers `accessibilityLabel` with its descendants' labels joined
+            // (RCTRecursiveAccessibilityLabel), so the root container of a screen holding a
+            // PostHogMaskView reports the token too. Only the wrapper is masked.
+            let root = DerivedLabelContainerView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let maskView = UIView(frame: CGRect(x: 24, y: 120, width: 200, height: 32))
+            maskView.accessibilityLabel = "ph-no-capture"
+            root.addSubview(maskView)
+            let window = makeWindow(containing: root)
+
+            #expect(root.accessibilityLabel == "ph-no-capture")
+            #expect(sut.integration.collectMaskableRects(in: window) == [maskView.frame])
         }
 
         @Test("nothing is masked with both flags off")

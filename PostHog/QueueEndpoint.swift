@@ -77,4 +77,9 @@ struct QueueEndpoint<Record> {
     /// retry policy — the queue handles `-1` (network error) separately,
     /// since that case is universal.
     let isRetriableStatusCode: (Int) -> Bool
+    /// Upper bound applied to a parsed `Retry-After` header before it floors
+    /// the backoff: the wait is `max(backoff, min(retryAfter, maximum))`.
+    /// `nil` honors the header unbounded; events and replay keep that, logs
+    /// sets `logsMaxRetryAfterSeconds`.
+    var maxRetryAfterSeconds: TimeInterval?
 }

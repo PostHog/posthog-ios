@@ -78,6 +78,11 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
     }
 
     #if os(iOS)
+        /// Cancels a survey still waiting out its popup delay without touching one already on screen.
+        func cancelPendingSurvey() {
+            dismissPendingSurveyIfNeeded()
+        }
+
         @available(iOS 15.0, *)
         private func setupWindow() {
             if let activeWindow = UIApplication.getCurrentWindow(), let activeScene = activeWindow.windowScene {
@@ -130,6 +135,13 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
 
             pendingDisplayWorkItem = workItem
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+        }
+
+        /// Cancels this survey only while its built-in popup delay is pending.
+        func cancelPendingSurveyIfPresented(_ surveyId: String) -> Bool {
+            guard pendingSurvey?.id == surveyId else { return false }
+            dismissPendingSurveyIfNeeded()
+            return true
         }
 
         private func dismissPendingSurveyIfNeeded() {

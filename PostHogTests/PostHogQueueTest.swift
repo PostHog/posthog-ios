@@ -31,8 +31,14 @@ private final class ControlledBatchSender {
         }
     }
 
-    func completeRequest(at index: Int, with result: PostHogUploadInfo) {
-        let completion = lock.withLock { completions[index] }
+    /// Records an issue instead of trapping when the request never arrived, so one late request
+    /// fails this test rather than crashing the whole test process.
+    func completeRequest(at index: Int, with result: PostHogUploadInfo, sourceLocation: SourceLocation = #_sourceLocation) {
+        let completion = lock.withLock { index < completions.count ? completions[index] : nil }
+        guard let completion else {
+            Issue.record("No request at index \(index); only \(requestCount) arrived", sourceLocation: sourceLocation)
+            return
+        }
         completion(result)
     }
 }
@@ -105,6 +111,10 @@ final class PostHogQueueTest {
             isRetriableStatusCode: base.isRetriableStatusCode
         )
         let sut = PostHogQueue(config, storage, endpoint, nil)
+        // Only count /batch requests from this fixture's queue: the stub and the activation hook are
+        // process-global, so a stray request from another queue/SDK instance would otherwise shift
+        // batchRequests.count and the request number the batchResponseHandler keys on.
+        server.batchProjectToken = config.projectToken
         cleanupJobs.append {
             sut.stop()
             sut.clear()
@@ -346,6 +356,10 @@ final class PostHogQueueTest {
         let uploads = (1 ... 6).map { _ in AsyncLatch() }
         var uploadIndex = 0
         let sut = getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 1) {
+            guard uploadIndex < uploads.count else {
+                Issue.record("Unexpected extra upload #\(uploadIndex + 1)")
+                return
+            }
             let upload = uploads[uploadIndex]
             uploadIndex += 1
             upload.signal()
@@ -402,6 +416,10 @@ final class PostHogQueueTest {
         let uploads = (1 ... 4).map { _ in AsyncLatch() }
         var uploadIndex = 0
         let sut = getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 0) {
+            guard uploadIndex < uploads.count else {
+                Issue.record("Unexpected extra upload #\(uploadIndex + 1)")
+                return
+            }
             let upload = uploads[uploadIndex]
             uploadIndex += 1
             upload.signal()
@@ -493,6 +511,10 @@ final class PostHogQueueTest {
         let uploads = (1 ... 3).map { _ in AsyncLatch() }
         var uploadIndex = 0
         let sut = getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 0) {
+            guard uploadIndex < uploads.count else {
+                Issue.record("Unexpected extra upload #\(uploadIndex + 1)")
+                return
+            }
             let upload = uploads[uploadIndex]
             uploadIndex += 1
             upload.signal()

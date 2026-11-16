@@ -1,5 +1,209 @@
 ## Next
 
+## 3.97.2
+
+### Patch Changes
+
+- aad5e7a: Fix missing cold `Application Opened` event when `setup()` runs before UIKit creates the shared app, for example in a SwiftUI `App.init`.
+- 595f987: Fix a crash when the iPad print panel appears with screen views, autocapture, rage clicks or session replay on. The print panel claims to be a `UISplitViewController` but does not implement its API, so screen lookup now only reads real split views as one
+
+## 3.97.1
+
+### Patch Changes
+
+- 7dd82ef: Keep tracking foreground and background transitions after `reset()`. Previously `reset()` unsubscribed the session manager from app lifecycle and UI events, so sessions stopped clearing in the background, or were never created again after a reset in the background, until the app restarted.
+- 97ea8d3: Keep a masked label whose text was just cleared, and a masked image view whose image was just cleared or replaced, masked in session replay until the screen updates
+- 97ea8d3: Fix a crash in screenshot session replay when the app uses a Swift `CALayer` subclass that doesn't implement `init(layer:)`. While the app shows a custom `CALayer` subclass, replay may skip frames during fast scrolling, and masks the whole screen while a masked view's custom-layer ancestor animates.
+- 78e6184: Fix `Application Opened` sometimes missing `$session_id` after the app spent more than 30 minutes in the background: lifecycle subscribers now run in subscription order, so the session manager starts the new session before the event is captured.
+
+## 3.97.0
+
+### Minor Changes
+
+- 13bd1ae: Add the experimental `screenshotModeGPUCapture` session replay option, which renders screenshots on the GPU to cut the main-thread cost of each capture.
+
+## 3.96.2
+
+### Patch Changes
+
+- d401bd7: With `screenshotModeBackgroundCapture` on, session replay masks drifting content over the position its pixels can trail to, and skips frames captured while the screen scrolls or animates, or while a masked cell is recycled, instead of uploading them with misaligned masks.
+
+## 3.96.1
+
+### Patch Changes
+
+- b692550: Treat failed detailed feature flag records as unavailable instead of serving their placeholder values or payloads, including previously persisted placeholders. Preserve successful cached results on response-wide errors and retain failed-read evaluation diagnostics across restarts.
+
+## 3.96.0
+
+### Minor Changes
+
+- 86bb436: Support survey cancel events to clear unconsumed activation and cancel the built-in popup delay before display. Already-visible surveys and presentations owned by custom survey delegates remain active.
+
+## 3.95.0
+
+### Minor Changes
+
+- 8cfbaef: Honor survey appearance.position instead of always presenting a bottom sheet, and expose the configured position to custom survey renderers.
+
+## 3.94.4
+
+### Patch Changes
+
+- 32f78c6: Draw session replay screenshots in the screen's own color space, so a capture on a wide-gamut screen no longer converts every pixel on the main thread. The conversion now happens off the main thread on the replay queue: a resized or masked screenshot is redrawn in device RGB, and an image that reaches the WebP encoder in a wide gamut, such as a native-resolution screenshot with nothing to mask, is converted to sRGB. The WebP encoder is shared, so wide-gamut images in wireframe mode and from `imageToBase64` are converted to sRGB too, and upload in their true colors instead of having their Display P3 values read as sRGB. The JPEG fallback does not convert.
+
+## 3.94.3
+
+### Patch Changes
+
+- 6d7e886: A `/flags` load still in flight when `reset()` runs no longer writes the previous user's flags into the cache, calls `onFeatureFlags` listeners, posts `didReceiveFeatureFlags`, or is replayed to a listener registered later. The reload `reset()` starts still runs, and a `reloadFeatureFlags` callback waiting on the dropped load is called when that reload finishes.
+
+## 3.94.2
+
+### Patch Changes
+
+- 2856428: Fix surveys so `seenSurveyWaitPeriodInDays` counts from when a survey was shown rather than when it was closed, and a survey closed before it appears (for example during `surveyPopupDelaySeconds` or after `reset()`) is no longer marked seen or reported as `survey dismissed`.
+
+## 3.94.1
+
+### Patch Changes
+
+- 9e17a63: A crash report written by the native crash reporter after `optOut()` is no longer sent as `$exception` after the next `optIn()`. The native crash handler cannot be removed once installed, so at opt-out the SDK replaces the crash context with an opted-out marker and drops a pending report that carries it. A crash recorded while opted in is still delivered after `optIn()`. Reports written by SDK versions before this change carry no marker and are still sent. Out-of-memory terminations reported through MetricKit on iOS 27 are not covered by this change.
+- 9e17a63: On iOS 27+, an out-of-memory termination recorded after `optOut()` is no longer sent as `$exception` after the next `optIn()`. One from a session that was opted in is still delivered, and one with no saved context carries no consent signal and is still sent.
+
+## 3.94.0
+
+### Minor Changes
+
+- d927501: Session replay and surveys no longer swizzle `UIView.layoutSublayers(of:)`. Capture is now scheduled from an observer on the main run loop, and session replay skips rendering while the screen keeps producing identical frames. Wireframe mode now skips unchanged frames too, so idle screens send fewer `$snapshot` events. Surveys no longer require swizzling, so apps that set `enableSwizzling` to `false` now get surveys instead of having the integration skipped.
+
+## 3.93.6
+
+### Patch Changes
+
+- 9551567: Fix session replay recording touches inside views masked with `ph-no-capture` or `postHogMask()`. These touches are now dropped. Touches on views masked only by `maskAllTextInputs` or `maskAllImages` are still recorded.
+
+## 3.93.5
+
+### Patch Changes
+
+- d10bb5f: Stop emitting `$feature_flag_called` for survey flags whose keys start with `survey-targeting-`, matching the browser SDK while preserving usage tracking for ordinary linked flags.
+
+## 3.93.4
+
+### Patch Changes
+
+- 0ccda7e: A `beforeSend` hook that calls `reset()` or `identify()` no longer gives the event's `userProperties` to the next user's feature flag evaluation.
+
+## 3.93.3
+
+### Patch Changes
+
+- 23cf425: Skip a session replay screenshot when `drawHierarchy` reports it could not render the window, instead of uploading a blank frame.
+- 23cf425: Clear the session replay screenshot bitmap before drawing, so a failed or partial render can no longer upload leftover memory in a snapshot.
+- 6af1bbd: Update the user's identity and reload feature flags when `identify()` is called while opted out, matching the other PostHog SDKs. No events are captured while opted out.
+
+## 3.93.2
+
+### Patch Changes
+
+- c6057bc: Fix missing background events and incorrect cold opens after late setup or opt-in.
+
+## 3.93.1
+
+### Patch Changes
+
+- 9b7e911: Fix `screenshotMode` session replay leaving masked content visible where it is drawn outside its view (unclipped images, layer shadows, button titles) and image attachments in text unmasked when `maskAllImages` is on.
+
+## 3.93.0
+
+### Minor Changes
+
+- 02e113e: Add an experimental `sessionReplayConfig.screenshotScale` option that sets session replay screenshot resolution as a fraction of the screen's native resolution. Left unset, screenshots stay at one pixel per point.
+
+### Patch Changes
+
+- 02e113e: Keep small text readable in downsized session replay screenshots by resampling them with smoothing instead of nearest-neighbour.
+
+## 3.92.7
+
+### Patch Changes
+
+- 047ccee: Upload session replay screenshots at one pixel per point whether or not the frame has masks, instead of at the screen's native scale for unmasked frames.
+
+## 3.92.6
+
+### Patch Changes
+
+- 707d3b2: Mask the whole rect of a `ph-no-capture` view in session replay screenshots, including a view that fills the window.
+- 05c1201: Fix screenshot session replay masks leaving the corners of each masked area visible; masks now cover the full rectangle.
+
+## 3.92.5
+
+### Patch Changes
+
+- 91dffb3: Mask SwiftUI `.drawingGroup()` and `Canvas` content in screenshot session replay when `maskAllTextInputs` or `maskAllImages` is enabled. Previously, text and images in a drawing group or Canvas were uploaded unmasked. This also masks Swift Charts, which draw through the same surface; apply `postHogNoMask()` to a chart to keep it visible.
+
+## 3.92.4
+
+### Patch Changes
+
+- 6c921e2: Mask a `UIImageView` in session replay when any of its `image`, `highlightedImage`, `animationImages` or `highlightedAnimationImages` is not an SF Symbol or asset-catalog image. Before, only `image` was checked, so an animating or highlighted image view could be recorded unmasked even with `maskAllImages` on.
+
+## 3.92.3
+
+### Patch Changes
+
+- 40b7495: Keep a session recording that an event trigger started when remote config updates the event triggers, such as the first `/config` fetch after launch, matching posthog-js and posthog-android
+- 0987066: Restart session replay on `optIn()` in a new session whenever the app wanted it on at `optOut()`: `sessionReplay` is enabled or the app called `startSessionRecording()`, and it didn't call `stopSessionRecording()` since. This includes a recording started with `sessionReplay` disabled and one held by an event trigger or sampling, which are checked again for the new session. Also keep integrations in step with consent when `optIn()` and `optOut()` run concurrently
+
+## 3.92.2
+
+### Patch Changes
+
+- 9091129: Stop exception autocapture from starting while the SDK is opted out, when a remote config that enables it arrives after `optOut()`. A later `optIn()` also no longer skips installing the other integrations.
+
+## 3.92.1
+
+### Patch Changes
+
+- 12de246: Start session replay in a new session when `optIn()` is called, and keep it stopped if the app had called `stopSessionRecording()` before `optOut()`
+
+## 3.92.0
+
+### Minor Changes
+
+- d4ea175: Change properties passed to `capture()` and the other event methods to override registered super properties and SDK context properties such as `$app_version`, `$os_name` and `$lib`, and a group passed in `groups:` to override a group set with `group()`, matching posthog-android and posthog-js. If you relied on the registered or SDK value winning, stop passing the conflicting key per event; `$is_identified`, `$process_person_profile`, `$geoip_disable`, `$recording_status` and `$sdk_debug_*` properties are still set by the SDK.
+
+### Patch Changes
+
+- 5d2a98b: Send queued events, session replay snapshots, and logs when `close()` is called instead of holding them until the next SDK setup
+- f524e31: Keep `$referring_domain` and registered UTM/click-id super properties on minimal `$feature_flag_called` events
+- 4257154: Ignore `group(type:key:)` calls with an empty `type` or `key`. Previously they stored the empty group on later events and sent an invalid `$groupidentify`; now the call does nothing and logs a debug message
+- ea22826: Fix `errorTrackingConfig.ignoredExceptionTypes` not dropping matching `$exception` events on watchOS and visionOS
+- 4708ca1: Cap how long a `Retry-After` response header can pause log uploads at 5 minutes.
+- 8ad4249: Fix `$recording_status` reporting `active` after a backgrounded session times out, while `isSessionReplayActive()` returns `false`
+- 0aa4af5: Send already recorded session replay snapshots when `stopSessionRecording()` is called instead of holding them until the next flush
+
+## 3.91.2
+
+### Patch Changes
+
+- c61cbdc: Retry feature flag requests after DNS, TLS handshake, and no-internet failures, in addition to timeouts and lost connections
+
+## 3.91.1
+
+### Patch Changes
+
+- 95f7173: Fix `$exception` event metadata: link chained errors with `exception_id`/`parent_id`, cap the chain at 50 entries, add `$exception_source` to crash and out-of-memory reports, and stop `captureException` properties from overriding `$exception_list` and `$debug_images`
+- 7c51382: Drop log attributes with an empty key instead of sending them
+
+## 3.91.0
+
+### Minor Changes
+
+- f5cbe87: Add `$app_build_xcode` and `$app_build_sdk` properties to `Application Installed` and `Application Updated` events with the Xcode version and SDK the host app was built with
+
 ## 3.90.2
 
 ### Patch Changes

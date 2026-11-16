@@ -131,6 +131,10 @@ let maxRetryDelay = 30.0
         }
 
         private weak var surveysIntegration: PostHogSurveyIntegration?
+        /// Whether `optIn()` starts session replay: whether the app wants it, from `config.sessionReplay`
+        /// and the app's last `startSessionRecording()`/`stopSessionRecording()` while opted in, so consent
+        /// doesn't override a stop. Internal stops don't change it. Guarded by `setupLock`.
+        private var startSessionRecordingOnOptIn = true
     #endif
 
     // nonisolated(unsafe) is introduced in Swift 5.10
@@ -325,8 +329,15 @@ let maxRetryDelay = 30.0
             // this only reconciles an existing local identity.
             reconcileBootstrapIdentityIfNeeded()
 
+            #if os(iOS)
+                // Launched opted out: optIn() starts replay only when the config does
+                startSessionRecordingOnOptIn = config.sessionReplay
+            #endif
+
             if !config.optOut {
-                // don't install integrations if in opt-out state
+                // don't install integrations if in opt-out state. They subscribe to lifecycle events after
+                // sessionManager.setup above on purpose: subscribers fire in subscription order, and the
+                // session manager has to see a foreground before Application Opened is captured.
                 installIntegrations()
 
                 createExceptionStepsBufferIfNeeded()
@@ -641,6 +652,10 @@ let maxRetryDelay = 30.0
     /// Internal marker on built properties, stripped in `buildEvent` and carried on the event instead.
     private static let replayDebugClaimMarkerKey = "$__replay_debug_claim"
 
+    private static func isBlank(_ value: String) -> Bool {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private static func isReplayDebugEvent(_ event: String?) -> Bool {
         guard let event else { return false }
         return event.hasPrefix("$")
@@ -702,7 +717,7 @@ let maxRetryDelay = 30.0
         // here, so the debug keys must describe the session this event lands in (mirrors posthog-js).
         // A caller-supplied $session_id wins so replay snapshots never land in the wrong session.
         let eventTime = timestamp ?? now()
-        let propSessionId = properties?["$session_id"] as? String
+        let propSessionId = (properties?["$session_id"] as? String).flatMap { Self.isBlank($0) ? nil : $0 }
         let sessionId: String? = propSessionId.isNilOrEmpty
             ? sessionManager.getSessionId(at: eventTime, readOnly: readOnlySession)
             : propSessionId
@@ -728,10 +743,62 @@ let maxRetryDelay = 30.0
             if groups != nil {
                 // $groups are also set via the dynamicContext
                 let currentGroups = props["$groups"] as? [String: String] ?? [:]
-                let mergedGroups = currentGroups.merging(groups ?? [:]) { current, _ in current }
+                let mergedGroups = currentGroups.merging(groups ?? [:]) { _, new in new }
                 props["$groups"] = mergedGroups
             }
 
+            // Only stamp if the caller didn't supply a non-empty value. Whitespace-only
+            // caller values are treated as absent (almost always accidental).
+            let trimmedCallerScreenName = (properties?["$screen_name"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if let name = lastScreenName, !name.isEmpty, trimmedCallerScreenName.isNilOrEmpty {
+                props["$screen_name"] = name
+            }
+        }
+
+        let sdkInfo = context?.sdkInfo()
+        if sdkInfo != nil {
+            props = props.merging(sdkInfo ?? [:]) { current, _ in current }
+        }
+
+        if let sessionId {
+            if propSessionId.isNilOrEmpty {
+                props["$session_id"] = sessionId
+            }
+            // only Session replay requires $window_id, so we set as the same as $session_id.
+            // the backend might fallback to $session_id if $window_id is not present next.
+            #if os(iOS)
+                if !appendSharedProps, isSessionReplayActive() {
+                    props["$window_id"] = sessionId
+                }
+            #endif
+        }
+
+        // only Session Replay needs distinct_id also in the props
+        // remove after https://github.com/PostHog/posthog/issues/23275 gets merged
+        let propDistinctId = properties?["distinct_id"] as? String
+        if !appendSharedProps, propDistinctId.map(Self.isBlank) ?? true {
+            props["distinct_id"] = distinctId
+        }
+
+        // Caller-supplied properties win over registered super properties and SDK context.
+        // A blank caller value for a key the SDK filled in above is treated as absent.
+        var callerProps = properties ?? [:]
+        for key in ["$session_id", "$screen_name", "distinct_id"] where props[key] != nil {
+            if let value = callerProps[key] as? String, !Self.isBlank(value) {
+                continue
+            }
+            callerProps.removeValue(forKey: key)
+        }
+        // A caller-supplied $groups adds to the registered and per-call groups instead of replacing them.
+        if let callerGroups = callerProps["$groups"] as? [String: String], let currentGroups = props["$groups"] as? [String: String] {
+            callerProps["$groups"] = currentGroups.merging(callerGroups) { _, new in new }
+        }
+        props.merge(callerProps) { _, new in new }
+
+        // After the caller merge so the SDK's person-processing state, geoip opt-out and debug
+        // values can't be overridden per event, matching posthog-js and posthog-android.
+        if appendSharedProps {
             if let isIdentified = config.storageManager?.isIdentified() {
                 props["$is_identified"] = isIdentified
             }
@@ -772,48 +839,7 @@ let maxRetryDelay = 30.0
             if let depth = queue?.depth {
                 props["$sdk_debug_pending_queue_size"] = depth
             }
-
-            // Only stamp if the caller didn't supply a non-empty value —
-            // `merging(properties)` below keeps the existing value on conflict,
-            // so seeding would shadow a caller-supplied override. Whitespace-only
-            // caller values are treated as absent (almost always accidental).
-            let trimmedCallerScreenName = (properties?["$screen_name"] as? String)?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            if let name = lastScreenName, !name.isEmpty, trimmedCallerScreenName.isNilOrEmpty {
-                props["$screen_name"] = name
-            }
         }
-
-        let sdkInfo = context?.sdkInfo()
-        if sdkInfo != nil {
-            props = props.merging(sdkInfo ?? [:]) { current, _ in current }
-        }
-
-        if let sessionId {
-            if propSessionId.isNilOrEmpty {
-                props["$session_id"] = sessionId
-            }
-            // only Session replay requires $window_id, so we set as the same as $session_id.
-            // the backend might fallback to $session_id if $window_id is not present next.
-            #if os(iOS)
-                if !appendSharedProps, isSessionReplayActive() {
-                    props["$window_id"] = sessionId
-                }
-            #endif
-        }
-
-        // only Session Replay needs distinct_id also in the props
-        // remove after https://github.com/PostHog/posthog/issues/23275 gets merged
-        let propDistinctId = properties?["distinct_id"] as? String
-        if !appendSharedProps, propDistinctId == nil || propDistinctId?.isEmpty == true {
-            props["distinct_id"] = distinctId
-        }
-
-        let callerProps = properties ?? [:]
-        props = props.merging(callerProps) { current, _ in current }
-        // Caller-supplied feature-flag properties take precedence over the cached values
-        let callerFlagProps = callerProps.filter { $0.key.hasPrefix("$feature/") || $0.key == "$active_feature_flags" }
-        props = props.merging(callerFlagProps) { _, new in new }
 
         return props
     }
@@ -878,6 +904,11 @@ let maxRetryDelay = 30.0
                 config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             }
         }
+        #if os(iOS) || TESTING
+            // A survey still waiting out its popup delay belongs to the previous user.
+            let surveyIntegrations = setupLock.withLock { installedIntegrations.compactMap { $0 as? PostHogSurveyIntegration } }
+            surveyIntegrations.forEach { $0.cancelPendingSurvey() }
+        #endif
         flagCallReportedLock.withLock {
             flagCallReported.removeAll()
         }
@@ -971,7 +1002,8 @@ let maxRetryDelay = 30.0
     ///
     /// By default, the first successful identify call links prior anonymous events to the provided ID.
     /// If `PostHogConfig.reuseAnonymousId` is `true`, prior anonymous events are not linked.
-    /// Empty IDs, opted-out users, and configurations with `personProfiles == .never` are ignored.
+    /// Empty IDs and configurations with `personProfiles == .never` are ignored.
+    /// While opted out, the distinct ID and feature flags still update, but no event is captured.
     ///
     /// - Parameter distinctId: Stable user identifier from your application.
     @objc public func identify(_ distinctId: String) {
@@ -1007,10 +1039,6 @@ let maxRetryDelay = 30.0
 
         if distinctId.isEmpty {
             hedgeLog("identify call not allowed, distinctId is invalid: \(distinctId)")
-            return
-        }
-
-        if isOptOutState() {
             return
         }
 
@@ -1051,29 +1079,32 @@ let maxRetryDelay = 30.0
         }
 
         if hasDifferentDistinctId, !isIdentified {
-            var props: [String: Any] = ["distinct_id": distinctId]
+            // Opt-out gates capture only: identity and flags still follow the new distinct id.
+            if !isOptOutState() {
+                var props: [String: Any] = ["distinct_id": distinctId]
 
-            if !config.reuseAnonymousId {
-                props["$anon_distinct_id"] = oldDistinctId
-            }
+                if !config.reuseAnonymousId {
+                    props["$anon_distinct_id"] = oldDistinctId
+                }
 
-            let eventName = PostHogKnownUnsafeEditableEvent.identify.rawValue
-            let properties = buildProperties(
-                event: eventName,
-                distinctId: distinctId,
-                properties: props,
-                userProperties: sanitizeDictionary(userProperties),
-                userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce)
-            )
+                let eventName = PostHogKnownUnsafeEditableEvent.identify.rawValue
+                let properties = buildProperties(
+                    event: eventName,
+                    distinctId: distinctId,
+                    properties: props,
+                    userProperties: sanitizeDictionary(userProperties),
+                    userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce)
+                )
 
-            guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
-                return
+                guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
+                    return
+                }
+
+                queueEvent(event, queue: queue)
             }
 
             // Automatically set person properties for feature flags during identify() call
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
-
-            queueEvent(event, queue: queue)
 
             remoteConfig?.reloadFeatureFlags()
 
@@ -1637,6 +1668,7 @@ let maxRetryDelay = 30.0
             finalProperties[PostHogExceptionStepFields.stepsKey] = steps
         }
 
+        let distinctIdBeforeHooks = getDistinctId()
         // Sanitize is now called in buildEvent
         let posthogEvent = buildEvent(
             event: event,
@@ -1658,8 +1690,9 @@ let maxRetryDelay = 30.0
             return
         }
 
-        // Automatically set person properties for feature flags during capture event
-        if !skipBuildProperties {
+        // Automatically set person properties for feature flags during capture event, unless a
+        // `beforeSend` hook called `reset()` or `identify()`: they belong to the earlier user.
+        if !skipBuildProperties, getDistinctId() == distinctIdBeforeHooks {
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
         }
 
@@ -2021,6 +2054,7 @@ let maxRetryDelay = 30.0
     /// Associates subsequent events with a group and optionally updates group properties.
     ///
     /// This sends a `$groupidentify` event and reloads feature flags if the group value changed.
+    /// The call is ignored if `type` or `key` is empty.
     ///
     /// - Parameters:
     ///   - type: Group type, such as `"company"` or `"organization"`.
@@ -2029,6 +2063,11 @@ let maxRetryDelay = 30.0
     @objc(groupWithType:key:groupProperties:)
     public func group(type: String, key: String, groupProperties: [String: Any]? = nil) {
         if !isEnabled() {
+            return
+        }
+
+        if type.isEmpty || key.isEmpty {
+            hedgeLog("group call not allowed, type and key must not be empty")
             return
         }
 
@@ -2609,7 +2648,7 @@ let maxRetryDelay = 30.0
     }
 
     /// The strict property allowlist for minimal `$feature_flag_called` events. Everything else —
-    /// registered super properties, `$active_feature_flags`, the `$feature/<key>` enumeration,
+    /// other registered super properties, `$active_feature_flags`, the `$feature/<key>` enumeration,
     /// bootstrap enrichment — is stripped. Kept in sync with the cross-SDK minimal
     /// `$feature_flag_called` contract.
     private static let minimalFeatureFlagCalledProperties: Set<String> = [
@@ -2621,6 +2660,7 @@ let maxRetryDelay = 30.0
         "$feature_flag_reason",
         "$feature_flag_request_id",
         "$feature_flag_evaluated_at",
+        "$feature_flag_error",
         "$groups",
         "$process_person_profile",
         "$session_id",
@@ -2631,11 +2671,23 @@ let maxRetryDelay = 30.0
         "$os_name",
         "$os_version",
         "$app_version",
+        // Session attribution: web analytics reads session-initial attribution from the first event
+        // in a session, which can be a minimized $feature_flag_called. iOS doesn't register these
+        // itself, but apps can via register(). The full $referrer is intentionally excluded.
+        "$referring_domain",
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_content",
+        "utm_term",
+        "gad_source",
+        "mc_cid",
+        "gclid",
+        "fbclid",
         // Forward-looking cross-SDK contract entries: not produced by buildProperties for
         // $feature_flag_called on iOS today ($device_id is added later by PostHogApi on the
-        // /flags request only; $window_id is snapshot-only; $feature_flag_error isn't emitted
-        // by this SDK yet). Kept so the allowlist matches the shared contract as those signals land.
-        "$feature_flag_error",
+        // /flags request only; $window_id is snapshot-only). Kept so the allowlist matches the
+        // shared contract as those signals land.
         "$window_id",
         "$device_id",
     ]
@@ -2677,6 +2729,10 @@ let maxRetryDelay = 30.0
 
             if let evaluatedAt {
                 properties["$feature_flag_evaluated_at"] = evaluatedAt
+            }
+
+            if let errors = remoteConfig?.getFeatureFlagErrors(flagKey), !errors.isEmpty {
+                properties["$feature_flag_error"] = errors.joined(separator: ",")
             }
 
             if let details = details as? [String: Any] {
@@ -2727,33 +2783,58 @@ let maxRetryDelay = 30.0
     /// Opts the current user back into data capture.
     ///
     /// This persists the opt-in state, unless opt-out persistence is disabled, and installs
-    /// integrations that were disabled while opted out.
+    /// integrations that were disabled while opted out. Session replay restarts in a new session if the app
+    /// wanted it on at `optOut()`: `config.sessionReplay` is enabled or `startSessionRecording()` was called,
+    /// and `stopSessionRecording()` wasn't called after. Sampling, linked flags and event triggers apply
+    /// again to the new session.
     @objc public func optIn() {
         if !isEnabled() {
             return
         }
 
-        if !isOptOut() {
-            return
-        }
-
-        // Read `config` before taking optOutLock: its getter takes setupLock, and setup() holds
-        // setupLock while taking optOutLock, so reading it inside would invert the two.
-        let config = self.config
-        optOutLock.withLock {
-            config.optOut = false
-            if config.persistOptOut {
-                storage?.setBool(forKey: .optOut, contents: false)
+        // The consent decision, its write and the integration transition run as one setupLock section,
+        // so a concurrent optOut() can't land between them and leave integrations out of step with consent.
+        // setupLock is taken before optOutLock, the same order setup() uses.
+        let didOptIn = setupLock.withLock { () -> Bool in
+            // close() may have run since the check above
+            guard enabled, _config.optOut else {
+                return false
             }
-        }
 
-        setupLock.withLock {
+            let config = _config
+            optOutLock.withLock {
+                config.optOut = false
+                if config.persistOptOut {
+                    storage?.setBool(forKey: .optOut, contents: false)
+                }
+            }
+
+            #if os(iOS)
+                // Replay restarts in a new session (a no-op under React Native, which owns the session id)
+                if startSessionRecordingOnOptIn {
+                    sessionManager.startSession()
+                }
+            #endif
             installIntegrations()
+            #if os(iOS)
+                if !startSessionRecordingOnOptIn {
+                    // install() starts recording; undo it if the app had stopped replay before opting out
+                    replayIntegration?.stop()
+                } else if !config.sessionReplay {
+                    // A recording the app started itself isn't part of the configured integrations
+                    installReplayIntegration()
+                }
+            #endif
             // Start the buffer for this run, then notify the freshly installed crash writer of the
             // current context and any buffered steps (the buffer survives opt-out, so steps may exist).
             createExceptionStepsBufferIfNeeded()
             notifyContextDidChange()
             notifyExceptionStepsDidChange()
+            return true
+        }
+
+        guard didOptIn else {
+            return
         }
 
         pushSubscriptionHandler?.onOptIn()
@@ -2783,23 +2864,26 @@ let maxRetryDelay = 30.0
             return
         }
 
-        if isOptOut() {
-            return
-        }
-
-        // Same lock-order reason as optIn(): hoist the setupLock-guarded read out of optOutLock.
-        let config = self.config
-        optOutLock.withLock {
-            config.optOut = true
-            if config.persistOptOut {
-                storage?.setBool(forKey: .optOut, contents: true)
+        // Same atomic section as optIn()
+        let didOptOut = setupLock.withLock { () -> Bool in
+            guard enabled, !_config.optOut else {
+                return false
             }
+
+            let config = _config
+            optOutLock.withLock {
+                config.optOut = true
+                if config.persistOptOut {
+                    storage?.setBool(forKey: .optOut, contents: true)
+                }
+            }
+
+            uninstallIntegrations()
+            return true
         }
 
-        pushSubscriptionHandler?.onOptOut()
-
-        setupLock.withLock {
-            uninstallIntegrations()
+        if didOptOut {
+            pushSubscriptionHandler?.onOptOut()
         }
     }
 
@@ -2816,7 +2900,9 @@ let maxRetryDelay = 30.0
 
     /// Shuts down this SDK instance and clears its in-memory state.
     ///
-    /// Queues are stopped, integrations are uninstalled, and this instance must be set up again before reuse.
+    /// Starts sending queued events, session replay snapshots, and logs (up to one batch each) and returns without
+    /// waiting for delivery. Anything not sent, for example while offline, stays on disk and is sent after the next
+    /// setup. Integrations are uninstalled, and this instance must be set up again before reuse.
     @objc public func close() {
         if !isEnabled() {
             return
@@ -2826,6 +2912,10 @@ let maxRetryDelay = 30.0
             enabled = false
             PostHogSDK.projectTokens.remove(config.projectToken)
 
+            queue?.flush()
+            replayQueue?.flush()
+            logsQueue?.flush()
+
             queue?.stop()
             replayQueue?.stop()
             logsQueue?.stop()
@@ -2834,6 +2924,9 @@ let maxRetryDelay = 30.0
             replayQueue = nil
             logsQueue = nil
             pushSubscriptionHandler = nil
+            #if os(iOS)
+                startSessionRecordingOnOptIn = true
+            #endif
             replayDebugPropertiesLock.withLock {
                 lastReplayDebugPropertiesAt = nil
                 hasOutstandingReplayDebugClaim = false
@@ -2914,38 +3007,43 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            if replayIntegration == nil {
+            // The intent and the start it describes run as one setupLock section, so a concurrent
+            // stopSessionRecording() lands wholly before or after it and the two stay in step.
+            setupLock.withLock {
+                // Re-checked under the lock in case optOut() or close() ran since the checks above.
+                // Recorded before the gates below, which can hold the start (e.g. an event trigger).
+                guard enabled, !_config.optOut else { return }
+                startSessionRecordingOnOptIn = true
+
                 // replay integration was not previously installed (probably disabled in config), attempt to install it
-                setupLock.withLock {
-                    installReplayIntegration()
+                installReplayIntegration()
+
+                guard let replayIntegration else {
+                    return
                 }
+
+                // An explicit start request means JS wants recording: clear the React Native stop latch
+                // before the guards below, so a refused request doesn't leave automatic starts blocked.
+                replayIntegration.clearReactNativeStop()
+
+                if resumeCurrent, replayIntegration.isActive() {
+                    // nothing to resume, already active
+                    return
+                }
+
+                guard let remoteConfig, remoteConfig.isSessionReplayFlagActive() else {
+                    return hedgeLog("Could not start recording. Session replay feature flag is disabled.")
+                }
+
+                guard (resumeCurrent
+                    ? sessionManager.getSessionId()
+                    : sessionManager.getNextSessionId()) != nil
+                else {
+                    return hedgeLog("Could not start recording. Missing session id.")
+                }
+
+                replayIntegration.start()
             }
-
-            guard let replayIntegration else {
-                return
-            }
-
-            // An explicit start request means JS wants recording: clear the React Native stop latch
-            // before the guards below, so a refused request doesn't leave automatic starts blocked.
-            replayIntegration.clearReactNativeStop()
-
-            if resumeCurrent, replayIntegration.isActive() {
-                // nothing to resume, already active
-                return
-            }
-
-            guard let remoteConfig, remoteConfig.isSessionReplayFlagActive() else {
-                return hedgeLog("Could not start recording. Session replay feature flag is disabled.")
-            }
-
-            guard (resumeCurrent
-                ? sessionManager.getSessionId()
-                : sessionManager.getNextSessionId()) != nil
-            else {
-                return hedgeLog("Could not start recording. Missing session id.")
-            }
-
-            replayIntegration.start()
         }
 
         /**
@@ -2954,7 +3052,13 @@ let maxRetryDelay = 30.0
          With `config.sessionReplay = false`, this also cancels a pending `startSessionRecording()` call, so
          remote config loads, event triggers and session changes will not start recording until the app
          calls `startSessionRecording()` again. Under React Native, where the JS layer drives recording, this
-         holds whatever `config.sessionReplay` is.
+         holds whatever `config.sessionReplay` is. A later `optOut()` and `optIn()` don't restart it either. While
+         opted out this method is ignored.
+
+         Stopping also starts a best-effort, asynchronous flush of replay snapshots already recorded instead of
+         waiting for the next scheduled flush. Normal buffering and delivery limits still apply: snapshots can be
+         held back, for example because the session is shorter than the minimum duration, and a large backlog is
+         sent over more than one flush.
 
          This method will have no effect if PostHog is not enabled
          */
@@ -2963,11 +3067,19 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            guard let replayIntegration else {
+            // A stop while opted out is ignored, like a start. Same atomic section as startSessionRecording()
+            let stopped = setupLock.withLock { () -> Bool in
+                guard enabled, !_config.optOut else { return false }
+                startSessionRecordingOnOptIn = false
+                guard let replayIntegration else { return false }
+                replayIntegration.stop()
+                return true
+            }
+            guard stopped else {
                 return
             }
 
-            replayIntegration.stop()
+            replayQueue?.flush()
         }
 
         /// Captures the current native window for a first-party wrapper SDK
@@ -3087,13 +3199,9 @@ let maxRetryDelay = 30.0
     ) {
         guard isEnabled() else { return }
 
-        let errorProperties = PostHogExceptionProcessor.errorToProperties(
-            error,
-            handled: true,
-            config: config.errorTrackingConfig
-        )
-
-        captureExceptionEvent(errorProperties, additionalProperties: properties)
+        // Read in the public entry point itself; see `captureError(_:properties:callerStack:)`
+        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
+        captureError(error, properties: properties, callerStack: callerStack)
     }
 
     /// Capture a Swift Error or NSError without additional properties
@@ -3106,7 +3214,10 @@ let maxRetryDelay = 30.0
     public func captureException(
         _ error: Error
     ) {
-        captureException(error, properties: nil)
+        guard isEnabled() else { return }
+
+        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
+        captureError(error, properties: nil, callerStack: callerStack)
     }
 
     /// Capture an NSException
@@ -3134,13 +3245,8 @@ let maxRetryDelay = 30.0
     ) {
         guard isEnabled() else { return }
 
-        let exceptionProperties = PostHogExceptionProcessor.exceptionToProperties(
-            exception,
-            handled: true,
-            config: config.errorTrackingConfig
-        )
-
-        captureExceptionEvent(exceptionProperties, additionalProperties: properties)
+        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
+        captureNSException(exception, properties: properties, callerStack: callerStack)
     }
 
     /// Capture an NSException without additional properties
@@ -3153,7 +3259,49 @@ let maxRetryDelay = 30.0
     public func captureException(
         _ exception: NSException
     ) {
-        captureException(exception, properties: nil)
+        guard isEnabled() else { return }
+
+        let callerStack = Array(Thread.callStackReturnAddresses.dropFirst())
+        captureNSException(exception, properties: nil, callerStack: callerStack)
+    }
+
+    /// Captures a handled error with the caller's stack.
+    ///
+    /// Every public `captureException` overload reads `Thread.callStackReturnAddresses` in its own body
+    /// and drops index 0 (its own frame), so the trace starts at the app's call site. The SDK's frames
+    /// can't be recognized afterwards: when the SDK is statically linked they share the app's binary,
+    /// and stripped release builds have no symbol names. Don't move that read into a helper or route
+    /// one overload through another, as either adds an SDK frame above the caller.
+    private func captureError(
+        _ error: Error,
+        properties: [String: Any]?,
+        callerStack: [NSNumber]
+    ) {
+        let errorProperties = PostHogExceptionProcessor.errorToProperties(
+            error,
+            handled: true,
+            config: config.errorTrackingConfig,
+            callerStack: callerStack
+        )
+
+        captureExceptionEvent(errorProperties, additionalProperties: properties)
+    }
+
+    /// Captures a handled NSException; `callerStack` is only used when the exception was never raised.
+    /// See `captureError(_:properties:callerStack:)`.
+    private func captureNSException(
+        _ exception: NSException,
+        properties: [String: Any]?,
+        callerStack: [NSNumber]
+    ) {
+        let exceptionProperties = PostHogExceptionProcessor.exceptionToProperties(
+            exception,
+            handled: true,
+            config: config.errorTrackingConfig,
+            callerStack: callerStack
+        )
+
+        captureExceptionEvent(exceptionProperties, additionalProperties: properties)
     }
 
     /// Record an exception step (breadcrumb-style context record).
@@ -3244,12 +3392,23 @@ let maxRetryDelay = 30.0
         return steps.isEmpty ? nil : steps
     }
 
+    // $exception_level and $exception_source stay overridable: captureException has no other way to set
+    // the level, and posthog-android and posthog-js also let caller properties win for these keys
+    private static let reservedExceptionPropertyKeys: Set<String> = [
+        "$exception_list",
+        "$debug_images",
+    ]
+
     private func captureExceptionEvent(
         _ exceptionProperties: [String: Any],
         additionalProperties: [String: Any]?
     ) {
         var mergedProperties = exceptionProperties
-        additionalProperties?.forEach { mergedProperties[$0.key] = $0.value }
+        additionalProperties?.forEach { key, value in
+            // These describe the captured exception itself, so caller properties can't override them
+            guard !PostHogSDK.reservedExceptionPropertyKeys.contains(key) else { return }
+            mergedProperties[key] = value
+        }
 
         // ignoredExceptionTypes is enforced in captureInternal, the chokepoint for every $exception path
         capture("$exception", properties: mergedProperties)
@@ -3333,6 +3492,8 @@ let maxRetryDelay = 30.0
     /// Callable from any thread; runs under `setupLock` like every other `installedIntegrations` access.
     func addIntegration(_ integration: PostHogIntegration) {
         setupLock.withLock {
+            // Lazy installs (e.g. a live /config re-enabling autocapture) must not bypass opt-out.
+            guard enabled, !_config.optOut else { return }
             let id = ObjectIdentifier(integration)
             guard !installedIntegrations.contains(where: { ObjectIdentifier($0) == id }) else { return }
             guard case .installed = integration.install(self) else { return }
@@ -3725,6 +3886,10 @@ let maxRetryDelay = 30.0
 
         #if os(iOS)
             func getReplayIntegration() -> PostHogReplayIntegration? {
+                getIntegration()
+            }
+
+            func getSurveysIntegration() -> PostHogSurveyIntegration? {
                 getIntegration()
             }
         #endif

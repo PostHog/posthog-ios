@@ -73,6 +73,12 @@ import Foundation
     /// Optional text for the button that advances past the intro screen
     public let introScreenButtonText: String?
 
+    /// Where the survey should be placed on screen, as sent by PostHog (`appearance.position`).
+    /// One of `top_left`, `top_center`, `top_right`, `middle_left`, `middle_center`, `middle_right`,
+    /// `left`, `center`, or `right` (the last three are bottom-aligned).
+    /// Nil when not set; treat nil and unknown values as `center`.
+    public let position: String?
+
     init(
         fontFamily: String?,
         backgroundColor: String?,
@@ -97,7 +103,8 @@ import Foundation
         introScreenHeader: String? = nil,
         introScreenDescription: String? = nil,
         introScreenDescriptionContentType: PostHogDisplaySurveyTextContentType? = nil,
-        introScreenButtonText: String? = nil
+        introScreenButtonText: String? = nil,
+        position: String? = nil
     ) {
         self.fontFamily = fontFamily
         self.backgroundColor = backgroundColor
@@ -123,6 +130,7 @@ import Foundation
         self.introScreenDescription = introScreenDescription
         self.introScreenDescriptionContentType = introScreenDescriptionContentType
         self.introScreenButtonText = introScreenButtonText
+        self.position = position
         super.init()
     }
 }

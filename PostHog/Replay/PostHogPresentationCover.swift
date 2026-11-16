@@ -28,6 +28,20 @@
             return cover
         }
 
+        /// Presented views that can't be checked as covers, because an app-defined layer in their chain is animating.
+        /// Any of them may hide the window, so a capture that leaves one out can't draw what's behind it instead.
+        static func unreadablePresentedViews(in window: UIWindow) -> [UIView] {
+            var views: [UIView] = []
+            var controller = window.rootViewController
+            while let presented = controller?.presentedViewController {
+                if let view = presented.viewIfLoaded, view.layer.hasAppDefinedLayerInChain, view.layer.hasAnimationInChain {
+                    views.append(view)
+                }
+                controller = presented
+            }
+            return views
+        }
+
         private static func fullWindowCoverView(_ controller: UIViewController, in window: UIWindow) -> UIView? {
             guard
                 let view = controller.viewIfLoaded,
@@ -42,11 +56,17 @@
         }
 
         private static func hasUnobstructedCoverage(_ view: UIView, in window: UIWindow) -> Bool {
+            // Under an app-defined layer the presentation can't be converted without copying it. The model matches the
+            // screen only while nothing in the chain animates; while something does, it's no cover.
+            let readsModel = view.layer.hasAppDefinedLayerInChain
+            if readsModel, view.layer.hasAnimationInChain {
+                return false
+            }
             var current = view
             while true {
                 let layer = current.layer
                 guard isUnmodifiedRectangle(layer, in: window.layer),
-                      isUnmodifiedRectangle(layer.presentation() ?? layer, in: window.layer.presentation() ?? window.layer)
+                      readsModel || isUnmodifiedRectangle(layer.presentation() ?? layer, in: window.layer.presentation() ?? window.layer)
                 else {
                     return false
                 }
@@ -80,7 +100,7 @@
         /// sitting earlier in the array still wins when its `zPosition` is higher.
         private static func drawsLast(_ view: UIView, in parent: UIView) -> Bool {
             let viewPosition = view.layer.zPosition
-            let renderedViewPosition = view.layer.presentation()?.zPosition ?? viewPosition
+            let renderedViewPosition = view.layer.readablePresentation?.zPosition ?? viewPosition
             var isAfterView = false
             for sibling in parent.subviews {
                 if sibling === view {
@@ -97,8 +117,13 @@
                 if position > viewPosition || (position == viewPosition && isAfterView) {
                     return false
                 }
-                // Model order can already hide a sibling that is still rendered above the cover.
-                let renderedPosition = sibling.layer.presentation()?.zPosition ?? position
+                // Model order can already hide a sibling that is still rendered above the cover. An app-defined sibling
+                // that's animating can't be read, so it may be.
+                let rendered = sibling.layer.readablePresentation
+                if rendered == nil, sibling.layer.isAppDefined {
+                    return false
+                }
+                let renderedPosition = rendered?.zPosition ?? position
                 if renderedPosition > renderedViewPosition || (renderedPosition == renderedViewPosition && isAfterView) {
                     return false
                 }
@@ -112,7 +137,8 @@
         /// counts: a flag parked at its destination while the render server still shows the
         /// view keeps everything behind the presentation masked.
         private static func drawsNothing(_ view: UIView) -> Bool {
-            if view.isHidden, view.layer.presentation()?.isHidden ?? true {
+            // An app-defined layer that's animating can't be read, so it isn't taken as hidden.
+            if view.isHidden, view.layer.readablePresentation?.isHidden ?? !view.layer.isAppDefined {
                 return true
             }
             return !view.hasRenderedOpacity
@@ -122,7 +148,7 @@
             let layer = view.layer
             // Presentation style and isOpaque are not proof of the pixels currently painted.
             return (layer.backgroundColor?.alpha ?? 0) >= 1 &&
-                ((layer.presentation() ?? layer).backgroundColor?.alpha ?? 0) >= 1
+                ((layer.readablePresentation ?? layer).backgroundColor?.alpha ?? 0) >= 1
         }
     }
 #endif

@@ -47,6 +47,9 @@ class PostHogExceptionStepsTest {
             config.setBeforeSend(beforeSend)
         }
 
+        // `storage.reset()` keeps the event queue, and a previous test's event can
+        // still be on disk. Scoped to this token: some tests run two SDKs at once.
+        deleteSafely(PostHogStorage(config).appFolderUrl)
         let storage = PostHogStorage(config)
         storage.reset()
 

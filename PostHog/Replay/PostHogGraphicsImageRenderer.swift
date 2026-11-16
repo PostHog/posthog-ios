@@ -6,8 +6,9 @@
 
     import UIKit
 
-    /// Cached device RGB color space — avoids creating a new one per render call.
+    /// Cached color spaces — avoids creating new ones per render call.
     private let deviceRGBColorSpace = CGColorSpaceCreateDeviceRGB()
+    private let displayP3ColorSpace = CGColorSpace(name: CGColorSpace.displayP3) ?? deviceRGBColorSpace
 
     /// High-performance image renderer that bypasses `UIGraphicsImageRenderer` overhead.
     ///
@@ -17,15 +18,37 @@
     final class PostHogGraphicsImageRenderer {
         private let size: CGSize
         private let scale: CGFloat
+        private let roundingUp: Bool
+        private let colorSpace: CGColorSpace
 
-        init(size: CGSize, scale: CGFloat) {
+        /// `roundingUp` rounds the pixel size up instead of down, and stretches `size` over every pixel so none
+        /// is left undrawn. `gamut` picks the bitmap's color space: Display P3 for `.P3`, device RGB otherwise.
+        init(size: CGSize, scale: CGFloat, roundingUp: Bool = false, gamut: UIDisplayGamut = .unspecified) {
             self.size = size
             self.scale = scale
+            self.roundingUp = roundingUp
+            colorSpace = Self.colorSpace(for: gamut)
+        }
+
+        static func colorSpace(for gamut: UIDisplayGamut) -> CGColorSpace {
+            switch gamut {
+            case .P3:
+                return displayP3ColorSpace
+            case .SRGB, .unspecified:
+                return deviceRGBColorSpace
+            @unknown default:
+                return deviceRGBColorSpace
+            }
+        }
+
+        private func pixels(_ points: CGFloat) -> Int {
+            // The tolerance keeps float error, such as 100 × 0.30000000000000004, from adding a pixel.
+            roundingUp ? Int((points * scale - 0.001).rounded(.up)) : Int(points * scale)
         }
 
         func image(actions: (CGContext) -> Void) -> UIImage? {
-            let pixelsPerRow = Int(size.width * scale)
-            let pixelsPerColumn = Int(size.height * scale)
+            let pixelsPerRow = pixels(size.width)
+            let pixelsPerColumn = pixels(size.height)
             let bytesPerPixel = 4
             let bytesPerRow = bytesPerPixel * pixelsPerRow
             let bitsPerComponent = 8
@@ -35,7 +58,8 @@
             }
 
             let bufferSize = pixelsPerColumn * bytesPerRow
-            guard let rawData = malloc(bufferSize) else {
+            // calloc, not malloc: pixels the draw leaves uncovered must be transparent, not stale heap bytes.
+            guard let rawData = calloc(bufferSize, 1) else {
                 return nil
             }
             defer { free(rawData) }
@@ -46,15 +70,17 @@
                 height: pixelsPerColumn,
                 bitsPerComponent: bitsPerComponent,
                 bytesPerRow: bytesPerRow,
-                space: deviceRGBColorSpace,
+                space: colorSpace,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
             ) else {
                 return nil
             }
 
             // UIKit's coordinate system is flipped relative to CoreGraphics.
-            context.translateBy(x: 0, y: size.height * scale)
-            context.scaleBy(x: scale, y: -scale)
+            let scaleX = roundingUp ? CGFloat(pixelsPerRow) / size.width : scale
+            let scaleY = roundingUp ? CGFloat(pixelsPerColumn) / size.height : scale
+            context.translateBy(x: 0, y: size.height * scaleY)
+            context.scaleBy(x: scaleX, y: -scaleY)
 
             UIGraphicsPushContext(context)
             actions(context)

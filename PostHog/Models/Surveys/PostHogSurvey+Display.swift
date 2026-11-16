@@ -135,7 +135,8 @@
                 introScreenHeader: translation?.introScreenHeader ?? introScreenHeader,
                 introScreenDescription: translation?.introScreenDescription ?? introScreenDescription,
                 introScreenDescriptionContentType: introScreenDescriptionContentType?.toDisplayContentType(),
-                introScreenButtonText: translation?.introScreenButtonText ?? introScreenButtonText
+                introScreenButtonText: translation?.introScreenButtonText ?? introScreenButtonText,
+                position: position?.wireValue
             )
         }
     }

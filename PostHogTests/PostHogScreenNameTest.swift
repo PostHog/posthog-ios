@@ -81,6 +81,20 @@ final class PostHogScreenNameTest {
         sut.close()
     }
 
+    @Test("blank caller-supplied screen_name keeps cached value", arguments: ["", "  "])
+    func blankCallerScreenNameKeepsCachedValue(screenName: String) throws {
+        let sut = getSut(captured: captured)
+
+        sut.screen("Home")
+        sut.capture("event", properties: ["$screen_name": screenName])
+
+        let event = try #require(captured.events.first { $0.event == "event" })
+        #expect(event.properties["$screen_name"] as? String == "Home")
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("reset clears screen_name from subsequent events")
     func resetClearsScreenName() throws {
         let sut = getSut(captured: captured)

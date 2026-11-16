@@ -119,12 +119,17 @@ final class PostHogExceptionStepsBuffer {
 /// `customData` setter is not safe for concurrent writers, so writes are serialized by a process-
 /// global lock (covers the brief window where an old and new instance coexist during opt-out/opt-in).
 final class PostHogCrashCustomDataWriter {
+    /// Set in `customData` at opt-out; a crash report carrying it was recorded without consent.
+    static let optedOutKey = "$opted_out"
+
     private static let writeLock = NSLock()
 
     private let lock = NSLock()
     private let write: (Data) -> Void
     private var context: [String: Any] = [:]
     private var steps: [[String: Any]] = []
+    /// Terminal: a context or steps update already in flight at opt-out must not overwrite the marker.
+    private var optedOut = false
 
     init(write: @escaping (Data) -> Void) {
         self.write = write
@@ -133,6 +138,7 @@ final class PostHogCrashCustomDataWriter {
     /// Update the cached crash context and rewrite `customData` (steps unchanged).
     func setContext(_ context: [String: Any]) {
         lock.withLock {
+            guard !optedOut else { return }
             self.context = context
             writeLocked()
         }
@@ -141,7 +147,19 @@ final class PostHogCrashCustomDataWriter {
     /// Update the cached steps and rewrite `customData` (context unchanged).
     func setSteps(_ steps: [[String: Any]]) {
         lock.withLock {
+            guard !optedOut else { return }
             self.steps = steps
+            writeLocked()
+        }
+    }
+
+    /// Replaces the context and steps with only the opted-out marker, so a later crash carries no identity
+    /// or properties. Further updates are ignored; a new writer is created on opt-in.
+    func markOptedOut() {
+        lock.withLock {
+            optedOut = true
+            context = [Self.optedOutKey: true]
+            steps = []
             writeLocked()
         }
     }

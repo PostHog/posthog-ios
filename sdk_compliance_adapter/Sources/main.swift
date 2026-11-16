@@ -151,17 +151,30 @@ app.post("init") { req async throws -> Response in
     return try await result.encodeResponse(for: req)
 }
 
+/// Parses an RFC 3339 timestamp with any UTC offset, with or without fractional seconds.
+func parseHarnessTimestamp(_ value: String) -> Date? {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = formatter.date(from: value) {
+        return date
+    }
+    formatter.formatOptions = [.withInternetDateTime]
+    return formatter.date(from: value)
+}
+
 // Capture endpoint
 app.post("capture") { req async throws -> Response in
     struct CaptureRequest: Content {
         let event: String
         let distinctId: String?
         let properties: [String: AnyCodable]?
+        let timestamp: String?
 
         enum CodingKeys: String, CodingKey {
             case event
             case distinctId = "distinct_id"
             case properties
+            case timestamp
         }
     }
 
@@ -182,7 +195,9 @@ app.post("capture") { req async throws -> Response in
 
     // Capture the event with distinct_id parameter (don't use identify())
     // This ensures the distinct_id is set for THIS event, not globally
-    sdk.capture(captureReq.event, distinctId: captureReq.distinctId, properties: props)
+    // The harness may send a non-UTC offset; parsing keeps the instant, and the SDK serializes it as UTC.
+    let timestamp = captureReq.timestamp.flatMap(parseHarnessTimestamp)
+    sdk.capture(captureReq.event, distinctId: captureReq.distinctId, properties: props, timestamp: timestamp)
 
     print("[ADAPTER] Event captured: \(captureReq.event)")
 

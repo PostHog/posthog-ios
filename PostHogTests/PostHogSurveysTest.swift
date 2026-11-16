@@ -10,9 +10,42 @@ import OHHTTPStubs
 import OHHTTPStubsSwift
 @testable import PostHog
 import Testing
+#if os(iOS)
+    import UIKit
+#endif
 
 @Suite("Test Surveys")
 enum PostHogSurveysTest {
+    #if os(iOS)
+        @Suite("Survey window hit testing")
+        @MainActor
+        struct WindowHitTesting {
+            private final class RootHitView: UIView {
+                override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+                    self.point(inside: point, with: event) ? self : nil
+                }
+            }
+
+            @Test("embedded card receives hits when the hosting root returns itself")
+            func embeddedCardReceivesHits() {
+                let window = PassthroughWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 200))
+                let controller = UIViewController()
+                let root = RootHitView(frame: window.bounds)
+                let card = UIView(frame: CGRect(x: 20, y: 20, width: 100, height: 100))
+                root.addSubview(card)
+                controller.view = root
+                window.rootViewController = controller
+                window.isHidden = false
+                defer { window.isHidden = true }
+
+                #expect(window.hitTest(CGPoint(x: 50, y: 50), with: nil) === card)
+                #expect(window.hitTest(CGPoint(x: 150, y: 150), with: nil) == nil)
+                card.isHidden = true
+                #expect(window.hitTest(CGPoint(x: 50, y: 50), with: nil) == nil)
+            }
+        }
+    #endif
+
     @Suite("Auto-submit on selection")
     struct AutoSubmit {
         private func displayQuestion(type: String, skipSubmit: Bool?, hasOpenChoice: Bool = false, display: String = "number") throws -> PostHogDisplaySurveyQuestion {
@@ -621,6 +654,7 @@ enum PostHogSurveysTest {
         }
 
         deinit {
+            integration.uninstall(postHog)
             server.stop()
             postHog.close()
             postHog.reset()
@@ -741,6 +775,7 @@ enum PostHogSurveysTest {
                         repeatedActivation: repeatedActivation,
                         values: values
                     ),
+                    cancelEvents: nil,
                     linkedFlagVariant: nil,
                     actions: nil
                 ),
@@ -841,6 +876,7 @@ enum PostHogSurveysTest {
     class TestGetActiveSurveys {
         let server: MockPostHogServer
         let postHog: PostHogSDK
+        let integrations = TestIntegrationLifetime()
 
         #if os(iOS)
             final class SpySurveysDelegate: NSObject, PostHogSurveysDelegate {
@@ -886,6 +922,7 @@ enum PostHogSurveysTest {
         }
 
         deinit {
+            integrations.stopAll()
             let storage = PostHogStorage(postHog.config)
             postHog.close()
             deleteSafely(storage.appFolderUrl)
@@ -1201,7 +1238,7 @@ enum PostHogSurveysTest {
             PostHogSurveyIntegration.clearInstalls()
             let installOutcome = sut.install(postHog)
             #expect(installOutcome == .installed)
-            return sut
+            return integrations.track(sut)
         }
 
         private func parseSurveys(_ surveys: String) throws -> [[String: Any]] {
@@ -1461,6 +1498,9 @@ enum PostHogSurveysTest {
                 let delegate = SpySurveysDelegate()
                 postHog.config._surveysConfig.surveysDelegate = delegate
                 let sut = getSut(surveys: [])
+                // Start from a known-empty cache: a nil cache would make the first opportunity
+                // cold-load remote config, racing the config this test injects below.
+                sut.setSurveys([])
                 sut.hasActiveSurveyWindow = { true }
 
                 server.flagsResponseHandler = { _ in
@@ -1618,6 +1658,72 @@ enum PostHogSurveysTest {
             #expect(matchedSurveys.map(\.id) == ["active_id"])
         }
 
+        @Test("survey targeting flag reads do not emit usage events", arguments: [
+            "linked_flag_key", "targeting_flag_key", "internal_targeting_flag_key", "feature_flag_keys",
+        ], [true, false])
+        func surveyTargetingFlagsDoNotEmitUsageEvents(field: String, enabled: Bool) async throws {
+            let key = "survey-targeting-test"
+            server.featureFlags?[key] = enabled
+            var survey = try #require(try parseSurveys(activeSurvey).first)
+            if field == "feature_flag_keys" {
+                survey[field] = [["key": "test", "value": key]]
+            } else {
+                survey[field] = key
+            }
+            let sut = getSut(surveys: [])
+            sut.updateSurveyCache(sut.decodeSurveys(from: ["surveys": [survey]]), events: [:])
+            await withCheckedContinuation { continuation in
+                postHog.remoteConfig?.reloadFeatureFlags { _ in continuation.resume() }
+            }
+            server.reset(batchCount: 1)
+
+            let matched: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys { continuation.resume(returning: $0) }
+            }
+            #expect(matched.map(\.id) == (enabled ? ["active_id"] : []))
+            postHog.capture("survey-check-complete")
+            postHog.flush()
+            let events = try await getServerEvents(server)
+            #expect(events.contains { $0.event == "survey-check-complete" })
+            #expect(!events.contains { $0.event == "$feature_flag_called" })
+        }
+
+        @Test("ordinary linked flags retain usage tracking and variant matching", arguments: [
+            ("linked-flag", "blue", "blue", true),
+            ("linked-flag", "blue", "red", false),
+            ("my-survey-targeting-flag", "blue", "blue", true),
+        ], [true, false])
+        func linkedFlagsRetainUsageTracking(
+            flag: (key: String, value: String, variant: String, matches: Bool),
+            sendEvents: Bool
+        ) async throws {
+            postHog.config.sendFeatureFlagEvent = sendEvents
+            server.featureFlags?[flag.key] = flag.value
+            var survey = try #require(try parseSurveys(activeSurvey).first)
+            survey["linked_flag_key"] = flag.key
+            survey["conditions"] = ["linkedFlagVariant": flag.variant]
+            let sut = getSut(surveys: [])
+            sut.updateSurveyCache(sut.decodeSurveys(from: ["surveys": [survey]]), events: [:])
+            await withCheckedContinuation { continuation in
+                postHog.remoteConfig?.reloadFeatureFlags { _ in continuation.resume() }
+            }
+            server.reset(batchCount: 1)
+
+            let matched: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys { continuation.resume(returning: $0) }
+            }
+            #expect(matched.map(\.id) == (flag.matches ? ["active_id"] : []))
+            postHog.capture("survey-check-complete")
+            postHog.flush()
+            let events = try await getServerEvents(server)
+            let flagEvents = events.filter { $0.event == "$feature_flag_called" }
+            #expect(flagEvents.count == (sendEvents ? 1 : 0))
+            if sendEvents {
+                #expect(flagEvents.first?.properties["$feature_flag"] as? String == flag.key)
+                #expect(flagEvents.first?.properties["$feature_flag_response"] as? String == flag.value)
+            }
+        }
+
         @Test("returns only surveys with enabled feature flags")
         func returnsOnlySurveysWithEnabledFeatureFlags() async throws {
             let sut = getSut(surveys: [surveysWithFeatureFlags])
@@ -1745,6 +1851,7 @@ enum PostHogSurveysTest {
         let server: MockPostHogServer
         let postHog: PostHogSDK
         let storage: PostHogStorage
+        let integrations = TestIntegrationLifetime()
 
         init() {
             let config = PostHogConfig(projectToken: "test_survey_wait_period", host: "http://localhost:9090")
@@ -1762,6 +1869,7 @@ enum PostHogSurveysTest {
         }
 
         deinit {
+            integrations.stopAll()
             server.stop()
             postHog.close()
             postHog.reset()
@@ -1812,7 +1920,7 @@ enum PostHogSurveysTest {
             PostHogSurveyIntegration.clearInstalls()
             let installOutcome = sut.install(postHog)
             #expect(installOutcome == .installed)
-            return sut
+            return integrations.track(sut)
         }
 
         @Test("survey without wait period is not filtered")
@@ -2307,10 +2415,11 @@ enum PostHogSurveysTest {
             introScreenHeader: String? = nil,
             introScreenDescription: String? = nil,
             introScreenDescriptionContentType: PostHogSurveyTextContentType? = nil,
-            introScreenButtonText: String? = nil
+            introScreenButtonText: String? = nil,
+            position: PostHogSurveyAppearancePosition? = nil
         ) -> PostHogSurveyAppearance {
             PostHogSurveyAppearance(
-                position: nil, fontFamily: nil, backgroundColor: nil,
+                position: position, fontFamily: nil, backgroundColor: nil,
                 submitButtonColor: nil, submitButtonText: nil, submitButtonTextColor: nil,
                 textColor: nil, descriptionTextColor: nil, ratingButtonColor: nil,
                 ratingButtonActiveColor: nil, ratingButtonHoverColor: nil,
@@ -2390,6 +2499,30 @@ enum PostHogSurveysTest {
             #expect(displaySurvey.appearance?.displayIntroScreen == false)
             #expect(displaySurvey.appearance?.introScreenHeader == nil)
             #expect(displaySurvey.appearance?.introScreenButtonText == nil)
+        }
+
+        @Test("maps appearance.position onto the display survey")
+        func mapsAppearancePositionToDisplaySurvey() {
+            let survey = PostHogSurvey.testInstance(
+                name: "position-mapped",
+                appearance: makeAppearance(delay: nil, position: .topCenter)
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+
+            #expect(displaySurvey.appearance?.position == "top_center")
+        }
+
+        @Test("leaves display position nil when the survey has none")
+        func leavesDisplayPositionNilWhenMissing() {
+            let survey = PostHogSurvey.testInstance(
+                name: "position-missing",
+                appearance: makeAppearance(delay: nil)
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+
+            #expect(displaySurvey.appearance?.position == nil)
         }
 
         @Test(

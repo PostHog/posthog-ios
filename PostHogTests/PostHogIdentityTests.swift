@@ -20,10 +20,14 @@ class PostHogIdentityTests {
 
     func getSut(
         reuseAnonymousId: Bool = false,
-        flushAt: Int = 1
+        flushAt: Int = 1,
+        optOut: Bool = false,
+        preloadFeatureFlags: Bool = true
     ) -> PostHogSDK {
         let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
         config.captureApplicationLifecycleEvents = false
+        config.optOut = optOut
+        config.preloadFeatureFlags = preloadFeatureFlags
         config.reuseAnonymousId = reuseAnonymousId
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
@@ -129,6 +133,63 @@ class PostHogIdentityTests {
         let events = try await getServerEvents(server)
         #expect(events.map(\.event) == ["$identify"])
         #expect(events.first?.distinctId == "newDistinctId")
+    }
+
+    @Test("identify while opted out updates identity and reloads flags without capturing")
+    func identifyWhileOptedOutUpdatesIdentityAndReloadsFlags() async throws {
+        let sut = getSut(optOut: true, preloadFeatureFlags: false)
+        let anonId = sut.getDistinctId()
+        server.flagsProjectToken = projectToken
+        server.reset()
+
+        sut.identify("user-a", userProperties: ["plan": "pro"])
+
+        #expect(sut.getDistinctId() == "user-a")
+        #expect(sut.getAnonymousId() == anonId)
+        #expect(sut.config.storageManager?.isIdentified() == true)
+        #expect(sut.config.storageManager?.getPersonPropertiesHash() == nil)
+
+        let flagsRequest = try #require(getFlagsRequest(server).first)
+        #expect(flagsRequest["distinct_id"] as? String == "user-a")
+        #expect(flagsRequest["$anon_distinct_id"] as? String == anonId)
+        let personProperties = flagsRequest["person_properties"] as? [String: Any] ?? [:]
+        #expect(personProperties["plan"] as? String == "pro")
+
+        sut.optIn()
+        sut.capture("after_opt_in")
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["after_opt_in"])
+        #expect(events.first?.distinctId == "user-a")
+    }
+
+    @Test("identify while opted out does not suppress the same properties after opt in")
+    func identifyWhileOptedOutDoesNotSuppressPropertiesAfterOptIn() async throws {
+        let sut = getSut(optOut: true, preloadFeatureFlags: false)
+
+        sut.identify("user-a", userProperties: ["email": "user@test.test"])
+        sut.optIn()
+        sut.identify("user-a", userProperties: ["email": "user@test.test"])
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set"])
+        let set = events.first?.properties["$set"] as? [String: Any] ?? [:]
+        #expect(set["email"] as? String == "user@test.test")
+    }
+
+    @Test("identify while opted in captures $identify and reloads flags for the new distinct id")
+    func identifyWhileOptedInCapturesAndReloadsFlags() async throws {
+        let sut = getSut(preloadFeatureFlags: false)
+        server.flagsProjectToken = projectToken
+        server.reset()
+
+        sut.identify("user-a")
+
+        let flagsRequest = try #require(getFlagsRequest(server).first)
+        #expect(flagsRequest["distinct_id"] as? String == "user-a")
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$identify"])
     }
 
     @Test("captures the capture event with a custom distinctId")

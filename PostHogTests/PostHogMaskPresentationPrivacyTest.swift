@@ -586,11 +586,22 @@
             h.window.addSubview(banner)
             try await settle(h.window)
             try h.expectMasked(overlay)
-            UIView.animate(withDuration: 2, delay: 0, options: .curveLinear) { banner.alpha = 0 }
-            try await Task.sleep(nanoseconds: 300_000_000)
+            let animation = CABasicAnimation(keyPath: "opacity")
+            animation.fromValue = 1
+            animation.toValue = 0
+            animation.duration = 2
+            animation.timingFunction = CAMediaTimingFunction(name: .linear)
+            // Hold an in-flight frame so assertions cannot race the animation's completion.
+            animation.speed = 0
+            animation.timeOffset = 0.5
+            banner.alpha = 0
+            banner.layer.add(animation, forKey: "privacy-opacity")
+            try await settle(h.window)
             let renderedOpacity = try #require(banner.layer.presentation()?.opacity)
             try #require(renderedOpacity > 0 && renderedOpacity < 1)
+            try #require(banner.alpha == 0)
             try h.expectMasked(overlay, context: "banner still fading")
+            banner.layer.removeAnimation(forKey: "privacy-opacity")
             try await wait { (banner.layer.presentation()?.opacity ?? banner.layer.opacity) == 0 }
             #expect(try h.rects().isEmpty, "Fully faded banner must not veto the opaque cover")
         }
@@ -609,6 +620,153 @@
             let point = CGPoint(x: 25, y: 110)
             try #require(!cover.view.bounds.contains(cover.view.convert(point, from: h.window)))
             try h.expectMasked(base.label, context: "left of rotated cover")
+        }
+
+        // MARK: - Image sources a UIImageView draws
+
+        enum ImageSource: String, CaseIterable, CustomTestStringConvertible {
+            case image
+            case animation
+            case animationOverSymbolPlaceholder
+            case highlightedImage
+            case highlightedAnimation
+            case highlightedFallbackToImage
+
+            var testDescription: String {
+                rawValue
+            }
+        }
+
+        private static func solid(_ color: UIColor) -> UIImage {
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            return UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40), format: format).image { context in
+                color.setFill()
+                context.fill(CGRect(x: 0, y: 0, width: 40, height: 40))
+            }
+        }
+
+        private static func imageView(showing source: ImageSource) throws -> UIImageView {
+            let secret = solid(.red)
+            let view = UIImageView(frame: CGRect(x: 40, y: 200, width: 120, height: 120))
+            switch source {
+            case .image:
+                view.image = secret
+            case .animation:
+                view.animationImages = [secret, secret]
+            case .animationOverSymbolPlaceholder:
+                view.image = try #require(UIImage(systemName: "photo"))
+                view.animationImages = [secret, secret]
+            case .highlightedImage:
+                view.highlightedImage = secret
+                view.isHighlighted = true
+            case .highlightedAnimation:
+                view.highlightedAnimationImages = [secret, secret]
+                view.isHighlighted = true
+            case .highlightedFallbackToImage:
+                view.image = secret
+                view.isHighlighted = true
+            }
+            view.animationDuration = 10
+            view.startAnimating()
+            return view
+        }
+
+        /// The RGB at `point` (window coordinates) in an image rendered from the whole window.
+        private func pixel(in image: UIImage, at point: CGPoint, windowSize: CGSize) throws -> [UInt8] {
+            let cgImage = try #require(image.cgImage)
+            let x = Int(point.x / windowSize.width * CGFloat(cgImage.width))
+            let y = Int(point.y / windowSize.height * CGFloat(cgImage.height))
+            var rgba = [UInt8](repeating: 0, count: 4)
+            let context = try #require(CGContext(
+                data: &rgba, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ))
+            context.draw(cgImage, in: CGRect(x: -x, y: y - cgImage.height + 1, width: cgImage.width, height: cgImage.height))
+            return Array(rgba.prefix(3))
+        }
+
+        private func isSecretRed(_ rgb: [UInt8]) -> Bool {
+            rgb[0] > 180 && rgb[1] < 90 && rgb[2] < 90
+        }
+
+        private func isMaskBlack(_ rgb: [UInt8]) -> Bool {
+            rgb.allSatisfy { $0 < 50 }
+        }
+
+        @Test("every image source a UIImageView draws is masked in the uploaded frame", arguments: ImageSource.allCases)
+        func uploadedFrameMasksImageSource(source: ImageSource) async throws {
+            let root = UIViewController()
+            root.view.backgroundColor = .white
+            let view = try Self.imageView(showing: source)
+            root.view.addSubview(view)
+            let h = try Harness(root: root)
+            defer { h.close() }
+            try await settle(h.window)
+
+            let rects = try h.rects()
+            let wireframe = RRWireframe()
+            wireframe.image = try #require(h.window.toImage(renderer: .fidelity))
+            wireframe.maskableWidgets = rects
+            let raw = try #require(wireframe.image)
+            let center = CGPoint(x: view.frame.midX, y: view.frame.midY)
+
+            let rawRGB = try pixel(in: raw, at: center, windowSize: h.window.bounds.size)
+            try #require(isSecretRed(rawRGB), "\(source): the window render shows \(rawRGB), not the private image")
+
+            let base64 = try #require(wireframe.toDict()["base64"] as? String)
+            let encoded = try #require(base64.split(separator: ",").last.map(String.init))
+            let data = try #require(Data(base64Encoded: encoded))
+            let uploaded = try #require(UIImage(data: data))
+            let rgb = try pixel(in: uploaded, at: center, windowSize: h.window.bounds.size)
+            #expect(isMaskBlack(rgb), "\(source): uploaded frame shows \(rgb) where the private image is, masks=\(rects)")
+        }
+
+        @Test("a masked image view keeps masking a label that overflows its bounds", arguments: ImageSource.allCases)
+        func maskedImageViewKeepsOverflowingDescendantMasked(source: ImageSource) async throws {
+            let root = UIViewController()
+            let view = try Self.imageView(showing: source)
+            view.clipsToBounds = false
+            let label = UILabel(frame: CGRect(x: 0, y: 140, width: 120, height: 30))
+            label.text = "PRIVATE"
+            view.addSubview(label)
+            root.view.addSubview(view)
+            let h = try Harness(root: root)
+            defer { h.close() }
+            try await settle(h.window)
+
+            try h.expectMasked(view, context: "\(source) image view")
+            try h.expectMasked(label, context: "\(source) overflowing label")
+        }
+
+        @Test("an image view animating asset-catalog frames stays unmasked")
+        func assetAnimationImageViewStaysUnmasked() async throws {
+            let root = UIViewController()
+            root.view.backgroundColor = .white
+            let frame = try #require(UIImage(named: "max_static"))
+            let view = UIImageView(frame: CGRect(x: 40, y: 200, width: 120, height: 120))
+            view.animationImages = [frame, frame]
+            view.startAnimating()
+            root.view.addSubview(view)
+            let h = try Harness(root: root)
+            defer { h.close() }
+            try await settle(h.window)
+
+            #expect(try h.rects().isEmpty)
+        }
+
+        @Test("an image view showing only an SF Symbol stays unmasked")
+        func symbolOnlyImageViewStaysUnmasked() async throws {
+            let root = UIViewController()
+            root.view.backgroundColor = .white
+            let view = UIImageView(frame: CGRect(x: 40, y: 200, width: 120, height: 120))
+            view.image = try #require(UIImage(systemName: "photo"))
+            root.view.addSubview(view)
+            let h = try Harness(root: root)
+            defer { h.close() }
+            try await settle(h.window)
+
+            #expect(try h.rects().isEmpty)
         }
     }
 #endif

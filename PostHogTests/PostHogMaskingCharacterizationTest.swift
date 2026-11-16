@@ -579,6 +579,24 @@
             #expect(rects == [CGRect(x: 10, y: 100, width: 100, height: 40)], "reporter rect flows through the capture collection")
         }
 
+        @Test("a reporter inside a ph-no-capture view is collected once")
+        func reporterInsideNoCaptureViewIsCollectedOnce() {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let container = UIView(frame: CGRect(x: 20, y: 80, width: 200, height: 200))
+            container.accessibilityIdentifier = "ph-no-capture"
+            window.addSubview(container)
+
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 20, width: 100, height: 40))
+            container.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            window.layoutIfNeeded()
+
+            let integration = PostHogReplayIntegration()
+            let rects = integration.collectMaskableRects(in: window)
+
+            #expect(rects == [CGRect(x: 20, y: 80, width: 200, height: 200), CGRect(x: 30, y: 100, width: 100, height: 40)])
+        }
+
         // MARK: - Pre-first-layout gap (fail closed)
 
         @Test("a reporter completes its first layout even at zero size")

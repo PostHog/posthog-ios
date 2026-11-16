@@ -121,8 +121,16 @@ import Foundation
                 remoteConfigLoadedToken = nil
                 contextChangedToken = nil
                 exceptionStepsChangedToken = nil
+                // The native handler can't be torn down once enabled, so a crash after opt-out is still
+                // written to disk. Mark the context instead; the next install drops a marked report.
+                if postHog.config.optOut {
+                    crashCustomData?.markOptedOut()
+                    // Keep the saved context: its marker is what drops this process's memory diagnostic on a later launch.
+                    processContextStore?.close()
+                } else {
+                    processContextStore?.removeAll()
+                }
                 crashCustomData = nil
-                processContextStore?.removeAll()
                 processContextStore = nil
                 crashReporter = nil
                 self.postHog = nil
@@ -261,6 +269,11 @@ import Foundation
                     crashSteps = decoded[PostHogExceptionStepFields.stepsKey] as? [[String: Any]] ?? []
                 }
 
+                if savedContext[PostHogCrashCustomDataWriter.optedOutKey] as? Bool == true {
+                    hedgeLog("Crash report dropped: it was recorded while opted out")
+                    return
+                }
+
                 // Extract identity and event properties from saved context
                 let crashDistinctId = savedContext["distinct_id"] as? String
                 let crashEventProperties = savedContext["event_properties"] as? [String: Any] ?? [:]
@@ -299,25 +312,13 @@ import Foundation
                 hedgeLog("Failed to process crash report: \(error)")
             }
         }
-
-        /// Returns `true` if any entry in `properties["$exception_list"]` has a
-        /// `type` matching one of `ignoredTypes`. Walks the exception list rather
-        /// than only the outermost entry so a wrapped exception whose underlying
-        /// cause has an ignored type is still suppressed. Match is
-        /// case-sensitive and exact. For an `NSException` the type is its `name`,
-        /// which can embed free text.
-        static func exceptionListMatchesIgnoredTypes(_ properties: [String: Any], ignoredTypes: [String]) -> Bool {
-            guard let exceptionList = properties["$exception_list"] as? [[String: Any]] else {
-                return false
-            }
-            let ignored = Set(ignoredTypes)
-            return exceptionList.contains { entry in
-                guard let exType = entry["type"] as? String else { return false }
-                return ignored.contains(exType)
-            }
-        }
     }
 
+    #if TESTING
+        extension PostHogErrorTrackingAutoCaptureIntegration {
+            var crashReporterForTesting: PHPLCrashReporter? { crashReporter }
+        }
+    #endif
 #else
     // watchOS/visionOS stub - crash reporting is not available on these platforms
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
@@ -330,10 +331,25 @@ import Foundation
         func uninstall(_: PostHogSDK) { /* no-op */ }
         func start() { /* no-op */ }
         func stop() { /* no-op */ }
-
-        /// Crash reporting is unavailable on this platform; always returns `false`.
-        static func exceptionListMatchesIgnoredTypes(_: [String: Any], ignoredTypes _: [String]) -> Bool {
-            false
-        }
     }
 #endif
+
+// Platform-neutral: `captureInternal` applies `ignoredExceptionTypes` to every `$exception` on all platforms
+extension PostHogErrorTrackingAutoCaptureIntegration {
+    /// Returns `true` if any entry in `properties["$exception_list"]` has a
+    /// `type` matching one of `ignoredTypes`. Walks the exception list rather
+    /// than only the outermost entry so a wrapped exception whose underlying
+    /// cause has an ignored type is still suppressed. Match is
+    /// case-sensitive and exact. For an `NSException` the type is its `name`,
+    /// which can embed free text.
+    static func exceptionListMatchesIgnoredTypes(_ properties: [String: Any], ignoredTypes: [String]) -> Bool {
+        guard let exceptionList = properties["$exception_list"] as? [[String: Any]] else {
+            return false
+        }
+        let ignored = Set(ignoredTypes)
+        return exceptionList.contains { entry in
+            guard let exType = entry["type"] as? String else { return false }
+            return ignored.contains(exType)
+        }
+    }
+}

@@ -34,11 +34,6 @@
                 )
             )
         }
-
-        /// Type-erases a View
-        var erasedToAnyView: AnyView {
-            AnyView(self)
-        }
     }
 
     @available(iOS 14.0, *)

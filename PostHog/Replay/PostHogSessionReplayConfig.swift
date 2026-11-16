@@ -60,6 +60,57 @@
         /// Default: false
         @objc public var screenshotModeBackgroundCapture: Bool = false
 
+        /// Render screenshots on the GPU instead of with `drawHierarchy` when `screenshotMode` is enabled.
+        ///
+        /// Each capture commits pending changes, copies the window's layer tree and renders the copy into a
+        /// Metal texture, so the main thread only builds the copy. Layers whose presentation can't be copied
+        /// safely (an app's or a framework's own `CALayer` subclasses) are drawn from their model state
+        /// instead. While one of them has an animation that moves or reshapes it, a playing Lottie animation
+        /// for example, it is left out of the frame with everything under it.
+        ///
+        /// Not captured exactly:
+        /// - Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped
+        ///   "Metal content" placeholder.
+        /// - Video and camera previews stay blank, as they do today.
+        /// - Liquid Glass is approximated without refraction: sheets, alerts and dialogs as a blur of what's
+        ///   behind them, smaller glass as a flat fill in its shape. Tinted glass keeps its tint. The labels and
+        ///   icons on it are reproduced. On iOS 27, sheets, alerts and dialogs currently show as a flat panel
+        ///   instead of a blur.
+        ///
+        /// Captures fall back to the default path when the device has no Metal or a render fails.
+        /// Takes precedence over `screenshotModeBackgroundCapture` when both are enabled.
+        ///
+        /// While recording, the app keeps roughly 25 to 30 MB more memory resident on average (GPU memory held
+        /// by Metal and Core Animation); peak memory is about the same as the default capture. Measured on an
+        /// iPhone 17 Pro with `screenshotScale` unset, one pixel per point; a larger scale holds more.
+        ///
+        /// Experimental. iOS and Mac Catalyst only.
+        /// Default: false
+        @objc public var screenshotModeGPUCapture: Bool = false
+
+        /// Resolution of `screenshotMode` screenshots, as a multiplier of the screen's native resolution.
+        ///
+        /// - `nil`: one pixel per point on every device, so a 402×874 pt screen uploads 402×874 pixels.
+        /// - A value: that fraction of native resolution. On a 3x device, `1.0` uploads 1206×2622 pixels
+        ///   (native) and `0.5` uploads 603×1311 (1.5 pixels per point).
+        ///
+        /// Values are clamped to 0.1...1.0, and NaN or infinite values reset it to `nil`. The replay's viewport in
+        /// points is unchanged. Does not affect wireframe mode or compression quality. Exposed as `NSNumber` so
+        /// Objective-C can leave it unset.
+        ///
+        /// Experimental.
+        /// Default: nil (one pixel per point)
+        @objc public var screenshotScale: NSNumber? {
+            didSet {
+                guard let value = screenshotScale?.doubleValue else { return }
+                screenshotScale = value.isFinite ? NSNumber(value: min(max(value, 0.1), 1)) : nil
+            }
+        }
+
+        func screenshotPixelScale(nativeScale: CGFloat) -> CGFloat {
+            screenshotScale.map { nativeScale * CGFloat($0.doubleValue) } ?? 1
+        }
+
         /// Debouncer delay used to reduce the number of snapshots captured and reduce performance impact
         /// This is used for capturing the view as a wireframe or screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact

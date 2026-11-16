@@ -605,13 +605,20 @@ enum PostHogApiTests {
             #expect(abs(PostHogApi.featureFlagsRetryDelay(forFailedAttempt: 3) - 1.2) < 0.0001)
         }
 
-        @Test("retries transient URLSession errors before returning flags")
-        func retriesURLSessionErrors() async throws {
+        @Test("retries transient URLSession errors before returning flags", arguments: [
+            NSURLErrorTimedOut,
+            NSURLErrorNetworkConnectionLost,
+            NSURLErrorNotConnectedToInternet,
+            NSURLErrorCannotFindHost,
+            NSURLErrorDNSLookupFailed,
+            NSURLErrorSecureConnectionFailed,
+        ])
+        func retriesURLSessionErrors(errorCode: Int) async throws {
             server.reset(flagsCount: 2)
 
             var requestCount = 0
             let requestCountLock = NSLock()
-            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut, userInfo: nil)
+            let networkError = NSError(domain: NSURLErrorDomain, code: errorCode, userInfo: nil)
             server.flagsResponseHandler = { _ in
                 requestCountLock.lock()
                 requestCount += 1

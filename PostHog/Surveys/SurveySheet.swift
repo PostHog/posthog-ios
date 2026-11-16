@@ -17,6 +17,9 @@
         // The `.sheet(item:)` snapshot: keeps content rendered while the sheet animates out
         // after dismissal clears `displayedSurvey`.
         let fallbackSurvey: PostHogDisplaySurvey
+        /// Bottom-center surveys use the system sheet. Other `appearance.position` values use a card.
+        var presentsAsSheet: Bool = true
+        var maximumCardContentHeight: CGFloat = .infinity
 
         @State private var sheetHeight: CGFloat = .zero
 
@@ -25,19 +28,50 @@
         }
 
         var body: some View {
-            surveyContent(for: survey)
-                .id(displayManager.currentQuestionIndex)
-                .animation(.linear(duration: 0.25), value: displayManager.currentQuestionIndex)
-                .readFrame(in: .named("survey-scroll-view")) { frame in
-                    sheetHeight = frame.height
+            Group {
+                if presentsAsSheet {
+                    surveyContent(for: survey)
+                        .id(displayManager.currentQuestionIndex)
+                        .animation(.linear(duration: 0.25), value: displayManager.currentQuestionIndex)
+                        .readFrame(in: .named("survey-scroll-view")) { frame in
+                            sheetHeight = frame.height
+                        }
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                SurveyDismissButton(action: displayManager.dismissSurvey)
+                            }
+                        }
+                        .surveyBottomSheet(height: sheetHeight)
+                } else {
+                    cardContent
                 }
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        SurveyDismissButton(action: displayManager.dismissSurvey)
-                    }
+            }
+            .environment(\.surveyAppearance, appearance)
+        }
+
+        private var cardContent: some View {
+            VStack(spacing: 0) {
+                HStack {
+                    Spacer()
+                    SurveyDismissButton(action: displayManager.dismissSurvey)
                 }
-                .surveyBottomSheet(height: sheetHeight)
-                .environment(\.surveyAppearance, appearance)
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+
+                ScrollView {
+                    surveyContent(for: survey)
+                        .id(displayManager.currentQuestionIndex)
+                        .animation(.linear(duration: 0.25), value: displayManager.currentQuestionIndex)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                        .readFrame { frame in
+                            sheetHeight = frame.height
+                        }
+                }
+                .frame(height: min(sheetHeight, maximumCardContentHeight))
+            }
+            .background(appearance.backgroundColor)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
 
         @ViewBuilder
@@ -102,6 +136,7 @@
                     .foregroundColor(appearance.textColor ?? appearance.backgroundColor.getContrastingTextColor())
             }
             .buttonStyle(.borderless)
+            .accessibilityIdentifier("posthog.survey.dismiss")
         }
     }
 

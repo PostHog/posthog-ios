@@ -2,11 +2,15 @@
 
 If you would like to contribute code to `posthog-ios` you can do so through GitHub by forking the repository and opening a pull request against `main`.
 
+## Commit signing
+
+This repo requires all commits to be signed. To configure commit signing, see the [PostHog handbook](https://posthog.com/handbook/engineering/security#commit-signing). Set `commit.gpgsign` to `true` in your git config so that every commit is signed, not only the ones you sign by hand.
+
 ## Development guide
 
 Use the repository's `make` wrappers rather than invoking `swift` or `xcodebuild` directly; [Makefile](Makefile) owns the commands and options.
 
-For initial setup, install Xcode and, if needed, use `make bootstrap` to install CocoaPods, xcpretty, SwiftLint, SwiftFormat and Periphery. Agents should report missing prerequisites rather than install tools without authorization. Tests import `Testing` and need a Swift 6+ toolchain with Swift Testing (Xcode 16+); use current stable Xcode as CI does. This is separate from the SDK's Swift 5 language compatibility.
+For initial setup, install Xcode and, if needed, use `make bootstrap` to install CocoaPods, xcpretty, SwiftLint, SwiftFormat, Periphery and [prek](https://github.com/j178/prek). Agents should report missing prerequisites rather than install tools without authorization. Tests import `Testing` and need a Swift 6+ toolchain with Swift Testing (Xcode 16+); use current stable Xcode as CI does. This is separate from the SDK's Swift 5 language compatibility.
 
 Iterate with focused checks, then run the core CI-aligned checks before submitting **SDK changes**:
 
@@ -55,7 +59,7 @@ iOS simulator/UI checks require Xcode with the relevant installed runtime, xcpre
 
 ### Test and style conventions
 
-Write tests with Swift Testing. For network mocking, use [MockPostHogServer](PostHogTests/TestUtils/MockPostHogServer.swift), backed by OHHTTPStubs.
+Write tests with Swift Testing. For network mocking, use [MockPostHogServer](PostHogTests/TestUtils/MockPostHogServer.swift), backed by OHHTTPStubs. Add every new source file under `PostHogTests/`, including helpers, to the `PostHogTests` target in `PostHog.xcodeproj`; `make checkTestRegistration` verifies this.
 
 [SwiftFormat](.swiftformat) and [SwiftLint](.swiftlint.yml) own style rules; the Makefile passes `--swiftversion 5.3` to SwiftFormat. `make lint` checks without fixing. When needed and authorized, `make format` runs both auto-fix tools, or use `make swiftLint` / `make swiftFormat` individually; review their resulting diff. These wrappers (including lint) can install missing formatters, so check tool availability before invoking them. `make api` scans for unused code with Periphery; it is not the public API snapshot check.
 

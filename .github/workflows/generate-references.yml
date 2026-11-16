@@ -40,6 +40,8 @@ jobs:
     name: Commit SDK reference
     needs: generate-references
     runs-on: ubuntu-latest
+    # The releaser app secrets live only in the Release environment.
+    environment: 'Release'
     permissions:
       contents: read
     steps:

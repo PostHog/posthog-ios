@@ -121,21 +121,14 @@ struct PostHogStackTraceProcessorTest {
             #expect(framesWithModule.count > 0)
         }
 
-        @Test("keeps the caller's frames when the caller stack doesn't line up with the current one")
-        func fallsBackToCallerStack() throws {
+        @Test("strips PostHog frames from top of stack")
+        func stripsPostHogFrames() throws {
             let config = PostHogErrorTrackingConfig()
-            // Its top frame is in a function that has returned, so it isn't on the current stack
-            let staleStack = Self.stackFromReturnedFunction()
+            let frames = PostHogStackTraceProcessor.captureCurrentStackTraceWithMetadata(config: config)
 
-            let frames = PostHogStackTraceProcessor.captureCurrentStackTrace(callerStack: staleStack, config: config)
-
-            let expected = PostHogStackTraceProcessor.symbolicateAddresses(staleStack, config: config)
-            #expect(frames.map(\.instructionAddress) == expected.map(\.instructionAddress))
-        }
-
-        @inline(never)
-        private static func stackFromReturnedFunction() -> [NSNumber] {
-            Thread.callStackReturnAddresses
+            let module = try #require(frames.first?.module)
+            #expect(module != "PostHog")
+            #expect(!module.hasPrefix("PostHog."))
         }
     }
 
@@ -150,28 +143,35 @@ struct PostHogStackTraceProcessorTest {
 
             let frames = PostHogStackTraceProcessor.symbolicateAddresses(
                 addresses,
-                config: config
+                config: config,
+                stripTopPostHogFrames: false
             )
 
             #expect(frames.count > 0)
         }
 
-        @Test("marks the first sdkFrameCount frames as not in-app and keeps every frame")
-        func marksSDKFramesNotInApp() {
+        @Test("respects stripTopPostHogFrames parameter")
+        func respectsStripParameter() {
             let config = PostHogErrorTrackingConfig()
             let addresses = Thread.callStackReturnAddresses
 
-            let unmarked = PostHogStackTraceProcessor.symbolicateAddresses(addresses, config: config)
-            let marked = PostHogStackTraceProcessor.symbolicateAddresses(
+            let framesWithStrip = PostHogStackTraceProcessor.symbolicateAddresses(
                 addresses,
                 config: config,
-                markTopPostHogFramesNotInApp: true,
-                sdkFrameCount: 2
+                stripTopPostHogFrames: true
             )
 
-            #expect(marked.map(\.instructionAddress) == unmarked.map(\.instructionAddress))
-            #expect(marked.prefix(2).allSatisfy { !$0.inApp })
-            #expect(unmarked.prefix(2).contains { $0.inApp })
+            let framesWithoutStrip = PostHogStackTraceProcessor.symbolicateAddresses(
+                addresses,
+                config: config,
+                stripTopPostHogFrames: false
+            )
+
+            #expect(!framesWithoutStrip.isEmpty)
+            let expected = framesWithoutStrip.drop(while: { frame in
+                frame.module == "PostHog" || frame.module?.hasPrefix("PostHog.") == true
+            })
+            #expect(framesWithStrip.map(\.instructionAddress) == expected.map(\.instructionAddress))
         }
     }
 

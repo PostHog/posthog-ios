@@ -431,7 +431,9 @@ enum PostHogExceptionProcessor {
     ) -> [String: Any]? {
         let frames: [PostHogStackFrame]
         if let callerStack {
-            frames = PostHogStackTraceProcessor.captureCurrentStackTrace(callerStack: callerStack, config: config)
+            // Still strip by module: with a dynamic PostHog framework, an Objective-C caller goes through
+            // an @objc thunk that sits above the caller
+            frames = PostHogStackTraceProcessor.symbolicateAddresses(callerStack, config: config, stripTopPostHogFrames: true)
         } else {
             frames = PostHogStackTraceProcessor.captureCurrentStackTraceWithMetadata(config: config)
         }
@@ -458,8 +460,8 @@ enum PostHogExceptionProcessor {
     ) -> [String: Any]? {
         guard !addresses.isEmpty else { return nil }
 
-        // Don't mark PostHog frames for NSException - the addresses are from the exception itself
-        let frames = PostHogStackTraceProcessor.symbolicateAddresses(addresses, config: config)
+        // Don't strip PostHog frames for NSException - the addresses are from the exception itself
+        let frames = PostHogStackTraceProcessor.symbolicateAddresses(addresses, config: config, stripTopPostHogFrames: false)
 
         guard !frames.isEmpty else { return nil }
 

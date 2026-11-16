@@ -19,8 +19,10 @@ enum PostHogStackTraceProcessor {
 
     /// Captures current stack trace using dladdr() for rich metadata
     ///
-    /// Automatically strips PostHog SDK frames from the top of the stack trace
-    /// so the trace starts at user code.
+    /// Strips frames from the top of the stack only while they come from a binary named `PostHog`,
+    /// so it only starts at user code when the SDK is its own framework. When the SDK is statically
+    /// linked, its frames carry the app's module name and stay. To start at the caller, capture the
+    /// stack in the public entry point and pass it to `symbolicateAddresses` instead.
     static func captureCurrentStackTraceWithMetadata(
         config: PostHogErrorTrackingConfig
     ) -> [PostHogStackFrame] {

@@ -1,5 +1,12 @@
 ## Next
 
+## 3.97.2
+
+### Patch Changes
+
+- aad5e7a: Fix missing cold `Application Opened` event when `setup()` runs before UIKit creates the shared app, for example in a SwiftUI `App.init`.
+- 595f987: Fix a crash when the iPad print panel appears with screen views, autocapture, rage clicks or session replay on. The print panel claims to be a `UISplitViewController` but does not implement its API, so screen lookup now only reads real split views as one
+
 ## 3.97.1
 
 ### Patch Changes

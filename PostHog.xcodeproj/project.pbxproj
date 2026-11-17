@@ -12,6 +12,7 @@
 		ABCD00000000000000000103 /* PostHogErrorTrackingIgnoredTypesTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000203; };
 		ABCD00000000000000000104 /* PostHogExceptionStepsBufferTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000204; };
 		ABCD00000000000000000105 /* PostHogExceptionStepsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000205; };
+		936AE27CCD93789510712CE3 /* PostHogCaptureExceptionStackTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DFB2B82E9C8F0578768B04C /* PostHogCaptureExceptionStackTest.swift */; };
 		ABCD00000000000000000106 /* PostHogFeatureFlagsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000206; };
 		ABCD00000000000000000107 /* PostHogFeatureFlagsV3Test.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000207; };
 		ABCD00000000000000000108 /* PostHogFileBackedQueueAlignmentTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000208; };
@@ -46,6 +47,7 @@
 		E4E4E4E4E4E4E4E4E4E40002 /* RRStyleTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4E4E4E4E4E4E4E4E4E40001 /* RRStyleTest.swift */; };
 		F5F5F5F5F5F5F5F5F5F50002 /* PostHogBinaryImageInfoTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F5F5F5F5F5F5F5F5F50001 /* PostHogBinaryImageInfoTest.swift */; };
 		B2B2B2B2B2B2B2B2B2B20002 /* PostHogReactNativeMaskingTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B2B2B2B2B2B2B2B2B20001 /* PostHogReactNativeMaskingTest.swift */; };
+		C3C3C3C3C3C3C3C3C3C30002 /* PostHogComposeMultiplatformMaskingTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C3C3C3C3C3C3C3C3C30001 /* PostHogComposeMultiplatformMaskingTest.swift */; };
 		B2B2B2B2B2B2B2B2B2B20004 /* PostHogMaskFailClosedTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B2B2B2B2B2B2B2B2B20003 /* PostHogMaskFailClosedTest.swift */; };
 		C1C1C1C1C1C1C1C1C1C10002 /* PostHogGraphicsImageRendererTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C1C1C1C1C1C1C1C1C10001 /* PostHogGraphicsImageRendererTest.swift */; };
 		C1C1C1C1C1C1C1C1C1C10004 /* PostHogScreenshotFailedDrawTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C1C1C1C1C1C1C1C1C10003 /* PostHogScreenshotFailedDrawTest.swift */; };
@@ -880,6 +882,7 @@
 		ABCD00000000000000000203 /* PostHogErrorTrackingIgnoredTypesTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogErrorTrackingIgnoredTypesTest.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000204 /* PostHogExceptionStepsBufferTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExceptionStepsBufferTest.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000205 /* PostHogExceptionStepsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExceptionStepsTest.swift; sourceTree = "<group>"; };
+		4DFB2B82E9C8F0578768B04C /* PostHogCaptureExceptionStackTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogCaptureExceptionStackTest.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000206 /* PostHogFeatureFlagsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlagsTest.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000207 /* PostHogFeatureFlagsV3Test.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlagsV3Test.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000208 /* PostHogFileBackedQueueAlignmentTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFileBackedQueueAlignmentTest.swift; sourceTree = "<group>"; };
@@ -920,6 +923,7 @@
 		E4E4E4E4E4E4E4E4E4E40001 /* RRStyleTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RRStyleTest.swift; sourceTree = "<group>"; };
 		F5F5F5F5F5F5F5F5F5F50001 /* PostHogBinaryImageInfoTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBinaryImageInfoTest.swift; sourceTree = "<group>"; };
 		B2B2B2B2B2B2B2B2B2B20001 /* PostHogReactNativeMaskingTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReactNativeMaskingTest.swift; sourceTree = "<group>"; };
+		C3C3C3C3C3C3C3C3C3C30001 /* PostHogComposeMultiplatformMaskingTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogComposeMultiplatformMaskingTest.swift; sourceTree = "<group>"; };
 		B2B2B2B2B2B2B2B2B2B20003 /* PostHogMaskFailClosedTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskFailClosedTest.swift; sourceTree = "<group>"; };
 		C1C1C1C1C1C1C1C1C1C10001 /* PostHogGraphicsImageRendererTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogGraphicsImageRendererTest.swift; sourceTree = "<group>"; };
 		C1C1C1C1C1C1C1C1C1C10003 /* PostHogScreenshotFailedDrawTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogScreenshotFailedDrawTest.swift; sourceTree = "<group>"; };
@@ -1905,6 +1909,7 @@
 				ABCD00000000000000000203 /* PostHogErrorTrackingIgnoredTypesTest.swift */,
 				ABCD00000000000000000204 /* PostHogExceptionStepsBufferTest.swift */,
 				ABCD00000000000000000205 /* PostHogExceptionStepsTest.swift */,
+				4DFB2B82E9C8F0578768B04C /* PostHogCaptureExceptionStackTest.swift */,
 				ABCD00000000000000000206 /* PostHogFeatureFlagsTest.swift */,
 				ABCD00000000000000000207 /* PostHogFeatureFlagsV3Test.swift */,
 				ABCD00000000000000000208 /* PostHogFileBackedQueueAlignmentTest.swift */,
@@ -1929,6 +1934,7 @@
 				E4E4E4E4E4E4E4E4E4E40001 /* RRStyleTest.swift */,
 				F5F5F5F5F5F5F5F5F5F50001 /* PostHogBinaryImageInfoTest.swift */,
 				B2B2B2B2B2B2B2B2B2B20001 /* PostHogReactNativeMaskingTest.swift */,
+				C3C3C3C3C3C3C3C3C3C30001 /* PostHogComposeMultiplatformMaskingTest.swift */,
 				B2B2B2B2B2B2B2B2B2B20003 /* PostHogMaskFailClosedTest.swift */,
 				C1C1C1C1C1C1C1C1C1C10001 /* PostHogGraphicsImageRendererTest.swift */,
 				C1C1C1C1C1C1C1C1C1C10003 /* PostHogScreenshotFailedDrawTest.swift */,
@@ -3840,6 +3846,7 @@
 				ABCD00000000000000000103 /* PostHogErrorTrackingIgnoredTypesTest.swift in Sources */,
 				ABCD00000000000000000104 /* PostHogExceptionStepsBufferTest.swift in Sources */,
 				ABCD00000000000000000105 /* PostHogExceptionStepsTest.swift in Sources */,
+				936AE27CCD93789510712CE3 /* PostHogCaptureExceptionStackTest.swift in Sources */,
 				ABCD00000000000000000106 /* PostHogFeatureFlagsTest.swift in Sources */,
 				ABCD00000000000000000107 /* PostHogFeatureFlagsV3Test.swift in Sources */,
 				ABCD00000000000000000108 /* PostHogFileBackedQueueAlignmentTest.swift in Sources */,
@@ -3916,6 +3923,7 @@
 				E4E4E4E4E4E4E4E4E4E40002 /* RRStyleTest.swift in Sources */,
 				F5F5F5F5F5F5F5F5F5F50002 /* PostHogBinaryImageInfoTest.swift in Sources */,
 				B2B2B2B2B2B2B2B2B2B20002 /* PostHogReactNativeMaskingTest.swift in Sources */,
+				C3C3C3C3C3C3C3C3C3C30002 /* PostHogComposeMultiplatformMaskingTest.swift in Sources */,
 				B2B2B2B2B2B2B2B2B2B20004 /* PostHogMaskFailClosedTest.swift in Sources */,
 				C1C1C1C1C1C1C1C1C1C10002 /* PostHogGraphicsImageRendererTest.swift in Sources */,
 				C1C1C1C1C1C1C1C1C1C10004 /* PostHogScreenshotFailedDrawTest.swift in Sources */,

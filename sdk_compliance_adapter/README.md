@@ -291,10 +291,10 @@ A GitHub Actions workflow is available at `.github/workflows/sdk-compliance.yml`
 
 - Test harness: https://github.com/PostHog/posthog-sdk-test-harness
 
-## Local legacy contract correction (unreleased)
+## Published harness retry profile
 
-The adapter declares `unbounded_retries` because durable ingestion retains transiently failed events beyond `maxRetries`. Compose upgrades the published harness pin from 1.14.0 to 1.31.1, which still reports 46/47 because its bounded-retry assertion does not recognize this profile. No native SDK retry policy changes are included.
+The adapter declares `unbounded_retries` because durable ingestion retains transiently failed events beyond `maxRetries`. Compose pins the published v1 harness **1.32.0** image by digest (`sha256:7eb6c62e2241ddd48a2dfb326652e7933cd2fe26e0ffcad98cd385d603b4eb82`). No native SDK retry policy changes are included.
 
-The locally patched, **unreleased** v1 harness replaces only `max_retries_respected` with positive recovery coverage. The full iOS profile passed 47/47, including six requests (five 503s then 200) carrying the same nonempty event, UUID and timestamp. Queued batching remains tested. An existing intermittent UUID observation/flush timing issue is disclosed, not fixed.
+[Harness 1.32.0](https://github.com/PostHog/posthog-sdk-test-harness/actions/runs/44046405330) was published from commit `dde638562d33572b5c8ac3a2eafc98b92ffa2261` with specs commit `53e9bc16d14f973809f80049864866d5b6d9bdff`. It replaces `max_retries_respected` with positive durable recovery coverage for this profile. Queued batching remains tested. This custom macOS hybrid workflow consumes Compose directly, not a reusable harness action.
 
-Production CI needs the specs changes to land first, then the harness release inputs must pin that real specs commit. After the patched harness is published, update the image pin to that real release. The current 1.31.1 pin does not include these harness corrections.
+The unfiltered profile contains 47 cases (30 capture and 17 flags). Check the current CI report and adapter logs for actual results: the compliance job is advisory, so a green check alone does not establish compliance. An existing intermittent UUID observation/flush timing issue is disclosed, not fixed.

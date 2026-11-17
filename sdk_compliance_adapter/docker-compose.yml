@@ -15,7 +15,8 @@ version: '3.8'
 
 services:
   test-harness:
-    image: ${TEST_HARNESS_IMAGE:-ghcr.io/posthog/sdk-test-harness:1.31.1}
+    # Published harness 1.32.0 (v1).
+    image: ${TEST_HARNESS_IMAGE:-ghcr.io/posthog/sdk-test-harness@sha256:7eb6c62e2241ddd48a2dfb326652e7933cd2fe26e0ffcad98cd385d603b4eb82}
     command: ["run", "--adapter-url", "http://host.docker.internal:8080", "--mock-url", "http://host.docker.internal:8081", "--sdk-type", "server", "--output", "text", "--report", "/report/sdk-compliance-report.md", "--debug"]
     ports:
       - "8081:8081"

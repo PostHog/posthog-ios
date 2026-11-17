@@ -513,6 +513,74 @@
             #expect(sut.isSessionReplayActive())
         }
 
+        @Test("a config-resumed recording survives a sampled-out session")
+        func configResumedReplaySurvivesSampledOutSession() throws {
+            let sut = getSut(triggerGroups: fractionalUnconditionalGroup)
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+            let first = try sessionId(sampledIn: true, by: sut)
+            let sampledOut = try sessionId(sampledIn: false, by: sut)
+            let third = try sessionId(sampledIn: true, by: sut)
+
+            sut.sessionManager.setSessionId(first)
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(sut.isSessionReplayActive())
+
+            sut.stopSessionRecording()
+            #expect(!sut.isSessionReplayActive())
+
+            // A config callback is allowed to resume after a stop; from then on the stop is spent.
+            integration.applyRemoteConfig(remoteConfig: sut.remoteConfig?.getRemoteConfig())
+            #expect(sut.isSessionReplayActive())
+
+            sut.sessionManager.setSessionId(sampledOut)
+            #expect(!sut.isSessionReplayActive())
+
+            sut.sessionManager.setSessionId(third)
+            #expect(sut.isSessionReplayActive())
+        }
+
+        @Test("a stop after a config resume holds across a session change again")
+        func stopAfterConfigResumeHoldsAcrossSessionChange() throws {
+            let sut = getSut(triggerGroups: fractionalUnconditionalGroup)
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+            let first = try sessionId(sampledIn: true, by: sut)
+            let second = try sessionId(sampledIn: true, by: sut)
+
+            sut.sessionManager.setSessionId(first)
+            sut.startSessionRecording(resumeCurrent: true)
+            sut.stopSessionRecording()
+            integration.applyRemoteConfig(remoteConfig: sut.remoteConfig?.getRemoteConfig())
+            #expect(sut.isSessionReplayActive())
+
+            sut.stopSessionRecording()
+            sut.sessionManager.setSessionId(second)
+            #expect(!sut.isSessionReplayActive())
+        }
+
+        @Test("a refused start request after a stop still lets the next session record")
+        func refusedStartAfterStopLetsNextSessionRecord() throws {
+            let sut = getSut(triggerGroups: fractionalUnconditionalGroup)
+            defer { sut.close() }
+            let first = try sessionId(sampledIn: true, by: sut)
+            let second = try sessionId(sampledIn: true, by: sut)
+
+            sut.sessionManager.setSessionId(first)
+            sut.startSessionRecording(resumeCurrent: true)
+            sut.stopSessionRecording()
+            #expect(!sut.isSessionReplayActive())
+
+            // The app asks to start again, but this call is refused: the replay flag is not active.
+            sut.remoteConfig?.setSessionReplayFlagActiveForTesting(false)
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(!sut.isSessionReplayActive())
+
+            sut.remoteConfig?.setSessionReplayFlagActiveForTesting(true)
+            sut.sessionManager.setSessionId(second)
+            #expect(sut.isSessionReplayActive())
+        }
+
         private var eventOnlyTriggerGroup: [String: Any] {
             ["id": "purchase", "sampleRate": 1, "conditions": ["matchType": "any", "events": [["name": "purchase_completed"]]]]
         }

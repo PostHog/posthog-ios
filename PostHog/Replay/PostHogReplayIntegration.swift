@@ -37,7 +37,8 @@
         // cleared by its next explicit start. Guarded by `bufferingLock`.
         private var stoppedByReactNative: Bool = false
 
-        // Set by an explicit stop (`stop()`), cleared by the next explicit start. The session-change
+        // Set by an explicit stop (`stop()`), cleared by the next start that takes: an explicit one, or
+        // an automatic one a config, flags or event callback is allowed to make. The session-change
         // subscription lives for the whole install, so a stop that sampling or triggers caused can
         // re-evaluate on the next session; this keeps a session change from undoing an explicit stop.
         // Guarded by `bufferingLock`.
@@ -293,7 +294,8 @@
         /// instead, so only an explicit request can establish manual-start provenance.
         func start() {
             // Record the intent before the gates below: the event-trigger gate can defer the actual start.
-            // The React Native stop latch is already lifted by `startSessionRecording()`, the only caller.
+            // `startSessionRecording()` has already lifted the React Native stop latch and the explicit-stop
+            // marker; install, the other caller, starts from a fresh instance.
             bufferingLock.withLock {
                 explicitlyStopped = false
                 if let config, !config.sessionReplay {
@@ -322,6 +324,9 @@
             let claimed = bufferingLock.withLock { () -> Bool in
                 guard !isEnabled, isAutomaticStartPermittedLocked(sessionReplay: sessionReplay) else { return false }
                 isEnabled = true
+                // Recording is back on, so the stop no longer describes it: left set, the marker would
+                // keep a later sampled-out session from handing over to the next sampled-in one.
+                explicitlyStopped = false
                 hasPassedMinimumDuration = false
                 awaitingFirstRemoteConfig = awaiting
                 return true
@@ -433,19 +438,28 @@
         /// forgets any manual start, so with `config.sessionReplay == false` nothing restarts until the app
         /// calls `start()` again. Internal stops call `stopRecording()` so a manual recording can resume.
         func stop() {
-            bufferingLock.withLock {
+            // One acquisition with the `isEnabled` flip: an automatic start claiming between the two
+            // would clear `explicitlyStopped` and then be stopped here with no marker left.
+            let wasEnabled = bufferingLock.withLock { () -> Bool in
                 startedWithAutomaticDisabled = false
                 stoppedByReactNative = !isNotReactNative()
                 explicitlyStopped = true
+                let wasEnabled = isEnabled
+                isEnabled = false
+                return wasEnabled
             }
-            stopRecording()
+            if wasEnabled { tearDownRecording() }
         }
 
-        /// An explicit `startSessionRecording()` request means JS wants recording, even when this
-        /// call itself cannot start yet (flag not active, no session id): clear the React Native
-        /// stop latch so a refused request doesn't leave automatic starts blocked until JS asks again.
-        func clearReactNativeStop() {
-            bufferingLock.withLock { stoppedByReactNative = false }
+        /// An explicit `startSessionRecording()` request means the app wants recording, even when this
+        /// call itself cannot start yet (flag not active, no session id): lift what the last explicit
+        /// stop left behind, so a refused request doesn't keep automatic starts (under React Native) or
+        /// the next session blocked until the app asks again.
+        func clearExplicitStop() {
+            bufferingLock.withLock {
+                stoppedByReactNative = false
+                explicitlyStopped = false
+            }
         }
 
         /// Note: This does not clear remoteConfigLoadedToken, eventCapturedToken or sessionIdChangedToken
@@ -453,6 +467,10 @@
         private func stopRecording() {
             guard isEnabled else { return }
             bufferingLock.withLock { isEnabled = false }
+            tearDownRecording()
+        }
+
+        private func tearDownRecording() {
             resetViews()
 
             // stop listening to `UIApplication.sendEvent`
@@ -574,7 +592,7 @@
                 return
             }
 
-            // An explicit stop holds until the next explicit start; only a stop that sampling or
+            // An explicit stop holds until recording next starts; only a stop that sampling or
             // triggers caused is re-evaluated for the new session.
             guard isEnabled || !bufferingLock.withLock({ explicitlyStopped }) else { return }
 

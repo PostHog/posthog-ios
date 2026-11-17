@@ -3022,9 +3022,9 @@ let maxRetryDelay = 30.0
                     return
                 }
 
-                // An explicit start request means JS wants recording: clear the React Native stop latch
-                // before the guards below, so a refused request doesn't leave automatic starts blocked.
-                replayIntegration.clearReactNativeStop()
+                // An explicit start request means the app wants recording: lift the last explicit stop
+                // before the guards below, so a refused request doesn't leave later starts blocked.
+                replayIntegration.clearExplicitStop()
 
                 if resumeCurrent, replayIntegration.isActive() {
                     // nothing to resume, already active

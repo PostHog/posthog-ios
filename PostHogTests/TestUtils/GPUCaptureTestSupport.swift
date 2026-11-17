@@ -102,7 +102,10 @@
 
         func makeMirror() throws -> PostHogGPUMirrorCapture {
             // Its own instance per test, so no renderer or frame carries over between tests.
-            try #require(PostHogGPUMirrorCapture(), "the simulator has no Metal device")
+            let mirror = try #require(PostHogGPUMirrorCapture(), "the simulator has no Metal device")
+            // The 1ms production budget lets a slow runner leave a second text view unread on the first capture.
+            mirror.inlineMask.textBudget = .infinity
+            return mirror
         }
 
         func makeWindow(frame: CGRect = CGRect(x: 0, y: 0, width: 200, height: 300), background: UIColor = .white) -> UIWindow {

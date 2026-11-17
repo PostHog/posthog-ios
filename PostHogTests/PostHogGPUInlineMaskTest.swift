@@ -1090,6 +1090,8 @@
             window.addSubview(textView)
 
             let mask = fixture.mirror.inlineMask
+            // Measured with the production budget, not the fixture's unlimited one.
+            mask.textBudget = 0.001
             func median(_ values: [Double]) -> Double {
                 values.sorted()[values.count / 2]
             }

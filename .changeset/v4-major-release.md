@@ -44,7 +44,7 @@ To upgrade to posthog-ios 4.0.0 from 3.x.x, follow the [migration guide](https:/
 - **Breaking:** retry a capture request that gets a 404 and keep its events queued, with no fallback to `/batch`, and stop retrying 3xx responses
 - **Breaking:** with `debug` on, log capture failures as one line per batch with counts and PostHog's drop reasons, and stop logging each queued event and PostHog's response body. Update log-based alerts
 - **Breaking:** change `$locale` to the device's preferred language with its region, such as `de-CH` instead of `de`. Filter on `$app_language` for the language the app shows
-- **Breaking:** mark error tracking stack frames from frameworks other than your app as not in-app by default. Add your own dynamic frameworks to `errorTrackingConfig.inAppIncludes`, or set `inAppByDefault = true` for the 3.x.x behavior
+- **Breaking:** mark error tracking stack frames from frameworks other than your app as not in-app by default. Append your own dynamic frameworks to `errorTrackingConfig.inAppIncludes` (assigning it drops your app's own entries), or set `inAppByDefault = true` for the 3.x.x behavior
 - Add per-event capture options with `capture(..., timestamp:options:)` and `PostHogEvent.options`, also accepted by `screen`, `identify`, `setPersonProperties`, `alias`, `group` and `captureException`
 - Add `captureAi(...)` to send AI events such as `$ai_generation` to `/i/v1/ai/events`, tuned with `captureAiCompression`, `captureAiMaxQueueSize`, `captureAiTimeout` and `captureAiMaxEventBytes`
 - Add the `$app_language` property with the language the app displays, and `setAppLanguage(_:)` to set it when the app translates some other way

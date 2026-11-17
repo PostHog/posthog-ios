@@ -1,5 +1,15 @@
 ## Next
 
+## 3.98.0
+
+### Minor Changes
+
+- 074201f: Fix `captureException` stack traces starting in PostHog's own code instead of the line that called it when the SDK is statically linked into the app, such as with Swift Package Manager. Errors sent with `captureException` from these apps are grouped into new issues after upgrading; crashes and events with a custom `$exception_fingerprint` are not affected
+
+### Patch Changes
+
+- 6e79feb: Mask Compose Multiplatform views whole in session replay when `maskAllTextInputs` or `maskAllImages` is on, as for web views, since the SDK can't find the text fields, text and images Compose draws inside them
+
 ## 3.97.2
 
 ### Patch Changes

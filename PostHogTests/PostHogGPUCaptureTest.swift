@@ -2388,13 +2388,6 @@
             try makeScreenshotReplaySut { $0.captureMethod = gpuCapture ? .gpu : .standard }
         }
 
-        /// Waits for the capture to give the render slot back, through both turns and the readback.
-        private func waitForCaptureToFinish(_ integration: PostHogReplayIntegration) async {
-            await waitUntil(timeout: 5) { !integration.isScreenshotRenderInFlightForTesting }
-            #expect(!integration.isScreenshotRenderInFlightForTesting)
-            await drainReplayQueue()
-        }
-
         /// A window with magenta content inset in a masked field, as text sits in a text field: masks are drawn with
         /// rounded corners, so a fully magenta field would show at the corners. The magenta is layer contents, since a
         /// background colour survives inline masking as chrome.

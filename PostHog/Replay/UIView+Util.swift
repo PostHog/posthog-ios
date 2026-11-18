@@ -167,9 +167,10 @@
             let nativeScale = (self as? UIWindow ?? window)?.screen.scale ?? 1
             let drawsHierarchy = afterScreenUpdates || screenshotRenderer == .fidelity
             let gamut = screenshotGamut(drawingHierarchy: drawsHierarchy)
-            // render(in:) draws on the CPU, so its cost grows with the pixel count.
+            // render(in:) draws on the CPU, so its cost grows with the pixel count. No rounding up: a stretched render
+            // maps points to pixels at a scale other than `scale`, and the masks, painted at `scale`, would miss its edge.
             let scale = drawsHierarchy ? nativeScale : min(presentationScale ?? nativeScale, nativeScale)
-            let renderer = PostHogGraphicsImageRenderer(size: size, scale: scale, roundingUp: scale < nativeScale, gamut: gamut)
+            let renderer = PostHogGraphicsImageRenderer(size: size, scale: scale, gamut: gamut)
 
             var drawn = true
             let image = autoreleasepool {

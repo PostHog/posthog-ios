@@ -236,14 +236,14 @@
             }
         }
 
-        /// A 393pt window at 1.5 pixels per point is 589.5 pixels wide. The render and its masks must map points to
-        /// pixels the same way there, or the edge of a mask stops short of the content it covers.
+        /// A 393pt window at 1.5 pixels per point is 589.5 pixels wide, and an 874pt one at 2.25 is 1966.5 tall. The
+        /// render and its masks must map points to pixels the same way there, or a mask's edge misses what it covers.
         @Test("masks cover a presentation-tree render whose pixel size is fractional", arguments: [
-            (393.0, 1.5), (400.0, 1.5), (393.0, 1.0),
-        ] as [(CGFloat, CGFloat)])
-        func fractionalPresentationRenderStaysMasked(width: CGFloat, scale: CGFloat) throws {
+            (393.0, 852.0, 1.5), (400.0, 852.0, 1.5), (393.0, 852.0, 1.0), (400.0, 874.0, 2.25), (400.0, 872.0, 2.25),
+        ] as [(CGFloat, CGFloat, CGFloat)])
+        func fractionalPresentationRenderStaysMasked(width: CGFloat, height: CGFloat, scale: CGFloat) throws {
             let rect = CGRect(x: 350, y: 100, width: 40, height: 40)
-            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: 852))
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: height))
             window.backgroundColor = .white
             window.isHidden = false
             defer { window.isHidden = true }

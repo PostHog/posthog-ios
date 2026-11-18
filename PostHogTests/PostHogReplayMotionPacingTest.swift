@@ -18,7 +18,10 @@
 
         /// A text field that appears between the two settle samples: the samples can't be paired, so the verdict is motion.
         private func addTextField(to window: UIWindow) {
-            window.addSubview(UITextField(frame: CGRect(x: 20, y: 20, width: 120, height: 40)))
+            // An empty field isn't masked, so it would leave both samples empty and the verdict still.
+            let field = UITextField(frame: CGRect(x: 20, y: 20, width: 120, height: 40))
+            field.text = "secret"
+            window.addSubview(field)
             window.layoutIfNeeded()
         }
 

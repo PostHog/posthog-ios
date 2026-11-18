@@ -2682,15 +2682,19 @@
                 // Camera first: its layers can trap when presentation() copies them.
                 guard window.isVisible(), !window.hasCameraForReplay(), !isAnimatingTransition(window) else { return .skipped }
                 guard let frame = mirror.build(window: window, scale: scale) else { return .unbuilt }
-                guard let regions = collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources) else {
+                let regions = MaskedRegion.deferringRects {
+                    collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources)
+                }
+                guard let regions else {
                     return .unsettled(frame)
                 }
                 if leftOutCover(of: frame, in: window) { return .fallback(frame) }
                 let remaining = mirror.maskInline(regions, in: frame, tag: inlineMaskTag(view:layer:))
+                let remainingRects = remaining.map(\.rect)
                 frame.freeze()
                 let wireframe = createBasicWireframe(window)
                 wireframe.type = "screenshot"
-                wireframe.maskableWidgets = remaining.map(\.rect)
+                wireframe.maskableWidgets = remainingRects
                 wireframe.screenshotPixelScale = frame.scale
                 return .frozen(frame, wireframe)
             }

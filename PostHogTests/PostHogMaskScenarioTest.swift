@@ -594,4 +594,48 @@
             #expect(rects == [CGRect(x: 0, y: 0, width: 100, height: 21), CGRect(x: 0, y: 1, width: 100, height: 21)])
         }
     }
+
+    @Suite("MaskedRegion deferred rects")
+    @MainActor
+    struct PostHogDeferredMaskRectTest {
+        private typealias MaskedRegion = PostHogReplayIntegration.MaskedRegion
+
+        private func hosted() -> (UIWindow, UIView) {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 300, height: 300))
+            let view = UIView(frame: CGRect(x: 10, y: 20, width: 50, height: 40))
+            window.addSubview(view)
+            return (window, view)
+        }
+
+        @Test("a region outside deferringRects measures its rect when it's made")
+        func eagerOutsideDeferral() {
+            let (window, view) = hosted()
+            let region = MaskedRegion(view, in: window)
+            view.frame.origin = CGPoint(x: 100, y: 100)
+            #expect(region.rect == CGRect(x: 10, y: 20, width: 50, height: 40))
+        }
+
+        @Test("a deferred region measures its rect on first read, then keeps it")
+        func deferredMeasuresOnce() {
+            let (window, view) = hosted()
+            let region = MaskedRegion.deferringRects { MaskedRegion(view, in: window) }
+            view.frame.origin = CGPoint(x: 100, y: 100)
+            #expect(region.rect == CGRect(x: 100, y: 100, width: 50, height: 40))
+            view.frame.origin = CGPoint(x: 200, y: 200)
+            #expect(region.rect == CGRect(x: 100, y: 100, width: 50, height: 40))
+        }
+
+        @Test("deferral ends with the deferringRects block, nested or not")
+        func deferralIsScoped() {
+            let (window, view) = hosted()
+            let inner = MaskedRegion.deferringRects {
+                MaskedRegion.deferringRects {}
+                return MaskedRegion(view, in: window)
+            }
+            let after = MaskedRegion(view, in: window)
+            view.frame.origin = CGPoint(x: 100, y: 100)
+            #expect(inner.rect == CGRect(x: 100, y: 100, width: 50, height: 40))
+            #expect(after.rect == CGRect(x: 10, y: 20, width: 50, height: 40))
+        }
+    }
 #endif

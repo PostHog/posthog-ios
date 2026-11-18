@@ -87,6 +87,28 @@
             #expect(try #require(sut.integration.collectMaskableRects(in: window)).contains(label.frame))
         }
 
+        @Test("A sensitive text view cleared under a fade stays masked while the transition still shows the old text")
+        func textViewClearedUnderTransitionStaysMasked() throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+            let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
+            let textView = UITextView(frame: CGRect(x: 20, y: 40, width: 160, height: 80))
+            textView.text = "SECRET"
+            window.addSubview(textView)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+
+            let fade = CATransition()
+            fade.type = .fade
+            fade.duration = 1000
+            textView.layer.add(fade, forKey: nil)
+            textView.text = ""
+            window.layoutIfNeeded()
+
+            #expect(try #require(sut.integration.collectMaskableRects(in: window)).contains(textView.frame))
+        }
+
         @Test("A sensitive image view fading from a photo to a symbol stays masked while the transition draws the photo")
         func imageViewFadingToSymbolStaysMasked() async throws {
             let sut = makeSut()

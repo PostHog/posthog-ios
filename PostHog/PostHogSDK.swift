@@ -812,18 +812,19 @@ let maxRetryDelay = 30.0
             // SDK-computed debug keys overwrite a same-named registered super property (js: `extend`
             // after super properties), so a stale `register()` can't shadow the live status.
             #if os(iOS)
-                var replayDebugProperties = replayIntegration?.debugProperties() ?? [
-                    "$recording_status": "disabled",
-                    "$sdk_debug_replay_capture_mode": PostHogReplayIntegration.captureMode(config: config),
-                ]
+                let replayIntegration = self.replayIntegration
+                let isReplayOff = replayIntegration?.isReplayOff ?? true
+                var replayDebugProperties = replayIntegration?.debugProperties() ?? ["$recording_status": "disabled"]
             #else
+                let isReplayOff = true
                 var replayDebugProperties: [String: Any] = ["$recording_status": "disabled"]
             #endif
-            if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
+            if !isReplayOff, let sessionStart = sessionManager.sessionStartTimestampSnapshot {
                 replayDebugProperties["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
             }
             // Read-only builds are the crash-context snapshot, refreshed on every status transition.
-            let claimedReplayDebugWindow = !readOnlySession && Self.isReplayDebugEvent(event) && claimReplayDebugPropertiesWindow()
+            // An event while replay is off carries no bundle, so it leaves the window for the next one.
+            let claimedReplayDebugWindow = !readOnlySession && !isReplayOff && Self.isReplayDebugEvent(event) && claimReplayDebugPropertiesWindow()
             if readOnlySession || claimedReplayDebugWindow {
                 props.merge(replayDebugProperties) { _, new in new }
                 if claimedReplayDebugWindow {
@@ -3018,6 +3019,7 @@ let maxRetryDelay = 30.0
                 guard let replayIntegration else {
                     return
                 }
+                replayIntegration.clearExplicitStop()
 
                 if resumeCurrent, replayIntegration.isActive() {
                     // nothing to resume, already active
@@ -3110,6 +3112,7 @@ let maxRetryDelay = 30.0
 
         /// The per-event replay debug map (`$recording_status`, `$sdk_debug_replay_*`) that first-party
         /// wrappers merge into events they build themselves; empty when replay is not installed.
+        /// While replay is off, only `$recording_status` is returned.
         ///
         /// SPI, not public API: no stability guarantees.
         @_spi(PostHogInternal) public func sessionReplayDebugProperties() -> [String: Any] {

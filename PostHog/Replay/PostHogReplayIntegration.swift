@@ -57,6 +57,8 @@
 
         private let screenshotRenderLock = NSLock()
         private var isScreenshotRenderInFlight = false
+        /// Main thread only. Motion frames skip until this `CACurrentMediaTime()`, see `presentationTreePauseFactor`.
+        private var presentationTreeResumeTime: CFTimeInterval = 0
         #if canImport(Metal)
             /// Main thread only. Tests swap in their own instance.
             lazy var gpuMirror = PostHogGPUMirrorCapture.shared
@@ -1280,7 +1282,7 @@
             // The settled path renders here so the pixels come from the same main-thread tick that
             // measured the mask rects — any later and the presentation tree has moved on. Callers
             // that render themselves (background capture, the bridge's first frame) pass false.
-            let image = renderImage ? window.toImage(renderer: Self.screenshotRenderer(renderer)) : nil
+            let image = renderImage ? renderScreenshot(window, renderer: renderer, uploadScale: wireframe.screenshotPixelScale) : nil
             // A render that was attempted and failed skips the tick; only a deferred render falls
             // through to renderAndEnqueueScreenshot's own draw.
             if renderImage, image == nil {
@@ -1288,6 +1290,19 @@
             }
 
             return ScreenshotCapture(wireframe: wireframe, windowSize: window.bounds.size, timestampDate: Date(), image: image)
+        }
+
+        /// Main thread. The presentation-tree renderer draws at upload scale, since nothing finer is uploaded, and
+        /// its duration sets how long motion frames skip it after this one.
+        private func renderScreenshot(_ window: UIWindow, renderer: PostHogScreenshotRenderer, uploadScale: CGFloat) -> UIImage? {
+            guard renderer == .presentationTree else {
+                return window.toImage(renderer: Self.screenshotRenderer(renderer))
+            }
+            let start = CACurrentMediaTime()
+            let image = window.toImage(renderer: Self.screenshotRenderer(renderer), presentationScale: uploadScale)
+            let end = CACurrentMediaTime()
+            presentationTreeResumeTime = end + (end - start) * Self.presentationTreePauseFactor
+            return image
         }
 
         @discardableResult
@@ -1730,10 +1745,16 @@
             )
         }
 
+        /// After a presentation-tree render, motion frames skip for this many times its duration, so the CPU renderer
+        /// holds at most 1/20 of the main thread. A 10ms render pauses it for less than the default throttle; a 2s
+        /// render on a heavy screen pauses it for about 40s. Settled frames still capture with drawHierarchy meanwhile.
+        static let presentationTreePauseFactor: CFTimeInterval = 19
+
         /// Settle-then-shoot: after one display-pipeline depth, unchanged mask geometry proves the
         /// displayed frame identical to the current tree, so full-fidelity drawHierarchy is safe
         /// (blur/video/Metal intact); drift within budget keeps drawHierarchy with masks swept to
-        /// cover it, only motion or an unpairable sample drops to render(in:) for alignment.
+        /// cover it, only motion or an unpairable sample drops to render(in:) for alignment, and
+        /// skips instead until `presentationTreeResumeTime`.
         private func scheduleSettledCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) {
             // Same bails prepareScreenshotWireframe applies, hoisted ahead of the two sampling
             // walks: without this a view controller transition pays for both traversals and then
@@ -1750,11 +1771,17 @@
                 // Banded on mask geometry alone, not on layout-event counts: layout events arrive in
                 // bursts, so a count false-positives on the very burst that triggered the capture.
                 let verdict = Self.settleVerdict(before: sentinelRegions, after: regionsNow)
+                let renderer: PostHogScreenshotRenderer = verdict.band.usesFidelity ? .fidelity : .presentationTree
+                if renderer == .presentationTree, CACurrentMediaTime() < self.presentationTreeResumeTime {
+                    hedgeLog("[Session Replay] Skipping snapshot: the motion renderer is paused after a slow render")
+                    self.finishScreenshotRender()
+                    return
+                }
                 self.performScreenshotCapture(
                     window: window,
                     screenName: screenName,
                     postHog: postHog,
-                    renderer: verdict.band.usesFidelity ? .fidelity : .presentationTree,
+                    renderer: renderer,
                     overrideMaskRects: verdict.inflatedRects ?? regionsNow?.map(\.rect)
                 )
             }
@@ -2807,6 +2834,11 @@
 
             var isScreenshotRenderInFlightForTesting: Bool {
                 screenshotRenderLock.withLock { isScreenshotRenderInFlight }
+            }
+
+            var presentationTreeResumeTimeForTesting: CFTimeInterval {
+                get { presentationTreeResumeTime }
+                set { presentationTreeResumeTime = newValue }
             }
         }
 

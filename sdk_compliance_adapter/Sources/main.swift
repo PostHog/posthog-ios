@@ -128,9 +128,11 @@ app.get("health") { req async throws -> Response in
         // Declares which test suites apply. The iOS SDK posts events to
         // /i/v1/analytics/events (capture_v1) with gzip. Without this, the
         // harness skips the capability-gated capture suites entirely.
+        // Durable ingestion retries retain events beyond a retry-count budget.
         "capabilities": [
             "capture_v1", "capture_ai_v1", "encoding_gzip", "event_options",
             "disable_geoip", "generated_payloads", "log_capture", "property_layers", "fail_open",
+            "unbounded_retries",
         ],
     ]
 

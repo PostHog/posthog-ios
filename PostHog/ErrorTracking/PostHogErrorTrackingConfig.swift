@@ -53,8 +53,8 @@ import Foundation
     ///
     /// Example:
     /// ```swift
-    /// config.errorTrackingConfig.inAppIncludes = [
-    ///     "MyApp",
+    /// config.errorTrackingConfig.inAppIncludes += [
+    ///     "MySharedFramework",
     ///     "SharedUtils"
     /// ]
     /// ```
@@ -62,6 +62,9 @@ import Foundation
     /// **Default behavior:**
     /// - Automatically includes main bundle identifier
     /// - Automatically includes executable name
+    ///
+    /// Append to this list instead of assigning it. Assigning removes the defaults, so frames
+    /// from your app's executable are no longer in-app.
     ///
     /// **Precedence:** Priority 1 (highest)
     @objc public var inAppIncludes: [String] = []

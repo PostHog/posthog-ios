@@ -616,6 +616,8 @@ Error tracking marks a stack frame as in-app only when it comes from your app's 
   config.errorTrackingConfig.inAppIncludes.append("NetworkingKit")
   ```
 
+- **Assigning `inAppIncludes`.** The SDK fills `inAppIncludes` with your app's bundle identifier and executable name. If your code assigns it, such as `inAppIncludes = ["NetworkingKit"]`, that removes them, so in 4.x.x your app's own frames aren't in-app. Append with `+=` instead.
+
 - **3.x.x behavior.** Set `config.errorTrackingConfig.inAppByDefault = true`.
 - **Issues.** Some existing error tracking issues may get a new issue location, or open as new issues.
 

@@ -2076,7 +2076,13 @@
         /// buffering fields are read in one `bufferingLock` acquisition so a concurrent startRecording()/stopRecording()
         /// can't tear them across keys on the same event.
         func debugProperties() -> [String: Any] {
-            guard !isReplayOff else { return ["$recording_status": "disabled"] }
+            debugSnapshot().properties
+        }
+
+        /// The off decision and the properties from one `isReplayOff` read, so a concurrent stop can't
+        /// pair a full bundle with "off" or an off-shape map with "on".
+        func debugSnapshot() -> (isReplayOff: Bool, properties: [String: Any]) {
+            guard !isReplayOff else { return (true, ["$recording_status": "disabled"]) }
 
             let (enabled, awaitingConfig, passedMinimumDuration, minimumDuration) = bufferingLock.withLock {
                 (isEnabled, awaitingFirstRemoteConfig, hasPassedMinimumDuration, cachedMinimumDuration)
@@ -2135,7 +2141,7 @@
                 props["$sdk_debug_replay_pending_trigger_conditions"] = pendingConditions
             }
 
-            return props
+            return (false, props)
         }
     }
 

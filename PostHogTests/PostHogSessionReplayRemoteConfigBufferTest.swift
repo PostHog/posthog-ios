@@ -822,6 +822,41 @@
             expectFullDebugKeys(integration.debugProperties())
         }
 
+        @Test("the debug snapshot's off decision matches its properties while stop and start race")
+        func debugSnapshotDecisionMatchesPropertiesUnderConcurrentStop() async throws {
+            let (sut, integration, _) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            await waitUntil { integration.isBuffering == false }
+
+            let samplesLock = NSLock()
+            var mismatches = 0
+            let group = DispatchGroup()
+            let queue = DispatchQueue(label: "test.debug-snapshot", attributes: .concurrent)
+            let iterations = 200
+
+            queue.async(group: group) {
+                for index in 0 ..< iterations {
+                    if index.isMultiple(of: 2) { sut.stopSessionRecording() } else { sut.startSessionRecording() }
+                }
+            }
+            for _ in 0 ..< iterations {
+                queue.async(group: group) {
+                    let snapshot = integration.debugSnapshot()
+                    let offShape = snapshot.properties["$sdk_debug_replay_capture_mode"] == nil
+                    if snapshot.isReplayOff != offShape {
+                        samplesLock.withLock { mismatches += 1 }
+                    }
+                }
+            }
+            await withCheckedContinuation { continuation in
+                group.notify(queue: .global()) { continuation.resume() }
+            }
+
+            #expect(samplesLock.withLock { mismatches } == 0)
+        }
+
         @Test("an explicit stop of a manually started recording reports only the recording status")
         func explicitStopAfterManualStartSendsOnlyStatus() throws {
             let sut = getSut(flagActive: true, sessionReplay: false)

@@ -812,9 +812,9 @@ let maxRetryDelay = 30.0
             // SDK-computed debug keys overwrite a same-named registered super property (js: `extend`
             // after super properties), so a stale `register()` can't shadow the live status.
             #if os(iOS)
-                let replayIntegration = self.replayIntegration
-                let isReplayOff = replayIntegration?.isReplayOff ?? true
-                var replayDebugProperties = replayIntegration?.debugProperties() ?? ["$recording_status": "disabled"]
+                let replaySnapshot = replayIntegration?.debugSnapshot() ?? (isReplayOff: true, properties: ["$recording_status": "disabled"])
+                let isReplayOff = replaySnapshot.isReplayOff
+                var replayDebugProperties = replaySnapshot.properties
             #else
                 let isReplayOff = true
                 var replayDebugProperties: [String: Any] = ["$recording_status": "disabled"]

@@ -1410,8 +1410,9 @@
         }
 
         private func isTextViewSensitive(_ view: UITextView) -> Bool {
-            // textStorage rather than attributedText, which copies the whole text
-            ((isTextInputSensitive(view) || view.isSensitiveText()) && hasText(view.text))
+            // textStorage rather than attributedText, which copies the whole text.
+            // A content transition keeps drawing cleared text, as for labels.
+            ((isTextInputSensitive(view) || view.isSensitiveText()) && (hasText(view.text) || view.layer.animatesContents(outside: [])))
                 || hasSensitiveImageAttachment(view.textStorage)
         }
 

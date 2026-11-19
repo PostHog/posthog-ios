@@ -19,6 +19,8 @@ struct PostHogTriggerGroupsDecision {
     let minDurationMs: Int64?
     let groupsCount: Int
     let matchedGroups: [PostHogTriggerGroupMatch]
+    /// `trigger group "<name>": <leg> condition not matched` for each pending leg of each pending group.
+    let pendingConditions: [String]
 }
 
 private enum PostHogTriggerStatus {
@@ -111,9 +113,11 @@ class PostHogTriggerGroupsEvaluator {
             var hasPendingGroups = false
             var minDurationMs: Int64?
             var matchedGroups: [PostHogTriggerGroupMatch] = []
+            var pendingConditions: [String] = []
 
             for group in groups {
-                switch groupStatusLocked(group, flags: flags, activatedSession: activatedSession) {
+                let legs = legStatusesLocked(group, flags: flags, activatedSession: activatedSession)
+                switch Self.groupStatus(group, legs: legs) {
                 case .activated:
                     let sampled = samplingDecisionLocked(group, sessionId: sessionId)
                     matchedGroups.append(PostHogTriggerGroupMatch(id: group.id, name: group.name, sampled: sampled))
@@ -125,6 +129,7 @@ class PostHogTriggerGroupsEvaluator {
                     }
                 case .pending:
                     hasPendingGroups = true
+                    pendingConditions += legs.pendingLabels.map { "trigger group \"\(group.name)\": \($0)" }
                 case .disabled:
                     break
                 }
@@ -135,24 +140,35 @@ class PostHogTriggerGroupsEvaluator {
                 hasPendingGroups: hasPendingGroups,
                 minDurationMs: minDurationMs,
                 groupsCount: groups.count,
-                matchedGroups: matchedGroups
+                matchedGroups: matchedGroups,
+                pendingConditions: pendingConditions
             )
         }
     }
 
-    private func groupStatusLocked(_ group: PostHogTriggerGroup,
+    private struct LegStatuses {
+        let event: PostHogTriggerStatus
+        let screen: PostHogTriggerStatus
+        let flag: PostHogTriggerStatus
+
+        /// The screen leg reports as the URL leg.
+        var pendingLabels: [String] {
+            [
+                (screen, "URL condition not matched"),
+                (event, "event condition not matched"),
+                (flag, "linked flag condition not matched"),
+            ].filter { $0.0 == .pending }.map(\.1)
+        }
+    }
+
+    private func legStatusesLocked(_ group: PostHogTriggerGroup,
                                    flags: [String: Any]?,
-                                   activatedSession: Bool) -> PostHogTriggerStatus
+                                   activatedSession: Bool) -> LegStatuses
     {
         let conditions = group.conditions
-        let hasEvents = conditions.hasEventsLeg
-        let hasUrls = conditions.hasUrlsLeg
-        let hasFlag = conditions.hasFlagLeg
-
-        if !hasEvents && !hasUrls && !hasFlag { return .activated }
 
         let eventLeg: PostHogTriggerStatus
-        if !hasEvents {
+        if !conditions.hasEventsLeg {
             eventLeg = .disabled
         } else if activatedSession, eventActivatedGroupIds.contains(group.id) {
             eventLeg = .activated
@@ -161,7 +177,7 @@ class PostHogTriggerGroupsEvaluator {
         }
 
         let screenLeg: PostHogTriggerStatus
-        if !hasUrls {
+        if !conditions.hasUrlsLeg {
             screenLeg = .disabled
         } else if activatedSession, screenActivatedGroupIds.contains(group.id) {
             screenLeg = .activated
@@ -169,11 +185,18 @@ class PostHogTriggerGroupsEvaluator {
             screenLeg = .pending
         }
 
-        let flagLeg = hasFlag ? Self.flagLegStatus(conditions.flag, flags: flags) : .disabled
+        let flagLeg = conditions.hasFlagLeg ? Self.flagLegStatus(conditions.flag, flags: flags) : .disabled
+
+        return LegStatuses(event: eventLeg, screen: screenLeg, flag: flagLeg)
+    }
+
+    private static func groupStatus(_ group: PostHogTriggerGroup, legs: LegStatuses) -> PostHogTriggerStatus {
+        let conditions = group.conditions
+        if !conditions.hasEventsLeg && !conditions.hasUrlsLeg && !conditions.hasFlagLeg { return .activated }
 
         return conditions.matchType == .any
-            ? Self.orTriggerStatus(eventLeg, screenLeg, flagLeg)
-            : Self.andTriggerStatus(eventLeg, screenLeg, flagLeg)
+            ? orTriggerStatus(legs.event, legs.screen, legs.flag)
+            : andTriggerStatus(legs.event, legs.screen, legs.flag)
     }
 
     /// A configured flag leg that didn't parse never matches.

@@ -617,7 +617,7 @@
         }
 
         private var eventOnlyTriggerGroup: [String: Any] {
-            ["id": "purchase", "sampleRate": 1, "conditions": ["matchType": "any", "events": [["name": "purchase_completed"]]]]
+            ["id": "purchase", "name": "Purchase", "sampleRate": 1, "conditions": ["matchType": "any", "events": [["name": "purchase_completed"]]]]
         }
 
         // MARK: - debugProperties() Trigger Status
@@ -644,7 +644,7 @@
             #expect(!pendingAfter.contains("event_trigger"))
         }
 
-        @Test("pending trigger groups are named as a pending condition until one records")
+        @Test("pending trigger groups name each pending condition until one records")
         func pendingTriggerGroupsAreAPendingCondition() async throws {
             let sut = getSut(triggerGroups: [eventOnlyTriggerGroup])
             let integration = try #require(sut.getReplayIntegration())
@@ -653,7 +653,7 @@
             var props = integration.debugProperties()
             #expect(props["$sdk_debug_replay_event_trigger_status"] as? String == "trigger_disabled")
             #expect(props["$sdk_debug_replay_linked_flag_trigger_status"] as? String == "trigger_disabled")
-            #expect(props["$sdk_debug_replay_pending_trigger_conditions"] as? [String] == ["trigger_groups"])
+            #expect(props["$sdk_debug_replay_pending_trigger_conditions"] as? [String] == ["trigger group \"Purchase\": event condition not matched"])
 
             sut.capture("purchase_completed")
 

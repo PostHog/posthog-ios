@@ -2288,9 +2288,7 @@
                 for (key, value) in remoteConfig.sessionRecordingTriggerGroupsDebugProperties(sessionId: sessionId) {
                     props[key] = value
                 }
-                if remoteConfig.hasPendingSessionRecordingTriggerGroups(sessionId: sessionId) {
-                    pendingConditions.append("trigger_groups")
-                }
+                pendingConditions += remoteConfig.pendingSessionRecordingTriggerGroupConditions(sessionId: sessionId)
             }
 
             if !pendingConditions.isEmpty {

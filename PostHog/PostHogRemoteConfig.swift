@@ -788,6 +788,14 @@ class PostHogRemoteConfig {
             return !decision.shouldRecord && decision.hasPendingGroups
         }
 
+        /// Empty unless the trigger groups hold the session back, as `hasPendingSessionRecordingTriggerGroups`.
+        func pendingSessionRecordingTriggerGroupConditions(sessionId: String) -> [String] {
+            guard let decision = decideTriggerGroups(sessionId: sessionId),
+                  !decision.shouldRecord, decision.hasPendingGroups
+            else { return [] }
+            return decision.pendingConditions
+        }
+
         func getSessionRecordingTriggerGroupsMinimumDuration(sessionId: String) -> TimeInterval? {
             guard let minDurationMs = decideTriggerGroups(sessionId: sessionId)?.minDurationMs else { return nil }
             return TimeInterval(minDurationMs) / 1_000.0
@@ -800,7 +808,8 @@ class PostHogRemoteConfig {
                     hasPendingGroups: false,
                     minDurationMs: nil,
                     groupsCount: 0,
-                    matchedGroups: []
+                    matchedGroups: [],
+                    pendingConditions: []
                 )
             return [
                 "$sdk_debug_replay_remote_trigger_matching_config": "v2_trigger_groups",

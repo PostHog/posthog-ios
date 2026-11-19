@@ -228,6 +228,33 @@ struct PostHogTriggerGroupsEvaluatorTests {
         #expect(onEvent(event: "$screen", properties: ["$screen_name": "/checkout", "region": "US"]))
     }
 
+    @Test("pending conditions name each pending leg of each pending group")
+    func pendingConditionsNameEachPendingLeg() {
+        configure([
+            group(id: "g1", name: "Checkout", conditions: [
+                "events": [["name": "purchase"]],
+                "urls": [["url": "checkout", "matching": "regex"]],
+                "flag": "replay-flag",
+            ]),
+            group(id: "g2", name: "No conditions"),
+        ])
+
+        // g2 activates at once, so only g1 is listed
+        #expect(decide(flags: [:]).pendingConditions == [
+            "trigger group \"Checkout\": URL condition not matched",
+            "trigger group \"Checkout\": event condition not matched",
+            "trigger group \"Checkout\": linked flag condition not matched",
+        ])
+
+        _ = onEvent(event: "purchase")
+        #expect(decide(flags: ["replay-flag": true]).pendingConditions == [
+            "trigger group \"Checkout\": URL condition not matched",
+        ])
+
+        _ = screen(name: "/checkout")
+        #expect(decide(flags: ["replay-flag": true]).pendingConditions.isEmpty)
+    }
+
     @Test("screen names match url regexes anywhere")
     func screenNamesMatchUrlRegexesAnywhere() {
         configure([group(id: "g1", conditions: urlLeg("checkout"))])

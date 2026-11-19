@@ -140,7 +140,7 @@
             renderer screenshotRenderer: PostHogScreenshotRenderer = .fidelity,
             presentationScale: CGFloat? = nil
         ) -> UIImage? {
-            // Background capture also enters here; controller traversal belongs on main.
+            // Controller traversal belongs on main, even for an off-main caller.
             let hasCamera = {
                 (self as? UIWindow ?? self.window)?.hasCameraForReplay() ?? false
             }

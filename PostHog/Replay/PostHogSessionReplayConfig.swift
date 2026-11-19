@@ -12,19 +12,8 @@
         /// Renders the window with `drawHierarchy` on the main thread, once the screen has settled.
         case standard
 
-        /// Renders the window on a background queue, so capture takes the least main-thread time.
-        ///
-        /// Try this if session replay causes main-thread hangs or dropped frames on complex screens.
-        /// A frame is skipped when masked content moves while it renders.
-        ///
-        /// Warning: this triggers Main Thread Checker warnings and may briefly freeze the app the first
-        /// time a screenshot is captured. Consider disabling Main Thread Checker in your scheme's run
-        /// diagnostics when using it.
-        case background
-
         /// Copies the window's layer tree on the main thread and renders the copy on the GPU with Metal,
-        /// so the main thread only builds the copy. Takes less main-thread time than `.standard`, more than
-        /// `.background`.
+        /// so the main thread only builds the copy. Takes less main-thread time than `.standard`.
         ///
         /// Layers whose presentation can't be copied safely (an app's or a framework's own `CALayer`
         /// subclasses) are drawn from their model state instead. While one of them has an animation that

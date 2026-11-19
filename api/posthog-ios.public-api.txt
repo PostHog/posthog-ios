@@ -354,7 +354,6 @@ PostHog | PostHogSDK.unregister(_:) | method | @objc(unregisterProperties:) func
 PostHog | PostHogSDK.unregisterPushNotificationToken() | method | @objc func unregisterPushNotificationToken() | c:@M@PostHog@objc(cs)PostHogSDK(im)unregisterPushNotificationToken
 PostHog | PostHogSDK.with(_:) | type.method | @objc static func with(_ config: PostHogConfig) -> PostHogSDK | c:@M@PostHog@objc(cs)PostHogSDK(cm)with:
 PostHog | PostHogSessionReplayCaptureMethod | enum | @objc(PostHogSessionReplayCaptureMethod) enum PostHogSessionReplayCaptureMethod | c:@M@PostHog@E@PostHogSessionReplayCaptureMethod
-PostHog | PostHogSessionReplayCaptureMethod.background | enum.case | case background | c:@M@PostHog@E@PostHogSessionReplayCaptureMethod@PostHogSessionReplayCaptureMethodBackground
 PostHog | PostHogSessionReplayCaptureMethod.gpu | enum.case | case gpu | c:@M@PostHog@E@PostHogSessionReplayCaptureMethod@PostHogSessionReplayCaptureMethodGpu
 PostHog | PostHogSessionReplayCaptureMethod.init(rawValue:) | init | init?(rawValue: Int) | s:7PostHog0aB26SessionReplayCaptureMethodO8rawValueACSgSi_tcfc
 PostHog | PostHogSessionReplayCaptureMethod.standard | enum.case | case standard | c:@M@PostHog@E@PostHogSessionReplayCaptureMethod@PostHogSessionReplayCaptureMethodStandard

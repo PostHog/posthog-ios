@@ -2208,8 +2208,15 @@
         /// them under names such as `Sharedandroidx.compose.ui.window.ComposeContainerView3` (module name, Kotlin
         /// class name, counter), so they're matched by name.
         static func isComposeMultiplatformView(_ viewClass: AnyClass) -> Bool {
-            NSStringFromClass(viewClass).contains("androidx.compose.ui.window.")
+            let key = ObjectIdentifier(viewClass)
+            if let cached = composeViewClasses[key] { return cached }
+            let isCompose = NSStringFromClass(viewClass).contains("androidx.compose.ui.window.")
+            composeViewClasses[key] = isCompose
+            return isCompose
         }
+
+        /// Main thread only.
+        private static var composeViewClasses: [ObjectIdentifier: Bool] = [:]
 
         /// Masks `content`, a view or a layer drawn by `view`, when it is a `.drawingGroup()` or `Canvas`
         /// surface. Returns whether a mask was added.
@@ -2450,15 +2457,19 @@
                 // Camera first: its layers can trap when presentation() copies them.
                 guard window.isVisible(), !window.hasCameraForReplay(), !isAnimatingTransition(window) else { return .skipped }
                 guard let frame = mirror.build(window: window, scale: scale) else { return .unbuilt }
-                guard let regions = collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources) else {
+                let regions = MaskedRegion.deferringRects {
+                    collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources)
+                }
+                guard let regions else {
                     return .unsettled(frame)
                 }
                 if leftOutCover(of: frame, in: window) { return .fallback(frame) }
                 let remaining = mirror.maskInline(regions, in: frame, tag: inlineMaskTag(view:layer:))
+                let remainingRects = remaining.map(\.rect)
                 frame.freeze()
                 let wireframe = createBasicWireframe(window)
                 wireframe.type = "screenshot"
-                wireframe.maskableWidgets = remaining.map(\.rect)
+                wireframe.maskableWidgets = remainingRects
                 wireframe.screenshotPixelScale = frame.scale
                 return .frozen(frame, wireframe)
             }

@@ -27,24 +27,44 @@
         struct MaskedRegion {
             let owner: ObjectIdentifier
             let object: AnyObject
-            let rect: CGRect
             /// See `InlineMasking`.
             let inline: InlineMasking
+            private let measurement: MaskRectMeasurement
+
+            var rect: CGRect {
+                switch measurement {
+                case let .measured(rect): return rect
+                case let .deferred(deferred): return deferred.rect
+                }
+            }
 
             init(_ object: AnyObject, rect: CGRect, inline: InlineMasking) {
-                owner = ObjectIdentifier(object)
-                self.object = object
-                self.rect = rect
-                self.inline = inline
+                self.init(object, measurement: .measured(rect), inline: inline)
             }
 
             /// Covers everything the view draws itself, including content past its bounds.
             init(_ view: UIView, in window: UIWindow?) {
-                self.init(view, rect: view.toPresentationRect(window, outsets: view.drawnOutsets), inline: .owned)
+                self.init(view, measurement: .of { view.toPresentationRect(window, outsets: view.drawnOutsets) }, inline: .owned)
             }
 
             init(_ layer: CALayer, in window: UIWindow?) {
-                self.init(layer, rect: layer.toPresentationRect(window, outsets: layer.drawnOutsets(of: layer.bounds)), inline: .owned)
+                self.init(layer, measurement: .of { layer.toPresentationRect(window, outsets: layer.drawnOutsets(of: layer.bounds)) }, inline: .owned)
+            }
+
+            private init(_ object: AnyObject, measurement: MaskRectMeasurement, inline: InlineMasking) {
+                owner = ObjectIdentifier(object)
+                self.object = object
+                self.measurement = measurement
+                self.inline = inline
+            }
+
+            /// Main thread. Regions walked in `body` measure their rect on first read, still on main, instead of
+            /// during the walk: a GPU capture masks most of them inline in the mirror and never reads it.
+            static func deferringRects<T>(_ body: () -> T) -> T {
+                let wasDeferring = DeferredMaskRect.isDeferring
+                DeferredMaskRect.isDeferring = true
+                defer { DeferredMaskRect.isDeferring = wasDeferring }
+                return body()
             }
         }
 
@@ -203,6 +223,34 @@
                 return (.drift, inflated)
             }
             return (.motion, nil)
+        }
+    }
+
+    private enum MaskRectMeasurement {
+        case measured(CGRect)
+        case deferred(DeferredMaskRect)
+
+        static func of(_ measure: @escaping () -> CGRect) -> MaskRectMeasurement {
+            DeferredMaskRect.isDeferring ? .deferred(DeferredMaskRect(measure)) : .measured(measure())
+        }
+    }
+
+    /// Main thread only.
+    private final class DeferredMaskRect {
+        static var isDeferring = false
+        private var measure: (() -> CGRect)?
+        private var measured = CGRect.null
+
+        init(_ measure: @escaping () -> CGRect) {
+            self.measure = measure
+        }
+
+        var rect: CGRect {
+            if let measure {
+                measured = measure()
+                self.measure = nil
+            }
+            return measured
         }
     }
 #endif

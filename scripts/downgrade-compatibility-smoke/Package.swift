@@ -14,7 +14,7 @@ let currentWriterSwiftSettings: [SwiftSetting] = environment["POSTHOG_DOWNGRADE_
 
 let package = Package(
     name: "DowngradeCompatibilitySmoke",
-    platforms: [.macOS(.v11)],
+    platforms: [.macOS(.v12)],
     products: [
         .executable(name: "DowngradeCompatibilitySmoke", targets: ["DowngradeCompatibilitySmoke"]),
     ],

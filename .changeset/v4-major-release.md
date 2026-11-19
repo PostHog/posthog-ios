@@ -5,7 +5,7 @@
 To upgrade to posthog-ios 4.0.0 from 3.x.x, follow the [migration guide](https://github.com/PostHog/posthog-ios/blob/main/MIGRATION.md).
 
 - **Breaking:** stop publishing to CocoaPods. Install with Swift Package Manager (3.x.x versions stay on CocoaPods)
-- **Breaking:** raise minimum deployment targets to iOS and Mac Catalyst 15.0, macOS 11.0, tvOS 15.0 and watchOS 10.0
+- **Breaking:** raise minimum deployment targets to iOS and Mac Catalyst 15.0, macOS 12.0, tvOS 15.0 and watchOS 10.0
 - **Breaking:** require Xcode 26 or later (`swift-tools-version` 6.2)
 - **Breaking:** always record session replay as masked screenshots, which shows custom-drawn content and uses more bandwidth and CPU than wireframes. Remove `screenshotMode` assignments and mask sensitive content with `postHogMask()` or `ph-no-capture`
 - **Breaking:** pass a `PostHogFeatureFlagsLoaded` to the `reloadFeatureFlags(_:)` callback. Use `{ result in ... }` or `{ _ in ... }`
@@ -44,7 +44,7 @@ To upgrade to posthog-ios 4.0.0 from 3.x.x, follow the [migration guide](https:/
 - **Breaking:** retry a capture request that gets a 404 and keep its events queued, with no fallback to `/batch`, and stop retrying 3xx responses
 - **Breaking:** with `debug` on, log capture failures as one line per batch with counts and PostHog's drop reasons, and stop logging each queued event and PostHog's response body. Update log-based alerts
 - **Breaking:** change `$locale` to the device's preferred language with its region, such as `de-CH` instead of `de`. Filter on `$app_language` for the language the app shows
-- **Breaking:** mark error tracking stack frames from frameworks other than your app as not in-app by default. Append your own dynamic frameworks to `errorTrackingConfig.inAppIncludes` (assigning it drops your app's own entries), or set `inAppByDefault = true` for the 3.x.x behavior
+- **Breaking:** mark error tracking stack frames from frameworks other than your app as not in-app by default. Append your own dynamic frameworks to `errorTrackingConfig.inAppIncludes` (assigning it drops your app's own entries), or set `inAppByDefault = true` for the 3.x.x behavior. Some existing error tracking issues may open as new issues after upgrading
 - Add per-event capture options with `capture(..., timestamp:options:)` and `PostHogEvent.options`, also accepted by `screen`, `identify`, `setPersonProperties`, `alias`, `group` and `captureException`
 - Add `captureAi(...)` to send AI events such as `$ai_generation` to `/i/v1/ai/events`, tuned with `captureAiCompression`, `captureAiMaxQueueSize`, `captureAiTimeout` and `captureAiMaxEventBytes`
 - Add the `$app_language` property with the language the app displays, and `setAppLanguage(_:)` to set it when the app translates some other way

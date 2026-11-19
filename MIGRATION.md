@@ -16,10 +16,10 @@ Read the checklist first, then the sections that apply to you.
 
 **Before you upgrade**
 
-- [ ] You build with an Xcode older than 26, or your deployment targets are below iOS 15, macOS 11, tvOS 15, or watchOS 10 → [Check your toolchain](#check-your-toolchain)
+- [ ] You build with an Xcode older than 26, or your deployment targets are below iOS 15, macOS 12, tvOS 15, or watchOS 10 → [Check your toolchain](#check-your-toolchain)
 - [ ] You install the SDK with CocoaPods, or a dSYM upload script uses the pod's path → [Leave CocoaPods](#leave-cocoapods)
 - [ ] Your app is a React Native, Flutter, or Kotlin Multiplatform app → [Upgrade wrapper packages](#upgrade-wrapper-packages)
-- [ ] You send events through a reverse proxy that doesn't serve `/i/v1/analytics/events` → [Prepare your proxy](#prepare-your-proxy)
+- [ ] You send events to a self-hosted PostHog or a reverse proxy that doesn't serve `/i/v1/analytics/events` → [Prepare your proxy](#prepare-your-proxy)
 - [ ] You authenticate your proxy with an `Authorization` header in `requestHeaders` → [Prepare your proxy](#prepare-your-proxy)
 - [ ] You send events through a reverse proxy set up from PostHog's proxy guides before 29 October 2026, which strips `Authorization` → [Prepare your proxy](#prepare-your-proxy)
 - [ ] You send events through a proxy that redirects capture requests, other than with a 307 or 308 to the same origin as `host` → [Prepare your proxy](#prepare-your-proxy)
@@ -70,7 +70,7 @@ posthog-ios 4.x.x raises the Xcode version and the deployment targets:
 | --- | --- | --- |
 | Xcode | `swift-tools-version` 5.3 | 26 or later (`swift-tools-version` 6.2) |
 | iOS and Mac Catalyst | 13.0 | 15.0 |
-| macOS | 10.15 | 11.0 |
+| macOS | 10.15 | 12.0 |
 | tvOS | 13.0 | 15.0 |
 | watchOS | 6.0 | 10.0 |
 | visionOS | 1.0 | 1.0 |
@@ -124,7 +124,7 @@ Capture v1 requests send the project token in an `Authorization: Bearer <project
 
 This header replaces any `Authorization` header you set in `PostHogConfig.requestHeaders`, so authenticate your proxy with a different header, such as `X-Proxy-Token`. Other requests still send your `Authorization` header.
 
-PostHog Cloud (`us.i.posthog.com`, `eu.i.posthog.com`) serves both capture v1 endpoints.
+PostHog Cloud (`us.i.posthog.com`, `eu.i.posthog.com`) serves both capture v1 endpoints. If you self-host PostHog, make sure it serves `/i/v1/analytics/events`, and `/i/v1/ai/events` if you use `captureAi`, before you upgrade.
 
 If you send events through your own reverse proxy, update it before you upgrade:
 

@@ -513,6 +513,41 @@
             #expect(sut.isSessionReplayActive())
         }
 
+        @Test("a flags reload does not restart a recorder the app stopped")
+        func flagsReloadDoesNotUndoExplicitStop() throws {
+            let sut = getSut(triggerGroups: [["id": "unconditional", "sampleRate": 1, "conditions": ["matchType": "any"]]])
+            defer { sut.close() }
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(sut.isSessionReplayActive())
+
+            sut.stopSessionRecording()
+            sut.remoteConfig?.onFeatureFlagsLoaded.invoke([:])
+            #expect(!sut.isSessionReplayActive())
+
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(sut.isSessionReplayActive())
+        }
+
+        @Test("a matching trigger group event does not restart a recorder the app stopped")
+        func triggerGroupEventDoesNotUndoExplicitStop() throws {
+            let sut = getSut(triggerGroups: [eventOnlyTriggerGroup])
+            defer { sut.close() }
+
+            sut.capture("purchase_completed")
+            #expect(sut.isSessionReplayActive())
+
+            sut.stopSessionRecording()
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            sut.capture("purchase_completed")
+            #expect(!sut.isSessionReplayActive())
+
+            // The event captured while stopped did not activate the group for this session.
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(!sut.isSessionReplayActive())
+            sut.capture("purchase_completed")
+            #expect(sut.isSessionReplayActive())
+        }
+
         @Test("a config-resumed recording survives a sampled-out session")
         func configResumedReplaySurvivesSampledOutSession() throws {
             let sut = getSut(triggerGroups: fractionalUnconditionalGroup)

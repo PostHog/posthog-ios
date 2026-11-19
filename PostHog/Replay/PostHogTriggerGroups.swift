@@ -83,11 +83,14 @@ func parseTriggerGroupsConfig(_ sessionRecording: [String: Any]) -> PostHogTrigg
     return PostHogTriggerGroupsConfig(groups: groups)
 }
 
-/// The API can send the rate as a string. One that doesn't parse samples out, as it does on web
-/// (NaN never passes the threshold); only a missing rate samples in.
+/// The API can send the rate as a string. Coerced as on web: a blank string or null samples out,
+/// surrounding whitespace is ignored, and a string that doesn't parse samples in like a missing rate.
 private func parseTriggerGroupSampleRate(_ raw: Any?) -> Double? {
+    if raw is NSNull { return 0 }
     if let string = raw as? String {
-        return Double(string) ?? 0
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return 0 }
+        return Double(trimmed).flatMap { $0.isNaN ? nil : $0 }
     }
     return (raw as? NSNumber)?.doubleValue
 }

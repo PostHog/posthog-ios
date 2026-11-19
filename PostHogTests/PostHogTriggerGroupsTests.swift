@@ -121,16 +121,24 @@ struct PostHogTriggerGroupsTests {
         #expect(try #require(noFlagName.groups.single()).conditions.flag == nil)
     }
 
-    @Test("a missing sample rate parses to nil, a string rate parses and garbage samples out")
+    @Test("a missing or unparseable sample rate parses to nil, a string rate parses and blank or null samples out")
     func sampleRateParsing() throws {
         let config = try requireConfig([
             group(id: "g1", sampleRate: nil),
             group(id: "g2", sampleRate: "0.5"),
             group(id: "g3", sampleRate: "abc"),
+            group(id: "g4", sampleRate: " 0.5 "),
+            group(id: "g5", sampleRate: ""),
+            group(id: "g6", sampleRate: NSNull()),
+            group(id: "g7", sampleRate: "NaN"),
         ])
         #expect(config.groups[0].sampleRate == nil)
         #expect(config.groups[1].sampleRate == 0.5)
-        #expect(config.groups[2].sampleRate == 0)
+        #expect(config.groups[2].sampleRate == nil)
+        #expect(config.groups[3].sampleRate == 0.5)
+        #expect(config.groups[4].sampleRate == 0)
+        #expect(config.groups[5].sampleRate == 0)
+        #expect(config.groups[6].sampleRate == nil)
     }
 
     @Test("a configured leg stays configured even when none of its entries parse")

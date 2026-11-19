@@ -1061,8 +1061,8 @@
             #expect(NSDictionary(dictionary: sut.sessionReplayDebugProperties()) == ["$recording_status": "disabled"])
         }
 
-        @Test("the getter and the recording status both report off once the cache says remotely off, before the flag state follows")
-        func remoteOffCacheAgreesWithGetterBeforeFlagCleared() throws {
+        @Test("a remote off keeps the replay keys while the recorder is still running, and drops them once it stops")
+        func remoteOffKeepsKeysUntilRecorderStops() throws {
             let sut = getSut(flagActive: true, cachedSessionRecording: false)
             defer { sut.close() }
             let integration = try #require(sut.getReplayIntegration())
@@ -1072,9 +1072,19 @@
             sut.remoteConfig?.setSessionReplayFlagActiveForTesting(true)
             #expect(integration.isActive() == true)
 
+            #expect(sut.isSessionReplayActive() == true)
+            let running = captureProperties(sut) { sut.screen("in the gap") }
+            #expect(running["$recording_status"] as? String != "disabled")
+            #expect(running["$sdk_debug_replay_capture_mode"] != nil)
+
+            sut.remoteConfig?.setSessionReplayFlagActiveForTesting(false)
+            integration.applyRemoteConfig(remoteConfig: ["sessionRecording": false])
+            #expect(integration.isActive() == false)
+
             #expect(sut.isSessionReplayActive() == false)
-            let props = captureProperties(sut) { sut.screen("in the gap") }
-            #expect(props["$recording_status"] as? String == "disabled")
+            let stopped = captureProperties(sut) { sut.screen("after stop") }
+            #expect(stopped["$recording_status"] as? String == "disabled")
+            #expect(stopped["$sdk_debug_replay_capture_mode"] == nil)
         }
 
         @Test("an event captured while replay is remotely off does not consume the optional bundle window")

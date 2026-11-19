@@ -3146,7 +3146,6 @@ let maxRetryDelay = 30.0
             return replayIntegration.isActive()
                 && !sessionManager.getSessionId(readOnly: true).isNilOrEmpty
                 && remoteConfig.isSessionReplayFlagActive()
-                && !remoteConfig.isSessionRecordingRemotelyDisabled()
         }
     #endif
 

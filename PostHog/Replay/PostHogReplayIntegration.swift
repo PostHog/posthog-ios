@@ -465,7 +465,13 @@
             guard let postHog else { return true }
             // Read before `bufferingLock`, see isAutomaticStartPermittedLocked.
             let sessionReplay = config?.sessionReplay ?? false
-            let locallyOff = bufferingLock.withLock { explicitlyStopped || (!sessionReplay && !startedWithAutomaticDisabled) }
+            let (enabled, locallyOff) = bufferingLock.withLock {
+                (isEnabled, explicitlyStopped || (!sessionReplay && !startedWithAutomaticDisabled))
+            }
+            // A running recorder is never off, so `disabled` never contradicts isSessionReplayActive().
+            // Running means recording, not just enabled: the first `/config` leaves a remotely-off
+            // recorder enabled with the capturer gated on the flag.
+            if enabled, postHog.remoteConfig?.isSessionReplayFlagActive() ?? false { return false }
             return locallyOff || (postHog.remoteConfig?.isSessionRecordingRemotelyDisabled() ?? false)
         }
 

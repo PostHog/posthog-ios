@@ -2,11 +2,11 @@
 
 The iOS SDK 4.x.x sends analytics and AI events to the [capture v1](https://posthog.com/docs/api/capture-v1) endpoints, `/i/v1/analytics/events` and `/i/v1/ai/events`.
 
-Use the top right copy page button to work through this with your agents.
+On posthog.com, use the copy page button at the top right to work through this with your agents.
 
 You don't need to make every change on the day you upgrade your SDK. Required changes fall in these categories:
 
-- **Before you upgrade**: you should make these changes before you upgrade your SDK to posthog-ios 4.x.x.
+- **Before you upgrade**: These are changes you should make before you upgrade your SDK to posthog-ios 4.x.x.
 - **During your upgrade**: These are changes that you need to make in the same PR that upgrades your SDK version.
 - **Follow ups**: These are changes that can come in follow up PRs, because 4.x.x still accepts the old names and options.
 
@@ -138,7 +138,7 @@ PostHog's managed reverse proxy already does this and needs no change.
 
 A proxy set up from PostHog's [proxy guides](https://posthog.com/docs/advanced/proxy) before 29 October 2026 strips `Authorization`, so PostHog answers `401` and the events are dropped. Update it from the current guide.
 
-The SDK doesn't fall back to `/batch`. A 404 is retried, so events stay queued until the route is served. Other error statuses that aren't retried, such as 403 or 405, drop the events.
+The SDK doesn't fall back to `/batch`. A 404 is retried, so events stay queued until the route is served. The SDK prints one warning, even without `debug`. Other error statuses that aren't retried, such as 403 or 405, drop the events.
 
 The SDK follows a 307 or 308 redirect only to the origin of `host`, at most 5 times, and resends the same body and headers. The origin is the same scheme, host, and port.
 

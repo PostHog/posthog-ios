@@ -6,11 +6,11 @@ showTitle: true
 
 The iOS SDK 4.x.x sends analytics and AI events to the [capture v1](https://posthog.com/docs/api/capture-v1) endpoints, `/i/v1/analytics/events` and `/i/v1/ai/events`.
 
-Use the top right copy page button to work through this with your agents.
+On posthog.com, use the copy page button at the top right to work through this with your agents.
 
 You don't need to make every change on the day you upgrade your SDK. Required changes fall in these categories:
 
-- **Before you upgrade**: you should make these changes before you upgrade your SDK to posthog-ios 4.x.x.
+- **Before you upgrade**: These are changes you should make before you upgrade your SDK to posthog-ios 4.x.x.
 - **During your upgrade**: These are changes that you need to make in the same PR that upgrades your SDK version.
 - **Follow ups**: These are changes that can come in follow up PRs, because 4.x.x still accepts the old names and options.
 
@@ -56,6 +56,7 @@ Read the checklist first, then the sections that apply to you.
 - [ ] You replace `event.options` in `beforeSend`, or return an event kept from an earlier call → [Keep options in beforeSend](#keep-options-in-beforesend)
 - [ ] You register `$process_person_profile` as `false` and expect it to keep every event personless → [Check registered person processing](#check-registered-person-processing)
 - [ ] You rely on a `Retry-After` longer than 30 seconds → [Check retries and batches](#check-retries-and-batches)
+- [ ] You use error tracking and ship your own code in a dynamic framework → [Check in-app frames](#check-in-app-frames)
 - [ ] You might go back to 3.x.x after you ship 4.x.x → [Plan your rollback](#plan-your-rollback)
 
 **Follow ups**
@@ -141,7 +142,7 @@ PostHog's managed reverse proxy already does this and needs no change.
 
 A proxy set up from PostHog's [proxy guides](https://posthog.com/docs/advanced/proxy) before 29 October 2026 strips `Authorization`, so PostHog answers `401` and the events are dropped. Update it from the current guide.
 
-The SDK doesn't fall back to `/batch`. A 404 is retried, so events stay queued until the route is served. Other error statuses that aren't retried, such as 403 or 405, drop the events.
+The SDK doesn't fall back to `/batch`. A 404 is retried, so events stay queued until the route is served. The SDK prints one warning, even without `debug`. Other error statuses that aren't retried, such as 403 or 405, drop the events.
 
 The SDK follows a 307 or 308 redirect only to the origin of `host`, at most 5 times, and resends the same body and headers. The origin is the same scheme, host, and port.
 
@@ -607,6 +608,22 @@ These rules also apply:
 - **A 413.** A 413 halves the batch and resends it, until a request carries one event. A single event that still gets a 413 is dropped. 3.x.x did the same.
 - **Large events.** The SDK has no per-event size limit for analytics events, as in 3.x.x. An event larger than about 5 MiB is sent in a request of its own.
 - **`beforeSend`.** It runs when you capture the event, before it's queued, so batching, splitting, and retries never change what it sees.
+
+### Check in-app frames
+
+Error tracking marks a stack frame as in-app only when it comes from your app's executable or from a binary in `errorTrackingConfig.inAppIncludes`. In 3.x.x, frames from any framework that wasn't a system framework were in-app, so third-party frameworks showed up as your code.
+
+- **Swift packages.** Code linked statically into your app, such as most Swift packages, is part of your app's executable, so it stays in-app.
+- **Your own dynamic frameworks.** A framework whose name starts with your app's executable name or bundle identifier stays in-app. Add any other framework that holds your code to `inAppIncludes`:
+
+  ```swift
+  config.errorTrackingConfig.inAppIncludes.append("NetworkingKit")
+  ```
+
+- **Assigning `inAppIncludes`.** The SDK fills `inAppIncludes` with your app's bundle identifier and executable name. If your code assigns it, such as `inAppIncludes = ["NetworkingKit"]`, that removes them, so in 4.x.x your app's own frames aren't in-app. Append with `+=` instead.
+
+- **3.x.x behavior.** Set `config.errorTrackingConfig.inAppByDefault = true`.
+- **Issues.** Some existing error tracking issues may get a new issue location, or open as new issues.
 
 ### Plan your rollback
 

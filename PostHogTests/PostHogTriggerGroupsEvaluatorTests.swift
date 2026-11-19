@@ -192,7 +192,7 @@ struct PostHogTriggerGroupsEvaluatorTests {
         #expect(onEvent(event: "purchase", properties: ["region": "EU"]))
     }
 
-    @Test("group-level property filters gate the screen leg")
+    @Test("group-level property filters gate the screen leg on person properties only")
     func groupLevelFiltersGateScreenLeg() {
         configure([
             group(id: "g1", conditions: [
@@ -201,8 +201,31 @@ struct PostHogTriggerGroupsEvaluatorTests {
             ]),
         ])
 
-        #expect(!onEvent(event: "$screen", properties: ["$screen_name": "/checkout", "region": "US"]))
-        #expect(onEvent(event: "$screen", properties: ["$screen_name": "/checkout", "region": "EU"]))
+        #expect(!onEvent(event: "$screen", properties: ["$screen_name": "/checkout", "region": "EU"]))
+
+        configure([
+            group(id: "g1", conditions: [
+                "urls": [["url": "checkout", "matching": "regex"]],
+                "properties": [["type": "person", "key": "plan", "value": "pro"]],
+            ]),
+        ])
+
+        #expect(!evaluator.onEvent(sessionId: "session-1", eventName: "$screen",
+                                   eventProperties: ["$screen_name": "/checkout"], personProperties: ["plan": "free"]))
+        #expect(evaluator.onEvent(sessionId: "session-1", eventName: "$screen",
+                                  eventProperties: ["$screen_name": "/checkout"], personProperties: ["plan": "pro"]))
+    }
+
+    @Test("a negative group-level event filter matches the screen leg whatever the event carries")
+    func negativeGroupLevelEventFilterMatchesScreenLeg() {
+        configure([
+            group(id: "g1", conditions: [
+                "urls": [["url": "checkout", "matching": "regex"]],
+                "properties": [["key": "region", "operator": "is_not", "value": "US"]],
+            ]),
+        ])
+
+        #expect(onEvent(event: "$screen", properties: ["$screen_name": "/checkout", "region": "US"]))
     }
 
     @Test("screen names match url regexes anywhere")

@@ -89,7 +89,8 @@ class PostHogTriggerGroupsEvaluator {
                             guard let screenName else { return false }
                             return regex.firstMatch(in: screenName, range: NSRange(screenName.startIndex..., in: screenName)) != nil
                         }
-                        && matchTriggerPropertyFilters(conditions.properties, eventProperties, personProperties)
+                        // The screen leg checks group-level filters without event properties
+                        && matchTriggerPropertyFilters(conditions.properties, nil, personProperties)
                     if screenMatched {
                         screenActivatedGroupIds.insert(group.id)
                         anyNewlyActivated = true

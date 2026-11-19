@@ -238,5 +238,55 @@ struct UtilsTest {
             #expect(items?[0] as? String == "a")
             #expect(items?[1] as? String == dateString)
         }
+
+        @Test("converts a top-level set to an array")
+        func convertsTopLevelSetToArray() {
+            let sanitized = sanitizeDictionary([
+                "tags": Set(["a"]),
+            ])
+
+            #expect(sanitized?["tags"] as? [String] == ["a"])
+        }
+
+        @Test("keeps every element of a multi-element set")
+        func keepsEveryElementOfSet() {
+            let sanitized = sanitizeDictionary([
+                "tags": Set(["a", "b", "c"]),
+            ])
+
+            let tags = sanitized?["tags"] as? [String]
+            #expect(tags?.count == 3)
+            #expect(Set(tags ?? []) == Set(["a", "b", "c"]))
+        }
+
+        @Test("converts an NSSet to an array")
+        func convertsNSSetToArray() {
+            let sanitized = sanitizeDictionary([
+                "tags": NSSet(array: ["a"]),
+            ])
+
+            #expect(sanitized?["tags"] as? [String] == ["a"])
+        }
+
+        @Test("converts a set nested inside an array of dictionaries")
+        func convertsNestedSet() {
+            let sanitized = sanitizeDictionary([
+                "outer": [["inner": Set(["a"])]] as [Any],
+            ])
+
+            let outer = sanitized?["outer"] as? [Any]
+            let inner = (outer?.first as? [String: Any])?["inner"] as? [String]
+            #expect(outer?.count == 1)
+            #expect(inner == ["a"])
+        }
+
+        @Test("sanitizes set elements and drops the ones that cannot be serialized")
+        func sanitizesSetElements() {
+            let sanitized = sanitizeDictionary([
+                "tags": NSSet(array: [date, UUID()]),
+            ])
+
+            #expect(sanitized?["tags"] as? [String] == [dateString])
+        }
     }
 }

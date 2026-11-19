@@ -1177,9 +1177,6 @@
         /// All regions to redact in `window`: heuristic widgets from the hierarchy walk plus the
         /// live regions of `postHogMask()` reporters. Returns nil when a reporter hasn't laid out
         /// yet — the caller must skip the frame rather than capture it under-masked.
-        /// Pre-existing limitation with the `.background` capture method (off by default): pixels
-        /// render after this collection, so any rect source can go stale for content committed in
-        /// between.
         /// `portalSources` are views a GPU capture also draws through a portal: they're masked wherever they sit,
         /// culled or not, outside a cover too, and the whole portal is masked where it shows them unless the source is clean.
         func collectMaskedRegions(in window: UIWindow, culledLayers: Culled = [], portalSources: [PostHogPortalSource] = []) -> [MaskedRegion]? {
@@ -1522,91 +1519,6 @@
                 screenName: screenName,
                 postHog: postHog,
                 episodeFirstFrame: episodeFirstFrame
-            )
-        }
-
-        /// Three mask samples around an off-main render: measure geometry, wait
-        /// `backgroundCaptureLeadSeconds`, measure again, render, measure a third time, then mask as
-        /// `backgroundCaptureMaskRects` decides — swept and trailed when the content drifted,
-        /// skipped on motion, an unpaired owner, or a missing sample. Always uses `drawHierarchy`,
-        /// never the presentation-tree renderer: that reads `layer.presentation()`, which is
-        /// main-only, and this path's other reads already sit inside `main.sync`.
-        private func scheduleBracketedBackgroundCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) {
-            var lead = collectMaskedRegions(in: window)
-            guard lead != nil else {
-                finishScreenshotRender()
-                return
-            }
-            PostHogReplayIntegration.dispatchQueue.asyncAfter(deadline: .now() + Self.backgroundCaptureLeadSeconds) { [weak self] in
-                guard let self else {
-                    DispatchQueue.main.async { lead = nil }
-                    return
-                }
-                self.performBracketedBackgroundCapture(window: window, lead: &lead, screenName: screenName, postHog: postHog)
-            }
-        }
-
-        /// `lead` is inout so it can be dropped on main: MaskedRegion retains its view, and a view's
-        /// last release (with its UIKit teardown) must not run on the replay queue.
-        @discardableResult
-        private func performBracketedBackgroundCapture(
-            window: UIWindow, lead: inout [MaskedRegion]?, screenName: String?, postHog: PostHogSDK
-        ) -> Bool {
-            defer { finishScreenshotRender() }
-
-            // Same bails prepareScreenshotWireframe applies, hoisted ahead of the sampling walks
-            // and the render so a transition doesn't pay for a frame that gets discarded.
-            var before = DispatchQueue.main.sync { () -> [MaskedRegion]? in
-                guard window.isVisible(), !self.isAnimatingTransition(window) else {
-                    lead = nil
-                    return nil
-                }
-                let sample = self.collectMaskedRegions(in: window)
-                // The lead pair alone decides most motion frames; skip them before paying for a render.
-                guard Self.backgroundCaptureMaskRects(before: lead, after: sample) != nil else {
-                    lead = nil
-                    hedgeLog("[Session Replay] Skipping snapshot: mask geometry could not be covered during background capture")
-                    return nil
-                }
-                return sample
-            }
-            guard before != nil else {
-                return false
-            }
-            // Off-main on purpose, and the reason this mode exists: drawHierarchy on main was too
-            // slow to keep up. UIKit documents it as main-thread-only, so it stays opt-in
-            // behind the `.background` capture method — the bracketing above is what keeps masks
-            // aligned with pixels despite the render happening on this thread.
-            let image = window.toImage()
-            let capture = DispatchQueue.main.sync { () -> ScreenshotCapture? in
-                // MaskedRegion retains its view: drop the samples here so a view's last release
-                // (and its UIKit teardown) runs on main, not on the replay queue.
-                defer {
-                    lead = nil
-                    before = nil
-                }
-                let after = self.collectMaskedRegions(in: window)
-                guard let rects = Self.backgroundCaptureMaskRects(lead: lead, before: before, after: after) else {
-                    hedgeLog("[Session Replay] Skipping snapshot: mask geometry could not be covered during background capture")
-                    return nil
-                }
-                // No renderer preference: `renderImage: false` means this call never renders — the
-                // image was already taken off-main above.
-                return self.collectScreenshotMetadata(window, overrideMaskRects: rects, renderImage: false)
-            }
-
-            guard let capture, let image, postHog.isSessionReplayActive() else {
-                return false
-            }
-
-            return renderAndEnqueueScreenshot(
-                capture.wireframe,
-                window: window,
-                windowSize: capture.windowSize,
-                screenName: screenName,
-                postHog: postHog,
-                timestampDate: capture.timestampDate,
-                image: image
             )
         }
 
@@ -2321,8 +2233,6 @@
             switch postHog.config.sessionReplayConfig.captureMethod {
             case .gpu:
                 scheduleGPUCapture(window: window, screenName: screenName, postHog: postHog)
-            case .background:
-                scheduleBracketedBackgroundCapture(window: window, screenName: screenName, postHog: postHog)
             case .standard:
                 scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)
             }

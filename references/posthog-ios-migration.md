@@ -239,7 +239,7 @@ Replace these session replay APIs:
 | `sessionReplayConfig.screenshotMode` | Delete the assignment |
 | `sessionReplayConfig.maskPhotoLibraryImages` | Delete the assignment |
 | `sessionReplayConfig.debouncerDelay` | `sessionReplayConfig.throttleDelay` |
-| `sessionReplayConfig.screenshotModeBackgroundCapture = true` | `sessionReplayConfig.captureMethod = .background` |
+| `sessionReplayConfig.screenshotModeBackgroundCapture = true` | Delete the assignment, or use `sessionReplayConfig.captureMethod = .gpu` (see below) |
 | `sessionReplayConfig.screenshotModeGPUCapture = true` | `sessionReplayConfig.captureMethod = .gpu` |
 | `PostHogLogLevel` | `PostHogConsoleLogLevel` |
 | `PostHogLogEntry` | `PostHogConsoleLogEntry` |
@@ -251,7 +251,9 @@ Replay always records masked screenshots, so `screenshotMode` has nothing to set
 
 `sessionReplayConfig.maskPhotoLibraryImages` had no effect.
 
-`captureMethod` picks how each screenshot is captured: `.standard` (default), `.background`, or the experimental `.gpu`. `screenshotScale` applies to all three. In Objective-C, use `PostHogSessionReplayCaptureMethodBackground`.
+`captureMethod` picks how each screenshot is captured: `.standard` (default) or the experimental `.gpu`. `screenshotScale` applies to both. In Objective-C, use `PostHogSessionReplayCaptureMethodGpu`.
+
+Background capture is removed. It rendered the screen off the main thread, so a frame could show content that had already moved away from its mask. If `.standard` costs too much main-thread time, try `.gpu`.
 
 Replace these feature flag APIs:
 

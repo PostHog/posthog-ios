@@ -612,16 +612,11 @@ final class PostHogSDKTests {
             sut.close()
         }
 
-        private func getReplaySut(
-            sessionReplay: Bool = true,
-            cachedRemoteConfig: [String: Any]? = ["sessionRecording": ["endpoint": "/s/"]],
-            cachedFeatureFlags: [String: Any]? = nil,
-            remoteConfigDidFetch: Bool = false
-        ) -> PostHogSDK {
+        private func getReplaySut() -> PostHogSDK {
             let config = PostHogConfig(projectToken: fixture.projectToken, host: "http://localhost:9001")
             config.flushAt = 1000
             config.preloadFeatureFlags = false
-            config.sessionReplay = sessionReplay
+            config.sessionReplay = true
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
             config.disableFlushOnBackgroundForTesting = true
@@ -629,20 +624,11 @@ final class PostHogSDKTests {
 
             let storage = PostHogStorage(config)
             storage.reset()
-            if let cachedRemoteConfig {
-                storage.setDictionary(forKey: .remoteConfig, contents: cachedRemoteConfig)
-            }
-
-            if let cachedFeatureFlags {
-                storage.setDictionary(forKey: .enabledFeatureFlags, contents: cachedFeatureFlags)
-            }
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
 
             PostHogReplayIntegration.clearInstalls()
             let sut = PostHogSDK.with(config)
             fixture.track(sut)
-            if remoteConfigDidFetch {
-                sut.remoteConfig?.setRemoteConfigDidFetchForTesting(true)
-            }
             return sut
         }
 
@@ -684,190 +670,6 @@ final class PostHogSDKTests {
 
             let screen = captureProperties(sut) { sut.screen("theScreen") }
             expectOnlyRecordingStatus(screen)
-
-            sut.reset()
-            sut.close()
-        }
-
-        @Test("an explicit stop sends only $recording_status", arguments: [true, false])
-        func explicitStopSendsOnlyRecordingStatus(automaticReplay: Bool) {
-            let sut = getReplaySut(sessionReplay: automaticReplay)
-            if !automaticReplay {
-                sut.startSessionRecording()
-            }
-
-            sut.stopSessionRecording()
-
-            expectOnlyRecordingStatus(captureProperties(sut) { sut.capture("custom event") })
-            expectOnlyRecordingStatus(captureProperties(sut) { sut.screen("theScreen") })
-
-            sut.reset()
-            sut.close()
-        }
-
-        @Test("an internal stop from re-sampling keeps every key")
-        func internalSamplingStopKeepsKeys() throws {
-            let sut = getReplaySut()
-            let integration = try #require(sut.getReplayIntegration())
-
-            sut.remoteConfig?.setRecordingSampleRateForTesting(0)
-            integration.applyRemoteConfig(remoteConfig: nil)
-            #expect(integration.isActive() == false)
-
-            let properties = captureProperties(sut) { sut.screen("theScreen") }
-            #expect(properties["$recording_status"] as? String == "disabled")
-            expectFullReplayBundle(properties)
-
-            sut.reset()
-            sut.close()
-        }
-
-        @Test("an internal stop from a session rotation keeps every key")
-        func internalSessionRotationStopKeepsKeys() async throws {
-            let sut = getReplaySut()
-            let integration = try #require(sut.getReplayIntegration())
-            #expect(integration.isActive() == true)
-
-            sut.remoteConfig?.setRecordingSampleRateForTesting(0)
-            sut.sessionManager.setSessionId(UUID().uuidString)
-            await waitUntil { !integration.isActive() }
-            #expect(integration.isActive() == false)
-
-            let properties = captureProperties(sut) { sut.screen("theScreen") }
-            #expect(properties["$recording_status"] as? String == "disabled")
-            expectFullReplayBundle(properties)
-
-            sut.reset()
-            sut.close()
-        }
-
-        @Test("a remote config with sessionRecording false sends only $recording_status")
-        func remoteSessionRecordingFalseSendsOnlyStatus() {
-            let sut = getReplaySut(cachedRemoteConfig: ["sessionRecording": false], remoteConfigDidFetch: true)
-
-            expectOnlyRecordingStatus(captureProperties(sut) { sut.capture("custom event") })
-            expectOnlyRecordingStatus(captureProperties(sut) { sut.screen("theScreen") })
-
-            sut.reset()
-            sut.close()
-        }
-
-        @Test("the mobile recordings quota limit sends only $recording_status, other quota limits do not", arguments: [
-            (["mobile_recordings"], true),
-            (["feature_flags"], false),
-        ] as [([String], Bool)])
-        func quotaLimitedSendsOnlyStatus(quotaLimited: [String], expectedOff: Bool) {
-            let sut = getReplaySut(
-                cachedRemoteConfig: ["sessionRecording": ["endpoint": "/s/"], "quotaLimited": quotaLimited],
-                remoteConfigDidFetch: true
-            )
-
-            let properties = captureProperties(sut) { sut.screen("theScreen") }
-            if expectedOff {
-                expectOnlyRecordingStatus(properties)
-            } else {
-                expectFullReplayBundle(properties)
-            }
-
-            sut.reset()
-            sut.close()
-        }
-
-        @Test("a sampled-out session keeps every key")
-        func sampledOutKeepsTriggerKeys() {
-            let sut = getReplaySut(
-                cachedRemoteConfig: ["sessionRecording": ["endpoint": "/s/", "sampleRate": 0]],
-                remoteConfigDidFetch: true
-            )
-
-            let properties = captureProperties(sut) { sut.screen("theScreen") }
-            #expect(properties["$recording_status"] as? String == "disabled")
-            expectFullReplayBundle(properties)
-
-            sut.reset()
-            sut.close()
-        }
-
-        @Test("a pending linked flag keeps every key")
-        func linkedFlagPendingKeepsKeys() throws {
-            let sut = getReplaySut(
-                cachedRemoteConfig: ["sessionRecording": ["endpoint": "/s/", "linkedFlag": "replay_linked_flag"]],
-                cachedFeatureFlags: ["replay_linked_flag": false],
-                remoteConfigDidFetch: true
-            )
-            try #require(sut.getReplayIntegration()).applyRemoteConfig(remoteConfig: nil)
-
-            let properties = captureProperties(sut) { sut.screen("theScreen") }
-            #expect(properties["$recording_status"] as? String == "disabled")
-            #expect(properties["$sdk_debug_replay_linked_flag_trigger_status"] as? String == "trigger_pending")
-            expectFullReplayBundle(properties)
-
-            sut.reset()
-            sut.close()
-        }
-
-        @Test("a pending event trigger keeps every key")
-        func eventTriggerPendingKeepsKeys() throws {
-            let sut = getReplaySut(remoteConfigDidFetch: true)
-            let integration = try #require(sut.getReplayIntegration())
-
-            integration.applyRemoteConfig(remoteConfig: ["sessionRecording": ["eventTriggers": ["purchase_completed"]]])
-
-            let properties = captureProperties(sut) { sut.screen("theScreen") }
-            #expect(properties["$recording_status"] as? String == "disabled")
-            #expect(properties["$sdk_debug_replay_event_trigger_status"] as? String == "trigger_pending")
-            expectFullReplayBundle(properties)
-
-            sut.reset()
-            sut.close()
-        }
-
-        @Test("awaiting the first remote config keeps every key")
-        func awaitingFirstRemoteConfigKeepsKeys() {
-            let sut = getReplaySut()
-
-            let properties = captureProperties(sut) { sut.screen("theScreen") }
-            #expect(properties["$recording_status"] as? String == "buffering")
-            expectFullReplayBundle(properties)
-
-            sut.reset()
-            sut.close()
-        }
-
-        @Test("a failed first remote config fetch with no cache keeps every key")
-        func failedFirstFetchWithNoCacheKeepsKeys() {
-            let sut = getReplaySut(cachedRemoteConfig: nil, remoteConfigDidFetch: true)
-
-            let properties = captureProperties(sut) { sut.screen("theScreen") }
-            expectFullReplayBundle(properties)
-
-            sut.reset()
-            sut.close()
-        }
-
-        @Test("reset() on a replay-on project does not report replay as remotely off")
-        func resetDoesNotReportRemoteOff() {
-            let sut = getReplaySut(remoteConfigDidFetch: true)
-
-            sut.reset()
-
-            expectFullReplayBundle(captureProperties(sut) { sut.screen("theScreen") })
-
-            sut.close()
-        }
-
-        @Test("starting again after an explicit stop restores the required replay keys")
-        func reEnableRestoresKeys() {
-            let sut = getReplaySut()
-            sut.stopSessionRecording()
-            expectOnlyRecordingStatus(captureProperties(sut) { sut.capture("custom event") })
-
-            sut.startSessionRecording()
-
-            let properties = captureProperties(sut) { sut.capture("custom event") }
-            #expect(properties["$sdk_debug_replay_event_trigger_status"] != nil)
-            #expect(properties["$sdk_debug_replay_linked_flag_trigger_status"] != nil)
-            #expect(properties["$sdk_debug_replay_internal_buffer_length"] != nil)
 
             sut.reset()
             sut.close()

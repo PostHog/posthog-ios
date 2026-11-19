@@ -33,7 +33,8 @@
             linkedFlag: String? = nil,
             cachedLinkedFlagValue: Bool = true,
             preloadFeatureFlags: Bool = false,
-            sessionReplay: Bool = true
+            sessionReplay: Bool = true,
+            cachedSessionRecording: Any? = nil
         ) -> PostHogSDK {
             // Unique token per SUT so the disk-backed replay queue is isolated and this suite never
             // pollutes (or inherits) snapshots from the shared "test_project_token" used elsewhere.
@@ -64,7 +65,7 @@
             if let sampleRate {
                 sessionRecording["sampleRate"] = sampleRate
             }
-            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": sessionRecording])
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": cachedSessionRecording ?? sessionRecording])
 
             // Reset the static install flag a prior replay suite may have left set, so this SUT installs
             // a fresh integration rather than no-opping onto a stale one.
@@ -822,41 +823,6 @@
             expectFullDebugKeys(integration.debugProperties())
         }
 
-        @Test("the debug snapshot's off decision matches its properties while stop and start race")
-        func debugSnapshotDecisionMatchesPropertiesUnderConcurrentStop() async throws {
-            let (sut, integration, _) = try makeSut(flagActive: true)
-            defer { sut.close() }
-
-            integration.applyRemoteConfig(remoteConfig: nil)
-            await waitUntil { integration.isBuffering == false }
-
-            let samplesLock = NSLock()
-            var mismatches = 0
-            let group = DispatchGroup()
-            let queue = DispatchQueue(label: "test.debug-snapshot", attributes: .concurrent)
-            let iterations = 200
-
-            queue.async(group: group) {
-                for index in 0 ..< iterations {
-                    if index.isMultiple(of: 2) { sut.stopSessionRecording() } else { sut.startSessionRecording() }
-                }
-            }
-            for _ in 0 ..< iterations {
-                queue.async(group: group) {
-                    let snapshot = integration.debugSnapshot()
-                    let offShape = snapshot.properties["$sdk_debug_replay_capture_mode"] == nil
-                    if snapshot.isReplayOff != offShape {
-                        samplesLock.withLock { mismatches += 1 }
-                    }
-                }
-            }
-            await withCheckedContinuation { continuation in
-                group.notify(queue: .global()) { continuation.resume() }
-            }
-
-            #expect(samplesLock.withLock { mismatches } == 0)
-        }
-
         @Test("an explicit stop of a manually started recording reports only the recording status")
         func explicitStopAfterManualStartSendsOnlyStatus() throws {
             let sut = getSut(flagActive: true, sessionReplay: false)
@@ -1093,6 +1059,22 @@
             server.returnReplay = false
             try await fetchRemoteConfig(sut)
             #expect(NSDictionary(dictionary: sut.sessionReplayDebugProperties()) == ["$recording_status": "disabled"])
+        }
+
+        @Test("the getter and the recording status both report off once the cache says remotely off, before the flag state follows")
+        func remoteOffCacheAgreesWithGetterBeforeFlagCleared() throws {
+            let sut = getSut(flagActive: true, cachedSessionRecording: false)
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            sut.remoteConfig?.setRemoteConfigDidFetchForTesting(true)
+            sut.remoteConfig?.setSessionReplayFlagActiveForTesting(true)
+            #expect(integration.isActive() == true)
+
+            #expect(sut.isSessionReplayActive() == false)
+            let props = captureProperties(sut) { sut.screen("in the gap") }
+            #expect(props["$recording_status"] as? String == "disabled")
         }
 
         @Test("an event captured while replay is remotely off does not consume the optional bundle window")

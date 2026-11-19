@@ -1185,7 +1185,7 @@
             }
 
             // Under an app-defined layer, masks come from the model, which runs ahead of what's drawn until Core
-            // Animation commits. A capture outside the run-loop opportunity (the bridge, background capture's samples)
+            // Animation commits. A capture outside the run-loop opportunity (the bridge)
             // can land mid-turn, so commit first; at the opportunity there's nothing left to commit.
             if window.layer.containsAppDefinedLayer {
                 CATransaction.flush()
@@ -1252,7 +1252,7 @@
 
             // The settled path renders here so the pixels come from the same main-thread tick that
             // measured the mask rects — any later and the presentation tree has moved on. Callers
-            // that render themselves (background capture, the bridge's first frame) pass false.
+            // that render themselves (the bridge's first frame) pass false.
             let image = renderImage ? renderScreenshot(window, renderer: renderer, uploadScale: wireframe.screenshotPixelScale) : nil
             // A render that was attempted and failed skips the tick; only a deferred render falls
             // through to renderAndEnqueueScreenshot's own draw.

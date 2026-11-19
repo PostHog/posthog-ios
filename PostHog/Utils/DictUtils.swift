@@ -36,12 +36,13 @@ func fromJSONData(_ data: Data, options: JSONSerialization.ReadingOptions = []) 
 
 /// Removes or converts values that cannot be serialized to JSON.
 ///
-/// `URL` values are converted to absolute strings and `Date` values to ISO-8601 strings,
-/// including when they are nested inside dictionaries or arrays. Other non-serializable
-/// values are dropped. A nested dictionary is kept when it still has serializable values;
-/// if every nested value is dropped it becomes `{}`, matching posthog-js. On the previous
-/// release the parent key was omitted instead. A nested array whose items are all dropped
-/// is omitted entirely so identify does not overwrite a person property with `[]`.
+/// `URL` values are converted to absolute strings, `Date` values to ISO-8601 strings and
+/// `Set`/`NSSet` values to arrays of their elements, including when they are nested inside
+/// dictionaries or arrays. Other non-serializable values are dropped. A nested dictionary
+/// is kept when it still has serializable values; if every nested value is dropped it
+/// becomes `{}`, matching posthog-js. On the previous release the parent key was omitted
+/// instead. A nested array whose items are all dropped is omitted entirely so identify does
+/// not overwrite a person property with `[]`.
 ///
 /// - Parameter dict: Dictionary to sanitize.
 /// - Returns: A sanitized dictionary, or `nil` when the input is `nil` or empty.
@@ -76,6 +77,10 @@ private func sanitizeInvalidValue(_ value: Any) -> Any? {
     }
     if let nested = value as? [String: Any] {
         return sanitizeDictionary(nested) ?? [:]
+    }
+    if let set = value as? NSSet {
+        let sanitized = sanitizeArray(set.allObjects)
+        return sanitized.isEmpty ? nil : sanitized
     }
     if let array = value as? [Any] {
         let sanitized = sanitizeArray(array)

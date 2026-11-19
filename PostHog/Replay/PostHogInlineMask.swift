@@ -437,6 +437,11 @@
             /// Whether its sublayers were hidden, as kinds that replace their subtree do.
             mutating func redactOwnContent(_ copy: CALayer, source: CALayer?, as kind: Kind, replacingWhole: Bool = false) -> Bool {
                 visited.insert(ObjectIdentifier(copy))
+                var descendantsDrew = false
+                if case .unreadableText = kind {
+                    // A React Native Fabric paragraph draws its text in a child view, hidden below.
+                    descendantsDrew = PostHogInlineMask.descendantsDrawContent(copy)
+                }
                 if kind.dropsDescendants {
                     // Before the redaction, which can add bars of its own.
                     copy.sublayers?.forEach { $0.isHidden = true }
@@ -444,13 +449,13 @@
                 if replacingWhole {
                     PostHogInlineMask.blackOut(copy, [.content, .fill])
                 } else {
-                    redactCopy(copy, source: source, as: kind)
+                    redactCopy(copy, source: source, as: kind, descendantsDrew: descendantsDrew)
                 }
                 return kind.dropsDescendants
             }
 
             /// Redacts one copy's own content in place.
-            private mutating func redactCopy(_ copy: CALayer, source: CALayer?, as kind: Kind) {
+            private mutating func redactCopy(_ copy: CALayer, source: CALayer?, as kind: Kind, descendantsDrew: Bool) {
                 if isBackdrop(copy) {
                     // A backdrop draws what's behind it, and has no chrome of its own.
                     copy.isHidden = true
@@ -467,8 +472,8 @@
                     copy.cornerRadius = 0
                     copy.opacity = 1
                 case .unreadableText:
-                    // Rows only where the layer drew something, so nothing reads as text that wasn't there.
-                    if hadContent { setText(copy, source: source, kind: kind, fallbackToBlack: true) }
+                    // Rows only where the layer or its subtree drew something, so nothing reads as text that wasn't there.
+                    if hadContent || descendantsDrew { setText(copy, source: source, kind: kind, fallbackToBlack: true) }
                 case .label, .textField, .textView:
                     setText(copy, source: source, kind: kind, fallbackToBlack: false)
                 }
@@ -539,6 +544,14 @@
             if copy.backgroundFilters != nil { copy.backgroundFilters = nil }
             if copy.compositingFilter != nil { copy.compositingFilter = nil }
             return hadContent
+        }
+
+        /// Whether a visible sublayer, at any depth, draws the content `stripContent` removes.
+        static func descendantsDrawContent(_ copy: CALayer) -> Bool {
+            (copy.sublayers ?? []).contains { sublayer in
+                !sublayer.isHidden && (sublayer.contents != nil || (sublayer as? CAShapeLayer)?.path != nil
+                    || (sublayer as? CATextLayer)?.string != nil || descendantsDrawContent(sublayer))
+            }
         }
 
         /// What `blackOut` turns black.

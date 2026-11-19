@@ -440,7 +440,7 @@
                 var descendantsDrew = false
                 if case .unreadableText = kind {
                     // A React Native Fabric paragraph draws its text in a child view, hidden below.
-                    descendantsDrew = PostHogInlineMask.descendantsDrawContent(copy)
+                    descendantsDrew = subviewsDrawContent(copy)
                 }
                 if kind.dropsDescendants {
                     // Before the redaction, which can add bars of its own.
@@ -452,6 +452,17 @@
                     redactCopy(copy, source: source, as: kind, descendantsDrew: descendantsDrew)
                 }
                 return kind.dropsDescendants
+            }
+
+            /// Whether a visible view's layer below the copy, at any depth, draws the content `stripContent` removes.
+            /// Layers that aren't a view's own, such as a Fabric view's border bitmap, are chrome, not text.
+            private func subviewsDrawContent(_ copy: CALayer) -> Bool {
+                (copy.sublayers ?? []).contains { sublayer in
+                    guard !sublayer.isHidden, let source = index.source(of: sublayer),
+                          (source.delegate as? UIView)?.layer === source else { return false }
+                    return sublayer.contents != nil || (sublayer as? CAShapeLayer)?.path != nil
+                        || (sublayer as? CATextLayer)?.string != nil || subviewsDrawContent(sublayer)
+                }
             }
 
             /// Redacts one copy's own content in place.
@@ -544,14 +555,6 @@
             if copy.backgroundFilters != nil { copy.backgroundFilters = nil }
             if copy.compositingFilter != nil { copy.compositingFilter = nil }
             return hadContent
-        }
-
-        /// Whether a visible sublayer, at any depth, draws the content `stripContent` removes.
-        static func descendantsDrawContent(_ copy: CALayer) -> Bool {
-            (copy.sublayers ?? []).contains { sublayer in
-                !sublayer.isHidden && (sublayer.contents != nil || (sublayer as? CAShapeLayer)?.path != nil
-                    || (sublayer as? CATextLayer)?.string != nil || descendantsDrawContent(sublayer))
-            }
         }
 
         /// What `blackOut` turns black.

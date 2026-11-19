@@ -73,5 +73,24 @@
             #expect(pixels.count(where: Self.isStar) == 0)
             #expect(pixels.count(in: paragraph.frame, where: Self.isBlack) == 0)
         }
+
+        @Test("An empty Fabric paragraph with a border bitmap, a layer no view owns, draws no rows")
+        func emptyFabricParagraphBorderDrawsNothing() async throws {
+            let paragraph = makeParagraph(CGRect(x: 10, y: 40, width: 180, height: 40), text: nil)
+            // As RCTViewComponentView draws a non-uniform border.
+            let border = CALayer()
+            border.frame = paragraph.bounds
+            border.contents = try magentaContents(CGSize(width: 4, height: 4))
+            paragraph.layer.addSublayer(border)
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            fixture.window.addSubview(paragraph)
+            fixture.config.maskAllTextInputs = true
+
+            let result = try await captureStars(fixture)
+            let pixels = try expectFullyMasked(result)
+            #expect(fixture.mask.textBarsForTesting == 0)
+            #expect(pixels.count(where: Self.isStar) == 0)
+        }
     }
 #endif

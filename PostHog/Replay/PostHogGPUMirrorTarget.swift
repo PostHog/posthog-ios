@@ -4,6 +4,19 @@
     import UIKit
 
     extension PostHogGPUMirrorCapture {
+        enum Readback {
+            case image(CGImage)
+            /// Every pixel transparent. An opaque window paints at least its background, so for one this is a render
+            /// that didn't happen; a clear window above another can legitimately draw nothing.
+            case blank
+            case failed
+
+            var image: CGImage? {
+                if case let .image(image) = self { return image }
+                return nil
+            }
+        }
+
         /// A cached renderer and the texture it draws into, for one output size.
         final class Target {
             let texture: MTLTexture
@@ -52,17 +65,17 @@
                 return true
             }
 
-            func readback(on completionQueue: DispatchQueue, completion: @escaping (CGImage?) -> Void) {
+            func readback(on completionQueue: DispatchQueue, completion: @escaping (Readback) -> Void) {
                 // Command buffers on one queue complete in order, so this empty buffer completes after the render.
                 guard let fence = queue.makeCommandBuffer() else {
-                    completionQueue.async { completion(nil) }
+                    completionQueue.async { completion(.failed) }
                     return
                 }
                 let clear = lastClear
                 fence.addCompletedHandler { [self] buffer in
                     let failed = buffer.error != nil || clear?.status != .completed
                     completionQueue.async {
-                        completion(failed ? nil : self.copyPixels())
+                        completion(failed ? .failed : self.copyPixels())
                     }
                 }
                 fence.commit()
@@ -99,18 +112,17 @@
                 return buffer
             }
 
-            private func copyPixels() -> CGImage? {
+            private func copyPixels() -> Readback {
                 let width = texture.width, height = texture.height
                 guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
                                               space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: Self.bgraBitmapInfo),
                     let data = context.data
-                else { return nil }
+                else { return .failed }
                 texture.getBytes(data, bytesPerRow: context.bytesPerRow, from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
-                // A window paints at least its background, so a frame with every pixel transparent is a render that
-                // didn't happen. The scan stops at the first painted pixel, which is usually the first one.
-                guard !Self.isBlank(data, width: width, height: height, bytesPerRow: context.bytesPerRow) else { return nil }
+                // The scan stops at the first painted pixel, which is usually the first one.
+                guard !Self.isBlank(data, width: width, height: height, bytesPerRow: context.bytesPerRow) else { return .blank }
                 Self.flipRows(data, height: height, bytesPerRow: context.bytesPerRow)
-                return context.makeImage()
+                return context.makeImage().map(Readback.image) ?? .failed
             }
 
             private static func isBlank(_ data: UnsafeMutableRawPointer, width: Int, height: Int, bytesPerRow: Int) -> Bool {

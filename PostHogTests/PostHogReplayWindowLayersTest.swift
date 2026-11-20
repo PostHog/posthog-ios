@@ -286,6 +286,31 @@
             #expect([wireframes[0]["x"], wireframes[0]["y"], wireframes[0]["width"], wireframes[0]["height"]] as? [Int] == [0, 0, 200, 300])
         }
 
+        @Test("a clear window between the app window and the key window, like the surveys window, is left out of the GPU frame")
+        func clearInBetweenWindowOmitted() async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, snapshots) = try makeSut(gpu: true, mirror: mirror)
+            defer { close(sut) }
+            let scene = makeScene(alertFrame: CGRect(x: 20, y: 40, width: 160, height: 200))
+            defer { scene.close() }
+            let clear = UIWindow(frame: scene.app.frame)
+            clear.windowLevel = .alert
+            clear.backgroundColor = .clear
+            clear.isHidden = false
+            defer { clear.isHidden = true }
+            PostHogReplayIntegration.windowLayerCandidatesForTesting = [scene.app, clear, scene.alert]
+            await prewarm(mirror, scene)
+
+            await capture(scene, integration, sut)
+
+            let wireframes = try #require(snapshots.fullSnapshots.first)
+            try #require(wireframes.count == 2)
+            #expect(wireframes.map { $0["id"] as? Int } == [scene.app.hash, scene.alert.hash])
+            #expect([wireframes[1]["x"], wireframes[1]["y"]] as? [Int] == [20, 40])
+            #expect(!integration.isScreenshotRenderInFlightForTesting)
+            #expect(!mirror.hasAttachedFrameForTesting)
+        }
+
         @Test("a layer that can't be captured drops the whole frame, never sending the other layer alone",
               arguments: [false, true], [false, true])
         func failedLayerDropsFrame(gpu: Bool, hideBase: Bool) async throws {

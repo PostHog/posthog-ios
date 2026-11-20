@@ -2897,7 +2897,7 @@
                 let screenName: String?
                 let postHog: PostHogSDK
                 let timestampDate = Date()
-                var wireframes: [RRWireframe] = []
+                var captured: [(index: Int, wireframe: RRWireframe)] = []
                 var count: Int { layers.count }
 
                 init(layers: [UIWindow], screenName: String?, postHog: PostHogSDK) {
@@ -2913,6 +2913,11 @@
 
                 var fallback: SettledCaptureRequest? {
                     windows.map { SettledCaptureRequest(layers: $0, screenName: screenName, postHog: postHog) }
+                }
+
+                /// The windows of the captured layers, aligned with `captured`; nil once any window is gone.
+                var capturedWindows: [UIWindow]? {
+                    windows.map { windows in captured.map { windows[$0.index] } }
                 }
             }
 
@@ -2979,27 +2984,32 @@
                     endGPUCapture(frame, fallback: capture.fallback)
                     return
                 }
-                frame.readback(on: Self.dispatchQueue) { [weak self] image in
+                frame.readbackResult(on: Self.dispatchQueue) { [weak self] readback in
                     DispatchQueue.main.async {
                         guard let self else {
                             frame.release()
                             return
                         }
-                        guard let image else {
+                        switch readback {
+                        case let .image(image):
+                            wireframe.image = Self.screenshot(image, of: frame)
+                            capture.captured.append((index, wireframe))
+                        case .blank where index > 0:
+                            // A clear window above the base, such as the surveys window, adds nothing to the frame.
+                            break
+                        case .blank, .failed:
                             self.endGPUCapture(frame, fallback: capture.postHog.isSessionReplayActive() ? capture.fallback : nil)
                             return
                         }
-                        wireframe.image = Self.screenshot(image, of: frame)
                         // Released before the next layer builds: a same-size window renders through this frame's target.
                         frame.release()
-                        capture.wireframes.append(wireframe)
                         guard index + 1 == capture.count else {
                             self.captureLayer(index + 1, of: capture, mirror: mirror)
                             return
                         }
-                        if let windows = capture.windows, windows.allSatisfy({ $0.isVisible() }) {
-                            self.enqueueLayers(capture.wireframes, of: windows, screenName: capture.screenName, postHog: capture.postHog,
-                                               timestampDate: capture.timestampDate)
+                        if let windows = capture.capturedWindows, windows.allSatisfy({ $0.isVisible() }) {
+                            self.enqueueLayers(capture.captured.map(\.wireframe), of: windows, screenName: capture.screenName,
+                                               postHog: capture.postHog, timestampDate: capture.timestampDate)
                         }
                         self.endGPUCapture(nil)
                     }

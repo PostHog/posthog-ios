@@ -3287,7 +3287,21 @@
             let between = ordered[..<keyIndex].filter {
                 $0.windowLevel.rawValue > base.windowLevel.rawValue && isLayerCandidate($0) && $0.screen === base.screen
             }
-            return [base] + between + [keyWindow]
+            let layers = [base] + between + [keyWindow]
+            // A screen hidden behind an opaque window, such as a passcode cover, never leaves the device.
+            guard let cover = layers.dropFirst().lastIndex(where: { isOpaqueCover($0, over: base) }) else { return layers }
+            return Array(layers[cover...])
+        }
+
+        private static func isOpaqueCover(_ window: UIWindow, over base: UIWindow) -> Bool {
+            guard window.alpha >= 1, window.convert(window.bounds, to: base).contains(base.bounds) else { return false }
+            if isOpaque(window.backgroundColor) { return true }
+            guard let root = window.rootViewController?.viewIfLoaded, !root.isHidden, root.alpha >= 1 else { return false }
+            return isOpaque(root.backgroundColor) && root.convert(root.bounds, to: base).contains(base.bounds)
+        }
+
+        private static func isOpaque(_ color: UIColor?) -> Bool {
+            (color?.cgColor.alpha ?? 0) >= 1
         }
 
         private static func isLayerCandidate(_ window: UIWindow) -> Bool {

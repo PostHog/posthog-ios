@@ -84,6 +84,38 @@
             #expect(layers(key: alert, [first, second, alert]) == ids([second, alert]))
         }
 
+        @Test("an opaque window covering the app window hides everything under it, so the hidden screen isn't captured")
+        func opaqueCoverCutsLayersBelow() {
+            let app = window(), toast = window(UIWindow.Level(rawValue: 1)), lock = window(.rnAlert)
+            defer { [app, toast, lock].forEach { $0.isHidden = true } }
+
+            lock.backgroundColor = .black
+            #expect(layers(key: lock, [app, toast, lock]) == ids([lock]))
+
+            lock.backgroundColor = nil
+            let root = UIViewController()
+            root.view.backgroundColor = .white
+            lock.rootViewController = root
+            #expect(layers(key: lock, [app, toast, lock]) == ids([lock]))
+
+            lock.rootViewController = nil
+            toast.backgroundColor = .black
+            #expect(layers(key: lock, [app, toast, lock]) == ids([toast, lock]))
+        }
+
+        @Test("a window that is translucent or doesn't cover the whole app window still shows the app window under it")
+        func partialOrTranslucentCoverKeepsBase() {
+            let app = window(), alert = window(.rnAlert)
+            defer { [app, alert].forEach { $0.isHidden = true } }
+
+            alert.backgroundColor = UIColor.black.withAlphaComponent(0.4)
+            #expect(layers(key: alert, [app, alert]) == ids([app, alert]))
+
+            alert.backgroundColor = .black
+            alert.frame = CGRect(x: 20, y: 40, width: 160, height: 200)
+            #expect(layers(key: alert, [app, alert]) == ids([app, alert]))
+        }
+
         @Test("with no visible app window, or a key window outside the scene, the key window is captured alone")
         func noBase() {
             let hiddenApp = window(hidden: true), app = window(), alert = window(.rnAlert), stranger = window(.rnAlert)

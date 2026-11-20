@@ -782,6 +782,7 @@
                 // A new bridge episode needs fresh metadata even if its opening render fails.
                 if episodeFirstFrame {
                     snapshotStatus.sentMetaEvent = false
+                    snapshotStatus.metaEventScreenName = nil
                 }
 
                 let wireframeDict = autoreleasepool { wireframe.toDict() }
@@ -798,10 +799,15 @@
                 var snapshotsData: [Any] = []
                 let width = windowSize.width.toInt() ?? 0
                 let height = windowSize.height.toInt() ?? 0
-                if !snapshotStatus.sentMetaEvent || snapshotStatus.metaEventSize != CGSize(width: width, height: height) {
+                // Re-send the meta event when the screen changes too, so its `href` follows navigation
+                // on a window that keeps its size. A frame without a screen name (nil or empty) keeps the last one.
+                let frameScreenName = screenName?.isEmpty == false ? screenName : nil
+                let screenNameChanged = frameScreenName != nil && frameScreenName != snapshotStatus.metaEventScreenName
+                if !snapshotStatus.sentMetaEvent || snapshotStatus.metaEventSize != CGSize(width: width, height: height) || screenNameChanged {
                     var data: [String: Any] = ["width": width, "height": height]
-                    if let screenName = screenName {
-                        data["href"] = screenName
+                    if let frameScreenName = frameScreenName {
+                        data["href"] = frameScreenName
+                        snapshotStatus.metaEventScreenName = frameScreenName
                     }
                     let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
                     snapshotsData.append(snapshotData)

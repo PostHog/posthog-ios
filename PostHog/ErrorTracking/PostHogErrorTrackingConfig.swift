@@ -34,6 +34,7 @@ import Foundation
         ///
         /// When enabled, fatal crashes are persisted and sent as `$exception` events on the next launch.
         /// With Swift Package Manager, this is only available with the `CrashReporting` package trait, which is enabled by default.
+        /// Before SDK version 3.57.3, Swift crashes appear as `SIGTRAP` without the actual error message.
         /// Default: `false`.
         @available(watchOS, unavailable, message: "Crash autocapture is not available on watchOS")
         @available(visionOS, unavailable, message: "Crash autocapture is not available on visionOS")

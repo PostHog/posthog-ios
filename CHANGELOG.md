@@ -1,5 +1,11 @@
 ## Next
 
+## 4.0.1
+
+### Patch Changes
+
+- 58b9065: Fix GPU session replay capture showing masked React Native New Architecture text as blank space instead of `*` rows.
+
 ## 4.0.0
 
 ### Major Changes

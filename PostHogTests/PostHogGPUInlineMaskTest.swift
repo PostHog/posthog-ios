@@ -451,6 +451,27 @@
             #expect(pixels.count(in: frame, where: Self.isBlack) == Int(frame.width * frame.height))
         }
 
+        @Test("A colour enclosing an extent behind a text-shaped layer mask is black under it, not in the glyphs' shape")
+        func enclosingColourWithTextShapedMaskIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let colour = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            colour.backgroundColor = .magenta
+            let glyphs = UILabel(frame: colour.bounds)
+            glyphs.text = "SSN 078-05-1120"
+            glyphs.font = .boldSystemFont(ofSize: 28)
+            colour.mask = glyphs
+            fixture.window.addSubview(colour)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 30, y: 30, width: 140, height: 40))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 140 * 40)
+        }
+
         @Test("An auto-masked view keeps its chrome; the same view under ph-no-capture doesn't")
         func autoMaskedViewKeepsChrome() async throws {
             let fixture = try await makeFixture()

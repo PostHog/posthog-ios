@@ -167,8 +167,9 @@
         /// Rounding slack for extent containment, so edge-aligned copies count as inside.
         fileprivate static let extentTolerance: CGFloat = 0.5
 
-        /// Whether `frame` reaches past all of `rect`, as an enclosing view's background does: its colour already shows
-        /// around the extent. A frame on the extent's own may be the masked view's, whose colour can be the data.
+        /// Whether `frame` covers `rect` and reaches past it on at least one side, as an enclosing view's background does:
+        /// its colour already shows around the extent. A frame on the extent's own may be the masked view's, whose colour
+        /// can be the data.
         static func encloses(_ frame: CGRect, _ rect: CGRect) -> Bool {
             let inside = rect.insetBy(dx: -extentTolerance, dy: -extentTolerance)
             return frame.insetBy(dx: -extentTolerance, dy: -extentTolerance).contains(rect) && !inside.contains(frame)
@@ -400,7 +401,10 @@
         {
             guard entry.frame.intersects(rect) else { return nil }
             let copy = entry.copy
-            let drawsColor = PostHogInlineMask.drawsColor(copy) && !PostHogInlineMask.encloses(entry.frame, rect)
+            // A mask drawn from content shows the colour in that content's shape, text included, so it isn't a background.
+            let enclosing = PostHogInlineMask.encloses(entry.frame, rect)
+                && !(copy.mask.map(PostHogInlineMask.maskDrawsContent) ?? false)
+            let drawsColor = PostHogInlineMask.drawsColor(copy) && !enclosing
             if visited.contains(ObjectIdentifier(copy)) {
                 return drawsColor ? .color(strippingFirst: false) : nil
             }

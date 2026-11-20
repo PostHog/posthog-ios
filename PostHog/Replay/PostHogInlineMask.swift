@@ -17,8 +17,8 @@
         enum Kind {
             /// Text read from the view, drawn as `*` in its own style and place.
             case label(UILabel), textField(UITextField), textView(UITextView)
-            /// Text that can't be read (SwiftUI, React Native): rows of `*` sized from the bounds alone, in the
-            /// traits' label colour.
+            /// Text that can't be read (SwiftUI, React Native): grey rows of `*` sized from the bounds alone, resolved
+            /// with the traits.
             case unreadableText(UITraitCollection)
             /// Filled black, with nothing below it drawn: web views, sandboxed views, controls.
             case opaque
@@ -746,7 +746,8 @@
     // MARK: - Text inputs
 
     /// The glyph-free bars shown until the `*` are drawn, or instead of them for text too long or large to draw: one per
-    /// line of `lineHeight`, or one for single-line text, in the text's colour where it was read, else the label colour.
+    /// line of `lineHeight`, or one for single-line text, in the text's colour where it was read (else the label colour),
+    /// and grey for text that can't be read.
     private struct TextBars: Equatable {
         let lineHeight: CGFloat
         let singleLine: Bool

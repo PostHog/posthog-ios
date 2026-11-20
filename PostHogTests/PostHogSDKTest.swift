@@ -529,7 +529,7 @@ final class PostHogSDKTests {
             #expect(events[2].properties["$sdk_debug_replay_capture_mode"] == nil)
 
             for event in events {
-                #expect(event.properties["$sdk_debug_pending_queue_size"] != nil)
+                #expect(event.properties["$sdk_debug_pending_queue_size"] == nil)
             }
 
             sut.reset()
@@ -592,15 +592,13 @@ final class PostHogSDKTests {
         func sdkComputedDebugKeysWinOverRegisteredSuperProperty() throws {
             server.reset(batchCount: 1)
             let sut = getSut()
-            sut.register(["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
+            sut.register(["$recording_status": "bogus"])
 
             sut.capture("test event")
 
             let events = getBatchedEvents(server)
             let props = try #require(events.first).properties
             #expect(props["$recording_status"] as? String == "disabled")
-            let pendingQueueSize = try #require(props["$sdk_debug_pending_queue_size"] as? Int)
-            #expect(pendingQueueSize != -1)
 
             sut.reset()
             sut.close()
@@ -620,7 +618,7 @@ final class PostHogSDKTests {
             let props = try #require(events.first).properties
             #expect(props["$recording_status"] as? String == "disabled")
             #expect(!props.keys.contains { $0.hasPrefix("$sdk_debug_replay_") })
-            #expect(props["$sdk_debug_pending_queue_size"] != nil)
+            #expect(props["$sdk_debug_pending_queue_size"] == nil)
 
             sut.reset()
             sut.close()
@@ -838,7 +836,7 @@ final class PostHogSDKTests {
         // $feature_flag_called gets the required keys but never the optional ones.
         #expect(event.properties["$recording_status"] as? String == "disabled")
         #expect(event.properties["$sdk_debug_session_start"] == nil)
-        #expect(event.properties["$sdk_debug_pending_queue_size"] != nil)
+        #expect(event.properties["$sdk_debug_pending_queue_size"] == nil)
 
         sut.reset()
         sut.close()
@@ -1326,13 +1324,11 @@ final class PostHogSDKTests {
     func callerCannotOverrideSdkDebugProperties() throws {
         let sut = getSut()
 
-        sut.capture("event", properties: ["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
+        sut.capture("event", properties: ["$recording_status": "bogus"])
 
         let event = try #require(getBatchedEvents(server).first)
         let recordingStatus = try #require(event.properties["$recording_status"] as? String)
-        let pendingQueueSize = try #require(event.properties["$sdk_debug_pending_queue_size"] as? Int)
         #expect(recordingStatus != "bogus")
-        #expect(pendingQueueSize != -1)
 
         sut.reset()
         sut.close()

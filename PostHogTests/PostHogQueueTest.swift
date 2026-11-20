@@ -182,6 +182,26 @@ final class PostHogQueueTest {
         sut.clear()
     }
 
+    @Test("reports a backed-up depth only once the queue reaches flushAt")
+    func reportsBackedUpDepthOnlyAtFlushAt() async {
+        let sender = ControlledBatchSender()
+        let sut = getSut(flushAt: 2, sender: sender)
+
+        #expect(sut.backedUpDepth == nil)
+
+        sut.add(PostHogEvent(event: "event", distinctId: "distinctId"))
+        #expect(sut.backedUpDepth == nil)
+
+        sut.add(PostHogEvent(event: "event2", distinctId: "distinctId2"))
+        await expectEventually({ sender.requestCount }, 1)
+        #expect(sut.backedUpDepth == 2)
+
+        sender.completeRequest(at: 0, with: PostHogUploadInfo(statusCode: 200, error: nil))
+        #expect(sut.backedUpDepth == nil)
+
+        sut.clear()
+    }
+
     @Test("add item to queue and rotate queue")
     func addItemToQueueAndRotateQueue() throws {
         let sut = getSut(flushAt: 3, maxQueueSize: 2)

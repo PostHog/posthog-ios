@@ -424,7 +424,7 @@ enum PostHogSessionManagerTest {
 
             let properties = events[0].properties
             #expect(properties["$recording_status"] != nil)
-            #expect(properties["$sdk_debug_pending_queue_size"] != nil)
+            #expect(properties["$sdk_debug_pending_queue_size"] == nil)
             #expect(properties["$sdk_debug_session_start"] == nil)
             #expect(properties["$sdk_debug_replay_capture_mode"] == nil)
             #expect(properties["$sdk_debug_replay_flush_hold_reason"] == nil)

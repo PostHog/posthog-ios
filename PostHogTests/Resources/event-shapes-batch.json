@@ -35,7 +35,6 @@
           "$os_version" : "<environment-string>",
           "$process_person_profile" : true,
           "$recording_status" : "disabled",
-          "$sdk_debug_pending_queue_size" : 0,
           "$session_id" : "00000000-0000-7000-8000-000000000001",
           "$set" : {
             "plan" : "pro"
@@ -88,7 +87,6 @@
           "$os_version" : "<environment-string>",
           "$process_person_profile" : true,
           "$recording_status" : "disabled",
-          "$sdk_debug_pending_queue_size" : 1,
           "$sdk_debug_session_start" : "<timestamp-ms>",
           "$session_id" : "00000000-0000-7000-8000-000000000001",
           "$set" : {
@@ -143,7 +141,6 @@
           "$os_version" : "<environment-string>",
           "$process_person_profile" : true,
           "$recording_status" : "disabled",
-          "$sdk_debug_pending_queue_size" : 2,
           "$session_id" : "00000000-0000-7000-8000-000000000001",
           "$timezone" : "<environment-string>",
           "registered_property" : "registered-value"
@@ -184,7 +181,6 @@
           "$os_version" : "<environment-string>",
           "$process_person_profile" : true,
           "$recording_status" : "disabled",
-          "$sdk_debug_pending_queue_size" : 3,
           "$session_id" : "00000000-0000-7000-8000-000000000001",
           "$set" : {
             "$feature_interaction\/checkout-redesign" : "test"
@@ -253,7 +249,6 @@
           "$os_version" : "<environment-string>",
           "$process_person_profile" : true,
           "$recording_status" : "disabled",
-          "$sdk_debug_pending_queue_size" : 4,
           "$session_id" : "00000000-0000-7000-8000-000000000001",
           "$timezone" : "<environment-string>",
           "handled_by" : "snapshot-test",

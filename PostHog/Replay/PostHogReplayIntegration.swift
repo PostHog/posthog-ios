@@ -2899,7 +2899,6 @@
                 let timestampDate = Date()
                 var wireframes: [RRWireframe] = []
                 var count: Int { layers.count }
-                var isAlive: Bool { layers.allSatisfy { $0.value != nil } }
 
                 init(layers: [UIWindow], screenName: String?, postHog: PostHogSDK) {
                     self.layers = layers.map { Weak($0) }
@@ -2917,9 +2916,8 @@
                 }
             }
 
-            /// Main thread, with the render slot claimed. Takes each layer through the single-window steps in turn, since the
-            /// mirror holds one frame per window size; the slot stays claimed until the last layer is read back. Any layer
-            /// that is skipped drops the frame, and any that would fall back hands every layer to the default path.
+            /// Main thread, with the render slot claimed. Layers are captured one at a time because the mirror holds one frame
+            /// per window size; the slot stays claimed until the last layer is read back.
             func scheduleLayeredGPUCapture(layers: [UIWindow], screenName: String?, postHog: PostHogSDK) {
                 let capture = LayeredGPUCapture(layers: layers, screenName: screenName, postHog: postHog)
                 guard let mirror = gpuMirror else {
@@ -2973,7 +2971,7 @@
             private func encodeLayer(_ index: Int, frame: PostHogGPUMirrorCapture.Frame, wireframe: RRWireframe, of capture: LayeredGPUCapture,
                                      mirror: PostHogGPUMirrorCapture)
             {
-                guard capture.isAlive, capture.postHog.isSessionReplayActive(), !DI.main.appLifecyclePublisher.isInBackground else {
+                guard capture.windows != nil, capture.postHog.isSessionReplayActive(), !DI.main.appLifecyclePublisher.isInBackground else {
                     endGPUCapture(frame)
                     return
                 }
@@ -3242,7 +3240,6 @@
         /// The base is the topmost visible `.normal` window. Windows above the key window are left out: nobody is using
         /// them, and an app with a permanent overlay window would otherwise pay for a second capture on every frame.
         static func screenshotLayers(keyWindow: UIWindow, candidates: [UIWindow]) -> [UIWindow] {
-            // The common case, an app window that is key, skips the sort and class checks below.
             guard keyWindow.windowLevel.rawValue > UIWindow.Level.normal.rawValue, candidates.count > 1 else {
                 return [keyWindow]
             }
@@ -3263,12 +3260,11 @@
 
         private static func isLayerCandidate(_ window: UIWindow) -> Bool {
             guard !window.isHidden, window.alpha > 0, !window.bounds.isEmpty else { return false }
-            let name = NSStringFromClass(type(of: window))
-            return !name.hasPrefix("_UI") && name != "UITextEffectsWindow" && name != "UIRemoteKeyboardWindow"
+            return !window.isKeyboardWindow && !NSStringFromClass(type(of: window)).hasPrefix("_UI")
         }
 
-        /// Main thread, settled path. Measures and renders every layer in this one turn, like the single-window capture;
-        /// a layer that can't be captured drops the frame, so a window is never sent without the ones under it.
+        /// Main thread, settled path. A layer that can't be captured drops the frame, so a window is never sent without
+        /// the ones under it.
         fileprivate func performLayeredScreenshotCapture(layers: [UIWindow], screenName: String?, postHog: PostHogSDK,
                                                          renderer: PostHogScreenshotRenderer, overrideMaskRects: [[CGRect]?])
         {
@@ -3276,7 +3272,7 @@
             guard postHog.isSessionReplayActive() else { return }
 
             let timestampDate = Date()
-            // Each layer's render sets the pause from its own duration; the motion renderer pauses for all of them.
+            // One pause covering every layer's render, so a slow scene backs the motion renderer off as a whole.
             let start = CACurrentMediaTime()
             defer {
                 if renderer == .presentationTree {

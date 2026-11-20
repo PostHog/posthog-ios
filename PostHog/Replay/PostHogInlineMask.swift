@@ -285,8 +285,11 @@
         }
 
         /// Main thread, once per capture before `mask`. `screen` is what the capture shows (its topmost view
-        /// controller); a different one than the last capture's opens the `presentedTextBudget` window. The first one
-        /// seen doesn't. Held weakly, so a new screen at a freed one's address still counts as new.
+        /// controller); a different one than the last capture's opens the `presentedTextBudget` window. The first screen
+        /// in the process doesn't: that capture usually lands during app launch, when main is busiest, so its text takes
+        /// the off-main path. The mask lives in the shared mirror, so this state outlives a replay session, and replay
+        /// restarting on the same screen doesn't open the window either. Held weakly, so a new screen at a freed one's
+        /// address still counts as new.
         func noteScreen(_ screen: AnyObject) {
             if hasScreen, screen !== lastScreen, !Self.isContainment(screen, lastScreen) {
                 presentedCapturesLeft = Self.presentedTextCaptures
@@ -567,6 +570,7 @@
                 case .drawing?:
                     return true
                 case nil:
+                    // Checked before each draw, so the last one can run past the budget by up to a `maxBitmapBytes` bitmap.
                     if presentedSpent < presentedBudget {
                         let start = CACurrentMediaTime()
                         defer { presentedSpent += CACurrentMediaTime() - start }

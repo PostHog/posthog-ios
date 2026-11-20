@@ -1019,7 +1019,8 @@
             let mask = fixture.mask
             // A slow runner could spend the production budget before the third label.
             mask.presentedTextBudget = .infinity
-            _ = try await showScreen(fixture)
+            let previous = try await showScreen(fixture)
+            defer { withExtendedLifetime(previous) {} }
             PostHogInlineMask.textColorForTesting = .blue
             defer { PostHogInlineMask.textColorForTesting = nil }
             let bars = mask.textBarsForTesting, onMain = mask.textDrawsOnMainForTesting
@@ -1046,7 +1047,8 @@
             let fixture = try await makeFixture()
             defer { fixture.close() }
             let mask = fixture.mask
-            _ = try await showScreen(fixture)
+            let previous = try await showScreen(fixture)
+            defer { withExtendedLifetime(previous) {} }
             PostHogInlineMask.textColorForTesting = .blue
             defer { PostHogInlineMask.textColorForTesting = nil }
             let empty = UIViewController()
@@ -1119,7 +1121,8 @@
             let fixture = try await makeFixture()
             defer { fixture.close() }
             let mask = fixture.mask
-            _ = try await showScreen(fixture)
+            let previous = try await showScreen(fixture)
+            defer { withExtendedLifetime(previous) {} }
             PostHogInlineMask.textColorForTesting = .blue
             defer { PostHogInlineMask.textColorForTesting = nil }
             // Spent by the first text, whatever it costs.
@@ -1132,6 +1135,37 @@
             #expect(mask.textDrawsOnMainForTesting == onMain + 1)
             #expect(mask.textBarsForTesting == bars + 2)
             #expect(mask.textDrawsForTesting == draws + 3)
+        }
+
+        @Test("Presented text keeps its main-thread budget for up to presentedTextCaptures captures, then falls back off main")
+        func presentedTextWindowExpiresAfterCap() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mask = fixture.mask
+            let previous = try await showScreen(fixture)
+            defer { withExtendedLifetime(previous) {} }
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            // Spent by the first text each capture, and nothing drawn off main until the window has closed.
+            mask.presentedTextBudget = 1e-9
+            mask.textBudget = 0
+            let draws = mask.textDrawsForTesting, onMain = mask.textDrawsOnMainForTesting
+
+            _ = showOverlay(fixture, labels: PostHogInlineMask.presentedTextCaptures + 1)
+            for step in 1 ... PostHogInlineMask.presentedTextCaptures {
+                try expectFullyMasked(await capture(fixture))
+                #expect(mask.textDrawsOnMainForTesting == onMain + step)
+            }
+
+            try expectFullyMasked(await capture(fixture))
+            #expect(mask.textDrawsOnMainForTesting == onMain + PostHogInlineMask.presentedTextCaptures)
+            #expect(mask.textDrawsForTesting == draws + PostHogInlineMask.presentedTextCaptures)
+
+            mask.textBudget = .infinity
+            try expectFullyMasked(await capture(fixture))
+            mask.waitForTextDrawsForTesting()
+            #expect(mask.textDrawsOnMainForTesting == onMain + PostHogInlineMask.presentedTextCaptures)
+            #expect(mask.textDrawsForTesting == draws + PostHogInlineMask.presentedTextCaptures + 1)
         }
 
         @Test("With GPU capture off, the default path collects the same rects and never builds a mirror or copy map")

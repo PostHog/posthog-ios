@@ -2157,7 +2157,7 @@ let maxRetryDelay = 30.0
             onEventCaptured.invoke(posthogEvent)
             return queues.replay == nil ? nil : posthogEvent
         }
-        let stored = queueEvent(posthogEvent, queue: queue, deduplicatePersonProperties: deduplicatePersonProperties)
+        let stored = queueEvent(posthogEvent, queue: queue, aiLane: aiLane, deduplicatePersonProperties: deduplicatePersonProperties)
         return stored ? posthogEvent : nil
     }
 
@@ -2768,7 +2768,12 @@ let maxRetryDelay = 30.0
 
     /// Returns whether the event was stored in `queue`.
     @discardableResult
-    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>, deduplicatePersonProperties: Bool = false) -> Bool {
+    private func queueEvent(
+        _ event: PostHogEvent,
+        queue: PostHogQueue<PostHogEvent>,
+        aiLane: Bool = false,
+        deduplicatePersonProperties: Bool = false
+    ) -> Bool {
         // PostHog drops an event with an empty name. Checked here so every path is covered after
         // beforeSend, which can rename the event.
         if event.event.isEmpty {
@@ -2783,7 +2788,8 @@ let maxRetryDelay = 30.0
         // is dropped), and that empty `$set` is still queued, so it needs a marker too.
         // An update that may be personless never matches a hash, and clears the stored one: PostHog
         // might still apply it, so a later update back to the previous properties must be sent.
-        if event.event == PostHogKnownUnsafeEditableEvent.set.rawValue || event.event == PostHogKnownUnsafeEditableEvent.identify.rawValue,
+        // Only the analytics lane uses the hash: capture drops a person update sent on the AI lane.
+        if !aiLane, event.event == PostHogKnownUnsafeEditableEvent.set.rawValue || event.event == PostHogKnownUnsafeEditableEvent.identify.rawValue,
            userProperties != nil || userPropertiesSetOnce != nil,
            let storageManager = config.storageManager
         {

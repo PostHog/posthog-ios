@@ -622,6 +622,18 @@ final class PostHogCaptureV1OptionsTest {
         #expect(old.properties["$cookieless_mode"] as? Bool == true)
     }
 
+    @Test("a $set queued on the AI lane doesn't suppress the same analytics person update")
+    func aiLaneSetDoesNotSuppressAnalyticsSet() throws {
+        let sut = makeSDK(personProfiles: .always, flushAt: 100)
+        defer { sut.close() }
+
+        try #require(sut.captureAi("$set", userProperties: ["plan": "pro"]) != nil)
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"])
+
+        let folder = try #require(sut.storage?.url(forKey: .queue))
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).count == 1)
+    }
+
     private func makeSDK(
         personProfiles: PostHogPersonProfiles = .identifiedOnly,
         flushAt: Int = 1,

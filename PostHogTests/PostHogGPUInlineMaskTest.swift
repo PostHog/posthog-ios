@@ -30,6 +30,26 @@
         override class var layerClass: AnyClass { CATransformLayer.self }
     }
 
+    /// Draws its text in `draw(_:)`, as React Native's `RCTParagraphTextView` does.
+    private final class TextDrawingView: UIView {
+        let text: String
+
+        init(frame: CGRect, text: String) {
+            self.text = text
+            super.init(frame: frame)
+            backgroundColor = .clear
+        }
+
+        @available(*, unavailable)
+        required init?(coder _: NSCoder) {
+            fatalError()
+        }
+
+        override func draw(_: CGRect) {
+            (text as NSString).draw(at: CGPoint(x: 2, y: 2), withAttributes: [.font: UIFont.boldSystemFont(ofSize: 22), .foregroundColor: UIColor.magenta])
+        }
+    }
+
     @Suite("Replay GPU inline masking", .serialized)
     @MainActor
     struct PostHogGPUInlineMaskTest: GPUCaptureTesting {
@@ -396,7 +416,7 @@
             fixture.window.addSubview(spilling)
             fixture.window.addSubview(container)
 
-            let pixels = try await expectFullyMasked(capture(fixture))
+            let pixels = try await expectFullyMasked(capture(fixture), keeping: [container])
             #expect(pixels.count(in: CGRect(x: 10, y: 100, width: 50, height: 60), where: { $0.red < 200 }) == 0)
         }
 
@@ -421,10 +441,54 @@
             }
             fixture.window.addSubview(container)
 
-            let pixels = try await expectFullyMasked(captureStars(fixture))
+            let blocked = [container, label, image, child]
+            let pixels = try await expectFullyMasked(captureStars(fixture, keeping: blocked), keeping: blocked)
             #expect(pixels.count(in: container.frame, where: Self.isBlack) == 180 * 260)
             #expect(pixels[11, 21] == RGBA(red: 0, green: 0, blue: 0, alpha: 255))
             #expect(pixels[100, 290] == .white)
+        }
+
+        enum NoCaptureText: String, CaseIterable {
+            case childLabel, childDrawnText
+            /// Painted over the view, not under it: React Native Fabric mounts the children of a view that forms no
+            /// stacking context (a plain styled `View`) as its siblings.
+            case siblingLabel, siblingFabricParagraph
+        }
+
+        @Test("Text in or over a ph-no-capture view is black with text masking off", arguments: NoCaptureText.allCases)
+        func noCaptureTextIsBlackWithTextMaskingOff(text placement: NoCaptureText) async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            fixture.config.maskAllTextInputs = false
+            fixture.config.maskAllImages = false
+            let container = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            container.backgroundColor = .green
+            container.layer.cornerRadius = 4
+            fixture.window.addSubview(container)
+            let inContainer = CGRect(x: 8, y: 8, width: 164, height: 44)
+            let overContainer = inContainer.offsetBy(dx: container.frame.minX, dy: container.frame.minY)
+            let text = "SECRET 42"
+            switch placement {
+            case .childLabel:
+                container.addSubview(secretLabel(inContainer, text: text))
+            case .childDrawnText:
+                container.addSubview(TextDrawingView(frame: inContainer, text: text))
+            case .siblingLabel:
+                fixture.window.addSubview(secretLabel(overContainer, text: text))
+            case .siblingFabricParagraph:
+                let paragraphClass = try #require(NSClassFromString("RCTParagraphComponentView") as? UIView.Type)
+                let paragraph = paragraphClass.init(frame: overContainer)
+                paragraph.addSubview(TextDrawingView(frame: paragraph.bounds, text: text))
+                fixture.window.addSubview(paragraph)
+            }
+            try #require(try await Pixels(capture(fixture).image).count(in: container.frame, where: Self.isMagenta) > 50)
+
+            container.accessibilityLabel = "ph-no-capture"
+            let masked = try await capture(fixture)
+            let pixels = try expectFullyMasked(masked, keeping: [container] + container.subviews)
+            #expect(masked.deferredMeasurements == 0, "no-capture rects come from the mirror, not from measuring the views")
+            #expect(pixels.count(where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: container.frame, where: Self.isBlack) == 180 * 60)
         }
 
         @Test("A masked view whose layer mask is text, as in gradient text, is black over its bounds, not in the glyphs' shape",
@@ -447,7 +511,7 @@
             masked.mask = glyphs
             fixture.window.addSubview(masked)
 
-            let pixels = try await expectFullyMasked(capture(fixture))
+            let pixels = try await expectFullyMasked(capture(fixture), keeping: noCapture ? [masked] : [])
             #expect(pixels.count(in: frame, where: Self.isBlack) == Int(frame.width * frame.height))
         }
 
@@ -468,7 +532,7 @@
             fixture.window.addSubview(auto)
             fixture.window.addSubview(tagged)
 
-            let pixels = try await expectFullyMasked(capture(fixture))
+            let pixels = try await expectFullyMasked(capture(fixture), keeping: [tagged])
             let isOrange = { (pixel: RGBA) in pixel.red > 240 && (110 ... 150).contains(pixel.green) && pixel.blue < 20 }
             #expect(pixels.count(in: auto.frame, where: isOrange) > 1000)
             #expect(pixels.count(in: auto.frame.insetBy(dx: 6, dy: 6), where: Self.isBlack) == 148 * 88)
@@ -683,7 +747,7 @@
             let portalRect = CGRect(x: 20, y: 180, width: 160, height: 60)
             fixture.window.layer.addSublayer(try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false))
 
-            let pixels = try await expectFullyMasked(capture(fixture))
+            let pixels = try await expectFullyMasked(capture(fixture), keeping: [container])
             #expect(pixels.count(in: portalRect, where: Self.isBlack) == 160 * 60)
         }
 
@@ -1112,6 +1176,48 @@
             }
             print("INLINE-COST turn1 ms median: walk+freeze \(median(off)), walk+inline+freeze cold \(median(cold)), warm \(median(warm))")
             print("INLINE-COST turn1 ms min: walk+freeze \(off.min() ?? 0), walk+inline+freeze cold \(cold.min() ?? 0), warm \(warm.min() ?? 0)")
+        }
+
+        @Test("Cost of ph-no-capture cards with text painted over them at 2x (prints, doesn't assert)")
+        func noCaptureCardsCost() async throws {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+            window.backgroundColor = .white
+            window.isHidden = false
+            let fixture = try await makeFixture(window: window)
+            defer { fixture.close() }
+            fixture.config.maskAllTextInputs = false
+            fixture.config.maskAllImages = false
+            await prewarm(fixture.mirror, for: window, scale: 2)
+            let image = try photo(CGSize(width: 40, height: 40))
+            // A card's own subviews are blocked as descendants; its text is a sibling over it, as Fabric mounts it.
+            for index in 0 ..< 12 {
+                let card = UIView(frame: CGRect(x: 16, y: 40 + CGFloat(index) * 68, width: 370, height: 60))
+                card.backgroundColor = .systemGray5
+                card.accessibilityLabel = "ph-no-capture"
+                for column in 0 ..< 6 {
+                    let child = column.isMultiple(of: 2) ? UIImageView(image: image) : UIView()
+                    child.frame = CGRect(x: 8 + CGFloat(column) * 60, y: 10, width: 40, height: 40)
+                    child.backgroundColor = .systemTeal
+                    card.addSubview(child)
+                }
+                window.addSubview(card)
+                let label = UILabel(frame: card.frame.insetBy(dx: 12, dy: 18))
+                label.text = "Card \(index): Jane Doe, account \(4000 + index)"
+                window.addSubview(label)
+            }
+            func median(_ values: [Double]) -> Double {
+                values.sorted()[values.count / 2]
+            }
+            var turn1: [Double] = [], total: [Double] = [], rects = 0
+            for _ in 0 ..< 31 {
+                let start = CACurrentMediaTime()
+                let result = try await capture(fixture, scale: 2)
+                total.append((CACurrentMediaTime() - start) * 1000)
+                turn1.append(result.turn1Milliseconds)
+                rects = result.rectRegions.count
+            }
+            print("NOCAPTURE-COST rects \(rects), median ms: turn1 \(median(turn1)), capture through encode \(median(total)); "
+                + "min turn1 \(turn1.min() ?? 0)")
         }
 
         // MARK: - ph-no-capture under masked views, and run styling

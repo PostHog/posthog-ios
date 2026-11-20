@@ -238,6 +238,9 @@
     /// Main thread only.
     private final class DeferredMaskRect {
         static var isDeferring = false
+        #if TESTING
+            static var measuredForTesting = 0
+        #endif
         private var measure: (() -> CGRect)?
         private var measured = CGRect.null
 
@@ -249,8 +252,18 @@
             if let measure {
                 measured = measure()
                 self.measure = nil
+                #if TESTING
+                    Self.measuredForTesting += 1
+                #endif
             }
             return measured
         }
     }
+
+    #if TESTING
+        extension PostHogReplayIntegration.MaskedRegion {
+            /// Deferred rects measured so far, for asserting a capture read none.
+            static var deferredMeasurementsForTesting: Int { DeferredMaskRect.measuredForTesting }
+        }
+    #endif
 #endif

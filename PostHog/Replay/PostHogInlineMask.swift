@@ -4,8 +4,8 @@
 
     /// Masks a GPU capture's mirror in place, between the mask walk and `freeze`: text as `*`, drawn off main (bars
     /// until drawn), images and any other content black. A `ph-no-capture` view is a black block over its bounds, chrome
-    /// and subtree included, as the rect pass draws it. A `postHogMask()` reporter masks everything painted under its
-    /// extent before it: content the same way, and chrome black. Whatever can't be placed, whole portals and objects
+    /// and subtree included, and keeps its rect for the rect pass, which covers what's painted over it. A `postHogMask()`
+    /// reporter masks everything painted under its extent before it: content the same way, and chrome black. Whatever can't be placed, whole portals and objects
     /// with no copy use the rect pass. Main thread.
     final class PostHogInlineMask {
         /// How copies of a class are redacted, before the instance it applies to is known.
@@ -317,10 +317,15 @@
                     #if TESTING
                         lastInlineRegionCountForTesting = inline.count
                     #endif
+                    // A `ph-no-capture` region keeps a rect too, once, as the default path masks it: what's painted over the
+                    // view isn't in its copy's subtree (React Native mounts a plain styled `View`'s children as its siblings).
+                    // The rect is where the mirror draws each copy, so the view isn't measured.
+                    var blockedOwners = pass.blocked
                     // A rect-only or portal region drawn in the mirror is masked where its copies are drawn.
-                    return regions.indices.filter { !inline.contains($0) }.flatMap { regionIndex in
+                    return regions.indices.filter { !inline.contains($0) || blockedOwners.remove(regions[$0].owner) != nil }.flatMap { regionIndex in
                         let region = regions[regionIndex]
-                        return extents.drawnRects[regionIndex].map { rects in
+                        let rects = extents.drawnRects[regionIndex] ?? (pass.blocked.contains(region.owner) ? pass.copyRects(of: region.object) : nil)
+                        return rects.map { rects in
                             rects.map { PostHogReplayIntegration.MaskedRegion(region.object, rect: $0, inline: region.inline) }
                         } ?? [region]
                     }
@@ -375,6 +380,8 @@
             fileprivate var signatures: [ObjectIdentifier: TextSignature?] = [:]
             /// Whether each view looked up is `ph-no-capture` or under one, for this capture.
             fileprivate var noCapture: [ObjectIdentifier: Bool] = [:]
+            /// Objects redacted as `ph-no-capture`.
+            fileprivate var blocked: Set<ObjectIdentifier> = []
             fileprivate var spent: CFTimeInterval = 0
 
             /// Redacts every copy of `object`, and every copy of a portal source under it (a portal draws those
@@ -385,7 +392,10 @@
                 guard !own.isEmpty else { return false }
                 let view = object as? UIView ?? (layer.delegate as? UIView).flatMap { $0.layer === layer ? $0 : nil }
                 var kind = mask.kind(of: layer, tag: tag)
-                if let view, isNoCapture(view) { kind = .blocked }
+                if let view, isNoCapture(view) {
+                    kind = .blocked
+                    blocked.insert(ObjectIdentifier(object))
+                }
                 for copy in own {
                     redactTree(copy, source: layer, kind: kind)
                 }
@@ -402,6 +412,17 @@
                     }
                 }
                 return true
+            }
+
+            /// Where the mirror draws each copy of `object`, in window coordinates: its bounds, since a blocked copy draws
+            /// nothing past them. nil when a copy lands nowhere finite, or there's no root to place it in.
+            func copyRects(of object: AnyObject) -> [CGRect]? {
+                guard let root, let layer = (object as? UIView)?.layer ?? (object as? CALayer) else { return nil }
+                let rects = index.copies(of: layer).map { index.windowFrame(of: $0, root: root, local: $0.bounds) }
+                guard !rects.isEmpty, rects.allSatisfy({ !$0.isNull && $0.minX.isFinite && $0.minY.isFinite && $0.width.isFinite && $0.height.isFinite }) else {
+                    return nil
+                }
+                return rects
             }
 
             /// The walk masks a `ph-no-capture` view's rect, or each subview's when it fills the window, so its

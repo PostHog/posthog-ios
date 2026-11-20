@@ -1,5 +1,11 @@
 ## Next
 
+## 4.0.2
+
+### Patch Changes
+
+- 4285e5b: Only attach `$sdk_debug_pending_queue_size` once the event queue reaches `flushAt`, so healthy queues no longer add it to every event
+
 ## 4.0.1
 
 ### Patch Changes

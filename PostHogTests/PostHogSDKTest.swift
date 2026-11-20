@@ -588,6 +588,28 @@ final class PostHogSDKTests {
             sut.close()
         }
 
+        @Test("a backed-up queue reports its depth over a registered and a caller value")
+        func backedUpQueueReportsDepthOverRegisteredAndCallerValues() throws {
+            server.return500 = true
+            defer { server.return500 = false }
+            let captured = LockedBox<[String: Any]>([:])
+            let sut = getSut(flushAt: 2)
+            sut.register(["$sdk_debug_pending_queue_size": -1])
+
+            sut.capture("first")
+            sut.capture("second")
+            sut.config.setBeforeSend { event in
+                captured.value = event.properties
+                return event
+            }
+            sut.capture("third", properties: ["$sdk_debug_pending_queue_size": -2])
+
+            #expect(captured.value["$sdk_debug_pending_queue_size"] as? Int == 2)
+
+            sut.reset()
+            sut.close()
+        }
+
         @Test("SDK-computed debug keys win over a same-named registered super property")
         func sdkComputedDebugKeysWinOverRegisteredSuperProperty() throws {
             server.reset(batchCount: 1)

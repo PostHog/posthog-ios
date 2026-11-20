@@ -472,6 +472,50 @@
             #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 140 * 40)
         }
 
+        @Test("A colour behind an extent inside a container whose layer mask is text is black under it, not in the glyphs' shape")
+        func enclosingColourUnderAncestorTextShapedMaskIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let container = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            let colour = UIView(frame: container.bounds)
+            colour.backgroundColor = .magenta
+            container.addSubview(colour)
+            let glyphs = UILabel(frame: container.bounds)
+            glyphs.text = "SSN 078-05-1120"
+            glyphs.font = .boldSystemFont(ofSize: 28)
+            container.mask = glyphs
+            fixture.window.addSubview(container)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 30, y: 30, width: 140, height: 40))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 140 * 40)
+            #expect(pixels.count(in: CGRect(x: 10, y: 20, width: 20, height: 60), where: Self.isMagentaHue) > 0)
+        }
+
+        @Test("A colour clipped by an ancestor to an extent's own rect is black under it, though it reaches past unclipped")
+        func colourClippedToExtentByAncestorIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let container = UIView(frame: CGRect(x: 30, y: 30, width: 140, height: 40))
+            container.clipsToBounds = true
+            let colour = UIView(frame: CGRect(x: -20, y: -10, width: 180, height: 60))
+            colour.backgroundColor = .magenta
+            container.addSubview(colour)
+            fixture.window.addSubview(container)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 30, y: 30, width: 140, height: 40))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 140 * 40)
+        }
+
         @Test("An auto-masked view keeps its chrome; the same view under ph-no-capture doesn't")
         func autoMaskedViewKeepsChrome() async throws {
             let fixture = try await makeFixture()

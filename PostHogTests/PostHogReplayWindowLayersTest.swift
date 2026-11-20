@@ -332,6 +332,25 @@
             #expect(!mirror.hasAttachedFrameForTesting)
         }
 
+        @Test("a blank key window falls back instead of being left out, so the app is never sent without its cover")
+        func blankKeyWindowFallsBack() async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, snapshots) = try makeSut(gpu: true, mirror: mirror)
+            defer { close(sut) }
+            let scene = makeScene()
+            defer { scene.close() }
+            scene.alert.subviews.forEach { $0.removeFromSuperview() }
+            scene.alert.backgroundColor = .clear
+            CATransaction.flush()
+            await prewarm(mirror, scene)
+
+            await capture(scene, integration, sut)
+
+            #expect(snapshots.fullSnapshots.allSatisfy { $0.count != 1 })
+            #expect(!integration.isScreenshotRenderInFlightForTesting)
+            #expect(!mirror.hasAttachedFrameForTesting)
+        }
+
         @Test("a layer that can't be captured drops the whole frame, never sending the other layer alone",
               arguments: [false, true], [false, true])
         func failedLayerDropsFrame(gpu: Bool, hideBase: Bool) async throws {

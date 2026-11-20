@@ -2909,11 +2909,14 @@
                 let screenName: String?
                 let postHog: PostHogSDK
                 let timestampDate = Date()
+                /// The base's size when the layers were picked; the frame is laid out in it.
+                let baseSize: CGSize
                 var captured: [(index: Int, wireframe: RRWireframe)] = []
                 var count: Int { layers.count }
 
                 init(layers: [UIWindow], screenName: String?, postHog: PostHogSDK) {
                     self.layers = layers.map { Weak($0) }
+                    baseSize = layers.first?.bounds.size ?? .zero
                     self.screenName = screenName
                     self.postHog = postHog
                 }
@@ -3006,8 +3009,9 @@
                         case let .image(image):
                             wireframe.image = Self.screenshot(image, of: frame)
                             capture.captured.append((index, wireframe))
-                        case .blank where index > 0:
-                            // A clear window above the base, such as the surveys window, adds nothing to the frame.
+                        case .blank where index > 0 && index + 1 < capture.count:
+                            // A clear window between the base and the key window, such as the surveys window, adds
+                            // nothing. A blank key window may be a cover the mirror can't draw, so it falls back.
                             break
                         case .blank, .failed:
                             self.endGPUCapture(frame, fallback: capture.postHog.isSessionReplayActive() ? capture.fallback : nil)
@@ -3020,8 +3024,12 @@
                             return
                         }
                         if let windows = capture.capturedWindows, windows.allSatisfy({ $0.isVisible() }) {
-                            self.enqueueLayers(capture.captured.map(\.wireframe), of: windows, screenName: capture.screenName,
-                                               postHog: capture.postHog, timestampDate: capture.timestampDate)
+                            if windows[0].bounds.size == capture.baseSize {
+                                self.enqueueLayers(capture.captured.map(\.wireframe), of: windows, screenName: capture.screenName,
+                                                   postHog: capture.postHog, timestampDate: capture.timestampDate)
+                            } else {
+                                hedgeLog("[Session Replay] Skipping snapshot: the app window resized during capture")
+                            }
                         } else {
                             hedgeLog("[Session Replay] Skipping snapshot: a window layer went away during capture")
                         }

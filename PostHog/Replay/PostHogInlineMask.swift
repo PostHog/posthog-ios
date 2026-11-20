@@ -184,6 +184,15 @@
         /// Main-thread time per capture for reading the text of views whose `*` isn't drawn yet. Past it, text keeps its
         /// bars and is read by a later capture.
         var textBudget: CFTimeInterval = 0.001
+        /// Main-thread time per capture for reading and drawing the `*` of newly presented text (an alert, sheet or
+        /// screen) on main, so it never shows as bars. Past it, text takes the `textBudget` path.
+        var presentedTextBudget: CFTimeInterval = 0.008
+        /// Captures that keep `presentedTextBudget` after the screen changes, unless one draws all its text sooner.
+        static let presentedTextCaptures = 3
+
+        private weak var lastScreen: AnyObject?
+        private var hasScreen = false
+        private var presentedCapturesLeft = 0
 
         private var tags: [ClassPair: Tag] = [:]
 
@@ -275,6 +284,17 @@
             withExtendedLifetime(freed) {}
         }
 
+        /// Main thread, once per capture before `mask`. `screen` is what the capture shows (its topmost view
+        /// controller); a different one than the last capture's opens the `presentedTextBudget` window. The first one
+        /// seen doesn't. Held weakly, so a new screen at a freed one's address still counts as new.
+        func noteScreen(_ screen: AnyObject) {
+            if hasScreen, screen !== lastScreen {
+                presentedCapturesLeft = Self.presentedTextCaptures
+            }
+            hasScreen = true
+            lastScreen = screen
+        }
+
         /// Redacts the regions' copies it can and returns the regions left for the rect pass, in order.
         func mask(_ regions: [PostHogReplayIntegration.MaskedRegion], in frame: PostHogGPUMirrorCapture.Frame,
                   tag: (_ viewClass: AnyClass?, _ layerClass: AnyClass) -> Tag, isBackdrop: (CALayer) -> Bool) -> [PostHogReplayIntegration.MaskedRegion]
@@ -291,7 +311,13 @@
             return withoutActuallyEscaping(tag) { tag in
                 withoutActuallyEscaping(isBackdrop) { isBackdrop in
                     var pass = Pass(mask: self, index: frame.copies.index(), portals: PortalIndex(frame.portalSources), scale: frame.scale,
-                                    root: frame.rootCopy, tag: tag, isBackdrop: isBackdrop)
+                                    root: frame.rootCopy, tag: tag, isBackdrop: isBackdrop,
+                                    presentedBudget: presentedCapturesLeft > 0 ? presentedTextBudget : 0)
+                    defer {
+                        if presentedCapturesLeft > 0 {
+                            presentedCapturesLeft = pass.textPending ? presentedCapturesLeft - 1 : 0
+                        }
+                    }
                     var handled: [ObjectIdentifier: Bool] = [:]
                     var inline = Set(regions.indices.filter { index in
                         let region = regions[index]
@@ -371,11 +397,15 @@
             let root: CALayer?
             let tag: (AnyClass?, AnyClass) -> Tag
             let isBackdrop: (CALayer) -> Bool
+            let presentedBudget: CFTimeInterval
             var visited: Set<ObjectIdentifier> = []
             fileprivate var signatures: [ObjectIdentifier: TextSignature?] = [:]
             /// Whether each view looked up is `ph-no-capture` or under one, for this capture.
             fileprivate var noCapture: [ObjectIdentifier: Bool] = [:]
             fileprivate var spent: CFTimeInterval = 0
+            fileprivate var presentedSpent: CFTimeInterval = 0
+            /// Whether text with a signature showed bars: its `*` weren't drawn yet.
+            fileprivate(set) var textPending = false
 
             /// Redacts every copy of `object`, and every copy of a portal source under it (a portal draws those
             /// outside the object's own copies). False when it has no copy, so its pixels aren't the mirror's to mask.
@@ -474,8 +504,9 @@
                 }
             }
 
-            /// A drawn `*` bitmap costs a lookup. Otherwise the text shows as glyph-free bars this frame and, within the
-            /// budget, is read on main and drawn on the draw queue for a later capture.
+            /// A drawn `*` bitmap costs a lookup. Newly presented text is drawn here, within its budget. Otherwise the text
+            /// shows as glyph-free bars this frame and, within the read budget, is read on main and drawn on the draw
+            /// queue for a later capture.
             private mutating func setText(_ copy: CALayer, source: CALayer?, kind: Kind, fallbackToBlack: Bool) {
                 let size = copy.bounds.size
                 guard let bars = kind.textBars(size: size) else { return }
@@ -488,6 +519,7 @@
                 }
                 if let signature = known {
                     guard showDrawn(signature, on: copy, kind: kind, size: size, fallbackToBlack: fallbackToBlack) else { return }
+                    textPending = true
                 }
                 PostHogInlineMask.addBars(bars, to: copy)
                 #if TESTING
@@ -495,7 +527,8 @@
                 #endif
             }
 
-            /// Shows the drawn bitmap and queues a draw within the budget. Whether the copy still needs bars.
+            /// Shows the drawn bitmap, draws it here within the presented budget, or queues a draw within the read budget.
+            /// Whether the copy still needs bars.
             private mutating func showDrawn(_ signature: TextSignature, on copy: CALayer, kind: Kind, size: CGSize, fallbackToBlack: Bool) -> Bool {
                 switch mask.entry(for: signature) {
                 case let .drawn(image)?:
@@ -504,6 +537,18 @@
                 case .drawing?:
                     return true
                 case nil:
+                    if presentedSpent < presentedBudget {
+                        let start = CACurrentMediaTime()
+                        defer { presentedSpent += CACurrentMediaTime() - start }
+                        guard let text = kind.readText(size: size) else {
+                            if fallbackToBlack { PostHogInlineMask.blackOut(copy, .fill) }
+                            return false
+                        }
+                        guard let image = PostHogInlineMask.draw(text, scale: scale) else { return true }
+                        mask.store(image, for: signature)
+                        PostHogInlineMask.setContents(image, on: copy, scale: scale)
+                        return false
+                    }
                     guard spent < mask.textBudget else { return true }
                     let start = CACurrentMediaTime()
                     let text = kind.readText(size: size)
@@ -621,35 +666,39 @@
             lock.withLock { entries[signature] = .drawing }
             drawQueue.async { [weak self] in
                 guard let self else { return }
-                let image = Self.draw(text, scale: scale)
-                // Released after the lock, outside it.
-                var evicted: [CGImage] = []
-                self.lock.withLock {
-                    #if TESTING
-                        self.drawsForTesting += 1
-                        if Thread.isMainThread { self.drawsOnMainForTesting += 1 }
-                    #endif
-                    guard let image else {
-                        self.entries[signature] = nil
-                        return
-                    }
-                    let bytes = image.byteCount
-                    // Dropped from the order in one go: removing them one by one shifts the array each time, under the lock.
-                    var evictedCount = 0
-                    while self.cacheBytes + bytes > Self.maxCacheBytes, evictedCount < self.drawnOrder.count {
-                        if case let .drawn(old)? = self.entries.removeValue(forKey: self.drawnOrder[evictedCount]) {
-                            self.cacheBytes -= old.byteCount
-                            evicted.append(old)
-                        }
-                        evictedCount += 1
-                    }
-                    self.drawnOrder.removeFirst(evictedCount)
-                    self.entries[signature] = .drawn(image)
-                    self.drawnOrder.append(signature)
-                    self.cacheBytes += bytes
-                }
-                evicted.removeAll()
+                store(Self.draw(text, scale: scale), for: signature)
             }
+        }
+
+        /// Any thread. Caches a drawn bitmap (nil drops the entry), evicting the oldest past the cap.
+        private func store(_ image: CGImage?, for signature: TextSignature) {
+            // Released after the lock, outside it.
+            var evicted: [CGImage] = []
+            lock.withLock {
+                #if TESTING
+                    drawsForTesting += 1
+                    if Thread.isMainThread { drawsOnMainForTesting += 1 }
+                #endif
+                guard let image else {
+                    entries[signature] = nil
+                    return
+                }
+                let bytes = image.byteCount
+                // Dropped from the order in one go: removing them one by one shifts the array each time, under the lock.
+                var evictedCount = 0
+                while cacheBytes + bytes > Self.maxCacheBytes, evictedCount < drawnOrder.count {
+                    if case let .drawn(old)? = entries.removeValue(forKey: drawnOrder[evictedCount]) {
+                        cacheBytes -= old.byteCount
+                        evicted.append(old)
+                    }
+                    evictedCount += 1
+                }
+                drawnOrder.removeFirst(evictedCount)
+                entries[signature] = .drawn(image)
+                drawnOrder.append(signature)
+                cacheBytes += bytes
+            }
+            evicted.removeAll()
         }
 
         // MARK: - Text

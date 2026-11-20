@@ -988,6 +988,95 @@
             #expect(mask.textDrawsForTesting == 1)
         }
 
+        /// A screen with one label, captured until its text is cached, so the next screen change is the only new text.
+        private func showScreen(_ fixture: GPUCaptureFixture) async throws -> UIViewController {
+            let screen = UIViewController()
+            screen.view.frame = fixture.window.bounds
+            screen.view.addSubview(secretLabel(CGRect(x: 10, y: 10, width: 180, height: 30), text: "Background"))
+            fixture.window.rootViewController = screen
+            try await expectFullyMasked(captureStars(fixture))
+            return screen
+        }
+
+        /// A new screen in place of the last, as an alert or sheet presents (the test bundle has no scene to present
+        /// in): the cached label behind it, and `count` labels of new text.
+        private func showOverlay(_ fixture: GPUCaptureFixture, labels count: Int) -> (UIViewController, [UILabel]) {
+            let overlay = UIViewController()
+            overlay.view.frame = fixture.window.bounds
+            overlay.view.addSubview(secretLabel(CGRect(x: 10, y: 10, width: 180, height: 30), text: "Background"))
+            // Lengths differ, so each masks to its own `*` and is drawn on its own.
+            let labels = (0 ..< count).map { secretLabel(CGRect(x: 10, y: 60 + CGFloat($0) * 50, width: 180, height: 40),
+                                                         text: String(repeating: "x", count: 3 + $0 * 2)) }
+            labels.forEach(overlay.view.addSubview)
+            fixture.window.rootViewController = overlay
+            return (overlay, labels)
+        }
+
+        @Test("Newly presented text is drawn as `*` on main on its first capture, with no bars")
+        func presentedTextIsStarredOnFirstCapture() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mask = fixture.mask
+            _ = try await showScreen(fixture)
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            let bars = mask.textBarsForTesting, onMain = mask.textDrawsOnMainForTesting
+
+            let (overlay, labels) = showOverlay(fixture, labels: 3)
+            let pixels = try expectFullyMasked(await capture(fixture))
+            #expect(mask.textBarsForTesting == bars)
+            #expect(mask.textDrawsOnMainForTesting == onMain + 3)
+            for label in labels {
+                #expect((30 ..< 1500).contains(pixels.count(in: label.frame, where: Self.isStar)))
+            }
+
+            // Drawn whole, the window closes: new text on the same screen takes the off-main path.
+            let added = secretLabel(CGRect(x: 10, y: 220, width: 180, height: 40), text: "Arrived later")
+            overlay.view.addSubview(added)
+            try expectFullyMasked(await capture(fixture))
+            mask.waitForTextDrawsForTesting()
+            #expect(mask.textBarsForTesting == bars + 1)
+            #expect(mask.textDrawsOnMainForTesting == onMain + 3)
+        }
+
+        @Test("New text on an unchanged screen, as scrolling brings in, keeps its bars and is drawn off main")
+        func unchangedScreenTextIsDrawnOffMain() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mask = fixture.mask
+            let screen = try await showScreen(fixture)
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            let bars = mask.textBarsForTesting, draws = mask.textDrawsForTesting, onMain = mask.textDrawsOnMainForTesting
+
+            screen.view.addSubview(secretLabel(CGRect(x: 10, y: 60, width: 180, height: 40), text: "Scrolled in"))
+            try expectFullyMasked(await capture(fixture))
+            mask.waitForTextDrawsForTesting()
+            #expect(mask.textBarsForTesting == bars + 1)
+            #expect(mask.textDrawsForTesting == draws + 1)
+            #expect(mask.textDrawsOnMainForTesting == onMain)
+        }
+
+        @Test("Presented text past the main-thread draw budget keeps its bars and is drawn off main")
+        func presentedTextPastBudgetFallsBack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mask = fixture.mask
+            _ = try await showScreen(fixture)
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            // Spent by the first text, whatever it costs.
+            mask.presentedTextBudget = 1e-9
+            let bars = mask.textBarsForTesting, draws = mask.textDrawsForTesting, onMain = mask.textDrawsOnMainForTesting
+
+            _ = showOverlay(fixture, labels: 3)
+            try expectFullyMasked(await capture(fixture))
+            mask.waitForTextDrawsForTesting()
+            #expect(mask.textDrawsOnMainForTesting == onMain + 1)
+            #expect(mask.textBarsForTesting == bars + 2)
+            #expect(mask.textDrawsForTesting == draws + 3)
+        }
+
         @Test("With GPU capture off, the default path collects the same rects and never builds a mirror or copy map")
         func defaultPathIsUnchanged() async throws {
             let mirror = try makeMirror()

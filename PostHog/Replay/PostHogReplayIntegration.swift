@@ -2224,8 +2224,8 @@
             return hasher.finalize()
         }
 
-        static func currentStructureFingerprint() -> Int? {
-            UIApplication.getCurrentWindow().map { structureFingerprint(ofLayers: screenshotLayers(for: $0)) }
+        static func currentStructureFingerprint(config: PostHogSessionReplayConfig) -> Int? {
+            UIApplication.getCurrentWindow().map { structureFingerprint(ofLayers: captureLayers(for: $0, config: config)) }
         }
 
         /// A window under an alert changes without the alert changing, so a layered screen hashes every layer.
@@ -2422,7 +2422,9 @@
             // idle screen keeps being offered frames.
             captureOpportunityToken = captureScheduler.onOpportunity.subscribe(throttle: interval, trailing: true) { [weak self] in
                 // called on main thread
-                guard let self, captureBackoff.shouldCapture(structure: PostHogReplayIntegration.currentStructureFingerprint) else { return }
+                guard let self, let config = self.postHog?.config.sessionReplayConfig,
+                      captureBackoff.shouldCapture(structure: { PostHogReplayIntegration.currentStructureFingerprint(config: config) })
+                else { return }
                 snapshot()
             }
         }
@@ -2606,6 +2608,12 @@
             return config.screenshotModeBackgroundCapture ? .background : .settled
         }
 
+        /// The windows a frame of `window` shows, bottom first: only screenshot mode off the background path layers the
+        /// windows above the app window.
+        static func captureLayers(for window: UIWindow, config: PostHogSessionReplayConfig) -> [UIWindow] {
+            config.screenshotMode && screenshotCapturePath(config) != .background ? screenshotLayers(for: window) : [window]
+        }
+
         /// Main thread, screenshot mode. Claims the render slot and starts a capture down the configured path;
         /// false when a capture is already in flight. The path owns the slot from here and gives it back when done.
         @discardableResult
@@ -2615,7 +2623,7 @@
             }
 
             let path = Self.screenshotCapturePath(postHog.config.sessionReplayConfig)
-            let layers = path == .background ? [window] : Self.screenshotLayers(for: window)
+            let layers = Self.captureLayers(for: window, config: postHog.config.sessionReplayConfig)
             switch path {
             case .gpu where layers.count > 1:
                 scheduleLayeredGPUCapture(layers: layers, screenName: screenName, postHog: postHog)

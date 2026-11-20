@@ -507,6 +507,25 @@
             #expect(remaining.map(\.inline) == [.rectOnly])
         }
 
+        @Test("A ph-no-capture view a smaller lens portal shows is black only inside the portal, not over what's past its edge")
+        func noCaptureViewInLensPortalStaysInsidePortal() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let bystander = UIView(frame: CGRect(x: 0, y: 150, width: 200, height: 100))
+            bystander.backgroundColor = .green
+            fixture.window.addSubview(bystander)
+            let source = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            source.addSubview(noCaptureView(source.bounds.insetBy(dx: 10, dy: 10)))
+            fixture.window.addSubview(source)
+            let portalRect = CGRect(x: 40, y: 180, width: 60, height: 40)
+            fixture.window.layer.addSublayer(try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false))
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(where: Self.isMagentaHue) == 0)
+            let blackOutsidePortal = pixels.count(in: bystander.frame, where: Self.isBlack) - pixels.count(in: portalRect, where: Self.isBlack)
+            #expect(blackOutsidePortal == 0, "\(blackOutsidePortal) black pixels outside the portal")
+        }
+
         @Test("A masked view whose layer mask is text, as in gradient text, is black over its bounds, not in the glyphs' shape",
               arguments: [false, true])
         func textShapedLayerMaskDoesNotSurvive(noCapture: Bool) async throws {

@@ -418,14 +418,33 @@
             }
 
             /// Where the mirror draws each copy of `object`, in window coordinates: its bounds, since a blocked copy draws
-            /// nothing past them. nil when a copy lands nowhere finite, or there's no root to place it in.
+            /// nothing past them, cut to what clipping copies above it show (a portal can show a source through a
+            /// smaller viewport). nil when a copy lands nowhere finite, none is left visible, or there's no root to place
+            /// it in, so the region keeps its measured rect.
             func copyRects(of object: AnyObject) -> [CGRect]? {
                 guard let root, let layer = (object as? UIView)?.layer ?? (object as? CALayer) else { return nil }
-                let rects = index.copies(of: layer).map { index.windowFrame(of: $0, root: root, local: $0.bounds) }
+                let rects = index.copies(of: layer).map { visibleFrame(of: $0, root: root) }
                 guard !rects.isEmpty, rects.allSatisfy({ !$0.isNull && $0.minX.isFinite && $0.minY.isFinite && $0.width.isFinite && $0.height.isFinite }) else {
                     return nil
                 }
-                return rects
+                let visible = rects.filter { !$0.isEmpty }
+                return visible.isEmpty ? nil : visible
+            }
+
+            /// The copy's bounds in the window, intersected with every clipping copy above it. Empty, not null, when
+            /// clipped away entirely, so a hidden copy isn't mistaken for one that lands nowhere.
+            private func visibleFrame(of copy: CALayer, root: CALayer) -> CGRect {
+                var frame = index.windowFrame(of: copy, root: root, local: copy.bounds)
+                var ancestor = copy.superlayer
+                while let clipper = ancestor, clipper !== root, !frame.isNull {
+                    let clip = clipper.masksToBounds ? index.windowFrame(of: clipper, root: root, local: clipper.bounds) : .null
+                    // A clip that lands nowhere finite is skipped: the rect stays wider, never narrower.
+                    if !clip.isNull, clip.minX.isFinite, clip.minY.isFinite, clip.width.isFinite, clip.height.isFinite {
+                        frame = frame.intersects(clip) ? frame.intersection(clip) : CGRect(origin: frame.origin, size: .zero)
+                    }
+                    ancestor = clipper.superlayer
+                }
+                return frame
             }
 
             /// The walk masks a `ph-no-capture` view's rect, or each subview's when it fills the window, so its

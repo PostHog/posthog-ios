@@ -836,9 +836,8 @@ let maxRetryDelay = 30.0
                     }
                 }
             }
-            if let depth = queue?.backedUpDepth {
-                props["$sdk_debug_pending_queue_size"] = depth
-            }
+            // SDK-owned: nil removes a registered or caller value, so a healthy queue never reports a backlog.
+            props["$sdk_debug_pending_queue_size"] = queue?.backedUpDepth
         }
 
         return props

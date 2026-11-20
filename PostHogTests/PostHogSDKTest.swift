@@ -592,13 +592,14 @@ final class PostHogSDKTests {
         func sdkComputedDebugKeysWinOverRegisteredSuperProperty() throws {
             server.reset(batchCount: 1)
             let sut = getSut()
-            sut.register(["$recording_status": "bogus"])
+            sut.register(["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
 
             sut.capture("test event")
 
             let events = getBatchedEvents(server)
             let props = try #require(events.first).properties
             #expect(props["$recording_status"] as? String == "disabled")
+            #expect(props["$sdk_debug_pending_queue_size"] == nil)
 
             sut.reset()
             sut.close()
@@ -1324,11 +1325,12 @@ final class PostHogSDKTests {
     func callerCannotOverrideSdkDebugProperties() throws {
         let sut = getSut()
 
-        sut.capture("event", properties: ["$recording_status": "bogus"])
+        sut.capture("event", properties: ["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
 
         let event = try #require(getBatchedEvents(server).first)
         let recordingStatus = try #require(event.properties["$recording_status"] as? String)
         #expect(recordingStatus != "bogus")
+        #expect(event.properties["$sdk_debug_pending_queue_size"] == nil)
 
         sut.reset()
         sut.close()

@@ -489,35 +489,106 @@ final class PostHogSDKTests {
     }
 
     #if os(iOS)
+        @Test("captures $recording_status and the queue size on every event and no replay debug bundle while replay is off")
+        func capturesRecordingStatusWithoutReplayDebugBundleWhileReplayOff() throws {
+            server.reset(batchCount: 1)
+            let sut = getSut(flushAt: 3)
+
+            sut.capture("test event")
+            sut.screen("theScreen")
+            sut.capture("$exception", properties: ["foo": "bar"])
+
+            let events = getBatchedEvents(server)
+            try #require(events.count == 3)
+
+            for event in events {
+                #expect(event.properties["$recording_status"] as? String == "disabled")
+                #expect(event.properties["$sdk_debug_session_start"] == nil)
+                #expect(event.properties["$sdk_debug_replay_capture_mode"] == nil)
+                #expect(event.properties["$sdk_debug_pending_queue_size"] != nil)
+            }
+
+            sut.reset()
+            sut.close()
+        }
+
         #if !SWIFT_PACKAGE || SessionReplay
-            @Test("captures $recording_status on every event and the full replay debug bundle on the first eligible SDK event only")
-            func capturesRecordingStatusAndReplayDebugBundle() throws {
-                server.reset(batchCount: 1)
-                let sut = getSut(flushAt: 3)
+            @Test("captures the full replay debug bundle on the first eligible SDK event only while replay is on")
+            func capturesReplayDebugBundleOnFirstEligibleEventOnly() throws {
+                let sut = getReplaySut()
+                let properties = LockedBox<[[String: Any]]>([])
+                sut.config.setBeforeSend { event in
+                    properties.value.append(event.properties)
+                    return event
+                }
 
                 sut.capture("test event")
                 sut.screen("theScreen")
                 sut.capture("$exception", properties: ["foo": "bar"])
 
-                let events = getBatchedEvents(server)
+                let events = properties.value
                 try #require(events.count == 3)
 
-                #expect(events[0].properties["$recording_status"] as? String == "disabled")
-                #expect(events[0].properties["$sdk_debug_session_start"] == nil)
-                #expect(events[0].properties["$sdk_debug_replay_capture_mode"] == nil)
+                #expect(events[0]["$recording_status"] != nil)
+                #expect(events[0]["$sdk_debug_session_start"] == nil)
+                #expect(events[0]["$sdk_debug_replay_capture_mode"] == nil)
 
-                #expect(events[1].properties["$recording_status"] as? String == "disabled")
-                #expect(events[1].properties["$sdk_debug_replay_capture_mode"] as? String == "screenshot")
-                #expect(events[1].properties["$sdk_debug_session_start"] != nil)
+                #expect(events[1]["$sdk_debug_replay_capture_mode"] as? String == "screenshot")
+                #expect(events[1]["$sdk_debug_session_start"] != nil)
 
                 // Inside the 30s window opened by $screen.
-                #expect(events[2].properties["$recording_status"] as? String == "disabled")
-                #expect(events[2].properties["$sdk_debug_session_start"] == nil)
-                #expect(events[2].properties["$sdk_debug_replay_capture_mode"] == nil)
+                #expect(events[2]["$recording_status"] != nil)
+                #expect(events[2]["$sdk_debug_session_start"] == nil)
+                #expect(events[2]["$sdk_debug_replay_capture_mode"] == nil)
 
                 for event in events {
-                    #expect(event.properties["$sdk_debug_pending_queue_size"] != nil)
+                    #expect(event["$sdk_debug_pending_queue_size"] != nil)
                 }
+
+                sut.reset()
+                sut.close()
+            }
+
+            private func getReplaySut() -> PostHogSDK {
+                let config = PostHogConfig(projectToken: fixture.projectToken, host: "http://localhost:9001")
+                config.flushAt = 1000
+                config.preloadFeatureFlags = false
+                config.sessionReplay = true
+                config.disableReachabilityForTesting = true
+                config.disableQueueTimerForTesting = true
+                config.disableFlushOnBackgroundForTesting = true
+                config.disableRemoteConfigForTesting = true
+
+                let storage = PostHogStorage(config)
+                storage.reset()
+                storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
+
+                PostHogReplayIntegration.clearInstalls()
+                let sut = PostHogSDK.with(config)
+                fixture.track(sut)
+                return sut
+            }
+
+            private func expectFullReplayBundle(_ properties: [String: Any], sourceLocation: SourceLocation = #_sourceLocation) {
+                #expect(properties["$recording_status"] != nil, sourceLocation: sourceLocation)
+                #expect(properties["$sdk_debug_replay_capture_mode"] != nil, sourceLocation: sourceLocation)
+                #expect(properties["$sdk_debug_session_start"] != nil, sourceLocation: sourceLocation)
+                #expect(properties["$sdk_debug_replay_linked_flag_trigger_status"] != nil, sourceLocation: sourceLocation)
+                #expect(properties["$sdk_debug_replay_event_trigger_status"] != nil, sourceLocation: sourceLocation)
+                #expect(properties["$sdk_debug_replay_internal_buffer_length"] != nil, sourceLocation: sourceLocation)
+                #expect(properties["$sdk_debug_pending_queue_size"] != nil, sourceLocation: sourceLocation)
+            }
+
+            @Test("an event captured while replay is off does not consume the optional bundle window")
+            func eventWhileReplayOffDoesNotConsumeBundleWindow() {
+                let sut = getReplaySut()
+                sut.stopSessionRecording()
+
+                expectOnlyRecordingStatus(captureProperties(sut) { sut.screen("while off") })
+
+                sut.startSessionRecording()
+
+                expectFullReplayBundle(captureProperties(sut) { sut.screen("after start") })
 
                 sut.reset()
                 sut.close()
@@ -554,6 +625,39 @@ final class PostHogSDKTests {
 
             #expect(props["$recording_status"] == nil)
             #expect(!props.keys.contains { $0.hasPrefix("$sdk_debug_") })
+
+            sut.reset()
+            sut.close()
+        }
+
+        private func captureProperties(_ sut: PostHogSDK, _ capture: () -> Void) -> [String: Any] {
+            let captured = LockedBox<[String: Any]>([:])
+            sut.config.setBeforeSend { event in
+                captured.value = event.properties
+                return event
+            }
+            capture()
+            return captured.value
+        }
+
+        private func replayKeys(_ properties: [String: Any]) -> Set<String> {
+            Set(properties.keys.filter { $0 == "$recording_status" || $0.hasPrefix("$sdk_debug_") })
+        }
+
+        private func expectOnlyRecordingStatus(_ properties: [String: Any], sourceLocation: SourceLocation = #_sourceLocation) {
+            #expect(properties["$recording_status"] as? String == "disabled", sourceLocation: sourceLocation)
+            #expect(replayKeys(properties) == ["$recording_status", "$sdk_debug_pending_queue_size"], sourceLocation: sourceLocation)
+        }
+
+        @Test("with no replay integration only $recording_status and the queue size are sent, including on $screen")
+        func localOffSendsOnlyRecordingStatus() {
+            let sut = getSut()
+
+            let custom = captureProperties(sut) { sut.capture("custom event") }
+            expectOnlyRecordingStatus(custom)
+
+            let screen = captureProperties(sut) { sut.screen("theScreen") }
+            expectOnlyRecordingStatus(screen)
 
             sut.reset()
             sut.close()

@@ -773,19 +773,19 @@ let maxRetryDelay = 30.0
         }
     }
 
-    private func replayDebugProperties() -> [String: Any] {
+    /// The replay-off decision and the replay debug properties from one read. While replay is off,
+    /// only `$recording_status` is returned.
+    private func replayDebugSnapshot() -> (isReplayOff: Bool, properties: [String: Any]) {
         #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
-            var replayDebugProperties = replayIntegration?.debugProperties() ?? [
-                "$recording_status": "disabled",
-                "$sdk_debug_replay_capture_mode": PostHogReplayIntegration.captureMode,
-            ]
+            let snapshot = replayIntegration?.debugSnapshot() ?? (isReplayOff: true, properties: ["$recording_status": "disabled"])
         #else
-            var replayDebugProperties: [String: Any] = ["$recording_status": "disabled"]
+            let snapshot: (isReplayOff: Bool, properties: [String: Any]) = (true, ["$recording_status": "disabled"])
         #endif
-        if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
-            replayDebugProperties["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
+        var properties = snapshot.properties
+        if !snapshot.isReplayOff, let sessionStart = sessionManager.sessionStartTimestampSnapshot {
+            properties["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
         }
-        return replayDebugProperties
+        return (snapshot.isReplayOff, properties)
     }
 
     private func buildProperties(event: String?,
@@ -870,9 +870,10 @@ let maxRetryDelay = 30.0
                 props["$geoip_disable"] = true
             }
 
-            let replayDebugProperties = replayDebugProperties()
+            let (isReplayOff, replayDebugProperties) = replayDebugSnapshot()
             // Read-only builds are the crash-context snapshot, refreshed on every status transition.
-            let claimedReplayDebugWindow = claimReplayDebugBundle && !readOnlySession && Self.isReplayDebugEvent(event)
+            // An event while replay is off carries no bundle, so it leaves the window for the next one.
+            let claimedReplayDebugWindow = claimReplayDebugBundle && !readOnlySession && !isReplayOff && Self.isReplayDebugEvent(event)
                 && claimReplayDebugPropertiesWindow()
             if readOnlySession || claimedReplayDebugWindow {
                 props.merge(replayDebugProperties) { _, new in new }
@@ -2251,7 +2252,11 @@ let maxRetryDelay = 30.0
         built.wrapperBuildDistinctId = getDistinctId()
         built.wrapperBuildResetGeneration = wrapperSendLock.withLock { wrapperResetGeneration }
         if Self.isReplayDebugEvent(event) {
-            built.wrapperDeferredReplayDebug = replayDebugProperties().filter { !Self.requiredReplayDebugPropertyKeys.contains($0.key) }
+            // An event while replay is off carries no bundle, so it leaves the window for the next one.
+            let (isReplayOff, properties) = replayDebugSnapshot()
+            if !isReplayOff {
+                built.wrapperDeferredReplayDebug = properties.filter { !Self.requiredReplayDebugPropertyKeys.contains($0.key) }
+            }
         }
     }
 
@@ -3899,6 +3904,7 @@ let maxRetryDelay = 30.0
                 guard let replayIntegration else {
                     return
                 }
+                replayIntegration.clearExplicitStop()
 
                 if resumeCurrent, replayIntegration.isActive() {
                     // nothing to resume, already active
@@ -3991,6 +3997,7 @@ let maxRetryDelay = 30.0
 
         /// The per-event replay debug map (`$recording_status`, `$sdk_debug_replay_*`) that first-party
         /// wrappers merge into events they build themselves; empty when replay is not installed.
+        /// While replay is off, only `$recording_status` is returned.
         ///
         /// SPI, not public API: no stability guarantees.
         @_spi(PostHogInternal) public func sessionReplayDebugProperties() -> [String: Any] {

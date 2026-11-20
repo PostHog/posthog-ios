@@ -3022,6 +3022,8 @@
                         if let windows = capture.capturedWindows, windows.allSatisfy({ $0.isVisible() }) {
                             self.enqueueLayers(capture.captured.map(\.wireframe), of: windows, screenName: capture.screenName,
                                                postHog: capture.postHog, timestampDate: capture.timestampDate)
+                        } else {
+                            hedgeLog("[Session Replay] Skipping snapshot: a window layer went away during capture")
                         }
                         self.endGPUCapture(nil)
                     }

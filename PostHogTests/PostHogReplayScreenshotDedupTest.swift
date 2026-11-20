@@ -1,6 +1,6 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
-    @testable import PostHog
+    @_spi(PostHogInternal) @testable import PostHog
     import Testing
     import UIKit
 
@@ -30,7 +30,7 @@
                 imageHash: 42, lastImageHash: 42, hasPendingSnapshotData: true, expectedSkip: false
             ),
             DedupCase(
-                name: "never skips when there is no image hash (wireframe mode)",
+                name: "never skips when there is no image hash",
                 imageHash: nil, lastImageHash: 42, hasPendingSnapshotData: false, expectedSkip: false
             ),
             DedupCase(
@@ -47,46 +47,25 @@
             #expect(skip == testCase.expectedSkip)
         }
     }
-    /// Wireframe mode is the default (`screenshotMode == false`) and never populates `base64`, so the
-    /// change verdict has to come from the serialised tree or the idle backoff can never engage.
-    @Suite("Wireframe mode unchanged-frame dedup")
-    class PostHogReplayWireframeDedupTests {
-        /// A small two-node tree. `id` mimics `UIView.hash`, which is what the production walk assigns.
-        private func tree(id: Int = 111, childId: Int = 222, text: String = "Balance", posX: Int = 0) -> RRWireframe {
-            let child = RRWireframe()
-            child.id = childId
-            child.type = "text"
-            child.text = text
-            child.posX = posX
-            child.width = 120
-            child.height = 20
 
-            let style = RRStyle()
-            style.backgroundColor = "#ffffff"
-            child.style = style
-
-            let root = RRWireframe()
-            root.id = id
-            root.type = "div"
-            root.width = 320
-            root.height = 480
-            root.childWireframes = [child]
-            return root
-        }
-
-        private func hash(_ wireframe: RRWireframe) -> Int? {
-            PostHogReplayIntegration.frameHash(for: wireframe.toDict())
+    @Suite("Unchanged-frame backoff")
+    class PostHogReplayFrameBackoffTests {
+        private func frame(_ base64: String = "encoded-image") -> RRScreenshotFrame {
+            let frame = RRScreenshotFrame()
+            frame.type = "screenshot"
+            frame.base64 = base64
+            return frame
         }
 
         /// The capture path's sequence: verdict, then the backoff note, then the remembered hash.
         /// Returns whether the frame would have been sent.
         private func render(
-            _ wireframe: RRWireframe,
+            _ frame: RRScreenshotFrame,
             lastHash: inout Int?,
             backoff: PostHogReplayCaptureBackoff
         ) -> Bool {
             let verdict = PostHogReplayIntegration.frameVerdict(
-                wireframeDict: wireframe.toDict(),
+                wireframeDict: frame.toDict(),
                 lastImageHash: lastHash,
                 hasPendingSnapshotData: false
             )
@@ -99,78 +78,43 @@
             return true
         }
 
-        @Test("an unchanged wireframe tree engages the backoff after three unchanged frames")
-        func unchangedTreeEngagesBackoff() {
+        @Test("an unchanged screenshot engages the backoff after three unchanged frames")
+        func unchangedFrameEngagesBackoff() {
             let backoff = PostHogReplayCaptureBackoff()
             backoff.setBaseInterval(10)
             var lastHash: Int?
 
-            // No previous hash, so the opening frame is always sent.
-            #expect(render(tree(), lastHash: &lastHash, backoff: backoff))
+            #expect(render(frame(), lastHash: &lastHash, backoff: backoff))
 
             for _ in 0 ..< 2 {
-                #expect(render(tree(), lastHash: &lastHash, backoff: backoff) == false)
+                #expect(render(frame(), lastHash: &lastHash, backoff: backoff) == false)
             }
             #expect(backoff.isInBackoffForTesting == false)
 
-            #expect(render(tree(), lastHash: &lastHash, backoff: backoff) == false)
+            #expect(render(frame(), lastHash: &lastHash, backoff: backoff) == false)
             #expect(backoff.isInBackoffForTesting)
             #expect(backoff.shouldCapture() == false)
         }
 
-        @Test("a changed wireframe tree restores the full rate")
-        func changedTreeResetsBackoff() {
+        @Test("a changed screenshot restores the full rate")
+        func changedFrameResetsBackoff() {
             let backoff = PostHogReplayCaptureBackoff()
             backoff.setBaseInterval(10)
             var lastHash: Int?
             for _ in 0 ..< 4 {
-                _ = render(tree(), lastHash: &lastHash, backoff: backoff)
+                _ = render(frame(), lastHash: &lastHash, backoff: backoff)
             }
             #expect(backoff.isInBackoffForTesting)
 
-            #expect(render(tree(text: "Balance: 12"), lastHash: &lastHash, backoff: backoff))
+            #expect(render(frame("changed-image"), lastHash: &lastHash, backoff: backoff))
             #expect(backoff.isInBackoffForTesting == false)
             #expect(backoff.shouldCapture())
         }
 
-        @Test("the hash ignores view identity, which changes without the screen changing")
-        func hashIgnoresViewIdentity() {
-            // Both ids differ: a recreated view or a rebuilt subtree draws the same pixels.
-            #expect(hash(tree(id: 111, childId: 222)) == hash(tree(id: 999, childId: 888)))
-        }
-
-        @Test("the hash still sees content, geometry, style and child order")
-        func hashSeesVisibleChanges() {
-            let base = hash(tree())
-            #expect(base != hash(tree(text: "Balance: 12")))
-            #expect(base != hash(tree(posX: 40)))
-
-            let restyled = tree()
-            restyled.childWireframes?.first?.style?.backgroundColor = "#000000"
-            #expect(base != hash(restyled))
-
-            let reordered = tree()
-            let second = RRWireframe()
-            second.id = 333
-            second.type = "text"
-            second.text = "Total"
-            reordered.childWireframes?.append(second)
-            let forward = hash(reordered)
-            reordered.childWireframes?.reverse()
-            #expect(forward != hash(reordered))
-        }
-
-        @Test("the same tree hashes the same every time it is serialised")
-        func hashIsStableAcrossCaptures() {
-            let hashes = Set((0 ..< 20).map { _ in hash(tree()) })
-            #expect(hashes.count == 1)
-        }
-
-        @Test("screenshot mode keeps hashing the encoded image")
-        func screenshotModeHashesBase64() {
-            let wireframe = tree()
-            wireframe.base64 = "encoded-image"
-            #expect(hash(wireframe) == "encoded-image".hashValue)
+        @Test("the frame hash is the encoded image's hash, and nil without an image")
+        func frameHashUsesBase64() {
+            #expect(PostHogReplayIntegration.frameHash(for: frame().toDict()) == "encoded-image".hashValue)
+            #expect(PostHogReplayIntegration.frameHash(for: RRScreenshotFrame().toDict()) == nil)
         }
     }
 
@@ -492,7 +436,7 @@
                 sdk.sessionManager.touchSession()
                 clock.date.addTimeInterval(60 * 31)
 
-                let wireframe = RRWireframe()
+                let wireframe = RRScreenshotFrame()
                 wireframe.type = "screenshot"
                 let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
                 integration.captureSnapshot(
@@ -538,9 +482,9 @@
             let overlay = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
 
             func sendFrame(_ window: UIWindow, text: String) {
-                let wireframe = RRWireframe()
-                wireframe.type = "text"
-                wireframe.text = text
+                let wireframe = RRScreenshotFrame()
+                wireframe.type = "screenshot"
+                wireframe.base64 = text
                 integration.captureSnapshot(
                     wireframe,
                     window: window,

@@ -140,7 +140,7 @@
             renderer screenshotRenderer: PostHogScreenshotRenderer = .fidelity,
             presentationScale: CGFloat? = nil
         ) -> UIImage? {
-            // Background capture also enters here; controller traversal belongs on main.
+            // Controller traversal belongs on main, even for an off-main caller.
             let hasCamera = {
                 (self as? UIWindow ?? self.window)?.hasCameraForReplay() ?? false
             }
@@ -210,8 +210,7 @@
 
         /// Mask geometry only. During a CA animation the model layer parks at the destination
         /// while the presentation layer holds the in-flight position the screenshot renders, so
-        /// mask rects have to come from the presentation tree. Wireframe geometry is a separate
-        /// consumer with no pixels to agree with and stays on `toAbsoluteRect`.
+        /// mask rects have to come from the presentation tree.
         /// `outsets` grows the rect past the bounds, for content drawn outside them.
         func toPresentationRect(_ window: UIWindow?, outsets: UIEdgeInsets = .zero) -> CGRect {
             if layer.hasAppDefinedLayerInChain {

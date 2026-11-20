@@ -587,5 +587,52 @@
             #expect(snapshots.screenshots.count == 3)
             #expect(snapshots.metaHrefs == ["Home", "Checkout"])
         }
+
+        @Test("a nil screen name keeps the last one, returning re-sends meta, and an identical frame still sends on a screen change")
+        func nilKeepsLastAndIdenticalFrameSendsOnChange() async throws {
+            let snapshots = try await sendFrames([(nil, "Home", "a"), (nil, nil, "b"), (nil, "Home", "c"), (nil, "Checkout", "c"), (nil, "Home", "d")])
+
+            #expect(snapshots.screenshots.count == 5)
+            #expect(snapshots.metaHrefs == ["Home", "Checkout", "Home"])
+        }
+
+        @Test("a resize frame without a screen name keeps the last sent screen name")
+        func resizeWithNilScreenNameKeepsLastScreenName() async throws {
+            let landscape = CGSize(width: 640, height: 320)
+            let snapshots = try await sendFrames([(nil, "Home", "a"), (landscape, nil, "b"), (landscape, "Home", "b")])
+
+            #expect(snapshots.metaHrefs == ["Home", nil])
+            #expect(snapshots.screenshots.count == 2)
+        }
+
+        @Test("an empty screen name is treated as no screen name")
+        func emptyScreenNameTreatedAsNil() async throws {
+            let snapshots = try await sendFrames([(nil, "Home", "a"), (nil, "", "b"), (nil, "Home", "c")])
+
+            #expect(snapshots.metaHrefs == ["Home"])
+        }
+
+        /// Sends screenshot frames of (window size, defaulting to the window's; screen name; image) and returns what was captured.
+        private func sendFrames(_ frames: [(CGSize?, String?, String)]) async throws -> ReplaySnapshots {
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut()
+            defer { sut.close() }
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+
+            for (size, screenName, image) in frames {
+                let wireframe = RRWireframe()
+                wireframe.type = "screenshot"
+                wireframe.base64 = image
+                integration.captureSnapshot(
+                    wireframe,
+                    window: window,
+                    windowSize: size ?? window.bounds.size,
+                    screenName: screenName,
+                    postHog: sut,
+                    timestampDate: Date()
+                )
+                await drainReplayQueue()
+            }
+            return snapshots
+        }
     }
 #endif

@@ -42,8 +42,10 @@ jobs:
 
   notify-approval-needed:
     name: Notify Slack - Approval Needed
-    needs: check-changesets
-    if: needs.check-changesets.outputs.has-changesets == 'true'
+    # version-bump's approval gate opens only after update-references finishes, so notify then, not before.
+    # !cancelled() still notifies when update-references fails, since that job is best-effort.
+    needs: [check-changesets, update-references]
+    if: ${{ !cancelled() && needs.check-changesets.outputs.has-changesets == 'true' }}
     uses: PostHog/.github/.github/workflows/notify-approval-needed.yml@5ba5d24966f2c416ca792654638e4ce6f19f545b
     with:
       slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
@@ -75,7 +77,7 @@ jobs:
   update-references:
     name: Update SDK reference
     needs: check-changesets
-    # Runs on macOS (DocC) while the release waits for approval; version-bump commits the result.
+    # Runs on macOS (DocC) before the approval gate; version-bump commits the result.
     runs-on: macos-26
     # version-bump waits on this job, so a stalled DocC build must not hold the release.
     timeout-minutes: 15

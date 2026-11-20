@@ -40,8 +40,11 @@
 
         private final class CheckoutViewController: UIViewController {}
 
-        @Test("Default config captures UIKit and SwiftUI screens as screenshots", arguments: Root.allCases)
-        func defaultConfigCapturesScreenshots(_ root: Root) async throws {
+        @Test(
+            "Default config captures UIKit and SwiftUI screens as screenshots",
+            arguments: Root.allCases, [false, true]
+        )
+        func defaultConfigCapturesScreenshots(_ root: Root, bridge: Bool) async throws {
             let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
             let window = UIWindow(windowScene: scene)
             window.frame = scene.coordinateSpace.bounds
@@ -53,8 +56,12 @@
             }
             try #require(UIApplication.getCurrentWindow() === window)
 
-            let (sut, _, snapshots) = try makeScreenshotReplaySut()
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut()
             defer { sut.close() }
+            // The native-screen bridge (Flutter) emits its own meta for an episode's first frame.
+            if bridge {
+                #expect(integration.captureBridgeSnapshot(episodeFirstFrame: true, window: window))
+            }
 
             // Each frame is encoded on the serial replay queue, which is slow on the simulator.
             // Nudge sparingly so frames don't pile up, then let the queue drain before closing.
@@ -67,8 +74,11 @@
 
             let screenshot = try #require(snapshots.screenshots.first, "No screenshot was captured")
             #expect(!(screenshot["base64"] as? String ?? "").isEmpty)
-            let href = try #require(snapshots.metaHrefs.first)
-            #expect(href == root.expectedHref)
+            let hrefs = snapshots.metaHrefs
+            try #require(!hrefs.isEmpty)
+            for href in hrefs {
+                #expect(href == root.expectedHref)
+            }
         }
     }
 #endif

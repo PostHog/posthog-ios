@@ -229,14 +229,20 @@ enum PostHogStackTraceProcessor {
         return module == "PostHog" || module.hasPrefix("PostHog.")
     }
 
-    /// Check if a symbol is the Objective-C thunk of a `PostHogSDK.captureException` overload
+    /// Mangled-name prefixes of the `PostHogSDK.captureException` and `captureExceptionObjC` methods
+    private static let captureExceptionSymbolPrefixes = [
+        "$s7PostHog0aB3SDKC16captureException",
+        "$s7PostHog0aB3SDKC20captureExceptionObjC",
+    ]
+
+    /// Check if a symbol is the Objective-C thunk of a `PostHogSDK.captureException` or `captureExceptionObjC` overload
     ///
     /// The thunk sits between an Objective-C caller and the Swift method that reads the stack, so it's
     /// left above the caller. Thunk symbols are local, so this only matches in unstripped binaries, where
     /// they're named accurately. Stripping removes them, so this never matches an app frame, but in a
     /// stripped binary that statically links the SDK the thunk frame stays on top.
     private static func isCaptureExceptionObjCThunk(_ function: String?) -> Bool {
-        guard let function = function else { return false }
-        return function.hasPrefix("$s7PostHog0aB3SDKC16captureException") && function.hasSuffix("FTo")
+        guard let function = function, function.hasSuffix("FTo") else { return false }
+        return captureExceptionSymbolPrefixes.contains { function.hasPrefix($0) }
     }
 }

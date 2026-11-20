@@ -1,5 +1,18 @@
 ## Next
 
+## 3.98.2
+
+### Patch Changes
+
+- cba7829: Reduce the main-thread cost of the screenshot-mode session replay mask walk by checking each view class for Compose Multiplatform once instead of on every capture.
+- 8cace5e: Reduce main-thread time per GPU session replay capture by measuring a masked view's rect only when the capture paints that rect, instead of for every masked view during the mask walk.
+
+## 3.98.1
+
+### Patch Changes
+
+- b287632: Reduce main-thread hangs in screenshot-mode session replay during fast scrolls and animations. The motion renderer now draws at upload resolution instead of native screen resolution. After each motion render, the SDK skips motion frames for 19 times that render's duration, so the motion renderer uses at most about 5% of the main thread. Settled frames still capture as before.
+
 ## 3.98.0
 
 ### Minor Changes

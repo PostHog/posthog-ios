@@ -2590,7 +2590,7 @@ Enable method swizzling for SDK functionality that depends on it
 
 ##### Discussion
 
-When disabled, functionality that require swizzling (like autocapture, screen views, session replay, surveys) will not be installed.
+When disabled, functionality that require swizzling (like autocapture, screen views, session replay) will not be installed.
 
 Note: Disabling swizzling will limit session rotation logic to only detect application open and background events. Session rotation will still work, just with reduced granularity for detecting user activity.
 
@@ -3375,6 +3375,14 @@ let placeholder: String?
 ```
 
 Optional placeholder text for input fields
+
+#### `PostHogDisplaySurveyAppearance.position`
+
+```swift
+let position: String?
+```
+
+Where the survey should be placed on screen, as sent by PostHog (`appearance.position`). One of `top_left`, `top_center`, `top_right`, `middle_left`, `middle_center`, `middle_right`, `left`, `center`, or `right` (the last three are bottom-aligned). Nil when not set; treat nil and unknown values as `center`.
 
 #### `PostHogDisplaySurveyAppearance.ratingButtonActiveColor`
 
@@ -4630,6 +4638,32 @@ Warning: Enabling this option will trigger Main Thread Checker warnings and may 
 
 Experimental. Default: false
 
+#### `PostHogSessionReplayConfig.screenshotModeGPUCapture`
+
+```swift
+@objc var screenshotModeGPUCapture: Bool
+```
+
+Render screenshots on the GPU instead of with `drawHierarchy` when `screenshotMode` is enabled.
+
+##### Discussion
+
+Each capture commits pending changes, copies the window’s layer tree and renders the copy into a Metal texture, so the main thread only builds the copy. Layers whose presentation can’t be copied safely (an app’s or a framework’s own `CALayer` subclasses) are drawn from their model state instead. While one of them has an animation that moves or reshapes it, a playing Lottie animation for example, it is left out of the frame with everything under it.
+
+Not captured exactly:
+
+- Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped “Metal content” placeholder.
+
+- Video and camera previews stay blank, as they do today.
+
+- Liquid Glass is approximated without refraction: sheets, alerts and dialogs as a blur of what’s behind them, smaller glass as a flat fill in its shape. Tinted glass keeps its tint. The labels and icons on it are reproduced. On iOS 27, sheets, alerts and dialogs currently show as a flat panel instead of a blur.
+
+Captures fall back to the default path when the device has no Metal or a render fails. Takes precedence over `screenshotModeBackgroundCapture` when both are enabled.
+
+While recording, the app keeps roughly 25 to 30 MB more memory resident on average (GPU memory held by Metal and Core Animation); peak memory is about the same as the default capture. Measured on an iPhone 17 Pro with `screenshotScale` unset, one pixel per point; a larger scale holds more.
+
+Experimental. iOS and Mac Catalyst only. Default: false
+
 #### `PostHogSessionReplayConfig.screenshotScale`
 
 ```swift
@@ -5122,6 +5156,10 @@ Called when an activated PostHog survey needs to be rendered on the app’s UI D
 - `onSurveyShown`: To be called when the survey is successfully displayed to the user.
 - `onSurveyResponse`: Call when the user submits a response to a question; use the returned state to advance or complete the survey.
 - `onSurveyClosed`: To be called when the survey is dismissed
+
+##### Discussion
+
+Once handed to a custom delegate, cancel events do not invalidate the survey, even while the delegate defers display. The delegate must report each survey as shown or closed and retains ownership until it reports the survey closed. Cancel events only clear unconsumed activation and the built-in UI’s popup delay.
 
 #### `PostHogSurveysDelegate.updateSurvey(_:)`
 

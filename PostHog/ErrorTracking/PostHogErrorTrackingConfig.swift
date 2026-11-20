@@ -14,31 +14,35 @@ import Foundation
 @objc public class PostHogErrorTrackingConfig: NSObject {
     // MARK: - Crash Reporting
 
-    /// Enable crash autocapture
-    ///
-    /// When enabled, the SDK will capture the following crash types:
-    /// - Mach exceptions (e.g., `EXC_BAD_ACCESS`, `EXC_CRASH`)
-    /// - POSIX signals (e.g., `SIGSEGV`, `SIGABRT`, `SIGBUS`)
-    /// - Uncaught `NSException`s
-    ///
-    /// Crashes are persisted to disk and sent as `$exception` events with level "fatal" **on the next app launch**
-    ///
-    /// - Note: Crash reporting is automatically disabled when a debugger is attached,
-    ///   as the debugger intercepts signals before the crash handler can process them.
-    ///
-    /// Default: false
-    private var _autoCapture: Bool = false
+    #if !SWIFT_PACKAGE || CrashReporting
+        /// Enable crash autocapture
+        ///
+        /// When enabled, the SDK will capture the following crash types:
+        /// - Mach exceptions (e.g., `EXC_BAD_ACCESS`, `EXC_CRASH`)
+        /// - POSIX signals (e.g., `SIGSEGV`, `SIGABRT`, `SIGBUS`)
+        /// - Uncaught `NSException`s
+        ///
+        /// Crashes are persisted to disk and sent as `$exception` events with level "fatal" **on the next app launch**
+        ///
+        /// - Note: Crash reporting is automatically disabled when a debugger is attached,
+        ///   as the debugger intercepts signals before the crash handler can process them.
+        ///
+        /// Default: false
+        private var _autoCapture: Bool = false
 
-    /// Whether crash autocapture is enabled.
-    ///
-    /// When enabled, fatal crashes are persisted and sent as `$exception` events on the next launch.
-    /// Default: `false`.
-    @available(watchOS, unavailable, message: "Crash autocapture is not available on watchOS")
-    @available(visionOS, unavailable, message: "Crash autocapture is not available on visionOS")
-    @objc public var autoCapture: Bool {
-        get { _autoCapture }
-        set { _autoCapture = newValue }
-    }
+        /// Whether crash autocapture is enabled.
+        ///
+        /// When enabled, fatal crashes are persisted and sent as `$exception` events on the next launch.
+        /// With Swift Package Manager, this is only available with the `CrashReporting` package trait, which is enabled by default.
+        /// Before SDK version 3.57.3, Swift crashes appear as `SIGTRAP` without the actual error message.
+        /// Default: `false`.
+        @available(watchOS, unavailable, message: "Crash autocapture is not available on watchOS")
+        @available(visionOS, unavailable, message: "Crash autocapture is not available on visionOS")
+        @objc public var autoCapture: Bool {
+            get { _autoCapture }
+            set { _autoCapture = newValue }
+        }
+    #endif
 
     // MARK: - In-App Detection Configuration
 
@@ -50,8 +54,8 @@ import Foundation
     ///
     /// Example:
     /// ```swift
-    /// config.errorTrackingConfig.inAppIncludes = [
-    ///     "MyApp",
+    /// config.errorTrackingConfig.inAppIncludes += [
+    ///     "MySharedFramework",
     ///     "SharedUtils"
     /// ]
     /// ```
@@ -59,6 +63,9 @@ import Foundation
     /// **Default behavior:**
     /// - Automatically includes main bundle identifier
     /// - Automatically includes executable name
+    ///
+    /// Append to this list instead of assigning it. Assigning removes the defaults, so frames
+    /// from your app's executable are no longer in-app.
     ///
     /// **Precedence:** Priority 1 (highest)
     @objc public var inAppIncludes: [String] = []
@@ -79,20 +86,23 @@ import Foundation
     /// **Precedence:** Priority 2 (after inAppIncludes)
     @objc public var inAppExcludes: [String] = []
 
-    /// Configures whether stack trace frames are considered in-app by default
-    /// when the origin cannot be determined or no explicit includes/excludes match.
+    /// Whether stack trace frames from a binary that no other rule matches are considered in-app.
     ///
-    /// - If `true` (default): Frames are in-app unless explicitly excluded (allowlist approach)
-    /// - If `false`: Frames are external unless explicitly included (denylist approach)
+    /// - If `false` (default): only frames from your app's executable and from binaries
+    ///   matching `inAppIncludes` are in-app. Frames from other frameworks, such as
+    ///   third-party dynamic frameworks, are not.
+    /// - If `true`: frames from every binary are in-app, except system frameworks and
+    ///   binaries matching `inAppExcludes`.
     ///
-    /// **Default behavior when true:**
-    /// - Known system frameworks (Foundation, UIKit, etc.) are excluded
-    /// - All other packages are in-app unless in `inAppExcludes`
+    /// Code linked statically into your app, such as most Swift packages, is part of your
+    /// app's executable, so it's in-app either way. If your app ships its own code in a
+    /// dynamic framework whose name doesn't start with your app's executable name or bundle
+    /// identifier, add that framework's name to `inAppIncludes`.
     ///
     /// **Precedence:** Priority 4 (final fallback)
     ///
-    /// Default: true
-    @objc public var inAppByDefault: Bool = true
+    /// Default: false
+    @objc public var inAppByDefault: Bool = false
 
     // MARK: - Exception Steps
 

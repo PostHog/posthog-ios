@@ -1,4 +1,4 @@
-#if os(iOS) && canImport(Metal)
+#if os(iOS) && canImport(Metal) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     import IOSurface
     @testable import PostHog
@@ -220,7 +220,7 @@
             #expect(Self.isMagenta(pixel(inner.maxX - 1 / scale, inner.maxY - 1 / scale)))
 
             let uiImage = UIImage(cgImage: image, scale: scale, orientation: .up)
-            let maskedImage = try #require(RRWireframe.maskImage(uiImage, maskableWidgets: rects, pixelScale: scale)?.cgImage)
+            let maskedImage = try #require(RRScreenshotFrame.maskImage(uiImage, maskableWidgets: rects, pixelScale: scale)?.cgImage)
             let masked = try Pixels(maskedImage)
             #expect(masked.width == pixels.width && masked.height == pixels.height)
             #expect(masked.points(where: Self.isMagenta).isEmpty)
@@ -576,7 +576,7 @@
         func gpuReplacedImageUploadsNoOldPixels(replacedWithSymbol: Bool, noCapture: Bool) async throws {
             let mirror = try makeMirror()
             let (sut, integration, _) = try makeScreenshotReplaySut {
-                $0.screenshotModeGPUCapture = true
+                $0.captureMethod = .gpu
                 $0.maskAllImages = !noCapture
             }
             defer { sut.close() }
@@ -1715,7 +1715,7 @@
             #expect(count(pixels, in: secretRect, where: Self.isMagenta) > Int(secretRect.width * secretRect.height) * 9 / 10)
             #expect(rects.contains(fieldRect))
 
-            let masked = try Pixels(#require(RRWireframe.maskImage(UIImage(cgImage: image), maskableWidgets: rects, pixelScale: 1)?.cgImage))
+            let masked = try Pixels(#require(RRScreenshotFrame.maskImage(UIImage(cgImage: image), maskableWidgets: rects, pixelScale: 1)?.cgImage))
             #expect(masked.points(where: Self.isMagenta).isEmpty)
         }
 
@@ -1789,7 +1789,7 @@
         }
 
         private func maskedPixels(_ image: UIImage, _ rects: [CGRect]) throws -> Pixels {
-            try Pixels(#require(RRWireframe.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
+            try Pixels(#require(RRScreenshotFrame.maskImage(image, maskableWidgets: rects, pixelScale: image.scale)?.cgImage))
         }
 
         @Test("A lens portal draws its source on the portal, and masked text in it masks the whole portal and where it sits")
@@ -2385,14 +2385,7 @@
         // MARK: - Lifecycle
 
         private func makeSut(gpuCapture: Bool = true) throws -> (PostHogSDK, PostHogReplayIntegration, ReplaySnapshots) {
-            try makeScreenshotReplaySut { $0.screenshotModeGPUCapture = gpuCapture }
-        }
-
-        /// Waits for the capture to give the render slot back, through both turns and the readback.
-        private func waitForCaptureToFinish(_ integration: PostHogReplayIntegration) async {
-            await waitUntil(timeout: 5) { !integration.isScreenshotRenderInFlightForTesting }
-            #expect(!integration.isScreenshotRenderInFlightForTesting)
-            await drainReplayQueue()
+            try makeScreenshotReplaySut { $0.captureMethod = gpuCapture ? .gpu : .standard }
         }
 
         /// A window with magenta content inset in a masked field, as text sits in a text field: masks are drawn with
@@ -2541,7 +2534,7 @@
         func uploadedScreenshotSize(screenshotScale: Double?, gpu: Bool) async throws {
             let mirror = try makeMirror()
             let (sut, integration, snapshots) = try makeScreenshotReplaySut {
-                $0.screenshotModeGPUCapture = gpu
+                $0.captureMethod = gpu ? .gpu : .standard
                 $0.screenshotScale = screenshotScale.map { NSNumber(value: $0) }
             }
             integration.gpuMirror = mirror
@@ -2603,7 +2596,7 @@
         @Test("Mirrored layer trees are freed after each capture")
         func mirroredLayersAreFreed() async throws {
             let mirror = try makeMirror()
-            let (sut, integration, _) = try makeScreenshotReplaySut { $0.screenshotModeGPUCapture = true }
+            let (sut, integration, _) = try makeScreenshotReplaySut { $0.captureMethod = .gpu }
             integration.gpuMirror = mirror
             defer { sut.close() }
             let mockLifecycle = MockApplicationLifecyclePublisher()
@@ -2781,17 +2774,9 @@
 
         // MARK: - Routing
 
-        @Test("GPU capture is used only when its flag is on, and wins over background capture", arguments: [
-            (gpu: false, background: false, expected: PostHogReplayIntegration.ScreenshotCapturePath.settled),
-            (gpu: false, background: true, expected: .background),
-            (gpu: true, background: false, expected: .gpu),
-            (gpu: true, background: true, expected: .gpu),
-        ])
-        func capturePath(_ flags: (gpu: Bool, background: Bool, expected: PostHogReplayIntegration.ScreenshotCapturePath)) {
-            let config = PostHogSessionReplayConfig()
-            config.screenshotModeGPUCapture = flags.gpu
-            config.screenshotModeBackgroundCapture = flags.background
-            #expect(PostHogReplayIntegration.screenshotCapturePath(config) == flags.expected)
+        @Test("captures with the standard method by default")
+        func defaultCaptureMethod() {
+            #expect(PostHogSessionReplayConfig().captureMethod == .standard)
         }
 
         // MARK: - Shared contents

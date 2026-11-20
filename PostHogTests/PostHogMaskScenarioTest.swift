@@ -10,7 +10,7 @@
 //  layer-scan logic is covered separately in PostHogMaskingCharacterizationTest;
 //  rendered-pixel coverage lives in PostHogMaskSnapshotTest.
 
-#if os(iOS) && canImport(SwiftUI)
+#if os(iOS) && canImport(SwiftUI) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import SwiftUI
@@ -497,101 +497,49 @@
             #expect(inflated[0].minY <= 95)
             #expect(inflated[0].maxY >= 125.31)
         }
+    }
 
-        @Test("background capture masks the trail behind the older sample")
-        func backgroundCaptureCoversTrailBehindBefore() throws {
-            let a = NSObject()
-            let before = [region(a, CGRect(x: 0, y: 100, width: 100, height: 20))]
-            let after = [region(a, CGRect(x: 0, y: 105, width: 100, height: 20))]
-            let rects = try #require(PostHogReplayIntegration.backgroundCaptureMaskRects(before: before, after: after))
+    @Suite("MaskedRegion deferred rects")
+    @MainActor
+    struct PostHogDeferredMaskRectTest {
+        private typealias MaskedRegion = PostHogReplayIntegration.MaskedRegion
 
-            // The off-main render can copy pixels committed before `before` was sampled, here at
-            // y=95; a union of the two samples alone would leave y=95..100 visible.
-            #expect(rects.count == 1)
-            #expect(rects[0].contains(CGRect(x: 0, y: 95, width: 100, height: 30)))
+        private func hosted() -> (UIWindow, UIView) {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 300, height: 300))
+            let view = UIView(frame: CGRect(x: 10, y: 20, width: 50, height: 40))
+            window.addSubview(view)
+            return (window, view)
         }
 
-        @Test("background capture skips a frame whose cell was recycled mid-render")
-        func backgroundCaptureSkipsRecycledOwner() {
-            let a = NSObject()
-            let b = NSObject()
-            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            let after = [region(b, CGRect(x: 0, y: 200, width: 100, height: 20))]
-            // Where `a` sat when the pixels were committed was never sampled.
-            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(before: before, after: after) == nil)
+        @Test("a region outside deferringRects measures its rect when it's made")
+        func eagerOutsideDeferral() {
+            let (window, view) = hosted()
+            let region = MaskedRegion(view, in: window)
+            view.frame.origin = CGPoint(x: 100, y: 100)
+            #expect(region.rect == CGRect(x: 10, y: 20, width: 50, height: 40))
         }
 
-        @Test("background capture skips a frame where an owner appeared mid-render")
-        func backgroundCaptureSkipsAppearedOwner() {
-            let a = NSObject()
-            let b = NSObject()
-            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            let after = [
-                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
-                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
-            ]
-            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(before: before, after: after) == nil)
+        @Test("a deferred region measures its rect on first read, then keeps it")
+        func deferredMeasuresOnce() {
+            let (window, view) = hosted()
+            let region = MaskedRegion.deferringRects { MaskedRegion(view, in: window) }
+            view.frame.origin = CGPoint(x: 100, y: 100)
+            #expect(region.rect == CGRect(x: 100, y: 100, width: 50, height: 40))
+            view.frame.origin = CGPoint(x: 200, y: 200)
+            #expect(region.rect == CGRect(x: 100, y: 100, width: 50, height: 40))
         }
 
-        @Test("background capture skips a frame that moved past the drift budget")
-        func backgroundCaptureSkipsMotion() {
-            let a = NSObject()
-            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            let after = [region(a, CGRect(x: 0, y: 200, width: 100, height: 20))]
-            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(before: before, after: after) == nil)
-        }
-
-        @Test("background capture skips a frame with a missing sample")
-        func backgroundCaptureSkipsNilSample() {
-            let sample = [region(NSObject(), CGRect(x: 0, y: 0, width: 100, height: 20))]
-            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(before: nil, after: sample) == nil)
-            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(before: sample, after: nil) == nil)
-        }
-
-        @Test("background capture masks both samples of a still frame, paired by owner")
-        func backgroundCaptureStillCoversBothSamples() throws {
-            let a = NSObject()
-            let b = NSObject()
-            let before = [
-                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
-                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
-            ]
-            // a moves 1pt, within the still tolerance; after is in swapped order.
-            let after = [
-                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
-                region(a, CGRect(x: 0, y: 1, width: 100, height: 20)),
-            ]
-            let rects = try #require(PostHogReplayIntegration.backgroundCaptureMaskRects(before: before, after: after))
-            #expect(rects == [
-                CGRect(x: 0, y: 100, width: 100, height: 20),
-                CGRect(x: 0, y: 0, width: 100, height: 21),
-            ])
-        }
-
-        @Test("background capture skips content that moved during the lead wait and came back")
-        func backgroundCaptureSkipsBounceDuringLead() {
-            let a = NSObject()
-            let lead = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            // Rendered at y=100, back at y=0 by the last sample.
-            let before = [region(a, CGRect(x: 0, y: 100, width: 100, height: 20))]
-            let after = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(lead: lead, before: before, after: after) == nil)
-        }
-
-        @Test("background capture skips a private view that appeared during the lead wait and vanished")
-        func backgroundCaptureSkipsTransientOwner() {
-            let before = [region(NSObject(), CGRect(x: 0, y: 0, width: 100, height: 20))]
-            #expect(PostHogReplayIntegration.backgroundCaptureMaskRects(lead: [], before: before, after: []) == nil)
-        }
-
-        @Test("background capture masks every sampled position when all three samples are still")
-        func backgroundCaptureStillAcrossThreeSamples() throws {
-            let a = NSObject()
-            let lead = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            let before = [region(a, CGRect(x: 0, y: 1, width: 100, height: 20))]
-            let after = [region(a, CGRect(x: 0, y: 2, width: 100, height: 20))]
-            let rects = try #require(PostHogReplayIntegration.backgroundCaptureMaskRects(lead: lead, before: before, after: after))
-            #expect(rects == [CGRect(x: 0, y: 0, width: 100, height: 21), CGRect(x: 0, y: 1, width: 100, height: 21)])
+        @Test("deferral ends with the deferringRects block, nested or not")
+        func deferralIsScoped() {
+            let (window, view) = hosted()
+            let inner = MaskedRegion.deferringRects {
+                MaskedRegion.deferringRects {}
+                return MaskedRegion(view, in: window)
+            }
+            let after = MaskedRegion(view, in: window)
+            view.frame.origin = CGPoint(x: 100, y: 100)
+            #expect(inner.rect == CGRect(x: 100, y: 100, width: 50, height: 40))
+            #expect(after.rect == CGRect(x: 10, y: 20, width: 50, height: 40))
         }
     }
 #endif

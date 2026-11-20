@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 
 @Suite(.serialized, .resetsGlobalState)
@@ -268,7 +268,6 @@ enum PostHogSessionManagerTest {
             captureApplicationLifecycleEvents: Bool = false,
             flushAt: Int = 1,
             optOut: Bool = false,
-            propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
             personProfiles: PostHogPersonProfiles = .identifiedOnly,
             sessionReplay: Bool = false
         ) -> PostHogSDK {
@@ -282,11 +281,10 @@ enum PostHogSessionManagerTest {
             config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
             config.captureScreenViews = false
             config.optOut = optOut
-            config.propertiesSanitizer = propertiesSanitizer
             config.personProfiles = personProfiles
             config.maxBatchSize = max(flushAt, config.maxBatchSize)
             server.batchProjectToken = config.projectToken
-            #if os(iOS)
+            #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 if sessionReplay {
                     // Replay on and no /config round trip, so the SDK is neither locally nor remotely off.
                     config.sessionReplay = true
@@ -380,7 +378,7 @@ enum PostHogSessionManagerTest {
             sut.close()
         }
 
-        #if os(iOS)
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
             @Test("$sdk_debug_session_start describes the rotated session on the event that rotates it")
             func debugSessionKeysDescribeRotatedSession() async throws {
                 let sut = getSut(flushAt: 2, sessionReplay: true)
@@ -443,7 +441,7 @@ enum PostHogSessionManagerTest {
             #expect(properties["$sdk_debug_replay_pending_trigger_conditions"] == nil)
         }
 
-        #if os(iOS)
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
             @Test("the optional replay debug bundle is attached at most once every 30 seconds; required keys stay on every event")
             func replayDebugBundleIsThrottled() async throws {
                 let sut = getSut(flushAt: 3, sessionReplay: true)

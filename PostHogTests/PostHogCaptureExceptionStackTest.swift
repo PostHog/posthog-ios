@@ -49,11 +49,6 @@ final class PostHogCaptureExceptionStackTest {
         return frames.reversed().map { $0["function"] as? String ?? "" }
     }
 
-    /// Swift symbols the SDK defines start with `$s7PostHog`; this test target's start with `$s12PostHogTests`.
-    private func isSDKSymbol(_ function: String) -> Bool {
-        function.hasPrefix("$s7PostHog")
-    }
-
     /// Whether a mangled symbol is the given call site: Swift mangles an identifier as its length followed
     /// by its name. The call-site names share no words with this type or module, which the mangler would
     /// otherwise abbreviate.
@@ -61,75 +56,110 @@ final class PostHogCaptureExceptionStackTest {
         function.contains("\(name.utf8.count)\(name)")
     }
 
-    @inline(never)
-    private func siteSwiftError(_ sut: PostHogSDK) {
+    private func neverRaised() -> NSException {
+        NSException(name: .genericException, reason: "never raised")
+    }
+
+    // MARK: - Swift call sites
+
+    @inline(never) private func siteSwiftError(_ sut: PostHogSDK) {
         sut.captureException(TestError())
     }
 
-    @inline(never)
-    private func siteSwiftErrorWithProps(_ sut: PostHogSDK) {
+    @inline(never) private func siteSwiftErrorWithProps(_ sut: PostHogSDK) {
         sut.captureException(TestError(), properties: ["key": "value"])
     }
 
-    @inline(never)
-    private func siteNeverRaised(_ sut: PostHogSDK) {
-        sut.captureException(NSException(name: .genericException, reason: "never raised"))
+    @inline(never) private func siteSwiftErrorWithOpts(_ sut: PostHogSDK) {
+        sut.captureException(TestError(), properties: ["key": "value"], options: ["process_person_profile": false])
     }
 
-    @inline(never)
-    private func siteNeverRaisedWithProps(_ sut: PostHogSDK) {
-        sut.captureException(NSException(name: .genericException, reason: "never raised"), properties: ["key": "value"])
+    @inline(never) private func siteNeverRaised(_ sut: PostHogSDK) {
+        sut.captureException(neverRaised())
     }
 
-    @inline(never)
-    private func siteObjCSelector(_ sut: PostHogSDK) {
-        _ = sut.perform(NSSelectorFromString("captureExceptionWithError:properties:"), with: TestError() as NSError, with: nil)
+    @inline(never) private func siteNeverRaisedWithProps(_ sut: PostHogSDK) {
+        sut.captureException(neverRaised(), properties: ["key": "value"])
     }
 
-    @Test("Swift Error: the top frame is the caller", arguments: ["siteSwiftError", "siteSwiftErrorWithProps"])
-    func swiftErrorTopFrameIsCaller(site: String) throws {
+    @inline(never) private func siteNeverRaisedWithOpts(_ sut: PostHogSDK) {
+        sut.captureException(neverRaised(), properties: ["key": "value"], options: ["process_person_profile": false])
+    }
+
+    // MARK: - Objective-C call sites
+
+    // Calling a selector's IMP is what objc_msgSend does for an Objective-C caller: it enters the SDK
+    // through the @objc thunk. `perform` can't pass three arguments or a nil dictionary to all of them.
+    private typealias ObjC1 = @convention(c) (AnyObject, Selector, AnyObject) -> Void
+    private typealias ObjC2 = @convention(c) (AnyObject, Selector, AnyObject, AnyObject?) -> Void
+    private typealias ObjC3 = @convention(c) (AnyObject, Selector, AnyObject, AnyObject?, AnyObject?) -> Void
+
+    private func imp<T>(_ sut: PostHogSDK, _ selector: String, as _: T.Type) -> (Selector, T) {
+        let sel = NSSelectorFromString(selector)
+        return (sel, unsafeBitCast(sut.method(for: sel), to: T.self))
+    }
+
+    @inline(never) private func siteObjCError(_ sut: PostHogSDK) {
+        let (sel, call) = imp(sut, "captureExceptionWithError:", as: ObjC1.self)
+        call(sut, sel, TestError() as NSError)
+    }
+
+    @inline(never) private func siteObjCErrorWithProps(_ sut: PostHogSDK) {
+        let (sel, call) = imp(sut, "captureExceptionWithError:properties:", as: ObjC2.self)
+        call(sut, sel, TestError() as NSError, ["key": "value"] as NSDictionary)
+    }
+
+    @inline(never) private func siteObjCErrorWithOpts(_ sut: PostHogSDK) {
+        let (sel, call) = imp(sut, "captureExceptionWithError:properties:options:", as: ObjC3.self)
+        call(sut, sel, TestError() as NSError, nil, ["process_person_profile": false] as NSDictionary)
+    }
+
+    @inline(never) private func siteObjCNeverRaised(_ sut: PostHogSDK) {
+        let (sel, call) = imp(sut, "captureExceptionWithNSException:", as: ObjC1.self)
+        call(sut, sel, neverRaised())
+    }
+
+    @inline(never) private func siteObjCNeverRaisedWithProps(_ sut: PostHogSDK) {
+        let (sel, call) = imp(sut, "captureExceptionWithNSException:properties:", as: ObjC2.self)
+        call(sut, sel, neverRaised(), ["key": "value"] as NSDictionary)
+    }
+
+    @inline(never) private func siteObjCNeverRaisedWithOpts(_ sut: PostHogSDK) {
+        let (sel, call) = imp(sut, "captureExceptionWithNSException:properties:options:", as: ObjC3.self)
+        call(sut, sel, neverRaised(), nil, ["process_person_profile": false] as NSDictionary)
+    }
+
+    private func callSite(_ name: String) -> (PostHogSDK) -> Void {
+        switch name {
+        case "siteSwiftError": return siteSwiftError
+        case "siteSwiftErrorWithProps": return siteSwiftErrorWithProps
+        case "siteSwiftErrorWithOpts": return siteSwiftErrorWithOpts
+        case "siteNeverRaised": return siteNeverRaised
+        case "siteNeverRaisedWithProps": return siteNeverRaisedWithProps
+        case "siteNeverRaisedWithOpts": return siteNeverRaisedWithOpts
+        case "siteObjCError": return siteObjCError
+        case "siteObjCErrorWithProps": return siteObjCErrorWithProps
+        case "siteObjCErrorWithOpts": return siteObjCErrorWithOpts
+        case "siteObjCNeverRaised": return siteObjCNeverRaised
+        case "siteObjCNeverRaisedWithProps": return siteObjCNeverRaisedWithProps
+        default: return siteObjCNeverRaisedWithOpts
+        }
+    }
+
+    @Test("the top frame is the caller", arguments: [
+        "siteSwiftError", "siteSwiftErrorWithProps", "siteSwiftErrorWithOpts",
+        "siteNeverRaised", "siteNeverRaisedWithProps", "siteNeverRaisedWithOpts",
+        "siteObjCError", "siteObjCErrorWithProps", "siteObjCErrorWithOpts",
+        "siteObjCNeverRaised", "siteObjCNeverRaisedWithProps", "siteObjCNeverRaisedWithOpts",
+    ])
+    func topFrameIsCaller(site: String) throws {
         let captured = Captured()
         let sut = getSut(captured)
         defer { sut.close() }
 
-        if site == "siteSwiftError" {
-            siteSwiftError(sut)
-        } else {
-            siteSwiftErrorWithProps(sut)
-        }
+        callSite(site)(sut)
 
         let top = try #require(try functions(captured).first)
         #expect(isCallSite(top, site), "top frame: \(top)")
-    }
-
-    @Test("unraised NSException: the top frame is the caller", arguments: ["siteNeverRaised", "siteNeverRaisedWithProps"])
-    func unraisedNSExceptionTopFrameIsCaller(site: String) throws {
-        let captured = Captured()
-        let sut = getSut(captured)
-        defer { sut.close() }
-
-        if site == "siteNeverRaised" {
-            siteNeverRaised(sut)
-        } else {
-            siteNeverRaisedWithProps(sut)
-        }
-
-        let top = try #require(try functions(captured).first)
-        #expect(isCallSite(top, site), "top frame: \(top)")
-    }
-
-    @Test("Objective-C dispatch: no SDK frame above the caller")
-    func objCDispatchHasNoSDKFrameAboveCaller() throws {
-        let captured = Captured()
-        let sut = getSut(captured)
-        defer { sut.close() }
-
-        siteObjCSelector(sut)
-
-        // The call goes through the SDK's @objc thunk; a libobjc frame may sit above the caller too.
-        let all = try functions(captured)
-        let callerIndex = try #require(all.firstIndex { isCallSite($0, "siteObjCSelector") }, "frames: \(all)")
-        let aboveCaller = all[..<callerIndex]
-        #expect(!aboveCaller.contains(where: isSDKSymbol), "frames above the caller: \(Array(aboveCaller))")
     }
 }

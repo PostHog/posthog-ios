@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import Testing
@@ -33,6 +33,14 @@
             }
         }
 
+        /// The `href` of each meta event, in the order they were sent.
+        var metaHrefs: [String?] {
+            lock.withLock {
+                values.filter { $0["type"] as? Int == 4 }
+                    .map { ($0["data"] as? [String: Any])?["href"] as? String }
+            }
+        }
+
         /// The first uploaded screenshot, decoded.
         func firstScreenshotImage() throws -> CGImage {
             let screenshot = try #require(screenshots.first)
@@ -49,7 +57,6 @@
     ) throws -> (PostHogSDK, PostHogReplayIntegration, ReplaySnapshots) {
         let config = PostHogConfig(projectToken: UUID().uuidString)
         config.sessionReplay = true
-        config.sessionReplayConfig.screenshotMode = true
         config.sessionReplayConfig.captureNetworkTelemetry = false
         configure(config.sessionReplayConfig)
         config.disableReachabilityForTesting = true
@@ -70,6 +77,14 @@
         let integration = try #require(sut.getReplayIntegration())
         #expect(sut.isSessionReplayActive())
         return (sut, integration, snapshots)
+    }
+
+    /// Waits for a capture to give the render slot back, then for the snapshot it queued.
+    @MainActor
+    func waitForCaptureToFinish(_ integration: PostHogReplayIntegration) async {
+        await waitUntil(timeout: 5) { !integration.isScreenshotRenderInFlightForTesting }
+        #expect(!integration.isScreenshotRenderInFlightForTesting)
+        await drainReplayQueue()
     }
 
     /// Waits for work already queued on the replay queue, such as snapshot serialization.

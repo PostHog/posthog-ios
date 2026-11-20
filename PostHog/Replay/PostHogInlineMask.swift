@@ -304,7 +304,11 @@
                 extentStatsForTesting = .init()
                 guard isEnabledForTesting else { return regions }
             #endif
-            guard !regions.isEmpty else { return regions }
+            guard !regions.isEmpty else {
+                // No text pending either, so the window closes as it would after a fully drawn capture.
+                presentedCapturesLeft = 0
+                return regions
+            }
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             defer { CATransaction.commit() }

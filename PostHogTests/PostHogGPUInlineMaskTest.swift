@@ -1017,6 +1017,8 @@
             let fixture = try await makeFixture()
             defer { fixture.close() }
             let mask = fixture.mask
+            // A slow runner could spend the production budget before the third label.
+            mask.presentedTextBudget = .infinity
             _ = try await showScreen(fixture)
             PostHogInlineMask.textColorForTesting = .blue
             defer { PostHogInlineMask.textColorForTesting = nil }
@@ -1037,6 +1039,27 @@
             mask.waitForTextDrawsForTesting()
             #expect(mask.textBarsForTesting == bars + 1)
             #expect(mask.textDrawsOnMainForTesting == onMain + 3)
+        }
+
+        @Test("A new screen with nothing to mask closes the window, so text that appears on it later is drawn off main")
+        func emptyPresentedScreenClosesWindow() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mask = fixture.mask
+            _ = try await showScreen(fixture)
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            let empty = UIViewController()
+            empty.view.frame = fixture.window.bounds
+            fixture.window.rootViewController = empty
+            try expectFullyMasked(await capture(fixture))
+            let bars = mask.textBarsForTesting, onMain = mask.textDrawsOnMainForTesting
+
+            empty.view.addSubview(secretLabel(CGRect(x: 10, y: 60, width: 180, height: 40), text: "Loaded later"))
+            try expectFullyMasked(await capture(fixture))
+            mask.waitForTextDrawsForTesting()
+            #expect(mask.textBarsForTesting == bars + 1)
+            #expect(mask.textDrawsOnMainForTesting == onMain)
         }
 
         @Test("New text on an unchanged screen, as scrolling brings in, keeps its bars and is drawn off main")

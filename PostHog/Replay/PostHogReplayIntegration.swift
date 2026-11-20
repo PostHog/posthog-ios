@@ -709,7 +709,11 @@
             // capture necessary touch information on the main thread before performing any asynchronous operations
             // - this ensures that UITouch associated objects like UIView, UIWindow, or [UIGestureRecognizer] are still valid.
             // - these objects may be released or erased by the system if accessed asynchronously, resulting in invalid/zeroed-out touch coordinates
-            let touchInfo = touches.compactMap { recordableTouch($0, in: window) }
+            // A layered frame is drawn in its base window's space, so its touches are too.
+            let space = Self.captureLayers(for: window, config: postHog.config.sessionReplayConfig).first ?? window
+            let touchInfo = touches.compactMap { recordableTouch($0, in: window) }.map {
+                (phase: $0.phase, location: window.convert($0.location, to: space))
+            }
 
             PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
                 // always make sure we have a fresh session id as early as possible

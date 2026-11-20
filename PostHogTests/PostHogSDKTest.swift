@@ -853,6 +853,35 @@ final class PostHogSDKTests {
         sut.close()
     }
 
+    @Test("logs leave a flag with an empty variant out of the active flag keys")
+    func emptyVariantIsNotActiveOnLogs() {
+        server.flagsResponseHandler = { _ in
+            HTTPStubsResponse(
+                jsonObject: ["flags": ["empty-variant": ["key": "empty-variant", "enabled": true, "variant": ""]]],
+                statusCode: 200,
+                headers: nil
+            )
+        }
+        let sut = getSut()
+        let group = DispatchGroup()
+        group.enter()
+        sut.reloadFeatureFlags { _ in group.leave() }
+        group.wait()
+
+        let keys = LockedBox<[String]?>(nil)
+        sut.config.logs.setBeforeSend { record in
+            keys.value = record.featureFlagKeys
+            return nil
+        }
+        sut.captureLog("sample")
+
+        #expect(sut.isFeatureEnabled("empty-variant") == false)
+        #expect(keys.value == [])
+
+        sut.reset()
+        sut.close()
+    }
+
     @Test("captured events leave a flag with an empty variant out of $active_feature_flags")
     func emptyVariantIsNotActiveOnEvents() throws {
         server.flagsResponseHandler = { _ in

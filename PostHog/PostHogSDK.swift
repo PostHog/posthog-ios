@@ -1893,10 +1893,8 @@ let maxRetryDelay = 30.0
         let screenName = lastScreenName
         let appState: PostHogLogRecord.AppState = sessionManager.isAppInBackgroundSnapshot ? .background : .foreground
         let featureFlagKeys: [String] = (remoteConfig?.getFeatureFlags() as? [String: Any])?.compactMap { key, value in
-            // Bool flags are active iff true; multivariant (non-bool) values
-            // are always active.
-            if let boolValue = value as? Bool { return boolValue ? key : nil }
-            return key
+            // Same rule as `$active_feature_flags`: a `false` flag or an empty variant is inactive.
+            (value as? Bool ?? true) && (value as? String) != "" ? key : nil
         }.sorted() ?? []
 
         let nanos = nanosNow()

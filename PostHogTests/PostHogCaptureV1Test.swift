@@ -622,6 +622,18 @@ final class PostHogCaptureV1OptionsTest {
         #expect(old.properties["$cookieless_mode"] as? Bool == true)
     }
 
+    @Test("a $set queued on the AI lane doesn't suppress the same analytics person update")
+    func aiLaneSetDoesNotSuppressAnalyticsSet() throws {
+        let sut = makeSDK(personProfiles: .always, flushAt: 100)
+        defer { sut.close() }
+
+        try #require(sut.captureAi("$set", userProperties: ["plan": "pro"]) != nil)
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "pro"])
+
+        let folder = try #require(sut.storage?.url(forKey: .queue))
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).count == 1)
+    }
+
     private func makeSDK(
         personProfiles: PostHogPersonProfiles = .identifiedOnly,
         flushAt: Int = 1,
@@ -1103,6 +1115,34 @@ final class PostHogCaptureV1QueueTest {
             let createdAt = try requests.map { try #require(server.parseRequest($0))["created_at"] as? String }
             #expect(createdAt[1] == createdAt[0])
         }
+    }
+
+    @Test("keeps only the first of two queued events with the same uuid when capture retries it")
+    func retriesOnlyFirstDuplicateUuid() async throws {
+        let config = PostHogConfig(projectToken: "phc_duplicates_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.flushAt = 100
+        let storage = PostHogStorage(config)
+        let queue = PostHogQueue(config, storage, .batch(api: PostHogApi(config)), nil)
+        server.batchProjectToken = config.projectToken
+        defer {
+            queue.stop()
+            queue.clear()
+            deleteSafely(storage.appFolderUrl)
+        }
+
+        let id = UUID()
+        server.captureV1ResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: ["results": [
+                id.postHogUuidString: ["result": "retry", "duplicates_dropped": 1],
+            ]], statusCode: 200, headers: nil)
+        }
+        for name in ["first", "second"] {
+            queue.add(PostHogEvent(event: name, distinctId: "user", uuid: id))
+        }
+        queue.flush()
+        await waitUntil { queue.currentRetryCountForTesting == 1 && !queue.isFlushingForTesting }
+
+        #expect(queue.fileQueue.peek(2).compactMap { PostHogEvent.fromJSON($0)?.event } == ["first"])
     }
 
     @Test("starts a new request with the whole queue when a record to retry was evicted")

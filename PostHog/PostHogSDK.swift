@@ -601,6 +601,12 @@ let maxRetryDelay = 30.0
         return config.detectAppLanguage ? PostHogContext.detectedAppLanguage : nil
     }
 
+    /// Whether a flag value counts as active, for `$active_feature_flags` and a log's flag keys:
+    /// a `false` flag or an empty variant is inactive.
+    private static func isActiveFlagValue(_ value: Any) -> Bool {
+        (value as? Bool ?? true) && (value as? String) != ""
+    }
+
     private func dynamicContext() -> [String: Any] {
         var properties: [String: Any] = [:]
 
@@ -612,10 +618,7 @@ let maxRetryDelay = 30.0
         for (key, value) in flags {
             properties["$feature/\(key)"] = value
 
-            // an empty variant reads as disabled
-            let active = (value as? Bool ?? true) && (value as? String) != ""
-
-            if active {
+            if Self.isActiveFlagValue(value) {
                 keys.append(key)
             }
         }
@@ -1153,7 +1156,7 @@ let maxRetryDelay = 30.0
     /// Sets the `$app_language` property: the language your app displays, sent with every event.
     ///
     /// Call it at startup and whenever the language changes, because the value is kept in memory only.
-    /// It overrides the language the SDK detects, and survives `reset()`.
+    /// It overrides the language the SDK detects, and survives `reset()` but not `close()`.
     ///
     /// By default the SDK sends the localization your app bundle resolved, from
     /// `Bundle.main.preferredLocalizations`. Use this if you translate your app some other way, such as
@@ -1893,10 +1896,7 @@ let maxRetryDelay = 30.0
         let screenName = lastScreenName
         let appState: PostHogLogRecord.AppState = sessionManager.isAppInBackgroundSnapshot ? .background : .foreground
         let featureFlagKeys: [String] = (remoteConfig?.getFeatureFlags() as? [String: Any])?.compactMap { key, value in
-            // Bool flags are active iff true; multivariant (non-bool) values
-            // are always active.
-            if let boolValue = value as? Bool { return boolValue ? key : nil }
-            return key
+            Self.isActiveFlagValue(value) ? key : nil
         }.sorted() ?? []
 
         let nanos = nanosNow()
@@ -2157,7 +2157,7 @@ let maxRetryDelay = 30.0
             onEventCaptured.invoke(posthogEvent)
             return queues.replay == nil ? nil : posthogEvent
         }
-        let stored = queueEvent(posthogEvent, queue: queue, deduplicatePersonProperties: deduplicatePersonProperties)
+        let stored = queueEvent(posthogEvent, queue: queue, aiLane: aiLane, deduplicatePersonProperties: deduplicatePersonProperties)
         return stored ? posthogEvent : nil
     }
 
@@ -2768,7 +2768,12 @@ let maxRetryDelay = 30.0
 
     /// Returns whether the event was stored in `queue`.
     @discardableResult
-    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>, deduplicatePersonProperties: Bool = false) -> Bool {
+    private func queueEvent(
+        _ event: PostHogEvent,
+        queue: PostHogQueue<PostHogEvent>,
+        aiLane: Bool = false,
+        deduplicatePersonProperties: Bool = false
+    ) -> Bool {
         // PostHog drops an event with an empty name. Checked here so every path is covered after
         // beforeSend, which can rename the event.
         if event.event.isEmpty {
@@ -2783,7 +2788,8 @@ let maxRetryDelay = 30.0
         // is dropped), and that empty `$set` is still queued, so it needs a marker too.
         // An update that may be personless never matches a hash, and clears the stored one: PostHog
         // might still apply it, so a later update back to the previous properties must be sent.
-        if event.event == PostHogKnownUnsafeEditableEvent.set.rawValue || event.event == PostHogKnownUnsafeEditableEvent.identify.rawValue,
+        // Only the analytics lane uses the hash: capture drops a person update sent on the AI lane.
+        if !aiLane, event.event == PostHogKnownUnsafeEditableEvent.set.rawValue || event.event == PostHogKnownUnsafeEditableEvent.identify.rawValue,
            userProperties != nil || userPropertiesSetOnce != nil,
            let storageManager = config.storageManager
         {
@@ -3835,6 +3841,7 @@ let maxRetryDelay = 30.0
         // Outside setupLock to avoid lock-ordering coupling between
         // setupLock and lastScreenLock.
         lastScreenLock.withLock { _lastScreenName = nil }
+        appLanguageLock.withLock { appLanguageOverride = nil }
     }
 
     #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)

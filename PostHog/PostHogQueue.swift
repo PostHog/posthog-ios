@@ -579,8 +579,12 @@ class PostHogQueue<Record> {
             }
         }, completeKeeping: { [weak self] keepRecordIds in
             guard let self else { return }
+            // Keep only the first entry per kept id: later entries with that uuid were
+            // reported as duplicates (`duplicates_dropped`), which are terminal.
+            var keptRecordIds = Set<String>()
             let delivered = selectedIds.filter { id in
-                recordIds[id].map { !keepRecordIds.contains($0) } ?? true
+                guard let recordId = recordIds[id], keepRecordIds.contains(recordId) else { return true }
+                return !keptRecordIds.insert(recordId).inserted
             }
             if !delivered.isEmpty {
                 self.fileQueue.remove(ids: delivered)

@@ -654,6 +654,9 @@
 
         // MARK: - Text
 
+        /// Rows for text that can't be read: its colour is unknown, and grey reads on light, dark and coloured backgrounds.
+        fileprivate static let rowColor = UIColor.systemGray
+
         /// The colour masked text is drawn in.
         fileprivate static func starColor(_ color: UIColor) -> UIColor {
             #if TESTING
@@ -764,8 +767,8 @@
         }
 
         init(rowsWith traits: UITraitCollection) {
-            self.init(lineHeight: UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits).lineHeight, singleLine: false, color: nil,
-                      traits: traits)
+            self.init(lineHeight: UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits).lineHeight, singleLine: false,
+                      color: PostHogInlineMask.rowColor, traits: traits)
         }
 
         private init(lineHeight: CGFloat, singleLine: Bool, color: UIColor?, traits: UITraitCollection) {
@@ -939,7 +942,7 @@
             text = nil
             let body = UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits)
             let font = size.height < body.lineHeight ? body.withSize(max(1, body.pointSize * size.height / body.lineHeight)) : body
-            layout = .rows(font: font, color: PostHogInlineMask.starColor(.label).resolvedColor(with: traits))
+            layout = .rows(font: font, color: PostHogInlineMask.starColor(PostHogInlineMask.rowColor).resolvedColor(with: traits))
             self.size = size
         }
 

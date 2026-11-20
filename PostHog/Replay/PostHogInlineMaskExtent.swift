@@ -167,9 +167,17 @@
         /// Rounding slack for extent containment, so edge-aligned copies count as inside.
         fileprivate static let extentTolerance: CGFloat = 0.5
 
-        /// Whether the copy draws content of its own: contents, a shape or text.
+        /// Whether `frame` reaches past all of `rect`, as an enclosing view's background does: its colour already shows
+        /// around the extent. A frame on the extent's own may be the masked view's, whose colour can be the data.
+        static func encloses(_ frame: CGRect, _ rect: CGRect) -> Bool {
+            let inside = rect.insetBy(dx: -extentTolerance, dy: -extentTolerance)
+            return frame.insetBy(dx: -extentTolerance, dy: -extentTolerance).contains(rect) && !inside.contains(frame)
+        }
+
+        /// Whether the copy draws content of its own: contents, a shape, text or a pattern background.
         static func drawsContent(_ copy: CALayer) -> Bool {
             copy.contents != nil || (copy as? CAShapeLayer)?.path != nil || (copy as? CATextLayer)?.string != nil
+                || copy.backgroundColor?.pattern != nil
         }
 
         /// Whether the copy shows colour of its own without content: a background, border, gradient or shadow.
@@ -385,14 +393,14 @@
             return false
         }
 
-        /// nil when the copy shows nothing of its own under `rect` (only its shadow reached it). Copies already masked
-        /// keep their redaction and only lose their colour.
+        /// nil when the copy shows nothing of its own under `rect` (only its shadow reached it), or only the colour of
+        /// an enclosing background. Copies already masked keep their redaction and only lose their colour.
         private func extentTreatment(of entry: PostHogInlineMask.ExtentEntry, under rect: CGRect,
                                      source: CALayer?) -> PostHogInlineMask.ExtentTreatment?
         {
             guard entry.frame.intersects(rect) else { return nil }
             let copy = entry.copy
-            let drawsColor = PostHogInlineMask.drawsColor(copy)
+            let drawsColor = PostHogInlineMask.drawsColor(copy) && !PostHogInlineMask.encloses(entry.frame, rect)
             if visited.contains(ObjectIdentifier(copy)) {
                 return drawsColor ? .color(strippingFirst: false) : nil
             }

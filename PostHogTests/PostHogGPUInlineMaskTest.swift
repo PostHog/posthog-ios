@@ -507,8 +507,8 @@
             #expect(result.rectRegions.isEmpty)
             let pixels = try Pixels(result.image)
             #expect(pixels.count(in: visible.frame, where: Self.isMagenta) > 50)
-            // The window's white background under the extent.
-            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 100 * 60)
+            // The window's white background encloses the extent, so it's kept.
+            #expect(pixels.count(in: reporter.frame) { $0.red > 230 && $0.green > 230 && $0.blue > 230 } == 100 * 60)
         }
 
         @Test("A shape drawn past its zero-size bounds under a postHogMask extent is masked, with no rect for the reporter")
@@ -583,7 +583,8 @@
             #expect(result.rectRegions.isEmpty)
             let pixels = try Pixels(result.image)
             #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
-            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 80 * 100)
+            // Half-transparent black over the window's white, which encloses the extent and is kept: one even grey.
+            #expect(pixels.count(in: reporter.frame) { abs(Int($0.red) - 128) < 12 && $0.red == $0.green && $0.green == $0.blue } == 80 * 100)
         }
 
         @Test("A shadow cast into a postHogMask extent from outside it doesn't survive, whether its own content or a sublayer's casts it",

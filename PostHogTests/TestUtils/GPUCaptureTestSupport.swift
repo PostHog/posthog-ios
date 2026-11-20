@@ -67,25 +67,27 @@
 
         /// Masked text draws as `*` in `color` (nil for the text's own), and the first frame (bars) must leak nothing either,
         /// unless `checkingFirstFrame` is off.
-        func captureStars(_ fixture: GPUCaptureFixture, color: UIColor? = .blue,
-                          checkingFirstFrame: Bool = true) async throws -> PostHogReplayIntegration.MaskCaptureForTesting
+        func captureStars(_ fixture: GPUCaptureFixture, color: UIColor? = .blue, checkingFirstFrame: Bool = true,
+                          keeping noCapture: [UIView] = []) async throws -> PostHogReplayIntegration.MaskCaptureForTesting
         {
             PostHogInlineMask.textColorForTesting = color
             defer { PostHogInlineMask.textColorForTesting = nil }
             let first = try await capture(fixture)
-            if checkingFirstFrame { try expectFullyMasked(first) }
+            if checkingFirstFrame { try expectFullyMasked(first, keeping: noCapture) }
             fixture.mask.waitForTextDrawsForTesting()
             return try await capture(fixture)
         }
 
-        /// No magenta left and no region left to the rect pass: inline masking alone covered everything.
+        /// No magenta left and no region left to the rect pass but those of `noCapture`, views that are `ph-no-capture` or
+        /// under one: inline masking covered everything else.
         @discardableResult
-        func expectFullyMasked(_ result: PostHogReplayIntegration.MaskCaptureForTesting,
+        func expectFullyMasked(_ result: PostHogReplayIntegration.MaskCaptureForTesting, keeping noCapture: [UIView] = [],
                                sourceLocation: SourceLocation = #_sourceLocation) throws -> Pixels
         {
             let pixels = try Pixels(result.image)
             #expect(pixels.count(where: Self.isMagenta) == 0, "source pixels left", sourceLocation: sourceLocation)
-            #expect(result.rectRegions.isEmpty, "regions left to the rect pass", sourceLocation: sourceLocation)
+            let kept = noCapture.map { $0.toPresentationRect($0.window, outsets: $0.drawnOutsets) }
+            #expect(result.rectRegions == kept, "regions left to the rect pass", sourceLocation: sourceLocation)
             return pixels
         }
 

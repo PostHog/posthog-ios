@@ -288,11 +288,21 @@
         /// controller); a different one than the last capture's opens the `presentedTextBudget` window. The first one
         /// seen doesn't. Held weakly, so a new screen at a freed one's address still counts as new.
         func noteScreen(_ screen: AnyObject) {
-            if hasScreen, screen !== lastScreen {
+            if hasScreen, screen !== lastScreen, !Self.isContainment(screen, lastScreen) {
                 presentedCapturesLeft = Self.presentedTextCaptures
             }
             hasScreen = true
             lastScreen = screen
+        }
+
+        /// A container and one of its children name the same screen: the topmost view controller moves between them as
+        /// scrolling changes which children are visible. A presented, pushed or selected one is never the other's parent.
+        private static func isContainment(_ screen: AnyObject, _ other: AnyObject?) -> Bool {
+            guard let screen = screen as? UIViewController, let other = other as? UIViewController else { return false }
+            func isAncestor(_ ancestor: UIViewController, of child: UIViewController) -> Bool {
+                sequence(first: child, next: \.parent).contains { $0 === ancestor }
+            }
+            return isAncestor(screen, of: other) || isAncestor(other, of: screen)
         }
 
         /// Redacts the regions' copies it can and returns the regions left for the rect pass, in order.

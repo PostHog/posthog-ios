@@ -1062,6 +1062,40 @@
             #expect(mask.textDrawsOnMainForTesting == onMain)
         }
 
+        @Test("Scrolling a container between one and two visible children isn't a new screen, so its text is drawn off main")
+        func containerScrollIsNotANewScreen() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mask = fixture.mask
+            let container = UIViewController()
+            container.view.frame = fixture.window.bounds
+            let scroll = UIScrollView(frame: container.view.bounds)
+            scroll.contentSize = CGSize(width: 200, height: 600)
+            container.view.addSubview(scroll)
+            let pages = (0 ..< 2).map { index in
+                let page = UIViewController()
+                container.addChild(page)
+                page.view.frame = CGRect(x: 0, y: CGFloat(index) * 300, width: 200, height: 300)
+                page.view.addSubview(secretLabel(CGRect(x: 10, y: 10, width: 180, height: 30), text: "Page \(index)"))
+                scroll.addSubview(page.view)
+                page.didMove(toParent: container)
+                return page
+            }
+            fixture.window.rootViewController = container
+            try await expectFullyMasked(captureStars(fixture))
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            let bars = mask.textBarsForTesting, onMain = mask.textDrawsOnMainForTesting
+
+            // Both pages visible: the topmost view controller moves from the first page to the container.
+            scroll.contentOffset = CGPoint(x: 0, y: 150)
+            pages[0].view.addSubview(secretLabel(CGRect(x: 10, y: 200, width: 180, height: 30), text: "Scrolled in"))
+            try expectFullyMasked(await capture(fixture))
+            mask.waitForTextDrawsForTesting()
+            #expect(mask.textBarsForTesting == bars + 1)
+            #expect(mask.textDrawsOnMainForTesting == onMain)
+        }
+
         @Test("New text on an unchanged screen, as scrolling brings in, keeps its bars and is drawn off main")
         func unchangedScreenTextIsDrawnOffMain() async throws {
             let fixture = try await makeFixture()

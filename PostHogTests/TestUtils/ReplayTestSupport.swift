@@ -33,6 +33,14 @@
             }
         }
 
+        /// The `href` of each meta event, in the order they were sent.
+        var metaHrefs: [String?] {
+            lock.withLock {
+                values.filter { $0["type"] as? Int == 4 }
+                    .map { ($0["data"] as? [String: Any])?["href"] as? String }
+            }
+        }
+
         /// The first uploaded screenshot, decoded.
         func firstScreenshotImage() throws -> CGImage {
             let screenshot = try #require(screenshots.first)

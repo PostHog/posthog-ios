@@ -560,4 +560,32 @@
             #expect(lock.withLock { snapshots } == 3)
         }
     }
+    @Suite("Replay meta screen name", .serialized)
+    @MainActor
+    struct PostHogReplayMetaScreenNameTests {
+        @Test("a new screen name re-sends the meta event even when the window size is unchanged")
+        func screenNameChangeResendsMeta() async throws {
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut()
+            defer { sut.close() }
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+
+            for (screenName, image) in [("Home", "a"), ("Checkout", "b"), ("Checkout", "c")] {
+                let wireframe = RRWireframe()
+                wireframe.type = "screenshot"
+                wireframe.base64 = image
+                integration.captureSnapshot(
+                    wireframe,
+                    window: window,
+                    windowSize: window.bounds.size,
+                    screenName: screenName,
+                    postHog: sut,
+                    timestampDate: Date()
+                )
+                await drainReplayQueue()
+            }
+
+            #expect(snapshots.screenshots.count == 3)
+            #expect(snapshots.metaHrefs == ["Home", "Checkout"])
+        }
+    }
 #endif

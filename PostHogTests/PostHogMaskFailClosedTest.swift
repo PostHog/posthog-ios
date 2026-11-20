@@ -174,7 +174,7 @@
                     wireframe,
                     window: window,
                     windowSize: window.bounds.size,
-                    screenName: "Screen \(index)",
+                    screenName: "Screen",
                     postHog: sdk,
                     timestampDate: Date(),
                     episodeFirstFrame: episodeFirstFrames.contains(index)

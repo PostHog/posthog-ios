@@ -5,10 +5,9 @@
 //  Created by Ioannis Josephides on 13/03/2025.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     import SwiftUI
 
-    @available(iOS 15.0, *)
     struct QuestionHeader: View {
         @Environment(\.surveyAppearance) private var appearance
 
@@ -38,7 +37,6 @@
         }
     }
 
-    @available(iOS 15.0, *)
     #Preview {
         QuestionHeader(
             question: "What can we do to improve our product?",

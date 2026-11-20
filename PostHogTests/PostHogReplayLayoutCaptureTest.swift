@@ -67,8 +67,11 @@
             }
         }
 
-        @Test("Default config captures UIKit and SwiftUI screens as screenshots", arguments: Root.allCases)
-        func defaultConfigCapturesScreenshots(_ root: Root) async throws {
+        @Test(
+            "Default config captures UIKit and SwiftUI screens as screenshots",
+            arguments: Root.allCases, [false, true]
+        )
+        func defaultConfigCapturesScreenshots(_ root: Root, bridge: Bool) async throws {
             let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
             let window = UIWindow(windowScene: scene)
             window.frame = scene.coordinateSpace.bounds
@@ -100,6 +103,11 @@
             let sut = PostHogSDK.with(config)
             defer { sut.close() }
             #expect(sut.isSessionReplayActive())
+            // The native-screen bridge (Flutter) emits its own meta for an episode's first frame.
+            if bridge {
+                let integration = try #require(sut.getReplayIntegration())
+                #expect(integration.captureBridgeSnapshot(episodeFirstFrame: true, window: window))
+            }
 
             // Each frame is encoded on the serial replay queue, which is slow on the simulator.
             // Nudge sparingly so frames don't pile up, then let the queue drain before closing.
@@ -113,8 +121,11 @@
             let wireframe = try #require(snapshots.wireframes.first, "No snapshot was captured")
             #expect(wireframe["type"] as? String == "screenshot")
             #expect(!(wireframe["base64"] as? String ?? "").isEmpty)
-            let meta = try #require(snapshots.metas.first)
-            #expect(meta["href"] as? String == root.expectedHref)
+            let metas = snapshots.metas
+            try #require(!metas.isEmpty)
+            for meta in metas {
+                #expect(meta["href"] as? String == root.expectedHref)
+            }
         }
     }
 #endif

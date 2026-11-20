@@ -1511,9 +1511,11 @@
             // Name the visible covering screen, not the window's root:
             // bridged frames show the presented native screen, and the replay
             // meta should say so. ph_topViewController also descends nav/tab
-            // containers to their visible child.
+            // containers to their visible child. Type names only, as in snapshot():
+            // a controller's title is display text and isn't masked.
             let screenName = UIViewController.ph_topViewController(base: window.rootViewController)
-                .flatMap(UIViewController.getViewControllerName)
+                .flatMap(UIViewController.getViewControllerTypeName)
+                .flatMap { PostHogScreenNameSanitizer.sanitize(rawScreenName: $0) }
             return performScreenshotCapture(
                 window: window,
                 screenName: screenName,

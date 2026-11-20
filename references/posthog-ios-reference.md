@@ -23,6 +23,9 @@ tableOfContents:
   - value: "Alias"
     url: alias
     depth: 0
+  - value: "Capture AI"
+    url: capture-ai
+    depth: 0
   - value: "Capture exception"
     url: capture-exception
     depth: 0
@@ -43,9 +46,6 @@ tableOfContents:
     depth: 0
   - value: "Get feature flag"
     url: get-feature-flag
-    depth: 0
-  - value: "Get feature flag payload"
-    url: get-feature-flag-payload
     depth: 0
   - value: "Get feature flag result"
     url: get-feature-flag-result
@@ -141,11 +141,7 @@ After `setup`, PostHog captures app lifecycle events, such as `Application Opene
 
 ### Install
 
-Add the package with Swift Package Manager, `https://github.com/PostHog/posthog-ios.git`, or with CocoaPods:
-
-```ruby
-pod "PostHog"
-```
+Add the package with Swift Package Manager, `https://github.com/PostHog/posthog-ios.git`. 4.x.x isn't published to CocoaPods.
 
 ### Initialize
 
@@ -177,6 +173,14 @@ Events are sent in batches. Call `flush()` to send queued events now, or `close(
 ```swift
 PostHogSDK.shared.close()
 ```
+
+### Custom keyboard extensions
+
+A custom keyboard can only send events when it has [Open Access](https://developer.apple.com/documentation/uikit/configuring-open-access-for-a-custom-keyboard). Network requests and writes to the shared App Group container both need it. Users grant it in **Settings > General > Keyboard > Keyboards > [Your Keyboard] > Allow Full Access**.
+
+### IDFA
+
+The SDK doesn't collect the IDFA. It has had no references to Apple's AdSupport framework since 1.2.0, so it doesn't trip App Store static analysis.
 
 ## Setup
 
@@ -237,29 +241,30 @@ Captures a custom event for an explicit distinct ID.
 #### Parameters
 
 - `event`: Event name to capture.
-- `distinctId`: Optional distinct ID override. Defaults to the current SDK distinct ID.
+- `distinctId`: Optional distinct ID override. Defaults to the current SDK distinct ID when nil, empty or whitespace-only.
 - `properties`: Event properties attached only to this event.
 - `userProperties`: Person properties to set. Existing values are overwritten.
 - `userPropertiesSetOnce`: Person properties to set only if they do not already exist.
 - `groups`: Group type/key pairs to attach to this event.
 
-### `PostHogSDK.capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:)`
+### `PostHogSDK.capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`
 
 ```swift
-@objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:) func capture(_ event: String, distinctId: String? = nil, properties: [String : Any]? = nil, userProperties: [String : Any]? = nil, userPropertiesSetOnce: [String : Any]? = nil, groups: [String : String]? = nil, timestamp: Date? = nil)
+@objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:) func capture(_ event: String, distinctId: String? = nil, properties: [String : Any]? = nil, userProperties: [String : Any]? = nil, userPropertiesSetOnce: [String : Any]? = nil, groups: [String : String]? = nil, timestamp: Date? = nil, options: [String : Any]? = nil)
 ```
 
-Captures a custom event for an explicit distinct ID and timestamp.
+Captures a custom event for an explicit distinct ID, timestamp and options.
 
 #### Parameters
 
 - `event`: Event name to capture.
-- `distinctId`: Optional distinct ID override. Defaults to the current SDK distinct ID.
+- `distinctId`: Optional distinct ID override. Defaults to the current SDK distinct ID when nil, empty or whitespace-only.
 - `properties`: Event properties attached only to this event.
 - `userProperties`: Person properties to set. Existing values are overwritten.
 - `userPropertiesSetOnce`: Person properties to set only if they do not already exist.
 - `groups`: Group type/key pairs to attach to this event.
 - `timestamp`: Optional event timestamp. Defaults to the current time. The absolute instant is serialized in UTC, regardless of the calendar or time zone used to create it.
+- `options`: Optional settings that tell PostHog how to process this event, sent apart from its properties. Known keys: - `process_person_profile` (`Bool`): whether the event creates or updates a person profile. Defaults to whether the SDK currently processes person profiles for this user (see `personProfiles`). - `cookieless_mode` (`Bool`): process the event in cookieless mode. - `disable_skew_correction` (`Bool`): keep `timestamp` as sent, without correcting for device clock skew. - `product_tour_id` (`String`): the product tour the event belongs to. These replace the `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` properties. Those properties still work: they are removed from the event’s properties and used as the option, unless you set that option here. A `$process_person_profile` property you pass or register overrides the SDK’s default, except that a registered one doesn’t apply to identity events (see `register(_:)`). Other keys are sent unchanged and ignored by PostHog. PostHog drops an event whose option value it can’t read. `beforeSend` can change them through `PostHogEvent.options`.
 
 ### `PostHogSDK.capture(_:properties:)`
 
@@ -350,10 +355,10 @@ Identifies the current user and sets person properties.
 - `distinctId`: Stable user identifier from your application.
 - `userProperties`: Properties to set on the person profile. Existing values are overwritten.
 
-### `PostHogSDK.identify(_:userProperties:userPropertiesSetOnce:)`
+### `PostHogSDK.identify(_:userProperties:userPropertiesSetOnce:options:)`
 
 ```swift
-@objc(identifyWithDistinctId:userProperties:userPropertiesSetOnce:) func identify(_ distinctId: String, userProperties: [String : Any]? = nil, userPropertiesSetOnce: [String : Any]? = nil)
+@objc(identifyWithDistinctId:userProperties:userPropertiesSetOnce:options:) func identify(_ distinctId: String, userProperties: [String : Any]? = nil, userPropertiesSetOnce: [String : Any]? = nil, options: [String : Any]? = nil)
 ```
 
 Identifies the current user and sets person properties.
@@ -363,6 +368,7 @@ Identifies the current user and sets person properties.
 - `distinctId`: Stable user identifier from your application.
 - `userProperties`: Properties to set on the person profile. Existing values are overwritten.
 - `userPropertiesSetOnce`: Properties to set only if they do not already exist.
+- `options`: Optional settings that tell PostHog how to process the `$identify` or `$set` event it sends, sent apart from its properties. Known keys are `process_person_profile` (`Bool`), `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id` (`String`), as described on `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`. An option wins over its legacy `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through `PostHogEvent.options`.
 
 ## Logs
 
@@ -467,6 +473,58 @@ Assigns an additional distinct ID to the current user.
 
 Use alias when a user should be connected to another identifier that was previously used to track them. This sends a `$create_alias` event.
 
+### `PostHogSDK.alias(_:options:)`
+
+```swift
+@objc(alias:options:) func alias(_ alias: String, options: [String : Any]? = nil)
+```
+
+Assigns an additional distinct ID to the current user.
+
+#### Parameters
+
+- `alias`: The additional distinct ID to associate with the current user.
+- `options`: Optional settings that tell PostHog how to process the `$create_alias` event, sent apart from its properties. Known keys are `process_person_profile` (`Bool`), `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id` (`String`), as described on `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`. An option wins over its legacy `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through `PostHogEvent.options`.
+
+#### Discussion
+
+Use alias when a user should be connected to another identifier that was previously used to track them. This sends a `$create_alias` event.
+
+## Capture AI
+
+### `PostHogSDK.captureAi(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`
+
+```swift
+@discardableResult @objc(captureAiWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:) func captureAi(_ event: String, distinctId: String? = nil, properties: [String : Any]? = nil, userProperties: [String : Any]? = nil, userPropertiesSetOnce: [String : Any]? = nil, groups: [String : String]? = nil, timestamp: Date? = nil, options: [String : Any]? = nil) -> String?
+```
+
+Captures an AI observability event, such as `$ai_generation`, `$ai_span`, `$ai_trace` or `$ai_embedding`, and sends it to PostHog’s AI endpoint, which accepts much larger events than `capture`.
+
+#### Parameters
+
+- `event`: AI event name, such as `$ai_generation`.
+- `distinctId`: Optional distinct ID override. Defaults to the current SDK distinct ID.
+- `properties`: Event properties attached only to this event.
+- `userProperties`: Person properties to set. Existing values are overwritten.
+- `userPropertiesSetOnce`: Person properties to set only if they do not already exist.
+- `groups`: Group type/key pairs to attach to this event.
+- `timestamp`: Optional event timestamp. Defaults to the current time.
+- `options`: Optional settings that tell PostHog how to process this event. Same keys as `capture`’s `options`.
+
+#### Return Value
+
+The event’s UUID, or `nil` if the event wasn’t queued: for example, the SDK is opted out or disabled, its name is empty, `beforeSend` dropped it, or it’s over `captureAiMaxEventBytes`.
+
+#### Discussion
+
+Takes the same arguments as `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)` and goes through the same `beforeSend` hooks. The event is queued on disk separately from other events and sent unchanged: the SDK doesn’t redact or truncate prompts, outputs or media. An event over `captureAiMaxEventBytes` (8 MiB plus 64 KiB by default) is dropped. PostHog drops an event sent here whose name doesn’t start with `$ai_`, and the SDK logs a debug message when it’s given one. `capture` never sends events here, even ones named `$ai_*`.
+
+AI events use `flushAt`, `maxBatchSize` and `flushIntervalSeconds` from `PostHogConfig`, like other events, and `captureAiCompression`, `captureAiMaxQueueSize` and `captureAiTimeout` instead of `compression`, `maxQueueSize` and the 10-second timeout. These limits are fixed:
+
+- Requests carry up to about 5 MiB of events, and the SDK sends as soon as that much is queued.
+
+- Up to 50 MiB of AI events are kept on disk. Beyond that, the oldest are dropped.
+
 ## Capture exception
 
 ### `PostHogSDK.captureException(_:)`
@@ -499,10 +557,10 @@ Capture a Swift Error or NSError without additional properties
 
 Convenience overload for Objective-C callers so `properties:` doesn’t need to be passed as `nil`.
 
-### `PostHogSDK.captureException(_:properties:)`
+### `PostHogSDK.captureException(_:properties:options:)`
 
 ```swift
-@objc(captureExceptionWithNSException:properties:) func captureException(_ exception: NSException, properties: [String : Any]? = nil)
+@objc(captureExceptionWithNSException:properties:options:) func captureException(_ exception: NSException, properties: [String : Any]? = nil, options: [String : Any]? = nil)
 ```
 
 Capture an NSException
@@ -511,6 +569,7 @@ Capture an NSException
 
 - `exception`: The NSException to capture
 - `properties`: Optional additional properties to attach to the event
+- `options`: Optional settings that tell PostHog how to process the `$exception` event, sent apart from its properties. Known keys are `process_person_profile` (`Bool`), `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id` (`String`), as described on `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`. An option wins over its legacy `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through `PostHogEvent.options`.
 
 #### Discussion
 
@@ -527,7 +586,7 @@ Example:
 ```
 
 ```swift
-@objc(captureExceptionWithError:properties:) func captureException(_ error: Error, properties: [String : Any]? = nil)
+@objc(captureExceptionWithError:properties:options:) func captureException(_ error: Error, properties: [String : Any]? = nil, options: [String : Any]? = nil)
 ```
 
 Capture a Swift Error or NSError
@@ -536,6 +595,7 @@ Capture a Swift Error or NSError
 
 - `error`: The error to capture (can be any Error or NSError)
 - `properties`: Optional additional properties to attach to the event
+- `options`: Optional settings that tell PostHog how to process the `$exception` event, sent apart from its properties. Known keys are `process_person_profile` (`Bool`), `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id` (`String`), as described on `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`. An option wins over its legacy `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through `PostHogEvent.options`.
 
 #### Discussion
 
@@ -616,7 +676,7 @@ PostHogSDK.shared.addExceptionStep("User tapped Checkout", properties: ["screen"
 @objc func flush()
 ```
 
-Trigger an immediate flush of every queue — events, session-replay snapshots, and structured logs.
+Trigger an immediate flush of every queue — events, AI events, session-replay snapshots, and structured logs.
 
 ## Get anonymous ID
 
@@ -688,30 +748,6 @@ Returns a feature flag value and optionally captures a usage event.
 #### Return Value
 
 `Bool`, `String`, or `nil` if the flag is unavailable.
-
-## Get feature flag payload
-
-### `PostHogSDK.getFeatureFlagPayload(_:)`
-
-```swift
-@objc func getFeatureFlagPayload(_ key: String) -> Any?
-```
-
-> **Deprecated:** Use getFeatureFlagResult(_:) instead which properly tracks feature flag usage
-
-Returns the payload for a feature flag.
-
-#### Parameters
-
-- `key`: The feature flag key.
-
-#### Return Value
-
-The flag payload, or `nil` if the flag or payload is unavailable.
-
-#### Discussion
-
-> **Warning:** This method does not send the `$feature_flag_called` event. Use `getFeatureFlagResult(_:)` instead for proper analytics tracking.
 
 ## Get feature flag result
 
@@ -805,10 +841,10 @@ Associates subsequent events with a group.
 - `type`: Group type, such as `"company"` or `"organization"`.
 - `key`: Group key from your application.
 
-### `PostHogSDK.group(type:key:groupProperties:)`
+### `PostHogSDK.group(type:key:groupProperties:options:)`
 
 ```swift
-@objc(groupWithType:key:groupProperties:) func group(type: String, key: String, groupProperties: [String : Any]? = nil)
+@objc(groupWithType:key:groupProperties:options:) func group(type: String, key: String, groupProperties: [String : Any]? = nil, options: [String : Any]? = nil)
 ```
 
 Associates subsequent events with a group and optionally updates group properties.
@@ -818,6 +854,7 @@ Associates subsequent events with a group and optionally updates group propertie
 - `type`: Group type, such as `"company"` or `"organization"`.
 - `key`: Group key from your application.
 - `groupProperties`: Optional properties to set on the group profile.
+- `options`: Optional settings that tell PostHog how to process the `$groupidentify` event, sent apart from its properties. Known keys are `process_person_profile` (`Bool`), `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id` (`String`), as described on `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`. An option wins over its legacy `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through `PostHogEvent.options`.
 
 #### Discussion
 
@@ -843,7 +880,68 @@ Returns whether a feature flag is enabled.
 
 #### Discussion
 
-Multivariate flags are considered enabled when a variant string is returned.
+Multivariate flags are considered enabled when a non-empty variant string is returned.
+
+### `PostHogSDK.isFeatureEnabled(_:defaultValue:)`
+
+```swift
+@objc(isFeatureEnabledWithKey:defaultValue:) func isFeatureEnabled(_ key: String, defaultValue: Bool) -> Bool
+```
+
+Returns whether a feature flag is enabled, or a default you supply when the flag has no value.
+
+#### Parameters
+
+- `key`: The feature flag key.
+- `defaultValue`: The value to return when the flag has no value.
+
+#### Return Value
+
+`true` when the flag is enabled, `false` when it is disabled, otherwise `defaultValue`.
+
+#### Discussion
+
+`defaultValue` has no implicit value; `isFeatureEnabled(_:)` is the equivalent of passing `false`.
+
+The default is returned when flags have not loaded yet, the flags request failed with nothing cached, the loaded flags have no flag with this key, or the SDK is not set up. A flag that has a value always wins, including `false` and variant strings, and an empty variant counts as `false`. `$feature_flag_called` follows `PostHogConfig.sendFeatureFlagEvent` and never reports the default as the flag’s value.
+
+```swift
+if PostHogSDK.shared.isFeatureEnabled("new-checkout", defaultValue: true) {
+    showNewCheckout()
+}
+```
+
+### `PostHogSDK.isFeatureEnabled(_:defaultValue:sendFeatureFlagEvent:)`
+
+```swift
+@objc(isFeatureEnabledWithKey:defaultValue:sendFeatureFlagEvent:) func isFeatureEnabled(_ key: String, defaultValue: Bool, sendFeatureFlagEvent: Bool) -> Bool
+```
+
+Returns whether a feature flag is enabled, or a default you supply when the flag has no value, and optionally captures a usage event.
+
+#### Parameters
+
+- `key`: The feature flag key.
+- `defaultValue`: The value to return when the flag has no value.
+- `sendFeatureFlagEvent`: Whether to capture `$feature_flag_called` for this lookup.
+
+#### Return Value
+
+`true` when the flag is enabled, `false` when it is disabled, otherwise `defaultValue`.
+
+#### Discussion
+
+`defaultValue` has no implicit value, and `sendFeatureFlagEvent` overrides `PostHogConfig.sendFeatureFlagEvent` for this call.
+
+The default is returned when flags have not loaded yet, the flags request failed with nothing cached, the loaded flags have no flag with this key, or the SDK is not set up. A flag that has a value always wins, including `false` and variant strings, and an empty variant counts as `false`. `$feature_flag_called` never reports the default as the flag’s value.
+
+```swift
+let enabled = PostHogSDK.shared.isFeatureEnabled(
+    "new-checkout",
+    defaultValue: true,
+    sendFeatureFlagEvent: false
+)
+```
 
 ### `PostHogSDK.isFeatureEnabled(_:sendFeatureFlagEvent:)`
 
@@ -914,18 +1012,6 @@ The callback runs on the main thread. It’s invoked after the SDK loads flags a
 
 You can register before `setup()`. Treat each invocation as “flags may have changed”, not as an exactly-once event.
 
-### `PostHogSDK.didReceiveFeatureFlags`
-
-```swift
-@objc static let didReceiveFeatureFlags: Notification.Name
-```
-
-Posted after a feature flag reload finishes and cached flags are updated.
-
-#### Discussion
-
-The notification object is `nil`.
-
 ## Opt in
 
 ### `PostHogSDK.optIn()`
@@ -970,6 +1056,8 @@ Registers super properties that are included with every subsequent event.
 
 New values overwrite existing values for the same keys and persist across app restarts until removed with `unregister(_:)` or cleared by `reset()`.
 
+A registered `$process_person_profile` isn’t sent with `$identify`, `$create_alias`, `$merge_dangerously`, `$groupidentify`, `$set` or `$set_once`, so it can’t stop those events from updating persons and groups. A value passed on the call still applies.
+
 ## Reload feature flags
 
 ### `PostHogSDK.reloadFeatureFlags()`
@@ -983,14 +1071,24 @@ Reloads feature flags for the current user and group context.
 ### `PostHogSDK.reloadFeatureFlags(_:)`
 
 ```swift
-@objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping () -> Void)
+@objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping @Sendable (PostHogFeatureFlagsLoaded) -> Void)
 ```
 
-Reloads feature flags and invokes a callback when finished.
+Reloads feature flags and invokes a callback with the result when finished.
 
 #### Parameters
 
-- `callback`: Invoked when the reload finishes, or immediately if the reload is skipped (SDK disabled/opted-out, or no remote config available).
+- `callback`: Invoked when the reload finishes, possibly on a background thread. If the request fails, `errorsLoading` is `true` and the flags are the last known ones. If the reload is skipped because the SDK isn’t set up, it’s invoked right away with no flags and `errorsLoading` set to `true`. To update UI or other main-actor state, hop to the main actor, for example with `Task { @MainActor in ... }`.
+
+#### Discussion
+
+```swift
+PostHogSDK.shared.reloadFeatureFlags { result in
+    if result.errorsLoading {
+        // The reload failed. result.variants holds the last known flags.
+    }
+}
+```
 
 ## Reset
 
@@ -1145,10 +1243,10 @@ Records a screen view by capturing a `$screen` event.
 
 - `screenTitle`: The screen name to record.
 
-### `PostHogSDK.screen(_:properties:)`
+### `PostHogSDK.screen(_:properties:options:)`
 
 ```swift
-@objc(screenWithTitle:properties:) func screen(_ screenTitle: String, properties: [String : Any]? = nil)
+@objc(screenWithTitle:properties:options:) func screen(_ screenTitle: String, properties: [String : Any]? = nil, options: [String : Any]? = nil)
 ```
 
 Records a screen view by capturing a `$screen` event with `screenTitle`.
@@ -1157,6 +1255,7 @@ Records a screen view by capturing a `$screen` event with `screenTitle`.
 
 - `screenTitle`: The screen name to record. It takes precedence over a `$screen_name` key in `properties`.
 - `properties`: Additional properties to attach to this `$screen` event.
+- `options`: Optional settings that tell PostHog how to process this `$screen` event, sent apart from its properties. Known keys are `process_person_profile` (`Bool`), `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id` (`String`), as described on `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`. An option wins over its legacy `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through `PostHogEvent.options`.
 
 #### Discussion
 
@@ -1240,10 +1339,10 @@ Updates user properties that are stored with the person profile in PostHog. If `
 
 This method sends a `$set` event to PostHog.
 
-### `PostHogSDK.setPersonProperties(userPropertiesToSet:userPropertiesToSetOnce:)`
+### `PostHogSDK.setPersonProperties(userPropertiesToSet:userPropertiesToSetOnce:options:)`
 
 ```swift
-@objc(setPersonPropertiesWithUserPropertiesToSet:userPropertiesToSetOnce:) func setPersonProperties(userPropertiesToSet: [String : Any]?, userPropertiesToSetOnce: [String : Any]?)
+@objc(setPersonPropertiesWithUserPropertiesToSet:userPropertiesToSetOnce:options:) func setPersonProperties(userPropertiesToSet: [String : Any]?, userPropertiesToSetOnce: [String : Any]? = nil, options: [String : Any]? = nil)
 ```
 
 Sets properties on the person profile associated with the current distinct_id.
@@ -1252,6 +1351,7 @@ Sets properties on the person profile associated with the current distinct_id.
 
 - `userPropertiesToSet`: Properties to store about the user. These will overwrite existing values.
 - `userPropertiesToSetOnce`: Properties to store about the user only if not previously set. Note: For feature flag evaluations, if the same key is present in both parameters, the value from userPropertiesToSet will take precedence.
+- `options`: Optional settings that tell PostHog how to process the `$set` event, sent apart from its properties. Known keys are `process_person_profile` (`Bool`), `cookieless_mode` (`Bool`), `disable_skew_correction` (`Bool`) and `product_tour_id` (`String`), as described on `capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:options:)`. An option wins over its legacy `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` or `$product_tour_id` property. `beforeSend` can change them through `PostHogEvent.options`.
 
 #### Discussion
 
@@ -1342,7 +1442,7 @@ Requests are coalesced rather than run concurrently, so your properties always r
 
 ```swift
 PostHogSDK.shared.setPersonPropertiesForFlags(["plan": "premium"], reloadFeatureFlags: false)
-PostHogSDK.shared.reloadFeatureFlags {
+PostHogSDK.shared.reloadFeatureFlags { _ in
     let flagValue = PostHogSDK.shared.isFeatureEnabled("new_feature")
 }
 ```
@@ -1351,7 +1451,7 @@ Setting `PostHogConfig.preloadFeatureFlags = false` removes the automatic preloa
 
 > **Note:** `reset()` clears person properties set here, so they must be set again afterwards.
 
-> **Note:** `reloadFeatureFlags(_:)` reports that the reload finished, not that it succeeded. If the request fails, or the project is over its feature flag quota, the handler still runs and the flags you read are the previously cached ones.
+> **Note:** The `reloadFeatureFlags(_:)` handler runs whether or not the reload succeeded. If the request fails, `errorsLoading` is `true` and the flags you read are the previously cached ones. If the project is over its feature flag quota, `errorsLoading` is `false` but the flags are still the previously cached ones.
 
 ## Shutdown
 
@@ -1365,7 +1465,7 @@ Shuts down this SDK instance and clears its in-memory state.
 
 #### Discussion
 
-Starts sending queued events, session replay snapshots, and logs (up to one batch each) and returns without waiting for delivery. Anything not sent, for example while offline, stays on disk and is sent after the next setup. Integrations are uninstalled, and this instance must be set up again before reuse.
+Starts sending queued events, AI events, session replay snapshots, and logs (up to one batch each) and returns without waiting for delivery. Anything not sent, for example while offline, stays on disk and is sent after the next setup. Integrations are uninstalled, and this instance must be set up again before reuse.
 
 ## Start session recording
 
@@ -1696,6 +1796,28 @@ Sends a device push token to PostHog under an explicit app id.
 Use the `appId` overload when relaying a token obtained through another provider (for example a Firebase `project_id`). When `appId` is `nil` the app’s bundle identifier is used.
 
 > **Note:** Push registration is available on iOS only in this version.
+
+### `PostHogSDK.setAppLanguage(_:)`
+
+```swift
+@objc(setAppLanguage:) func setAppLanguage(_ language: String?)
+```
+
+Sets the `$app_language` property: the language your app displays, sent with every event.
+
+#### Parameters
+
+- `language`: A BCP 47 language tag, such as `de` or `pt-BR`. Pass `nil` to go back to the detected language.
+
+#### Discussion
+
+Call it at startup and whenever the language changes, because the value is kept in memory only. It overrides the language the SDK detects, and survives `reset()` but not `close()`.
+
+By default the SDK sends the localization your app bundle resolved, from `Bundle.main.preferredLocalizations`. Use this if you translate your app some other way, such as with an in-app language setting. Compare `$locale`, which is the device’s preferred language.
+
+```swift
+PostHogSDK.shared.setAppLanguage("de")
+```
 
 ### `PostHogSDK.unregisterPushNotificationToken()`
 
@@ -2338,43 +2460,6 @@ Runtime configuration for a `PostHogSDK` instance.
 
 Create a config with your project token, mutate any options you need, then pass it to `PostHogSDK.shared.setup(_:)` or `PostHogSDK.with(_:)`. Options that control queues, integrations, or resource attributes should be set before setup; later mutations may not affect already-installed SDK components.
 
-#### `PostHogConfig.init(apiKey:)`
-
-```swift
-@objc(apiKey:) convenience init(apiKey: String)
-```
-
-> **Deprecated:** Use init(projectToken:) instead. This will be removed in the next major version.
-
-Creates a configuration using the deprecated `apiKey` name.
-
-##### Parameters
-
-- `apiKey`: Your PostHog project token.
-
-##### Discussion
-
-- Deprecated: Use `init(projectToken:)` instead.
-
-#### `PostHogConfig.init(apiKey:host:)`
-
-```swift
-@objc(apiKey:host:) convenience init(apiKey: String, host: String = defaultHost)
-```
-
-> **Deprecated:** Use init(projectToken:host:) instead. This will be removed in the next major version.
-
-Creates a configuration using the deprecated `apiKey` name and an explicit host.
-
-##### Parameters
-
-- `apiKey`: Your PostHog project token.
-- `host`: PostHog ingestion host. Empty or invalid values fall back to `defaultHost`.
-
-##### Discussion
-
-- Deprecated: Use `init(projectToken:host:)` instead.
-
 #### `PostHogConfig.init(projectToken:)`
 
 ```swift
@@ -2400,23 +2485,24 @@ Creates a configuration with an explicit PostHog ingestion host.
 - `projectToken`: Your PostHog project token. Leading and trailing whitespace is trimmed.
 - `host`: PostHog ingestion host, for example `"https://us.i.posthog.com"` or `"https://eu.i.posthog.com"`. Empty or invalid values fall back to `defaultHost`.
 
-#### `PostHogConfig.apiKey`
-
-```swift
-@objc var apiKey: String { get }
-```
-
-> **Deprecated:** Use projectToken instead. This will be removed in the next major version.
-
-Obsolete alias for `projectToken`.
-
 #### `PostHogConfig.appGroupIdentifier`
 
 ```swift
 @objc var appGroupIdentifier: String?
 ```
 
-The identifier of the App Group that should be used to store shared analytics data. PostHog will try to get the physical location of the App Group’s shared container, otherwise fallback to the default location Default: nil
+The identifier of the App Group that should be used to store shared analytics data.
+
+##### Discussion
+
+Configure an App Group in Xcode for both the main app and its extension targets. Set the same identifier in each target before calling `setup`:
+
+```swift
+config.appGroupIdentifier = "group.com.yourcompany.yourapp"
+PostHogSDK.shared.setup(config)
+```
+
+PostHog uses the shared container when available, otherwise it falls back to the default location. Default: nil
 
 #### `PostHogConfig.bootstrap`
 
@@ -2435,6 +2521,54 @@ Identity is seeded on a fresh install. For a returning user, an identified boots
 Feature flags are applied on every initialization and take precedence over the persisted flag cache. They are a temporary base layer: the first complete `/flags` response replaces them entirely, while a partial or errored response overlays only the keys it recomputed.
 
 Defaults to `nil` (use the SDK-generated UUID and no bootstrapped flags).
+
+#### `PostHogConfig.captureAiCompression`
+
+```swift
+@objc var captureAiCompression: PostHogCompression
+```
+
+How the SDK compresses `captureAi` request bodies, separately from `compression`.
+
+##### Discussion
+
+Default: `.gzip`.
+
+#### `PostHogConfig.captureAiMaxEventBytes`
+
+```swift
+@objc var captureAiMaxEventBytes: Int
+```
+
+Maximum size, in bytes, of a serialized `captureAi` event. The SDK drops a larger event.
+
+##### Discussion
+
+Use it to lower the limit. PostHog drops AI events whose properties are over 8 MiB, so the default allows 8 MiB plus 64 KiB for the rest of the event. A larger value uses the default and logs a warning when `debug` is on. A value of `0` or less uses the default. Default: `8454144` (8 MiB + 64 KiB).
+
+#### `PostHogConfig.captureAiMaxQueueSize`
+
+```swift
+@objc var captureAiMaxQueueSize: Int
+```
+
+Maximum number of `captureAi` events kept in their on-disk queue before older events are dropped.
+
+##### Discussion
+
+AI events can be megabytes, so this is lower than `maxQueueSize`. The queue also keeps at most 50 MiB of AI events, whatever this is set to. A value of `0` or less uses the default. Default: `100`.
+
+#### `PostHogConfig.captureAiTimeout`
+
+```swift
+@objc var captureAiTimeout: TimeInterval
+```
+
+How long, in seconds, a `captureAi` request can go without network activity before it times out.
+
+##### Discussion
+
+AI requests can carry several MB, so this is longer than for other requests, which time out after 10 seconds. A value of `0` or less uses the default. Default: `60`.
 
 #### `PostHogConfig.captureApplicationLifecycleEvents`
 
@@ -2538,7 +2672,7 @@ How the SDK compresses request bodies before sending them to the PostHog API.
 
 ##### Discussion
 
-Set this to `.none` when the network between the app and PostHog changes or re-encodes the compressed body, e.g. on a managed work profile, which makes the server reject the request.
+Set this to `.none` when the network between the app and PostHog changes or re-encodes the compressed body, e.g. on a managed work profile, which makes the server reject the request. `captureAi` requests use `captureAiCompression` instead.
 
 Default: `.gzip`.
 
@@ -2630,20 +2764,6 @@ This helps ensure feature flags are only evaluated in the appropriate contexts f
 
 Default: nil (all flags are evaluated)
 
-#### `PostHogConfig.evaluationEnvironments`
-
-```swift
-@objc var evaluationEnvironments: [String]? { get set }
-```
-
-> **Deprecated:** Use evaluationContexts instead. This property will continue to work but will be removed in a future version.
-
-Deprecated alias for `evaluationContexts`.
-
-##### Discussion
-
-- Deprecated: Use `evaluationContexts` instead. This property will be removed in a future version.
-
 #### `PostHogConfig.featureFlagRequestMaxRetries`
 
 ```swift
@@ -2679,7 +2799,7 @@ Lower values deliver events closer to real time but can increase battery usage. 
 #### `PostHogConfig.getAnonymousId`
 
 ```swift
-@objc var getAnonymousId: ((UUID) -> UUID)
+@objc var getAnonymousId: (@Sendable (UUID) -> UUID)
 ```
 
 Hook used to customize newly generated anonymous IDs.
@@ -2694,7 +2814,7 @@ The UUID to persist as the anonymous ID.
 
 ##### Discussion
 
-The SDK passes its generated UUID v7 and stores the UUID returned by this closure. Existing stored anonymous IDs are not regenerated.
+The SDK passes its generated UUID v7 and stores the UUID returned by this closure. Existing stored anonymous IDs are not regenerated. The closure can be called on any thread, so it must not read main-actor state.
 
 #### `PostHogConfig.host`
 
@@ -2739,20 +2859,6 @@ Maximum number of events kept in the on-disk queue before older events are dropp
 ##### Discussion
 
 Default: `1000` (`100` on tvOS).
-
-#### `PostHogConfig.maxRetries`
-
-```swift
-@objc var maxRetries: Int
-```
-
-Maximum number of retries for push-subscription registration failures.
-
-##### Discussion
-
-This limit does not apply to event, replay, or log ingestion. Retryable ingestion failures retain queued records for later flush triggers, subject to backoff. Use `maxQueueSize` for events and replay, and `logs.maxBufferSize` for logs.
-
-Default: `3`.
 
 #### `PostHogConfig.optOut`
 
@@ -2802,20 +2908,10 @@ You can find it at: https://us.posthog.com/settings/project-details#variables
 
 This field was formerly named `apiKey`.
 
-#### `PostHogConfig.propertiesSanitizer`
-
-```swift
-@objc var propertiesSanitizer: PostHogPropertiesSanitizer? { get set }
-```
-
-> **Deprecated:** Use beforeSend instead
-
-Hook that allows to sanitize the event properties The hook is called before the event is cached or sent over the wire
-
 #### `PostHogConfig.pushIdentityProvider`
 
 ```swift
-@objc var pushIdentityProvider: ((_ distinctId: String, _ appId: String, _ completion: @escaping (String?) -> Void) -> Void)?
+@objc var pushIdentityProvider: (@Sendable (_ distinctId: String, _ appId: String, _ completion: @escaping @Sendable (String?) -> Void) -> Void)?
 ```
 
 Supplies a signed identity token to attach (as `identity_token`) to push subscription register/unregister requests, for projects that enable identity verification on their push integration. Invoked with the `distinct_id` and `app_id` the request carries; call `completion` **exactly once**, from any thread, with a token minted by your backend — or `nil` to send the request without one. The SDK never mints tokens itself: your backend signs an HS256 JWT with the project’s **secret** API key, claims `sub` = distinct id, `app_id`, `aud` = “posthog:push_identity”, and an `exp`.
@@ -2828,6 +2924,20 @@ The hook is invoked on a background queue that serializes push-registration work
 
 Default: `nil` (requests carry no identity token).
 
+#### `PostHogConfig.pushNotificationSubscriptionMaxRetries`
+
+```swift
+@objc var pushNotificationSubscriptionMaxRetries: Int
+```
+
+Maximum number of retries for push-subscription registration failures.
+
+##### Discussion
+
+This limit does not apply to event, replay, or log ingestion. Retryable ingestion failures retain queued records for later flush triggers, subject to backoff. Use `maxQueueSize` for events and replay, and `logs.maxBufferSize` for logs.
+
+Default: `3`.
+
 #### `PostHogConfig.rageClickConfig`
 
 ```swift
@@ -2836,29 +2946,17 @@ Default: `nil` (requests carry no identity token).
 
 Rage click detection configuration.
 
-#### `PostHogConfig.remoteConfig`
-
-```swift
-@objc var remoteConfig: Bool { get set }
-```
-
-> **Deprecated:** Remote config is now always loaded. This option is a no-op and will be removed in a future version.
-
-Deprecated no-op for remote config loading.
-
-##### Discussion
-
-Remote config is now always loaded; setting this property has no effect.
-
-- Deprecated: Remote config is always loaded. This option will be removed in a future version.
-
 #### `PostHogConfig.requestHeaders`
 
 ```swift
 @objc var requestHeaders: [String : String]?
 ```
 
-Custom headers to send with every request to the PostHog API. Useful for reverse-proxy setups that require authentication, e.g. an `Authorization` header. Read once when the SDK is set up; changes after setup are ignored.
+Custom headers to send with every request to the PostHog API. Useful for reverse-proxy setups that require authentication, e.g. an `X-Proxy-Token` header.
+
+##### Discussion
+
+Event capture requests always send `Authorization: Bearer <projectToken>`, which replaces any `Authorization` header set here, so authenticate your proxy with a different header. Read once when the SDK is set up; changes after setup are ignored.
 
 #### `PostHogConfig.reuseAnonymousId`
 
@@ -2898,6 +2996,8 @@ Enable Recording of Session Replays for iOS
 
 ##### Discussion
 
+With Swift Package Manager, this is only available with the `SessionReplay` package trait, which is enabled by default.
+
 Note: Ingestion controls (sampling, feature flags, and event triggers) are currently applied using AND logic. All configured conditions must be satisfied for recording to start.
 
 Default: false
@@ -2909,6 +3009,10 @@ Default: false
 ```
 
 Session Replay configuration
+
+##### Discussion
+
+With Swift Package Manager, this is only available with the `SessionReplay` package trait, which is enabled by default.
 
 #### `PostHogConfig.setDefaultPersonProperties`
 
@@ -2942,30 +3046,6 @@ This helps ensure feature flags that rely on these properties work correctly wit
 
 Default: true
 
-#### `PostHogConfig.snapshotEndpoint`
-
-```swift
-@objc var snapshotEndpoint: String
-```
-
-Session replay snapshot endpoint path.
-
-##### Discussion
-
-> **Warning:** This value is managed by the SDK from remote configuration and should not be changed by application code.
-
-#### `PostHogConfig.storageManager`
-
-```swift
-var storageManager: PostHogStorageManager?
-```
-
-Storage manager used by this configuration.
-
-##### Discussion
-
-> **Warning:** This is an SDK extension point used internally to share identity storage with SDK integrations and tests. Application code should not normally replace it.
-
 #### `PostHogConfig.surveys`
 
 ```swift
@@ -2975,6 +3055,8 @@ Storage manager used by this configuration.
 Enable mobile surveys
 
 ##### Discussion
+
+With Swift Package Manager, this is only available with the `Surveys` package trait, which is enabled by default.
 
 Default: true
 
@@ -2990,7 +3072,7 @@ Configuration for mobile survey presentation and localization.
 
 ##### Discussion
 
-Mutate fields on `config.surveysConfig` or replace this object before calling setup. Available on iOS 15 and later.
+Mutate fields on `config.surveysConfig` or replace this object before calling setup. With Swift Package Manager, this is only available with the `Surveys` package trait, which is enabled by default.
 
 #### `PostHogConfig.tracingHeaders`
 
@@ -3039,6 +3121,20 @@ Replaces the event `beforeSend` chain with the provided blocks.
 - `blocks`: Ordered callbacks that can mutate or drop events.
 
 ```swift
+func setBeforeSend(_ blocks: [(PostHogEvent) -> PostHogEvent?])
+```
+
+Replaces the event `beforeSend` chain with blocks from an array typed `[(PostHogEvent) -> PostHogEvent?]`.
+
+##### Parameters
+
+- `blocks`: Ordered callbacks that can mutate or drop events.
+
+##### Discussion
+
+The blocks can run on any thread, so they must be safe to call from any thread.
+
+```swift
 func setBeforeSend(_ blocks: [BeforeSendBlock])
 ```
 
@@ -3051,6 +3147,10 @@ Replaces the event `beforeSend` chain with the provided blocks.
 ##### Discussion
 
 Blocks run synchronously in array order before an event is cached or sent. Returning `nil` from any block drops the event and skips the remaining blocks.
+
+Prefer sampling or modifying your own custom events. Preserve PostHog internal events unchanged, since core features can require every event to work correctly.
+
+To sample an event, return `nil` for the share you drop. On the events you keep, set `$sample_type` to `["sampleByEvent"]`, `$sample_threshold` to the rate you keep, and `$sampled_events` to the sampled event names.
 
 #### `PostHogConfig.defaultHost`
 
@@ -3071,6 +3171,47 @@ Use `"https://eu.i.posthog.com"` for EU Cloud projects.
 ```
 
 Network connectivity mode required before queued data may be flushed.
+
+### `PostHogConsoleLogEntry`
+
+```swift
+@objc class PostHogConsoleLogEntry
+```
+
+A model representing a processed console log entry for session replay.
+
+#### Overview
+
+Describes a single console log entry after it has been processed by `PostHogSessionReplayConsoleLogConfig.logSanitizer`. Each instance contains the log message content and its determined severity level.
+
+#### `PostHogConsoleLogEntry.init(level:message:)`
+
+```swift
+@objc init(level: PostHogConsoleLogLevel, message: String)
+```
+
+Creates a new console log entry.
+
+##### Parameters
+
+- `level`: The severity level of the log entry
+- `message`: The processed log message content
+
+#### `PostHogConsoleLogEntry.level`
+
+```swift
+@objc let level: PostHogConsoleLogLevel
+```
+
+The severity level of the log entry. This determines how the log will be displayed in the session replay and whether it will be captured based on `minLogLevel` setting.
+
+#### `PostHogConsoleLogEntry.message`
+
+```swift
+@objc let message: String
+```
+
+The actual content of the log message. This is the processed and sanitized log message
 
 ### `PostHogDisplayChoiceQuestion`
 
@@ -3558,7 +3699,7 @@ Whether crash autocapture is enabled.
 
 ##### Discussion
 
-When enabled, fatal crashes are persisted and sent as `$exception` events on the next launch. Default: `false`.
+When enabled, fatal crashes are persisted and sent as `$exception` events on the next launch. With Swift Package Manager, this is only available with the `CrashReporting` package trait, which is enabled by default. Before SDK version 3.57.3, Swift crashes appear as `SIGTRAP` without the actual error message. Default: `false`.
 
 #### `PostHogErrorTrackingConfig.exceptionSteps`
 
@@ -3596,23 +3737,19 @@ Default: `[]`.
 @objc var inAppByDefault: Bool
 ```
 
-Configures whether stack trace frames are considered in-app by default when the origin cannot be determined or no explicit includes/excludes match.
+Whether stack trace frames from a binary that no other rule matches are considered in-app.
 
 ##### Discussion
 
-- If `true` (default): Frames are in-app unless explicitly excluded (allowlist approach)
+- If `false` (default): only frames from your app’s executable and from binaries matching `inAppIncludes` are in-app. Frames from other frameworks, such as third-party dynamic frameworks, are not.
 
-- If `false`: Frames are external unless explicitly included (denylist approach)
+- If `true`: frames from every binary are in-app, except system frameworks and binaries matching `inAppExcludes`.
 
-**Default behavior when true:**
-
-- Known system frameworks (Foundation, UIKit, etc.) are excluded
-
-- All other packages are in-app unless in `inAppExcludes`
+Code linked statically into your app, such as most Swift packages, is part of your app’s executable, so it’s in-app either way. If your app ships its own code in a dynamic framework whose name doesn’t start with your app’s executable name or bundle identifier, add that framework’s name to `inAppIncludes`.
 
 **Precedence:** Priority 4 (final fallback)
 
-Default: true
+Default: false
 
 #### `PostHogErrorTrackingConfig.inAppExcludes`
 
@@ -3652,8 +3789,8 @@ Takes precedence over `inAppExcludes`. If a frame’s module matches any prefix 
 Example:
 
 ```swift
-config.errorTrackingConfig.inAppIncludes = [
-    "MyApp",
+config.errorTrackingConfig.inAppIncludes += [
+    "MySharedFramework",
     "SharedUtils"
 ]
 ```
@@ -3663,6 +3800,8 @@ config.errorTrackingConfig.inAppIncludes = [
 - Automatically includes main bundle identifier
 
 - Automatically includes executable name
+
+Append to this list instead of assigning it. Assigning removes the defaults, so frames from your app’s executable are no longer in-app.
 
 **Precedence:** Priority 1 (highest)
 
@@ -3693,6 +3832,18 @@ Distinct ID associated with the event.
 ```
 
 Event name, such as `"user_signed_up"` or `"$screen"`.
+
+#### `PostHogEvent.options`
+
+```swift
+@objc var options: [String : Any]
+```
+
+Options that tell PostHog how to process this event, separate from its properties.
+
+##### Discussion
+
+Holds the options passed to `capture(..., options:)`. Known keys are `process_person_profile`, `cookieless_mode`, `disable_skew_correction` and `product_tour_id`; unknown keys are sent unchanged and ignored by PostHog. When the event is sent, the legacy `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` properties are removed from `properties` and used for their options, unless that option is set here.
 
 #### `PostHogEvent.properties`
 
@@ -3801,7 +3952,7 @@ This is `true` if the flag value is:
 
 - A boolean `true`
 
-- A non-null string (variant)
+- A non-empty string (variant)
 
 #### `PostHogFeatureFlagResult.key`
 
@@ -3926,47 +4077,6 @@ The callback stays registered until you call `unsubscribe()`. You don’t need t
 ```
 
 Stops the callback from being invoked. Calling it more than once has no effect.
-
-### `PostHogLogEntry`
-
-```swift
-@objc class PostHogLogEntry
-```
-
-A model representing a processed console log entry for session replay.
-
-#### Overview
-
-Describes a single console log entry after it has been processed by `PostHogSessionReplayConsoleLogConfig.logSanitizer`. Each instance contains the log message content and its determined severity level.
-
-#### `PostHogLogEntry.init(level:message:)`
-
-```swift
-@objc init(level: PostHogLogLevel, message: String)
-```
-
-Creates a new console log entry.
-
-##### Parameters
-
-- `level`: The severity level of the log entry
-- `message`: The processed log message content
-
-#### `PostHogLogEntry.level`
-
-```swift
-@objc let level: PostHogLogLevel
-```
-
-The severity level of the log entry. This determines how the log will be displayed in the session replay and whether it will be captured based on `minLogLevel` setting.
-
-#### `PostHogLogEntry.message`
-
-```swift
-@objc let message: String
-```
-
-The actual content of the log message. This is the processed and sanitized log message
 
 ### `PostHogLogRecord`
 
@@ -4329,6 +4439,16 @@ OpenTelemetry `service.version` resource attribute. Defaults to the host app’s
 #### `PostHogLogsConfig.setBeforeSend(_:)`
 
 ```swift
+func setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...)
+```
+
+Replaces the log `beforeSend` chain with the provided blocks.
+
+##### Parameters
+
+- `blocks`: Ordered callbacks that can mutate or drop log records.
+
+```swift
 func setBeforeSend(_ blocks: [PostHogBeforeSendLogBlock])
 ```
 
@@ -4343,14 +4463,18 @@ Replaces the log `beforeSend` chain with the provided blocks.
 Blocks run synchronously in array order before a log is enqueued. Returning `nil` from any block drops the log and skips the remaining blocks.
 
 ```swift
-func setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...)
+func setBeforeSend(_ blocks: [(PostHogLogRecord) -> PostHogLogRecord?])
 ```
 
-Replaces the log `beforeSend` chain with the provided blocks.
+Replaces the log `beforeSend` chain with blocks from an array typed `[(PostHogLogRecord) -> PostHogLogRecord?]`.
 
 ##### Parameters
 
 - `blocks`: Ordered callbacks that can mutate or drop log records.
+
+##### Discussion
+
+The blocks can run on any thread, so they must be safe to call from any thread.
 
 ### `PostHogNextSurveyQuestion`
 
@@ -4442,46 +4566,6 @@ If more than this interval passes between two taps, the sequence resets.
 
 Default: 1.0 (seconds)
 
-### `PostHogSessionManager`
-
-```swift
-@objc class PostHogSessionManager
-```
-
-Manages the active PostHog session ID and session rotation state.
-
-#### Overview
-
-> **Warning:** This class is public for backwards compatibility, but is intended for SDK-internal use only. Application code should use `PostHogSDK.getSessionId()`, `startSession()`, and `endSession()` instead of interacting with this manager directly.
-
-#### `PostHogSessionManager.setSessionId(_:)`
-
-```swift
-@objc func setSessionId(_ sessionId: String)
-```
-
-> **Deprecated:** PostHogSessionManager becomes SDK-internal in PostHog 4.0. Use PostHogSDK.shared.getSessionId(), startSession() and endSession() instead. From 4.0, wrapper SDKs must import PostHog with @_spi(PostHogInternal) to use it.
-
-Overrides the current session ID.
-
-##### Parameters
-
-- `sessionId`: Session ID to use for subsequent events.
-
-##### Discussion
-
-Use with care: changing the session ID affects analytics session attribution and session replay.
-
-#### `PostHogSessionManager.shared`
-
-```swift
-@objc static var shared: PostHogSessionManager { get }
-```
-
-> **Deprecated:** PostHogSessionManager becomes SDK-internal in PostHog 4.0. Use PostHogSDK.shared.getSessionId(), startSession() and endSession() instead. From 4.0, wrapper SDKs must import PostHog with @_spi(PostHogInternal) to use it.
-
-Session manager used by `PostHogSDK.shared`.
-
 ### `PostHogSessionReplayConfig`
 
 ```swift
@@ -4518,7 +4602,7 @@ Each log entry will be tagged with a level (info/warning/error) based on the mes
 
 Defaults to `false`
 
-Note: When enabled, can be disabled remotely via project settings (requires `PostHogConfig.remoteConfig` to be enabled)
+Note: When enabled, can be disabled remotely via project settings
 
 #### `PostHogSessionReplayConfig.captureLogsConfig`
 
@@ -4527,6 +4611,18 @@ Note: When enabled, can be disabled remotely via project settings (requires `Pos
 ```
 
 Further configuration for capturing console output
+
+#### `PostHogSessionReplayConfig.captureMethod`
+
+```swift
+@objc var captureMethod: PostHogSessionReplayCaptureMethod
+```
+
+How session replay captures each screenshot. See `PostHogSessionReplayCaptureMethod`.
+
+##### Discussion
+
+Default: `.standard`
 
 #### `PostHogSessionReplayConfig.captureNetworkTelemetry`
 
@@ -4538,7 +4634,7 @@ Enable capturing network telemetry Default: true
 
 ##### Discussion
 
-Note: When enabled, can be disabled remotely via project settings (requires `PostHogConfig.remoteConfig` to be enabled)
+Note: When enabled, can be disabled remotely via project settings
 
 #### `PostHogSessionReplayConfig.captureTouches`
 
@@ -4547,16 +4643,6 @@ Note: When enabled, can be disabled remotely via project settings (requires `Pos
 ```
 
 Enable recording touch coordinates in session replay. Screenshot capture is unaffected. Set before SDK setup. Runtime changes are not supported. Default: true
-
-#### `PostHogSessionReplayConfig.debouncerDelay`
-
-```swift
-@objc var debouncerDelay: TimeInterval { get set }
-```
-
-> **Deprecated:** Deprecated in favor of 'throttleDelay' which provides identical functionality. Will be removed in the next major release.
-
-Debouncer delay used to reduce the number of snapshots captured and reduce performance impact This is used for capturing the view as a wireframe or screenshot The lower the number more snapshots will be captured but higher the performance impact Defaults to 1s
 
 #### `PostHogSessionReplayConfig.maskAllImages`
 
@@ -4582,22 +4668,6 @@ Enable masking of all sandboxed system views These may include UIImagePickerCont
 
 Enable masking of all text and text input fields Default: true
 
-#### `PostHogSessionReplayConfig.maskPhotoLibraryImages`
-
-```swift
-@objc var maskPhotoLibraryImages: Bool
-```
-
-> **Deprecated:** This property has no effect and will be removed in the next major release. To learn how to manually mask user photos please see our Privacy controls documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS
-
-Deprecated placeholder for photo-library image masking.
-
-##### Discussion
-
-This property has no effect. To manually mask user photos, see the privacy controls documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS
-
-Default: `false`.
-
 #### `PostHogSessionReplayConfig.sampleRate`
 
 ```swift
@@ -4616,61 +4686,13 @@ Values outside the 0.0–1.0 range are ignored and treated as `nil`.
 
 Defaults to `nil`
 
-#### `PostHogSessionReplayConfig.screenshotMode`
-
-```swift
-@objc var screenshotMode: Bool
-```
-
-By default Session replay will capture all the views on the screen as a wireframe, By enabling this option, PostHog will capture the screenshot of the screen. The screenshot may contain sensitive information, use with caution. Default: false
-
-#### `PostHogSessionReplayConfig.screenshotModeBackgroundCapture`
-
-```swift
-@objc var screenshotModeBackgroundCapture: Bool
-```
-
-Schedule screenshot image capture on a background queue when `screenshotMode` is enabled.
-
-##### Discussion
-
-Warning: Enabling this option will trigger Main Thread Checker warnings and may briefly freeze the app the first time a screenshot is captured. Consider disabling Main Thread Checker in your scheme’s run diagnostics when enabling this.
-
-Experimental. Default: false
-
-#### `PostHogSessionReplayConfig.screenshotModeGPUCapture`
-
-```swift
-@objc var screenshotModeGPUCapture: Bool
-```
-
-Render screenshots on the GPU instead of with `drawHierarchy` when `screenshotMode` is enabled.
-
-##### Discussion
-
-Each capture commits pending changes, copies the window’s layer tree and renders the copy into a Metal texture, so the main thread only builds the copy. Layers whose presentation can’t be copied safely (an app’s or a framework’s own `CALayer` subclasses) are drawn from their model state instead. While one of them has an animation that moves or reshapes it, a playing Lottie animation for example, it is left out of the frame with everything under it.
-
-Not captured exactly:
-
-- Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped “Metal content” placeholder.
-
-- Video and camera previews stay blank, as they do today.
-
-- Liquid Glass is approximated without refraction: sheets, alerts and dialogs as a blur of what’s behind them, smaller glass as a flat fill in its shape. Tinted glass keeps its tint. The labels and icons on it are reproduced. On iOS 27, sheets, alerts and dialogs currently show as a flat panel instead of a blur.
-
-Captures fall back to the default path when the device has no Metal or a render fails. Takes precedence over `screenshotModeBackgroundCapture` when both are enabled.
-
-While recording, the app keeps roughly 25 to 30 MB more memory resident on average (GPU memory held by Metal and Core Animation); peak memory is about the same as the default capture. Measured on an iPhone 17 Pro with `screenshotScale` unset, one pixel per point; a larger scale holds more.
-
-Experimental. iOS and Mac Catalyst only. Default: false
-
 #### `PostHogSessionReplayConfig.screenshotScale`
 
 ```swift
 @objc var screenshotScale: NSNumber? { get set }
 ```
 
-Resolution of `screenshotMode` screenshots, as a multiplier of the screen’s native resolution.
+Resolution of screenshots, as a multiplier of the screen’s native resolution.
 
 ##### Discussion
 
@@ -4678,9 +4700,9 @@ Resolution of `screenshotMode` screenshots, as a multiplier of the screen’s na
 
 - A value: that fraction of native resolution. On a 3x device, `1.0` uploads 1206×2622 pixels (native) and `0.5` uploads 603×1311 (1.5 pixels per point).
 
-Values are clamped to 0.1…1.0, and NaN or infinite values reset it to `nil`. The replay’s viewport in points is unchanged. Does not affect wireframe mode or compression quality. Exposed as `NSNumber` so Objective-C can leave it unset.
+Values are clamped to 0.1…1.0, and NaN or infinite values reset it to `nil`. The replay’s viewport in points is unchanged. Does not affect compression quality. Exposed as `NSNumber` so Objective-C can leave it unset. Applies to every `captureMethod`.
 
-Experimental. Default: nil (one pixel per point)
+Default: nil (one pixel per point)
 
 #### `PostHogSessionReplayConfig.throttleDelay`
 
@@ -4688,11 +4710,7 @@ Experimental. Default: nil (one pixel per point)
 @objc var throttleDelay: TimeInterval
 ```
 
-Throttle delay used to reduce the number of snapshots captured and reduce performance impact This is used for capturing the view as a wireframe or screenshot The lower the number more snapshots will be captured but higher the performance impact Defaults to 1s
-
-##### Discussion
-
-Note: Previously `debouncerDelay`
+Throttle delay used to reduce the number of snapshots captured and reduce performance impact This is used for capturing the screenshot The lower the number more snapshots will be captured but higher the performance impact Defaults to 1s
 
 ### `PostHogSessionReplayConsoleLogConfig`
 
@@ -4709,7 +4727,7 @@ Used when `PostHogSessionReplayConfig.captureLogs` is enabled.
 #### `PostHogSessionReplayConsoleLogConfig.logSanitizer`
 
 ```swift
-@objc var logSanitizer: ((String) -> PostHogLogEntry?)
+@objc var logSanitizer: (@Sendable (String) -> PostHogConsoleLogEntry?)
 ```
 
 Block to process and format captured console output for session replay.
@@ -4720,7 +4738,7 @@ Block to process and format captured console output for session replay.
 
 ##### Return Value
 
-A `PostHogLogEntry` to capture, or `nil` to skip the log output.
+A `PostHogConsoleLogEntry` to capture, or `nil` to skip the log output.
 
 ##### Discussion
 
@@ -4738,10 +4756,12 @@ The default implementation:
 
 - Process OSLog messages to remove metadata
 
+The block runs on a background thread, so it must not read main-actor state.
+
 #### `PostHogSessionReplayConsoleLogConfig.minLogLevel`
 
 ```swift
-@objc var minLogLevel: PostHogLogLevel
+@objc var minLogLevel: PostHogConsoleLogLevel
 ```
 
 The minimum log level to capture in session replay. Only log messages with this level or higher will be captured. For example, if set to `.warn`:
@@ -4755,143 +4775,6 @@ The minimum log level to capture in session replay. Only log messages with this 
 - `.info` messages will be skipped
 
 Defaults to `.error` to minimize noise in session replays.
-
-### `PostHogStorageManager`
-
-```swift
-class PostHogStorageManager
-```
-
-Manages persisted identity metadata for a PostHog SDK instance.
-
-#### Overview
-
-> **Warning:** This class is public for backwards compatibility, but is intended for SDK-internal use only. Application code should use `PostHogSDK` identity APIs instead of interacting with storage directly.
-
-#### `PostHogStorageManager.getAnonymousId()`
-
-```swift
-func getAnonymousId() -> String
-```
-
-Returns the persisted anonymous ID, creating one if needed.
-
-##### Return Value
-
-The anonymous ID for this install.
-
-#### `PostHogStorageManager.getDeviceId()`
-
-```swift
-func getDeviceId() -> String
-```
-
-Returns the stable device identifier used for device-level feature flag bucketing.
-
-##### Return Value
-
-The stable device ID for this install.
-
-##### Discussion
-
-This ID persists across `identify()` and `reset()` calls, only changing on a fresh app install or manual cache clearing.
-
-#### `PostHogStorageManager.getDistinctId()`
-
-```swift
-func getDistinctId() -> String
-```
-
-Returns the persisted distinct ID, falling back to the anonymous ID.
-
-##### Return Value
-
-The current distinct ID.
-
-#### `PostHogStorageManager.isIdentified()`
-
-```swift
-func isIdentified() -> Bool
-```
-
-Returns whether the current distinct ID is identified.
-
-##### Return Value
-
-`true` after a successful identify flow, otherwise `false`.
-
-#### `PostHogStorageManager.isPersonProcessing()`
-
-```swift
-func isPersonProcessing() -> Bool
-```
-
-Returns whether person profile processing has been enabled locally.
-
-##### Return Value
-
-`true` when identified/person processing has been activated.
-
-#### `PostHogStorageManager.reset(keepAnonymousId:_:)`
-
-```swift
-func reset(keepAnonymousId: Bool = false, _ resetStorage: Bool = false)
-```
-
-Clears cached identity metadata and optionally removes persisted values.
-
-##### Parameters
-
-- `keepAnonymousId`: Whether to keep the current anonymous ID cached and persisted.
-- `resetStorage`: Whether to remove values from the backing store as well as memory.
-
-#### `PostHogStorageManager.setAnonymousId(_:)`
-
-```swift
-func setAnonymousId(_ id: String)
-```
-
-Persists an anonymous ID.
-
-##### Parameters
-
-- `id`: Anonymous ID to store.
-
-#### `PostHogStorageManager.setDistinctId(_:)`
-
-```swift
-func setDistinctId(_ id: String)
-```
-
-Persists the current distinct ID.
-
-##### Parameters
-
-- `id`: Distinct ID to store.
-
-#### `PostHogStorageManager.setIdentified(_:)`
-
-```swift
-func setIdentified(_ isIdentified: Bool)
-```
-
-Persists whether the current distinct ID is identified.
-
-##### Parameters
-
-- `isIdentified`: New identified state.
-
-#### `PostHogStorageManager.setPersonProcessing(_:)`
-
-```swift
-func setPersonProcessing(_ enable: Bool)
-```
-
-Persists whether person profile processing is enabled locally.
-
-##### Parameters
-
-- `enable`: New person-processing state.
 
 ### `PostHogSurveyResponse`
 
@@ -5031,7 +4914,7 @@ Configuration for mobile survey rendering.
 
 #### Overview
 
-Mutate fields on `PostHogConfig.surveysConfig` before SDK setup to customize survey UI, lifecycle handling, or localization.
+Mutate fields on `PostHogConfig.surveysConfig` before SDK setup to customize survey UI, lifecycle handling, or localization. With Swift Package Manager, this is only available with the `Surveys` package trait, which is enabled by default.
 
 #### `PostHogSurveysConfig.overrideDisplayLanguage`
 
@@ -5062,50 +4945,6 @@ Delegate responsible for managing survey presentation in your app. Handles surve
 ##### Discussion
 
 Defaults to `PostHogSurveysDefaultDelegate` which provides a standard survey UI.
-
-### `PostHogPropertiesSanitizer`
-
-```swift
-@objc(PostHogPropertiesSanitizer) protocol PostHogPropertiesSanitizer
-```
-
-Protocol to sanitize the event properties
-
-#### `PostHogPropertiesSanitizer.sanitize(_:)`
-
-```swift
-@objc func sanitize(_ properties: [String : Any]) -> [String : Any]
-```
-
-Sanitizes the event properties
-
-##### Parameters
-
-- `properties`: The event properties to sanitize
-
-##### Return Value
-
-The sanitized properties
-
-##### Discussion
-
-> **Note:** `inout` cannot be used in Swift protocols, so clone the properties before mutating them.
-
-```swift
-private class ExampleSanitizer: PostHogPropertiesSanitizer {
-    public func sanitize(_ properties: [String: Any]) -> [String: Any] {
-        var sanitizedProperties = properties
-        // Perform sanitization
-        // For example, removing keys with empty values
-        for (key, value) in properties {
-            if let stringValue = value as? String, stringValue.isEmpty {
-                sanitizedProperties.removeValue(forKey: key)
-            }
-        }
-        return sanitizedProperties
-    }
-}
-```
 
 ### `PostHogSurveysDelegate`
 
@@ -5182,7 +5021,7 @@ Always delivered on the main thread. May arrive *before* the survey is visibly s
 ### `BeforeSendBlock`
 
 ```swift
-typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
+typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
 ```
 
 Callback invoked before an event is persisted or sent.
@@ -5244,7 +5083,7 @@ To be called when a survey is successfully shown to the user
 ### `PostHogBeforeSendLogBlock`
 
 ```swift
-typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRecord?
+typealias PostHogBeforeSendLogBlock = @Sendable (PostHogLogRecord) -> PostHogLogRecord?
 ```
 
 A `beforeSend` callback gets one chance to mutate or drop a log record before it is enqueued. Returning `nil` drops the record; mutating the record’s `body` to an empty string also drops it. Multiple blocks compose left-to-right; if any returns `nil`, later blocks are skipped. Runs synchronously on the thread that called `captureLog`.
@@ -5280,6 +5119,42 @@ case none
 ```
 
 Send request bodies uncompressed, with no `Content-Encoding` header.
+
+### `PostHogConsoleLogLevel`
+
+```swift
+@objc enum PostHogConsoleLogLevel
+```
+
+The severity level of a console log entry.
+
+#### Overview
+
+Used to categorize logs by their severity in session replay.
+
+#### `PostHogConsoleLogLevel.PostHogConsoleLogLevel.error`
+
+```swift
+case error
+```
+
+Error messages indicating failures or critical issues
+
+#### `PostHogConsoleLogLevel.PostHogConsoleLogLevel.info`
+
+```swift
+case info
+```
+
+Informational messages, debugging output, and general logs
+
+#### `PostHogConsoleLogLevel.PostHogConsoleLogLevel.warn`
+
+```swift
+case warn
+```
+
+Warning messages indicating potential issues or deprecation notices
 
 ### `PostHogDisplaySurveyRatingType`
 
@@ -5328,42 +5203,6 @@ case text
 ```
 
 Content should be rendered as plain text
-
-### `PostHogLogLevel`
-
-```swift
-@objc enum PostHogLogLevel
-```
-
-The severity level of a console log entry.
-
-#### Overview
-
-Used to categorize logs by their severity in session replay.
-
-#### `PostHogLogLevel.PostHogLogLevel.error`
-
-```swift
-case error
-```
-
-Error messages indicating failures or critical issues
-
-#### `PostHogLogLevel.PostHogLogLevel.info`
-
-```swift
-case info
-```
-
-Informational messages, debugging output, and general logs
-
-#### `PostHogLogLevel.PostHogLogLevel.warn`
-
-```swift
-case warn
-```
-
-Warning messages indicating potential issues or deprecation notices
 
 ### `PostHogLogSeverity`
 
@@ -5437,7 +5276,7 @@ Determines the behavior for processing user profiles.
 
 #### Overview
 
-- `never`: We won’t process persons for any event. This means that anonymous users will not be merged once they sign up or login, so you lose the ability to create funnels that track users from anonymous to identified. All events (including `$identify`) will be sent with `$process_person_profile: False`.
+- `never`: We won’t process persons for any event. This means that anonymous users will not be merged once they sign up or login, so you lose the ability to create funnels that track users from anonymous to identified. All events (including `$identify`) will be sent with the `process_person_profile: false` option.
 
 - `always`: We will process persons data for all events.
 
@@ -5465,7 +5304,49 @@ Process person profiles only after `identify`, `alias`, or `group` creates one.
 case never
 ```
 
-Never process person profiles. All events are sent with `$process_person_profile: false`.
+Never process person profiles. All events are sent with the `process_person_profile: false` option.
+
+### `PostHogSessionReplayCaptureMethod`
+
+```swift
+@objc(PostHogSessionReplayCaptureMethod) enum PostHogSessionReplayCaptureMethod
+```
+
+How session replay captures a screenshot. Set it with `PostHogSessionReplayConfig.captureMethod`.
+
+#### `PostHogSessionReplayCaptureMethod.PostHogSessionReplayCaptureMethod.gpu`
+
+```swift
+case gpu
+```
+
+Copies the window’s layer tree on the main thread and renders the copy on the GPU with Metal, so the main thread only builds the copy. Takes less main-thread time than `.standard`.
+
+##### Discussion
+
+Layers whose presentation can’t be copied safely (an app’s or a framework’s own `CALayer` subclasses) are drawn from their model state instead. While one of them has an animation that moves or reshapes it, a playing Lottie animation for example, it is left out of the frame with everything under it.
+
+Not captured exactly:
+
+- Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped “Metal content” placeholder.
+
+- Video and camera previews stay blank, as with `.standard`.
+
+- Liquid Glass is approximated without refraction: sheets, alerts and dialogs as a blur of what’s behind them, smaller glass as a flat fill in its shape. Tinted glass keeps its tint. The labels and icons on it are reproduced. On iOS 27, sheets, alerts and dialogs currently show as a flat panel instead of a blur.
+
+Captures fall back to `.standard` when the device has no Metal or a render fails.
+
+While recording, the app keeps roughly 25 to 30 MB more memory resident on average (GPU memory held by Metal and Core Animation); peak memory is about the same as with `.standard`. Measured on an iPhone 17 Pro with `screenshotScale` unset, one pixel per point; a larger scale holds more.
+
+Experimental. iOS and Mac Catalyst only.
+
+#### `PostHogSessionReplayCaptureMethod.PostHogSessionReplayCaptureMethod.standard`
+
+```swift
+case standard
+```
+
+Renders the window with `drawHierarchy` on the main thread, once the screen has settled.
 
 ### `PostHogSurveyResponseType`
 

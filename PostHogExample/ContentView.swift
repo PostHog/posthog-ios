@@ -36,17 +36,26 @@ class SignInViewModel: NSObject, ObservableObject, ASWebAuthenticationPresentati
     }
 }
 
+@MainActor
 class FeatureFlagsModel: ObservableObject {
     @Published var boolValue: Bool?
     @Published var stringValue: String?
     @Published var payloadValue: [String: String]?
     @Published var isReloading: Bool = false
+    private var featureFlagsSubscription: PostHogFeatureFlagsSubscription?
 
     init() {
-        NotificationCenter.default.addObserver(self, selector: #selector(reloaded), name: PostHogSDK.didReceiveFeatureFlags, object: nil)
+        // onFeatureFlags calls back on the main thread.
+        featureFlagsSubscription = PostHogSDK.shared.onFeatureFlags { [weak self] _ in
+            MainActor.assumeIsolated { self?.reloaded() }
+        }
     }
 
-    @objc func reloaded() {
+    deinit {
+        featureFlagsSubscription?.unsubscribe()
+    }
+
+    func reloaded() {
         boolValue = PostHogSDK.shared.isFeatureEnabled("4535-funnel-bar-viz")
         stringValue = PostHogSDK.shared.getFeatureFlag("multivariant") as? String
         payloadValue = PostHogSDK.shared.getFeatureFlagResult("multivariant")?.payload as? [String: String]
@@ -55,8 +64,11 @@ class FeatureFlagsModel: ObservableObject {
     func reload() {
         isReloading = true
 
-        PostHogSDK.shared.reloadFeatureFlags {
-            self.isReloading = false
+        PostHogSDK.shared.reloadFeatureFlags { _ in
+            // The callback can run on a background thread; @Published changes belong on main.
+            Task { @MainActor in
+                self.isReloading = false
+            }
         }
     }
 }
@@ -298,6 +310,31 @@ struct ContentView: View {
                         if featureFlagsModel.isReloading {
                             ProgressView()
                         }
+                    }
+                }
+
+                // Events go to /i/v1/analytics/events; captureAi events go to /i/v1/ai/events.
+                Section("Capture v1") {
+                    Button("Capture with options") {
+                        PostHogSDK.shared.capture("example_event_with_options", properties: [
+                            "source": "example_app",
+                        ], options: [
+                            "process_person_profile": false,
+                        ])
+                    }
+
+                    Button("Capture $ai_generation") {
+                        let uuid = PostHogSDK.shared.captureAi("$ai_generation", properties: [
+                            "$ai_trace_id": UUID().uuidString,
+                            "$ai_provider": "openai",
+                            "$ai_model": "gpt-4o-mini",
+                            "$ai_input": [["role": "user", "content": "Tell me a fun fact about hedgehogs"]],
+                            "$ai_output_choices": [["role": "assistant", "content": "Hedgehogs have about 5,000 spines."]],
+                            "$ai_input_tokens": 12,
+                            "$ai_output_tokens": 9,
+                            "$ai_latency": 0.42,
+                        ])
+                        print("captureAi queued $ai_generation: \(uuid ?? "not queued")")
                     }
                 }
 

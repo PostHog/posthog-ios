@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import Testing
@@ -95,10 +95,10 @@
         }
 
         @Test("A touch on a window above the app window is recorded in the app window's space when the frame is layered",
-              arguments: [false, true])
-        func layeredFrameTouchSpace(backgroundCapture: Bool) async throws {
+              arguments: [PostHogSessionReplayCaptureMethod.standard, .gpu])
+        func layeredFrameTouchSpace(captureMethod: PostHogSessionReplayCaptureMethod) async throws {
             let (sut, integration, snapshots) = try makeScreenshotReplaySut {
-                $0.screenshotModeBackgroundCapture = backgroundCapture
+                $0.captureMethod = captureMethod
             }
             defer { sut.close() }
             let app = makeWindow()
@@ -112,9 +112,8 @@
             integration.handleApplicationEvent(event: TouchEvent(location: CGPoint(x: 10, y: 10)), date: Date(), window: alert)
             await drainReplayQueue()
 
-            let expected = backgroundCapture ? [10, 10] : [30, 50]
             #expect(snapshots.touches.count == 2)
-            #expect(snapshots.touches.allSatisfy { [$0["x"], $0["y"]] as? [Int] == expected })
+            #expect(snapshots.touches.allSatisfy { [$0["x"], $0["y"]] as? [Int] == [30, 50] })
         }
 
         @Test("Touches inside a ph-no-capture view are dropped", arguments: [true, false])
@@ -344,7 +343,7 @@
             defer { window.isHidden = true }
             // drawHierarchy has no window scene in this hostless bundle and failed draws are dropped, so render
             // through the presentation tree and hand the frame to the emission step the bridge would reach.
-            let wireframe = RRWireframe()
+            let wireframe = RRScreenshotFrame()
             wireframe.type = "screenshot"
             wireframe.image = try #require(window.toImage(renderer: .presentationTree))
             integration.captureSnapshot(

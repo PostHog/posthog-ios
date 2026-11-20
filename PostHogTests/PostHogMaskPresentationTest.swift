@@ -25,7 +25,6 @@
             @Published var isPresented = false
         }
 
-        @available(iOS 14.0, *)
         private struct MaskedScreen: View {
             @ObservedObject var model: CoverModel
 
@@ -85,7 +84,6 @@
 
         // MARK: - Tests
 
-        @available(iOS 14.0, *)
         @Test("a SwiftUI fullScreenCover drops the masks of the screen it covers")
         func fullScreenCoverDropsMasksBehindIt() async {
             let model = CoverModel()

@@ -1,4 +1,4 @@
-#if os(iOS) && canImport(Metal)
+#if os(iOS) && canImport(Metal) && (!SWIFT_PACKAGE || SessionReplay)
     import Metal
     import QuartzCore
     import UIKit

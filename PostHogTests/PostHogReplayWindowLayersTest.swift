@@ -174,7 +174,7 @@
             -> (PostHogSDK, PostHogReplayIntegration, ReplaySnapshots)
         {
             let (sut, integration, snapshots) = try makeScreenshotReplaySut {
-                $0.screenshotModeGPUCapture = gpu
+                $0.captureMethod = gpu ? .gpu : .standard
                 $0.maskAllTextInputs = mask
             }
             integration.gpuMirror = mirror
@@ -318,27 +318,6 @@
             #expect([wireframes[0]["x"], wireframes[0]["y"], wireframes[0]["width"], wireframes[0]["height"]] as? [Int] == [0, 0, 200, 300])
         }
 
-        @Test("only screenshot mode off the background path layers the windows, so the idle fingerprint follows the same layers")
-        func captureLayersFollowConfig() {
-            let scene = makeScene()
-            defer {
-                scene.close()
-                PostHogReplayIntegration.windowLayerCandidatesForTesting = nil
-            }
-            func layers(screenshot: Bool, gpu: Bool = false, background: Bool = false) -> [ObjectIdentifier] {
-                let config = PostHogSessionReplayConfig()
-                config.screenshotMode = screenshot
-                config.screenshotModeGPUCapture = gpu
-                config.screenshotModeBackgroundCapture = background
-                return ids(PostHogReplayIntegration.captureLayers(for: scene.alert, config: config))
-            }
-
-            #expect(layers(screenshot: true) == ids([scene.app, scene.alert]))
-            #expect(layers(screenshot: true, gpu: true, background: true) == ids([scene.app, scene.alert]))
-            #expect(layers(screenshot: true, background: true) == ids([scene.alert]))
-            #expect(layers(screenshot: false) == ids([scene.alert]))
-        }
-
         @Test("a clear window between the app window and the key window, like the surveys window, is left out of the GPU frame")
         func clearInBetweenWindowOmitted() async throws {
             let mirror = try makeMirror()
@@ -420,8 +399,8 @@
             return UIImage(cgImage: pixel.makeImage()!, scale: 10000, orientation: .up)
         }
 
-        private func wireframe(_ id: Int, image: UIImage? = nil, base64: String? = nil, masks: [CGRect]? = nil) -> RRWireframe {
-            let wireframe = RRWireframe()
+        private func wireframe(_ id: Int, image: UIImage? = nil, base64: String? = nil, masks: [CGRect]? = nil) -> RRScreenshotFrame {
+            let wireframe = RRScreenshotFrame()
             wireframe.id = id
             wireframe.type = "screenshot"
             wireframe.image = image
@@ -430,7 +409,7 @@
             return wireframe
         }
 
-        private func send(_ wireframes: [RRWireframe]) throws -> ReplaySnapshots {
+        private func send(_ wireframes: [RRScreenshotFrame]) throws -> ReplaySnapshots {
             let (sut, integration, snapshots) = try makeScreenshotReplaySut()
             defer { sut.close() }
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 300))

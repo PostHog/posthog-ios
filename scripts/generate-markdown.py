@@ -197,6 +197,15 @@ def nest(markdown: str) -> str:
     return "\n".join(out)
 
 
+def migration_page(guides: list[str]) -> list[str]:
+    """The migration page. One guide's H1 becomes the page title, so the page shows one title."""
+    title = "PostHog iOS SDK migration guides"
+    if len(guides) == 1 and guides[0].startswith("# "):
+        heading, _, rest = guides[0].partition("\n")
+        title, guides = heading[2:].strip(), [rest.strip()]
+    return [f"---\ntitle: {json.dumps(title)}\nsidebar: Docs\nshowTitle: true\n---", *guides]
+
+
 def write(name: str, sections: list[str]) -> None:
     (ROOT / "references" / name).write_text("\n\n".join(sections) + "\n")
     print(f"wrote references/{name}")
@@ -225,8 +234,7 @@ def main() -> None:
     if declared >= major:
         write("posthog-ios-reference.md", [front_matter("PostHog iOS SDK", body), *body])
     if (ROOT / "MIGRATION.md").exists():
-        head = "---\ntitle: PostHog iOS SDK migration guides\nsidebar: Docs\nshowTitle: true\n---"
-        write("posthog-ios-migration.md", [head, (ROOT / "MIGRATION.md").read_text().strip().replace("<br>", "<br />")])
+        write("posthog-ios-migration.md", migration_page([(ROOT / "MIGRATION.md").read_text().strip().replace("<br>", "<br />")]))
 
 
 if __name__ == "__main__":

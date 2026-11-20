@@ -601,6 +601,12 @@ let maxRetryDelay = 30.0
         return config.detectAppLanguage ? PostHogContext.detectedAppLanguage : nil
     }
 
+    /// Whether a flag value counts as active, for `$active_feature_flags` and a log's flag keys:
+    /// a `false` flag or an empty variant is inactive.
+    private static func isActiveFlagValue(_ value: Any) -> Bool {
+        (value as? Bool ?? true) && (value as? String) != ""
+    }
+
     private func dynamicContext() -> [String: Any] {
         var properties: [String: Any] = [:]
 
@@ -612,10 +618,7 @@ let maxRetryDelay = 30.0
         for (key, value) in flags {
             properties["$feature/\(key)"] = value
 
-            // an empty variant reads as disabled
-            let active = (value as? Bool ?? true) && (value as? String) != ""
-
-            if active {
+            if Self.isActiveFlagValue(value) {
                 keys.append(key)
             }
         }
@@ -1893,8 +1896,7 @@ let maxRetryDelay = 30.0
         let screenName = lastScreenName
         let appState: PostHogLogRecord.AppState = sessionManager.isAppInBackgroundSnapshot ? .background : .foreground
         let featureFlagKeys: [String] = (remoteConfig?.getFeatureFlags() as? [String: Any])?.compactMap { key, value in
-            // Same rule as `$active_feature_flags`: a `false` flag or an empty variant is inactive.
-            (value as? Bool ?? true) && (value as? String) != "" ? key : nil
+            Self.isActiveFlagValue(value) ? key : nil
         }.sorted() ?? []
 
         let nanos = nanosNow()

@@ -1809,7 +1809,7 @@ Sets the `$app_language` property: the language your app displays, sent with eve
 
 #### Discussion
 
-Call it at startup and whenever the language changes, because the value is kept in memory only. It overrides the language the SDK detects, and survives `reset()`.
+Call it at startup and whenever the language changes, because the value is kept in memory only. It overrides the language the SDK detects, and survives `reset()` but not `close()`.
 
 By default the SDK sends the localization your app bundle resolved, from `Bundle.main.preferredLocalizations`. Use this if you translate your app some other way, such as with an in-app language setting. Compare `$locale`, which is the device’s preferred language.
 

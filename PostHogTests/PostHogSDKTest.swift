@@ -1407,6 +1407,21 @@ final class PostHogSDKTests {
         #expect(events[1].properties["$app_language"] as? String == "de")
     }
 
+    @Test("close() clears the setAppLanguage override")
+    func setAppLanguageClearedByClose() async throws {
+        let sut = getSut()
+        sut.setAppLanguage("de")
+        let config = sut.config
+        sut.close()
+        config.detectAppLanguage = false
+        sut.setup(config)
+        sut.capture("fresh")
+
+        let events = try await getServerEvents(fixture.server)
+        let event = try #require(events.first { $0.event == "fresh" })
+        #expect(event.properties["$app_language"] == nil)
+    }
+
     @Test("register and unregister properties")
     func registerAndUnregisterProperties() throws {
         let sut = getSut(flushAt: 1)

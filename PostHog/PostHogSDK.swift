@@ -1153,7 +1153,7 @@ let maxRetryDelay = 30.0
     /// Sets the `$app_language` property: the language your app displays, sent with every event.
     ///
     /// Call it at startup and whenever the language changes, because the value is kept in memory only.
-    /// It overrides the language the SDK detects, and survives `reset()`.
+    /// It overrides the language the SDK detects, and survives `reset()` but not `close()`.
     ///
     /// By default the SDK sends the localization your app bundle resolved, from
     /// `Bundle.main.preferredLocalizations`. Use this if you translate your app some other way, such as
@@ -3839,6 +3839,7 @@ let maxRetryDelay = 30.0
         // Outside setupLock to avoid lock-ordering coupling between
         // setupLock and lastScreenLock.
         lastScreenLock.withLock { _lastScreenName = nil }
+        appLanguageLock.withLock { appLanguageOverride = nil }
     }
 
     #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)

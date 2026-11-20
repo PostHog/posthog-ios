@@ -93,3 +93,37 @@ jobs:
       - name: Build SDK via Swift Package Manager with package traits off
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make buildSdkSpmNoTraits
+
+  # Release generates the SDK reference only after the PR merges, so check here that it still
+  # generates with this PR's pending version. Stale docs/capabilities.json entries only fail
+  # once the version reaches a new major, which a major changeset does.
+  sdk-reference:
+    needs: detect-markdown-only
+    if: github.event_name == 'pull_request' && needs.detect-markdown-only.outputs.markdown_only != 'true'
+    name: SDK reference
+    # Same runner as release.yml's update-references, so DocC matches.
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Checkout sdk-specs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: PostHog/sdk-specs
+          path: .sdk-specs
+          persist-credentials: false
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+
+      # `changeset version` exits 1 when there's nothing to apply, so only run it when there is.
+      - name: Apply the pending version
+        run: |
+          if ls .changeset/*.md >/dev/null 2>&1; then
+            pnpm changeset version
+            ./scripts/bump-version.sh "$(node -p "require('./package.json').version")"
+          fi
+
+      - name: Generate the reference
+        run: python3 scripts/generate-markdown.py --sdk-specs .sdk-specs

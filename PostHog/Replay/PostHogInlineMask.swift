@@ -17,8 +17,8 @@
         enum Kind {
             /// Text read from the view, drawn as `*` in its own style and place.
             case label(UILabel), textField(UITextField), textView(UITextView)
-            /// Text that can't be read (SwiftUI, React Native): rows of `*` sized from the bounds alone, in the
-            /// traits' label colour.
+            /// Text that can't be read (SwiftUI, React Native): grey rows of `*` sized from the bounds alone, resolved
+            /// with the traits.
             case unreadableText(UITraitCollection)
             /// Filled black, with nothing below it drawn: web views, sandboxed views, controls.
             case opaque
@@ -670,6 +670,9 @@
 
         // MARK: - Text
 
+        /// Rows for text that can't be read: its colour is unknown, and grey reads on light, dark and coloured backgrounds.
+        fileprivate static let rowColor = UIColor.systemGray
+
         /// The colour masked text is drawn in.
         fileprivate static func starColor(_ color: UIColor) -> UIColor {
             #if TESTING
@@ -759,7 +762,8 @@
     // MARK: - Text inputs
 
     /// The glyph-free bars shown until the `*` are drawn, or instead of them for text too long or large to draw: one per
-    /// line of `lineHeight`, or one for single-line text, in the text's colour where it was read, else the label colour.
+    /// line of `lineHeight`, or one for single-line text, in the text's colour where it was read (else the label colour),
+    /// and grey for text that can't be read.
     private struct TextBars: Equatable {
         let lineHeight: CGFloat
         let singleLine: Bool
@@ -780,8 +784,8 @@
         }
 
         init(rowsWith traits: UITraitCollection) {
-            self.init(lineHeight: UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits).lineHeight, singleLine: false, color: nil,
-                      traits: traits)
+            self.init(lineHeight: UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits).lineHeight, singleLine: false,
+                      color: PostHogInlineMask.rowColor, traits: traits)
         }
 
         private init(lineHeight: CGFloat, singleLine: Bool, color: UIColor?, traits: UITraitCollection) {
@@ -955,7 +959,7 @@
             text = nil
             let body = UIFont.preferredFont(forTextStyle: .body, compatibleWith: traits)
             let font = size.height < body.lineHeight ? body.withSize(max(1, body.pointSize * size.height / body.lineHeight)) : body
-            layout = .rows(font: font, color: PostHogInlineMask.starColor(.label).resolvedColor(with: traits))
+            layout = .rows(font: font, color: PostHogInlineMask.starColor(PostHogInlineMask.rowColor).resolvedColor(with: traits))
             self.size = size
         }
 

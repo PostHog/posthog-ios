@@ -90,9 +90,23 @@
         func updateUIView(_: UIImageView, context _: Context) {}
     }
 
+    /// A view whose background is a pattern colour of `image`: content, not a plain colour.
+    private struct PatternBox: UIViewRepresentable {
+        let image: UIImage
+
+        func makeUIView(context _: Context) -> UIView {
+            let view = UIView()
+            view.backgroundColor = UIColor(patternImage: image)
+            return view
+        }
+
+        func updateUIView(_: UIView, context _: Context) {}
+    }
+
     private let magenta = Color(red: 1, green: 0, blue: 1)
     private let green = Color(red: 0, green: 1, blue: 0)
     private let yellow = Color(red: 1, green: 1, blue: 0)
+    private let cyan = Color(red: 0, green: 1, blue: 1)
 
     private func boldText(_ string: String, size: CGFloat = 22, color: Color) -> some View {
         Text(string).font(.system(size: size, weight: .bold)).foregroundColor(color)
@@ -182,6 +196,9 @@
         private static let isGreen = near(.green, within: 75)
         private static let isYellow = near(RGBA(red: 255, green: 255, blue: 0, alpha: 255), within: 25)
         private static let isWhite = near(.white, within: 25)
+        private static let isCyan = near(RGBA(red: 0, green: 255, blue: 255, alpha: 255), within: 25)
+        /// `.systemGray` in light mode.
+        private static let isRowGray = near(RGBA(red: 142, green: 142, blue: 147, alpha: 255), within: 30)
         private static let isGroupedBackground = near(RGBA(red: 242, green: 242, blue: 247, alpha: 255), within: 4)
 
         /// Control frame with reporters off: proves the masked content rendered, so the masking tests can't pass on
@@ -245,8 +262,8 @@
             #expect(fixture.mask.extentStatsForTesting.replaced == 0)
             #expect(pixels.count(in: extent, where: Self.isStar) > 30)
             #expect(pixels.count(where: Self.isGreen) > 50)
-            // The host's white background under the extent is masked too.
-            #expect(pixels.count(in: extent, where: Self.isWhite) == 0)
+            // The host's white background encloses the extent, so it's kept under the rows.
+            #expect(pixels.count(in: extent, where: Self.isWhite) > 100)
         }
 
         @available(iOS 14.0, *)
@@ -272,6 +289,18 @@
             #expect(pixels.count(in: extent, where: Self.isStar) > 30)
         }
 
+        @Test("S2: a background applied after the mask, around its padding, is kept under the rows")
+        func paddedBackgroundAfterMaskIsKept() async throws {
+            let fixture = try await makeSwiftUIFixture()
+            defer { fixture.close() }
+            await show(boldText("Card holder", size: 28, color: magenta).postHogMask().padding().background(cyan), in: fixture)
+            try await expectVisibleUnmasked(fixture)
+
+            let (pixels, extent) = try await captureMasked(fixture)
+            #expect(pixels.count(in: extent, where: Self.isCyan) > 100)
+            #expect(pixels.count(in: extent, where: Self.isStar) > 30)
+        }
+
         @available(iOS 14.0, *)
         @Test("S2 with the walk's own masking on: the card is masked, background included, its image black")
         func maskedCardWithAutoMasking() async throws {
@@ -291,7 +320,7 @@
             #expect(pixels.count(in: extent, where: Self.isYellow) == 0)
         }
 
-        @Test("S3: a masked List row is masked with its row background, and the list outside it is untouched")
+        @Test("S3: a masked List row is masked over its row background, which is kept, and the list outside it is untouched")
         func maskedListRow() async throws {
             let fixture = try await makeSwiftUIFixture()
             defer { fixture.close() }
@@ -314,7 +343,7 @@
             try expectPlacementsAgree(fixture)
 
             let (pixels, extent) = try await captureMasked(fixture)
-            #expect(pixels.count(in: extent, where: Self.isYellow) == 0)
+            #expect(pixels.count(in: extent, where: Self.isYellow) > 100, "the row background, enclosing the extent")
             #expect(pixels.count(where: Self.isYellow) > 100, "the row background outside the extent")
             #expect(pixels.count(where: Self.isGreen) > 100)
             #expect(pixels.count(where: Self.isGroupedBackground) > 1000, "the list background")
@@ -337,19 +366,78 @@
             #expect(copies.placement(of: copy) == nil)
         }
 
-        @Test("Colour without content inside an extent is black: a filled Circle, a rounded background and a bordered view")
+        @available(iOS 14.0, *)
+        @Test("Colour without content inside an extent is black: a filled Circle, a bar, a rounded background and a bordered view")
         func colorOnlyLayersInsideAreBlack() async throws {
             let fixture = try await makeSwiftUIFixture()
             defer { fixture.close() }
+            let frames = FrameStore()
             await show(VStack(spacing: 12) {
-                Circle().fill(magenta).frame(width: 40, height: 40)
-                Color.clear.frame(width: 80, height: 30).background(magenta).cornerRadius(8)
-                ColorBox().frame(width: 60, height: 30)
+                Circle().fill(magenta).frame(width: 40, height: 40).frameTag("circle", frames)
+                Rectangle().fill(magenta).frame(width: 50, height: 12).frameTag("bar", frames)
+                Color.clear.frame(width: 80, height: 30).background(magenta).cornerRadius(8).frameTag("rounded", frames)
+                ColorBox().frame(width: 60, height: 30).frameTag("box", frames)
             }.padding().postHogMask(), in: fixture)
             try await expectVisibleUnmasked(fixture, minimum: 1000)
 
             let (pixels, extent) = try await captureMasked(fixture)
-            #expect(pixels.count(in: extent, where: Self.isBlack) > Int(extent.width * extent.height) / 2)
+            #expect(pixels.count(in: extent, where: Self.isMagentaHue) == 0)
+            for (name, inset) in [("circle", 8.0), ("bar", 1.0), ("rounded", 4.0), ("box", 2.0)] {
+                let area = try #require(frames.frames[name]).insetBy(dx: inset, dy: inset)
+                #expect(pixels.count(in: area) { !Self.isBlack($0) } == 0, "\(name) isn't black")
+            }
+        }
+
+        @available(iOS 14.0, *)
+        @Test("A SwiftUI bar entering an extent from outside is covered over it and keeps its colour outside it")
+        func barEnteringExtentIsCovered() async throws {
+            let fixture = try await makeSwiftUIFixture()
+            defer { fixture.close() }
+            let frames = FrameStore()
+            await show(ZStack {
+                Rectangle().fill(magenta).frame(width: 160, height: 40).frameTag("bar", frames)
+                Color.clear.frame(width: 80, height: 60).postHogMask().offset(x: 80)
+            }, in: fixture)
+            let bar = try #require(frames.frames["bar"])
+            let extent = try #require(reporterRects(in: fixture.window).first)
+            try #require(extent.minX < bar.maxX - 4 && extent.maxX > bar.maxX, "\(extent) vs \(bar)")
+            try await expectVisibleUnmasked(fixture, minimum: 1000)
+
+            let (pixels, _) = try await captureMasked(fixture, insideExtentOnly: true, blackIn: extent.intersection(bar).insetBy(dx: 1, dy: 1))
+            #expect(pixels.count(where: Self.isMagenta) > 3000, "covered, not replaced whole")
+        }
+
+        @Test("A pattern-colour background enclosing an extent is content: none of its pattern shows inside the extent")
+        func patternBackgroundEnclosingExtentIsMasked() async throws {
+            let fixture = try await makeSwiftUIFixture()
+            defer { fixture.close() }
+            let pattern = try checkerboard(CGSize(width: 16, height: 16))
+            await show(ZStack {
+                PatternBox(image: pattern).frame(width: 200, height: 140)
+                Color.clear.frame(width: 80, height: 60).postHogMask()
+            }, in: fixture)
+            try await expectVisibleUnmasked(fixture, minimum: 1000)
+
+            let (pixels, _) = try await captureMasked(fixture, insideExtentOnly: true)
+            #expect(pixels.count(where: Self.isMagenta) > 1000, "the pattern outside the extent")
+        }
+
+        @Test("Rows for text that can't be read are grey, not the text's or the label colour")
+        func unreadableTextRowsAreGray() async throws {
+            let fixture = try await makeSwiftUIFixture()
+            defer { fixture.close() }
+            await show(boldText("Secret name", size: 28, color: magenta).postHogMask(), in: fixture)
+            let extent = try #require(reporterRects(in: fixture.window).first)
+            try await expectVisibleUnmasked(fixture)
+
+            PostHogInlineMask.textColorForTesting = nil
+            for drawn in [false, true] {
+                if drawn { fixture.mask.waitForTextDrawsForTesting() }
+                let pixels = try await Pixels(capture(fixture).image)
+                #expect(pixels.count(in: extent, where: Self.isMagentaHue) == 0)
+                #expect(pixels.count(in: extent, where: Self.isRowGray) > 30, drawn ? "`*` rows" : "bars")
+                #expect(pixels.count(in: extent, where: Self.isBlack) == 0)
+            }
         }
 
         @available(iOS 14.0, *)
@@ -421,8 +509,9 @@
             defer { fixture.close() }
             await show(boldText("Secret name", size: 28, color: green).postHogMask(), in: fixture, background: .clear)
             let extent = try #require(reporterRects(in: fixture.window).first)
-            // Under the hosting view's container, so painted before the reporter, and wider than the extent.
-            let below = UIView(frame: extent.insetBy(dx: -30, dy: -10))
+            // Under the hosting view's container, so painted before the reporter, and reaching into the extent from its left:
+            // a view behind the whole extent would be an enclosing background, and kept.
+            let below = UIView(frame: CGRect(x: extent.minX - 30, y: extent.minY - 10, width: extent.width / 2 + 30, height: extent.height + 20))
             below.backgroundColor = .magenta
             fixture.window.insertSubview(below, at: 0)
             // Over it: a UIKit view, and a second SwiftUI host.
@@ -605,7 +694,8 @@
             let backdrop = backdropClass.init()
             backdrop.frame = extent.insetBy(dx: -10, dy: -60)
             let content = CALayer()
-            content.frame = backdrop.bounds
+            // Its left half, so it doesn't enclose the extent as a background would.
+            content.frame = CGRect(x: 0, y: 0, width: backdrop.bounds.width / 2, height: backdrop.bounds.height)
             content.backgroundColor = UIColor.green.cgColor
             backdrop.addSublayer(content)
             fixture.window.layer.insertSublayer(backdrop, at: 0)

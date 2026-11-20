@@ -517,7 +517,7 @@
             var entries: [Scenario] = [
                 Scenario(title: "Masked card with chrome",
                          option: ".postHogMask() on a card (background, circle, photo, text)",
-                         expected: "card black, photo included (SwiftUI text's * rows draw in black over it); label above visible",
+                         expected: "card black, photo included (SwiftUI text's * rows draw in grey over it); label above visible",
                          configure: Self.explicitMasksOnly)
                 {
                     VStack(spacing: 16) {
@@ -593,8 +593,8 @@
                     }
                 },
                 Scenario(title: "Mask over part of a panel",
-                         option: ".postHogMask() Text on a larger coloured panel (partial cover)",
-                         expected: "secret masked inside its extent only; the orange panel and label around it visible",
+                         option: ".postHogMask() Text on a larger coloured panel (enclosing background)",
+                         expected: "secret as * rows on the orange panel, kept under the extent as it encloses it; label visible",
                          configure: Self.explicitMasksOnly)
                 {
                     VStack(spacing: 16) {

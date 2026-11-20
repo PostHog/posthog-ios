@@ -1,4 +1,4 @@
-#if os(iOS) && canImport(Metal)
+#if os(iOS) && canImport(Metal) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import QuartzCore
@@ -1137,7 +1137,7 @@
         @Test("With GPU capture off, the default path collects the same rects and never builds a mirror or copy map")
         func defaultPathIsUnchanged() async throws {
             let mirror = try makeMirror()
-            let (sut, integration, _) = try makeScreenshotReplaySut { $0.screenshotModeGPUCapture = false }
+            let (sut, integration, _) = try makeScreenshotReplaySut { $0.captureMethod = .standard }
             // drawHierarchy draws nothing in this hostless bundle.
             PostHogReplayIntegration.screenshotRendererForTesting = .presentationTree
             defer { PostHogReplayIntegration.screenshotRendererForTesting = nil }
@@ -1170,14 +1170,14 @@
             }
             let rects = [CGRect(x: 10, y: 10, width: 60, height: 40), CGRect(x: 50, y: 200, width: 100, height: 50)]
             for (maskable, type, pixelScale) in [(rects, nil, 1), ([], nil, 1), (rects, "screenshot", 0.5), ([], "screenshot", 0.5)] as [([CGRect], String?, CGFloat)] {
-                let wireframe = RRWireframe()
+                let wireframe = RRScreenshotFrame()
                 wireframe.type = type
                 wireframe.image = screenshot
                 wireframe.maskableWidgets = maskable
                 wireframe.screenshotPixelScale = pixelScale
-                let unmasked = type == "screenshot" ? RRWireframe.unmaskedScreenshot(screenshot, pixelScale: pixelScale) : screenshot
+                let unmasked = type == "screenshot" ? RRScreenshotFrame.unmaskedScreenshot(screenshot, pixelScale: pixelScale) : screenshot
                 let expected = maskable.isEmpty ? unmasked.toBase64()
-                    : RRWireframe.maskImage(screenshot, maskableWidgets: maskable, pixelScale: pixelScale)?.toBase64()
+                    : RRScreenshotFrame.maskImage(screenshot, maskableWidgets: maskable, pixelScale: pixelScale)?.toBase64()
                 let shared = wireframe.encodeImage()?.base64
                 #expect(wireframe.toDict()["base64"] as? String == expected)
                 #expect(shared == expected)

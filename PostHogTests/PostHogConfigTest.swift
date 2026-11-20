@@ -41,37 +41,6 @@ struct PostHogConfigTest {
         let config = PostHogConfig(projectToken: testProjectToken)
 
         #expect(config.projectToken == testProjectToken)
-        #expect(config.apiKey == testProjectToken)
-    }
-
-    @Test("deprecated init(apiKey:) maps to project token")
-    func deprecatedInitApiKeyMapsToProjectToken() {
-        let config = PostHogConfig(apiKey: testProjectToken)
-
-        #expect(config.projectToken == testProjectToken)
-        #expect(config.apiKey == testProjectToken)
-        #expect(config.host == URL(string: PostHogConfig.defaultHost))
-    }
-
-    @Test("deprecated init(apiKey:host:) maps to project token and host")
-    func deprecatedInitApiKeyHostMapsToProjectTokenAndHost() throws {
-        let config = PostHogConfig(apiKey: testProjectToken, host: "localhost:9000")
-
-        #expect(config.projectToken == testProjectToken)
-        #expect(config.apiKey == testProjectToken)
-        #expect(config.host == (try #require(URL(string: "localhost:9000"))))
-    }
-
-    @Test("deprecated init(apiKey:host:) trims whitespace-sensitive values")
-    func deprecatedInitApiKeyHostTrimsWhitespace() {
-        let config = PostHogConfig(
-            apiKey: " \n\(testProjectToken)\t ",
-            host: " \nhttps://eu.i.posthog.com/\t "
-        )
-
-        #expect(config.projectToken == testProjectToken)
-        #expect(config.apiKey == testProjectToken)
-        #expect(config.host == URL(string: "https://eu.i.posthog.com/"))
     }
 
     @Test("trims whitespace-sensitive config values")
@@ -82,7 +51,6 @@ struct PostHogConfigTest {
         )
 
         #expect(config.projectToken == testProjectToken)
-        #expect(config.apiKey == testProjectToken)
         #expect(config.host == URL(string: "https://eu.i.posthog.com/"))
     }
 
@@ -98,6 +66,27 @@ struct PostHogConfigTest {
         let config = PostHogConfig(projectToken: testProjectToken, host: "localhost:9000")
 
         #expect(config.host == (try #require(URL(string: "localhost:9000"))))
+    }
+
+    @Test("setBeforeSend accepts an array of non-Sendable closures")
+    func setBeforeSendAcceptsNonSendableClosureArray() throws {
+        let config = PostHogConfig(projectToken: testProjectToken)
+        // An app-side array typed with the plain function type, as written before 4.0.
+        let blocks: [(PostHogEvent) -> PostHogEvent?] = [
+            { event in
+                event.event += "-first"
+                return event
+            },
+            { event in
+                event.event += "-second"
+                return event
+            },
+        ]
+
+        config.setBeforeSend(blocks)
+
+        let event = try #require(config.runBeforeSend(PostHogEvent(event: "original", distinctId: "id")))
+        #expect(event.event == "original-first-second")
     }
 
     #if os(iOS)

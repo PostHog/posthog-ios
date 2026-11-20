@@ -295,7 +295,7 @@ This is supporting CI evidence, not a claim that a particular current CI run was
 
 ### 1. `PostHogMaskFailClosedTest.swift`
 
-Production owner: `RRWireframe` and replay snapshot collection/emission. These unit/queue tests complement—not replace—rendered goldens.
+Production owner: `RRScreenshotFrame` and replay snapshot collection/emission. These unit/queue tests complement—not replace—rendered goldens.
 
 | Line | Declaration | Decision / contract and regression |
 |---:|---|---|
@@ -383,15 +383,6 @@ Production owner: presentation-aware mask collection. The harness requires visib
 | 450 | `emptyArraysStill` | R — legitimate no-mask geometry settles. |
 | 457 | `driftInflationCoversSweepInAfterOrder` | R — swept coverage and owner ordering; catches wrong pairing/under-inflation. |
 | 486 | `driftInflationCoversTrailBehindBefore` | R — displayed-pixel lag requires trailing inflation. |
-| 502 | `backgroundCaptureCoversTrailBehindBefore` | R — off-main pixels can trail `before`; the mask covers that trail. |
-| 515 | `backgroundCaptureSkipsRecycledOwner` | R — a recycled cell's committed position is unknown, so the frame is skipped. |
-| 525 | `backgroundCaptureSkipsAppearedOwner` | R — an owner appearing mid-render cannot be paired, so the frame is skipped. |
-| 537 | `backgroundCaptureSkipsMotion` | R — motion has no off-main aligned renderer, so the frame is skipped. |
-| 545 | `backgroundCaptureSkipsNilSample` | R — a missing sample cannot manufacture safe masks. |
-| 552 | `backgroundCaptureStillCoversBothSamples` | R — still frames still cover both samples, paired by owner. |
-| 572 | `backgroundCaptureSkipsBounceDuringLead` | R — movement during the lead wait that returns by the last sample still skips. |
-| 582 | `backgroundCaptureSkipsTransientOwner` | R — a private view present only at render time skips the frame. |
-| 588 | `backgroundCaptureStillAcrossThreeSamples` | R — still frames mask every sampled position. |
 
 ### 5. `PostHogMaskSnapshotTest.swift`
 
@@ -884,10 +875,10 @@ These protect separate privacy and availability risks; no consolidation proposed
 1. Equal image hashes, no pending metadata → skip.
 2. Different hashes → send.
 3. Equal hashes with pending snapshot data → send.
-4. Nil image hash/wireframe mode → send.
+4. Nil image hash → send.
 5. No previous hash → send.
 
-Credible regressions: duplicate traffic, lost metadata, wireframe suppression, or missing first frame.
+Credible regressions: duplicate traffic, lost metadata, or missing first frame.
 
 ### 21. `PostHogSDKPersonProfilesTest.swift`
 

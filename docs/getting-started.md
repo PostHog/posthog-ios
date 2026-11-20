@@ -8,11 +8,7 @@ After `setup`, PostHog captures app lifecycle events, such as `Application Opene
 
 ## Install
 
-Add the package with Swift Package Manager, `https://github.com/PostHog/posthog-ios.git`, or with CocoaPods:
-
-```ruby
-pod "PostHog"
-```
+Add the package with Swift Package Manager, `https://github.com/PostHog/posthog-ios.git`. 4.x.x isn't published to CocoaPods.
 
 ## Initialize
 
@@ -44,3 +40,11 @@ Events are sent in batches. Call `flush()` to send queued events now, or `close(
 ```swift
 PostHogSDK.shared.close()
 ```
+
+## Custom keyboard extensions
+
+A custom keyboard can only send events when it has [Open Access](https://developer.apple.com/documentation/uikit/configuring-open-access-for-a-custom-keyboard). Network requests and writes to the shared App Group container both need it. Users grant it in **Settings > General > Keyboard > Keyboards > [Your Keyboard] > Allow Full Access**.
+
+## IDFA
+
+The SDK doesn't collect the IDFA. It has had no references to Apple's AdSupport framework since 1.2.0, so it doesn't trip App Store static analysis.

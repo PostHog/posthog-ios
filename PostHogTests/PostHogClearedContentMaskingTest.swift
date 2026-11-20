@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import QuartzCore
@@ -85,6 +85,28 @@
             try #require(!label.layer.needsDisplay())
 
             #expect(try #require(sut.integration.collectMaskableRects(in: window)).contains(label.frame))
+        }
+
+        @Test("A sensitive text view cleared under a fade stays masked while the transition still shows the old text")
+        func textViewClearedUnderTransitionStaysMasked() throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+            let window = makeReplayTestWindow()
+            defer { window.isHidden = true }
+            let textView = UITextView(frame: CGRect(x: 20, y: 40, width: 160, height: 80))
+            textView.text = "SECRET"
+            window.addSubview(textView)
+            window.layoutIfNeeded()
+            CATransaction.flush()
+
+            let fade = CATransition()
+            fade.type = .fade
+            fade.duration = 1000
+            textView.layer.add(fade, forKey: nil)
+            textView.text = ""
+            window.layoutIfNeeded()
+
+            #expect(try #require(sut.integration.collectMaskableRects(in: window)).contains(textView.frame))
         }
 
         @Test("A sensitive image view fading from a photo to a symbol stays masked while the transition draws the photo")
@@ -304,25 +326,6 @@
             try expectMagentaMasked(image, rects)
         }
 
-        @Test("A symbol swapped for another symbol in the same turn keeps its image wireframe")
-        func swappedSymbolKeepsImageWireframe() async throws {
-            let sut = makeSut()
-            defer { teardown(sut) }
-            let window = makeReplayTestWindow()
-            defer { window.isHidden = true }
-            let symbol = UIImageView(image: UIImage(systemName: "star.fill"))
-            symbol.frame = CGRect(x: 20, y: 40, width: 40, height: 40)
-            window.addSubview(symbol)
-            window.layoutIfNeeded()
-            try await commit()
-
-            symbol.image = UIImage(systemName: "heart.fill")
-
-            let root = try #require(sut.integration.toWireframe(window))
-            let imageWireframe = try #require(imageWireframes(in: root).first)
-            #expect(imageWireframe.image != nil)
-        }
-
         @Test("A no-capture image view showing a replaced image masks its unclipped subviews too")
         func noCaptureReplacedImageMasksItsSubviews() async throws {
             let sut = makeSut()
@@ -375,10 +378,6 @@
             let rects = try #require(sut.integration.collectMaskableRects(in: window))
             #expect(CopyCountingLayer.copies == 0)
             #expect(!rects.contains { $0.intersects(symbol.frame) }, "\(rects)")
-        }
-
-        private func imageWireframes(in wireframe: RRWireframe) -> [RRWireframe] {
-            (wireframe.type == "image" ? [wireframe] : []) + (wireframe.childWireframes ?? []).flatMap(imageWireframes)
         }
     }
 

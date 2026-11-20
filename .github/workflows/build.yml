@@ -70,8 +70,8 @@ jobs:
   build-sdk-min-toolchain:
     needs: detect-markdown-only
     runs-on: macos-15-xlarge
-    # The main ruleset requires this exact legacy check name, even when the Xcode pin changes.
-    name: Build SDK (Swift 5 compatibility on Xcode 15.4 with CocoaPods)
+    # The main ruleset requires this exact check name. Keep it free of toolchain versions so pin bumps don't rename it.
+    name: Build SDK
     steps:
       - name: Complete markdown-only PR check
         if: needs.detect-markdown-only.outputs.markdown_only == 'true'

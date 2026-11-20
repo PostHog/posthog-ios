@@ -33,6 +33,19 @@
             }
         }
 
+        var fullSnapshots: [[[String: Any]]] {
+            lock.withLock {
+                values.filter { $0["type"] as? Int == 2 }
+                    .compactMap { ($0["data"] as? [String: Any])?["wireframes"] as? [[String: Any]] }
+            }
+        }
+
+        var metas: [[String: Any]] {
+            lock.withLock {
+                values.filter { $0["type"] as? Int == 4 }.compactMap { $0["data"] as? [String: Any] }
+            }
+        }
+
         /// The first uploaded screenshot, decoded.
         func firstScreenshotImage() throws -> CGImage {
             let screenshot = try #require(screenshots.first)

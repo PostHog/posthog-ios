@@ -1,4 +1,4 @@
-#if os(iOS) && canImport(Metal)
+#if os(iOS) && canImport(Metal) && (!SWIFT_PACKAGE || SessionReplay)
     import QuartzCore
     import UIKit
 
@@ -665,7 +665,7 @@
 
         /// Non-whitespace becomes `*` (rrweb's `maskText`), or every character does (rrweb's `maskInputValue`).
         fileprivate static func masked(_ text: String, keepingWhitespace: Bool) -> String {
-            keepingWhitespace ? String(text.map { $0.isWhitespace ? $0 : "*" }) : text.mask()
+            keepingWhitespace ? String(text.map { $0.isWhitespace ? $0 : "*" }) : String(repeating: "*", count: text.count)
         }
 
         /// `masked(_:keepingWhitespace:)` for each run, keeping its attributes except attachments (images), shadows, and

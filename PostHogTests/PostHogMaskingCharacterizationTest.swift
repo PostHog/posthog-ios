@@ -5,7 +5,7 @@
 //  Created by Jiri Urbasek on 16/07/2026.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import SwiftUI

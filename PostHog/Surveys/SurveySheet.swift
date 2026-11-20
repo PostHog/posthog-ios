@@ -5,11 +5,10 @@
 //  Created by Ioannis Josephides on 12/03/2025.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
 
     import SwiftUI
 
-    @available(iOS 15, *)
     struct SurveySheet: View {
         // Observed so the sheet re-renders when the displayed survey is updated in place
         // (e.g. re-translated after a language change), not just when questions advance.
@@ -124,7 +123,6 @@
         }
     }
 
-    @available(iOS 15, *)
     private struct SurveyDismissButton: View {
         @Environment(\.surveyAppearance) private var appearance
         let action: () -> Void
@@ -141,7 +139,6 @@
     }
 
     extension View {
-        @available(iOS 15, *)
         func surveyBottomSheet(height: CGFloat) -> some View {
             modifier(
                 SurveyBottomSheetWithWithDetents(height: height)
@@ -149,7 +146,6 @@
         }
     }
 
-    @available(iOS 15.0, *)
     private struct SurveyBottomSheetWithWithDetents: ViewModifier {
         @Environment(\.surveyAppearance) private var appearance
 
@@ -230,13 +226,11 @@
         var placeholder: String?
     }
 
-    @available(iOS 15.0, *)
     private struct SurveyAppearanceEnvironmentKey: EnvironmentKey {
         static let defaultValue: SwiftUISurveyAppearance = .getAppearanceWithDefaults()
     }
 
     extension EnvironmentValues {
-        @available(iOS 15.0, *)
         var surveyAppearance: SwiftUISurveyAppearance {
             get { self[SurveyAppearanceEnvironmentKey.self] }
             set { self[SurveyAppearanceEnvironmentKey.self] = newValue }
@@ -244,7 +238,6 @@
     }
 
     extension SwiftUISurveyAppearance {
-        @available(iOS 15.0, *)
         static func getAppearanceWithDefaults(_ appearance: PostHogDisplaySurveyAppearance? = nil) -> SwiftUISurveyAppearance {
             SwiftUISurveyAppearance(
                 fontFamily: Font.customFont(family: appearance?.fontFamily ?? "") ?? Font.body,
@@ -272,13 +265,11 @@
             )
         }
 
-        @available(iOS 15.0, *)
         private static func colorFrom(css hex: String?, defaultColor: UIColor) -> Color {
             guard let hex = hex, !hex.isEmpty else { return Color(uiColor: defaultColor) }
             return Color(uiColor: UIColor(hex: hex))
         }
 
-        @available(iOS 15.0, *)
         private static func colorFrom(css hex: String?) -> Color? {
             guard let hex = hex, !hex.isEmpty else { return nil }
             return Color(uiColor: UIColor(hex: hex))
@@ -288,7 +279,6 @@
         /// - Use user-provided inputBackground if set
         /// - Otherwise use #f8f8f8 if survey background is white (for slight contrast)
         /// - Otherwise default to white
-        @available(iOS 15.0, *)
         var effectiveInputBackground: Color {
             if let userInputBg = inputBackground {
                 return userInputBg
@@ -302,7 +292,6 @@
         /// Computed input text color matching JS SDK behavior:
         /// - Use user-provided inputTextColor if set
         /// - Otherwise auto-contrast from effectiveInputBackground
-        @available(iOS 15.0, *)
         var effectiveInputTextColor: Color {
             inputTextColor ?? effectiveInputBackground.getContrastingTextColor()
         }

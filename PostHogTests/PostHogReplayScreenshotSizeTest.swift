@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     @testable import PostHog
     import Testing
     import UIKit
@@ -24,7 +24,7 @@
         }
 
         private func uploaded(_ image: UIImage, masks: [CGRect], pixelScale: CGFloat = 1) throws -> CGImage {
-            let wireframe = RRWireframe()
+            let wireframe = RRScreenshotFrame()
             wireframe.type = "screenshot"
             wireframe.image = image
             wireframe.maskableWidgets = masks
@@ -47,7 +47,7 @@
             }
         }
 
-        private func decode(_ wireframe: RRWireframe) throws -> CGImage {
+        private func decode(_ wireframe: RRScreenshotFrame) throws -> CGImage {
             let base64 = try #require(wireframe.toDict()["base64"] as? String)
             let encoded = try #require(base64.split(separator: ",").last.map(String.init))
             let data = try #require(Data(base64Encoded: encoded))
@@ -96,7 +96,7 @@
             let window = try window()
             defer { window.isHidden = true }
             let image = try #require(window.toImage(renderer: .presentationTree))
-            let wireframe = RRWireframe()
+            let wireframe = RRScreenshotFrame()
             wireframe.type = "image"
             wireframe.image = image
             let uploaded = try decode(wireframe)
@@ -201,12 +201,79 @@
             let image = solidImage(.red, size: CGSize(width: 200, height: 300), scale: 3)
             // At 3 pixels per point these edges land on pixels 120.3 and 419.7.
             let mask = CGRect(x: 40.1, y: 60, width: 99.8, height: 80)
-            let masked = try #require(RRWireframe.maskImage(image, maskableWidgets: [mask], pixelScale: 3)?.cgImage)
+            let masked = try #require(RRScreenshotFrame.maskImage(image, maskableWidgets: [mask], pixelScale: 3)?.cgImage)
             let row = CGFloat(300)
             #expect(try isBlack(rgb(masked, at: CGPoint(x: 120, y: row))))
             #expect(try isBlack(rgb(masked, at: CGPoint(x: 419, y: row))))
             #expect(try isRed(rgb(masked, at: CGPoint(x: 119, y: row))))
             #expect(try isRed(rgb(masked, at: CGPoint(x: 420, y: row))))
+        }
+
+        @Test("a presentation-tree render at upload scale has the upload size and keeps its mask", arguments: [nil, 0.5] as [Double?])
+        func presentationTreeRendersAtUploadScale(screenshotScale: Double?) throws {
+            let window = try window()
+            defer { window.isHidden = true }
+            let scale = pixelScale(screenshotScale: screenshotScale.map { NSNumber(value: $0) }, on: window)
+            let image = try #require(window.toImage(renderer: .presentationTree, presentationScale: scale))
+            #expect(image.scale == scale)
+            #expect(RRScreenshotFrame.unmaskedScreenshot(image, pixelScale: scale) === image)
+
+            let masked = try uploaded(image, masks: [Self.secretRect], pixelScale: scale)
+            let expected = CGSize(width: (window.bounds.width * scale).rounded(.up),
+                                  height: (window.bounds.height * scale).rounded(.up))
+            #expect(pixelSize(masked) == expected)
+
+            let rect = Self.secretRect
+            let inside = [CGPoint(x: rect.midX, y: rect.midY), CGPoint(x: rect.minX + 1, y: rect.minY + 1),
+                          CGPoint(x: rect.maxX - 1, y: rect.maxY - 1)]
+            for point in inside {
+                #expect(try isBlack(rgb(masked, at: CGPoint(x: point.x * scale, y: point.y * scale))), "masked frame at \(point)")
+            }
+            let outside = [CGPoint(x: rect.minX - 8, y: rect.midY), CGPoint(x: rect.maxX + 8, y: rect.midY),
+                           CGPoint(x: rect.midX, y: rect.maxY + 8)]
+            for point in outside {
+                #expect(try isWhite(rgb(masked, at: CGPoint(x: point.x * scale, y: point.y * scale))), "masked frame at \(point)")
+            }
+        }
+
+        /// A 393pt window at 1.5 pixels per point is 589.5 pixels wide, and an 874pt one at 2.25 is 1966.5 tall. The
+        /// render and its masks must map points to pixels the same way there, or a mask's edge misses what it covers.
+        @Test("masks cover a presentation-tree render whose pixel size is fractional", arguments: [
+            (393.0, 852.0, 1.5), (400.0, 852.0, 1.5), (393.0, 852.0, 1.0), (400.0, 874.0, 2.25), (400.0, 872.0, 2.25),
+        ] as [(CGFloat, CGFloat, CGFloat)])
+        func fractionalPresentationRenderStaysMasked(width: CGFloat, height: CGFloat, scale: CGFloat) throws {
+            let rect = CGRect(x: 350, y: 100, width: 40, height: 40)
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: height))
+            window.backgroundColor = .white
+            window.isHidden = false
+            defer { window.isHidden = true }
+            try #require(window.screen.scale >= scale)
+            let secret = UIView(frame: rect)
+            secret.backgroundColor = .red
+            window.addSubview(secret)
+            window.layoutIfNeeded()
+
+            let image = try #require(window.toImage(renderer: .presentationTree, presentationScale: scale))
+            let masked = try #require(RRScreenshotFrame.maskImage(image, maskableWidgets: [rect], pixelScale: scale)?.cgImage)
+            #expect(try reddishPixels(masked) == 0)
+        }
+
+        private func reddishPixels(_ image: CGImage) throws -> Int {
+            var rgba = [UInt8](repeating: 0, count: image.width * image.height * 4)
+            let context = try #require(CGContext(
+                data: &rgba, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: image.width * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ))
+            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            return stride(from: 0, to: rgba.count, by: 4).filter { Int(rgba[$0]) - Int(rgba[$0 + 1]) > 20 }.count
+        }
+
+        @Test("a presentation-tree render is never finer than the screen")
+        func presentationScaleIsCappedAtNative() throws {
+            let window = try window()
+            defer { window.isHidden = true }
+            let image = try #require(window.toImage(renderer: .presentationTree, presentationScale: window.screen.scale * 2))
+            #expect(image.scale == window.screen.scale)
         }
 
         @Test("an unmasked frame already at native resolution is not redrawn")
@@ -215,8 +282,8 @@
             defer { window.isHidden = true }
             let image = try #require(window.toImage(renderer: .presentationTree))
             let native = pixelScale(screenshotScale: 1, on: window)
-            #expect(RRWireframe.unmaskedScreenshot(image, pixelScale: native) === image)
-            #expect(RRWireframe.unmaskedScreenshot(image, pixelScale: 1) !== image)
+            #expect(RRScreenshotFrame.unmaskedScreenshot(image, pixelScale: native) === image)
+            #expect(RRScreenshotFrame.unmaskedScreenshot(image, pixelScale: 1) !== image)
         }
 
         @Test("downsampling keeps a one-pixel line whichever source pixel it falls on")
@@ -233,7 +300,7 @@
                     context.fill(CGRect(x: CGFloat(column * 3 + phase) / 3, y: 0, width: 1.0 / 3, height: size.height))
                 }
             }
-            let downsampled = try #require(RRWireframe.unmaskedScreenshot(image, pixelScale: 1).cgImage)
+            let downsampled = try #require(RRScreenshotFrame.unmaskedScreenshot(image, pixelScale: 1).cgImage)
             for column in 10 ... 12 {
                 let pixel = try rgb(downsampled, at: CGPoint(x: column, y: 15))
                 #expect(!isWhite(pixel), "column \(column) lost its line: \(pixel)")
@@ -252,7 +319,7 @@
                 UIColor.red.setFill()
                 context.fill(secret)
             }
-            let masked = try #require(RRWireframe.maskImage(image, maskableWidgets: [secret], pixelScale: pixelScale)?.cgImage)
+            let masked = try #require(RRScreenshotFrame.maskImage(image, maskableWidgets: [secret], pixelScale: pixelScale)?.cgImage)
             var rgba = [UInt8](repeating: 0, count: masked.width * masked.height * 4)
             let context = try #require(CGContext(
                 data: &rgba, width: masked.width, height: masked.height, bitsPerComponent: 8, bytesPerRow: masked.width * 4,

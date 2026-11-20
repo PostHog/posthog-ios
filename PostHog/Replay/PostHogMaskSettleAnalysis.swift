@@ -27,24 +27,44 @@
         struct MaskedRegion {
             let owner: ObjectIdentifier
             let object: AnyObject
-            let rect: CGRect
             /// See `InlineMasking`.
             let inline: InlineMasking
+            private let measurement: MaskRectMeasurement
+
+            var rect: CGRect {
+                switch measurement {
+                case let .measured(rect): return rect
+                case let .deferred(deferred): return deferred.rect
+                }
+            }
 
             init(_ object: AnyObject, rect: CGRect, inline: InlineMasking) {
-                owner = ObjectIdentifier(object)
-                self.object = object
-                self.rect = rect
-                self.inline = inline
+                self.init(object, measurement: .measured(rect), inline: inline)
             }
 
             /// Covers everything the view draws itself, including content past its bounds.
             init(_ view: UIView, in window: UIWindow?) {
-                self.init(view, rect: view.toPresentationRect(window, outsets: view.drawnOutsets), inline: .owned)
+                self.init(view, measurement: .of { view.toPresentationRect(window, outsets: view.drawnOutsets) }, inline: .owned)
             }
 
             init(_ layer: CALayer, in window: UIWindow?) {
-                self.init(layer, rect: layer.toPresentationRect(window, outsets: layer.drawnOutsets(of: layer.bounds)), inline: .owned)
+                self.init(layer, measurement: .of { layer.toPresentationRect(window, outsets: layer.drawnOutsets(of: layer.bounds)) }, inline: .owned)
+            }
+
+            private init(_ object: AnyObject, measurement: MaskRectMeasurement, inline: InlineMasking) {
+                owner = ObjectIdentifier(object)
+                self.object = object
+                self.measurement = measurement
+                self.inline = inline
+            }
+
+            /// Main thread. Regions walked in `body` measure their rect on first read, still on main, instead of
+            /// during the walk: a GPU capture masks most of them inline in the mirror and never reads it.
+            static func deferringRects<T>(_ body: () -> T) -> T {
+                let wasDeferring = DeferredMaskRect.isDeferring
+                DeferredMaskRect.isDeferring = true
+                defer { DeferredMaskRect.isDeferring = wasDeferring }
+                return body()
             }
         }
 
@@ -58,12 +78,6 @@
         /// The band thresholds derive from it, so changing it rescales them rather than
         /// invalidating them.
         static let settleWindowSeconds: TimeInterval = 0.025
-
-        /// Gap between the first mask sample and the off-main background render. On device, a render
-        /// taken right after an abrupt scroll stop still showed the pre-stop position; a still
-        /// verdict must span longer than that lag. 25ms already avoided it in testing, so this
-        /// leaves margin for slower devices.
-        static let backgroundCaptureLeadSeconds: TimeInterval = 0.1
 
         /// At or below 80pt/s, geometry counts as unmoved and rects are used exactly as sampled.
         /// Raise only to stop idle screens paying for inflation, and only a little: this much
@@ -135,41 +149,6 @@
             return oldRects
         }
 
-        /// Masks for a frame rendered off-main between two samples, or nil to skip the frame.
-        /// The off-main render copies the last committed frame, which can trail `before`, so
-        /// drifted masks take `settleVerdict`'s inflation, including its trail behind `before`.
-        /// Motion, an unpaired owner (a cell recycled mid-render), or a nil sample skips the frame:
-        /// no rect is known to cover where that content sat when the pixels were committed, and
-        /// the presentation-tree renderer the settled path falls back to is main-only.
-        static func backgroundCaptureMaskRects(before: [MaskedRegion]?, after: [MaskedRegion]?) -> [CGRect]? {
-            let verdict = settleVerdict(before: before, after: after)
-            switch verdict.band {
-            case .still:
-                // Within tolerance, but the pixels may still show `before`.
-                guard let after, let oldRects = pairedOldRects(before: before, after: after) else { return nil }
-                return zip(oldRects, after).map { $0.union($1.rect) }
-            case .drift:
-                return verdict.inflatedRects
-            case .motion:
-                return nil
-            }
-        }
-
-        /// Three-sample form: `lead` is taken `backgroundCaptureLeadSeconds` before `before`, so a
-        /// still span covers the render's lag, while `before` stays adjacent to the render and
-        /// catches anything that moved, appeared or vanished during the wait. Each consecutive
-        /// pair must be coverable on its own; the masks are the union of both.
-        static func backgroundCaptureMaskRects(
-            lead: [MaskedRegion]?, before: [MaskedRegion]?, after: [MaskedRegion]?
-        ) -> [CGRect]? {
-            guard let leading = backgroundCaptureMaskRects(before: lead, after: before),
-                  let trailing = backgroundCaptureMaskRects(before: before, after: after)
-            else {
-                return nil
-            }
-            return leading + trailing
-        }
-
         /// Banded by measured drift:
         /// - still (≤ tolerance): rects as collected.
         /// - drift (≤ budget): each mask inflated to the swept region (both sampled positions
@@ -203,6 +182,34 @@
                 return (.drift, inflated)
             }
             return (.motion, nil)
+        }
+    }
+
+    private enum MaskRectMeasurement {
+        case measured(CGRect)
+        case deferred(DeferredMaskRect)
+
+        static func of(_ measure: @escaping () -> CGRect) -> MaskRectMeasurement {
+            DeferredMaskRect.isDeferring ? .deferred(DeferredMaskRect(measure)) : .measured(measure())
+        }
+    }
+
+    /// Main thread only.
+    private final class DeferredMaskRect {
+        static var isDeferring = false
+        private var measure: (() -> CGRect)?
+        private var measured = CGRect.null
+
+        init(_ measure: @escaping () -> CGRect) {
+            self.measure = measure
+        }
+
+        var rect: CGRect {
+            if let measure {
+                measured = measure()
+                self.measure = nil
+            }
+            return measured
         }
     }
 #endif

@@ -30,10 +30,10 @@
     PostHogConfig *config = [[PostHogConfig alloc] projectToken:@"_6SG-F7I1vCuZ-HdJL3VZQqjBlaSb1_20hDPwqMNnGI"];
     config.preloadFeatureFlags = YES;
     config.sessionReplayConfig.captureLogs = YES;
-    config.sessionReplayConfig.captureLogsConfig.minLogLevel = PostHogLogLevelWarn;
-    config.sessionReplayConfig.captureLogsConfig.logSanitizer = ^PostHogLogEntry * _Nullable(NSString * _Nonnull text) {
+    config.sessionReplayConfig.captureLogsConfig.minLogLevel = PostHogConsoleLogLevelWarn;
+    config.sessionReplayConfig.captureLogsConfig.logSanitizer = ^PostHogConsoleLogEntry * _Nullable(NSString * _Nonnull text) {
         // Simple implementation: just return the text as-is with info level
-        return [[PostHogLogEntry alloc] initWithLevel:PostHogLogLevelInfo message:text];
+        return [[PostHogConsoleLogEntry alloc] initWithLevel:PostHogConsoleLogLevelInfo message:text];
     };
 
     
@@ -94,7 +94,7 @@
     NSLog(@"getFeatureFlagResult payload: %@", [[PostHogSDK shared] getFeatureFlagResult:@"myFlag"].payload);
     
     [[PostHogSDK shared] reloadFeatureFlags];
-    [[PostHogSDK shared] reloadFeatureFlagsWithCallback:^(){
+    [[PostHogSDK shared] reloadFeatureFlagsWithCallback:^(PostHogFeatureFlagsLoaded *result){
         NSLog(@"called");
     }];
     
@@ -127,6 +127,24 @@
                                  groups:groupProps
                               timestamp:[NSDate date]];
 
+    [[PostHogSDK shared] captureWithEvent:@"theEvent"
+                              distinctId:nil
+                               properties:props
+                          userProperties:nil
+                 userPropertiesSetOnce:nil
+                                 groups:nil
+                              timestamp:nil
+                                 options:@{@"process_person_profile": @NO}];
+
+    NSString *aiEventUuid = [[PostHogSDK shared] captureAiWithEvent:@"$ai_generation"
+                                                         distinctId:nil
+                                                          properties:@{@"$ai_model": @"gpt-4o-mini", @"$ai_provider": @"openai"}
+                                                     userProperties:nil
+                                            userPropertiesSetOnce:nil
+                                                            groups:nil
+                                                         timestamp:nil
+                                                            options:nil];
+    NSLog(@"captureAi uuid: %@", aiEventUuid);
 
     [[PostHogSDK shared] groupWithType:@"theType" key:@"theKey"];
     [[PostHogSDK shared] groupWithType:@"theType" key:@"theKey" groupProperties:groupProps];

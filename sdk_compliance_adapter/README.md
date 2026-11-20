@@ -113,7 +113,7 @@ Reset the SDK and adapter state.
 
 1. **macOS environment** (local Mac or GitHub Actions `macos-latest`)
 2. **Docker Desktop** installed and running
-3. **Swift 5.9+** installed
+3. **Swift 6.2+** installed
 
 ### Steps
 
@@ -290,3 +290,11 @@ A GitHub Actions workflow is available at `.github/workflows/sdk-compliance.yml`
 ## References
 
 - Test harness: https://github.com/PostHog/posthog-sdk-test-harness
+
+## Published harness retry profile
+
+The adapter declares `unbounded_retries` because durable ingestion retains transiently failed events beyond `maxRetries`. Compose pins the published v1 harness **1.32.0** image by digest (`sha256:7eb6c62e2241ddd48a2dfb326652e7933cd2fe26e0ffcad98cd385d603b4eb82`). No native SDK retry policy changes are included.
+
+[Harness 1.32.0](https://github.com/PostHog/posthog-sdk-test-harness/actions/runs/44046405330) was published from commit `dde638562d33572b5c8ac3a2eafc98b92ffa2261` with specs commit `53e9bc16d14f973809f80049864866d5b6d9bdff`. It replaces `max_retries_respected` with positive durable recovery coverage for this profile. Queued batching remains tested. This custom macOS hybrid workflow consumes Compose directly, not a reusable harness action.
+
+The unfiltered profile contains 47 cases (30 capture and 17 flags). Check the current CI report and adapter logs for actual results: the compliance job is advisory, so a green check alone does not establish compliance. An existing intermittent UUID observation/flush timing issue is disclosed, not fixed.

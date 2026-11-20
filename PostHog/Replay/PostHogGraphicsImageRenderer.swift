@@ -76,10 +76,12 @@
                 return nil
             }
 
-            // UIKit's coordinate system is flipped relative to CoreGraphics.
+            // UIKit's coordinate system is flipped relative to CoreGraphics. Flipped on the bitmap's own height, so a
+            // truncated fraction of a row is cropped off the bottom, as the width's is off the right, rather than
+            // shifting every row up from where masks drawn at `scale` land.
             let scaleX = roundingUp ? CGFloat(pixelsPerRow) / size.width : scale
             let scaleY = roundingUp ? CGFloat(pixelsPerColumn) / size.height : scale
-            context.translateBy(x: 0, y: size.height * scaleY)
+            context.translateBy(x: 0, y: CGFloat(pixelsPerColumn))
             context.scaleBy(x: scaleX, y: -scaleY)
 
             UIGraphicsPushContext(context)

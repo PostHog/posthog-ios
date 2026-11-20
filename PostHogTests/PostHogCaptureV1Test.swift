@@ -1105,6 +1105,34 @@ final class PostHogCaptureV1QueueTest {
         }
     }
 
+    @Test("keeps only the first of two queued events with the same uuid when capture retries it")
+    func retriesOnlyFirstDuplicateUuid() async throws {
+        let config = PostHogConfig(projectToken: "phc_duplicates_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.flushAt = 100
+        let storage = PostHogStorage(config)
+        let queue = PostHogQueue(config, storage, .batch(api: PostHogApi(config)), nil)
+        server.batchProjectToken = config.projectToken
+        defer {
+            queue.stop()
+            queue.clear()
+            deleteSafely(storage.appFolderUrl)
+        }
+
+        let id = UUID()
+        server.captureV1ResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: ["results": [
+                id.postHogUuidString: ["result": "retry", "duplicates_dropped": 1],
+            ]], statusCode: 200, headers: nil)
+        }
+        for name in ["first", "second"] {
+            queue.add(PostHogEvent(event: name, distinctId: "user", uuid: id))
+        }
+        queue.flush()
+        await waitUntil { queue.currentRetryCountForTesting == 1 && !queue.isFlushingForTesting }
+
+        #expect(queue.fileQueue.peek(2).compactMap { PostHogEvent.fromJSON($0)?.event } == ["first"])
+    }
+
     @Test("starts a new request with the whole queue when a record to retry was evicted")
     func evictedRetryStartsOver() async throws {
         try await withMockedClock { clock in

@@ -4,19 +4,6 @@
     import Testing
     import UIKit
 
-    /// React Native's New Architecture paragraph view, registered under its runtime name. Like the real one it draws
-    /// nothing itself: a child view (`RCTParagraphTextView`) draws its text. The integration resolves the class when
-    /// created, so tests build their paragraph before their fixture.
-    private func fabricParagraphViewClass() -> UIView.Type {
-        let name = "RCTParagraphComponentView"
-        if let existing = NSClassFromString(name) as? UIView.Type {
-            return existing
-        }
-        let cls: AnyClass = objc_allocateClassPair(UIView.self, name, 0)!
-        objc_registerClassPair(cls)
-        return cls as! UIView.Type
-    }
-
     private final class FabricParagraphTextView: UIView {
         var text = ""
 
@@ -29,9 +16,12 @@
     @Suite("Replay GPU inline masking for React Native (Fabric) text", .serialized)
     @MainActor
     struct PostHogGPUReactNativeMaskTest: GPUCaptureTesting {
-        /// With no text, the child has no `draw(_:)`, so it has no backing store.
-        private func makeParagraph(_ frame: CGRect, text: String?) -> UIView {
-            let paragraph = fabricParagraphViewClass().init(frame: frame)
+        /// A stand-in for React Native's paragraph view, which draws nothing itself: a child view
+        /// (`RCTParagraphTextView`) draws its text. With no text, the child has no `draw(_:)`, so no backing store.
+        private func makeParagraph(_ frame: CGRect, text: String?) throws -> UIView {
+            // Registered by PostHogReactNativeMaskingTest's stub.
+            let paragraphClass = try #require(NSClassFromString("RCTParagraphComponentView") as? UIView.Type)
+            let paragraph = paragraphClass.init(frame: frame)
             let textView = text.map { text -> UIView in
                 let textView = FabricParagraphTextView(frame: paragraph.bounds)
                 textView.text = text
@@ -44,7 +34,7 @@
 
         @Test("A Fabric paragraph, whose text a child view draws, is drawn as `*` rows")
         func fabricParagraphIsRows() async throws {
-            let paragraph = makeParagraph(CGRect(x: 10, y: 40, width: 180, height: 40), text: "Secret value 42")
+            let paragraph = try makeParagraph(CGRect(x: 10, y: 40, width: 180, height: 40), text: "Secret value 42")
             let fixture = try await makeFixture()
             defer { fixture.close() }
             fixture.window.addSubview(paragraph)
@@ -61,7 +51,7 @@
 
         @Test("An empty Fabric paragraph, whose child draws nothing, draws no rows")
         func emptyFabricParagraphDrawsNothing() async throws {
-            let paragraph = makeParagraph(CGRect(x: 10, y: 40, width: 180, height: 40), text: nil)
+            let paragraph = try makeParagraph(CGRect(x: 10, y: 40, width: 180, height: 40), text: nil)
             let fixture = try await makeFixture()
             defer { fixture.close() }
             fixture.window.addSubview(paragraph)
@@ -76,7 +66,7 @@
 
         @Test("An empty Fabric paragraph with a border bitmap, a layer no view owns, draws no rows")
         func emptyFabricParagraphBorderDrawsNothing() async throws {
-            let paragraph = makeParagraph(CGRect(x: 10, y: 40, width: 180, height: 40), text: nil)
+            let paragraph = try makeParagraph(CGRect(x: 10, y: 40, width: 180, height: 40), text: nil)
             // As RCTViewComponentView draws a non-uniform border.
             let border = CALayer()
             border.frame = paragraph.bounds

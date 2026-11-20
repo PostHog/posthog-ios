@@ -21,9 +21,20 @@ final class PostHogWrapperEventTest {
         server.stop()
     }
 
-    private func makeSDK(beforeSend: BeforeSendBlock? = nil, reuseAnonymousId: Bool = false) -> PostHogSDK {
+    private func makeSDK(beforeSend: BeforeSendBlock? = nil, reuseAnonymousId: Bool = false, replayOn: Bool = false) -> PostHogSDK {
         let config = PostHogConfig(projectToken: "phc_wrapper_\(UUID().uuidString)", host: "http://localhost:9001")
         config.reuseAnonymousId = reuseAnonymousId
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
+            if replayOn {
+                // Replay debug keys are only sent while replay is on.
+                config.sessionReplay = true
+                config.disableRemoteConfigForTesting = true
+                let storage = PostHogStorage(config)
+                storage.reset()
+                storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
+                PostHogReplayIntegration.clearInstalls()
+            }
+        #endif
         config.flushAt = 1
         config.preloadFeatureFlags = false
         config.sendFeatureFlagEvent = false
@@ -108,7 +119,7 @@ final class PostHogWrapperEventTest {
         let request = try #require(server.aiRequests.first)
         let sent = server.parsePostHogEvents(request)
         #expect(sent.map(\.uuid) == [built.uuid])
-        #expect(sent.first?.properties["$sdk_debug_session_start"] != nil)
+        #expect(sent.first?.properties["$recording_status"] != nil)
         #expect(server.batchRequests.isEmpty)
     }
 
@@ -559,26 +570,26 @@ final class PostHogWrapperEventTest {
         #expect(sut.config.storageManager?.isPersonProcessing() == false)
     }
 
-    @Test("the replay debug values sent are the ones from build, even if the session changed")
-    func replayDebugSnapshotAtBuild() throws {
-        let sut = makeSDK()
-        defer { sut.close() }
-        let built = try #require(build(sut, "$wrapped"))
-        let builtStart = try #require(sut.sessionManager.sessionStartTimestampSnapshot)
-
-        sut.endSession()
-        server.reset(batchCount: 1)
-        sut.sendBuiltEventForWrapper(built, ai: false)
-        let sent = try #require(getBatchedEvents(server).first)
-
-        #expect(sent.properties["$sdk_debug_session_start"] as? Int64 == Int64(builtStart * 1000))
-    }
-
     #if os(iOS)
         #if !SWIFT_PACKAGE || SessionReplay
+            @Test("the replay debug values sent are the ones from build, even if the session changed")
+            func replayDebugSnapshotAtBuild() throws {
+                let sut = makeSDK(replayOn: true)
+                defer { sut.close() }
+                let built = try #require(build(sut, "$wrapped"))
+                let builtStart = try #require(sut.sessionManager.sessionStartTimestampSnapshot)
+
+                sut.endSession()
+                server.reset(batchCount: 1)
+                sut.sendBuiltEventForWrapper(built, ai: false)
+                let sent = try #require(getBatchedEvents(server).first)
+
+                #expect(sent.properties["$sdk_debug_session_start"] as? Int64 == Int64(builtStart * 1000))
+            }
+
             @Test("the replay debug bundle is claimed when a wrapper event is sent, not when it's built")
             func wrapperClaimsReplayDebugBundleAtSend() throws {
-                let sut = makeSDK()
+                let sut = makeSDK(replayOn: true)
                 defer { sut.close() }
                 let built = try #require(build(sut, "$wrapped"))
                 #expect(built.properties["$sdk_debug_replay_capture_mode"] == nil)
@@ -592,7 +603,7 @@ final class PostHogWrapperEventTest {
 
             @Test("a wrapper event renamed by the hook keeps the replay debug eligibility of its built name")
             func wrapperReplayEligibilityFromBuiltName() throws {
-                let sut = makeSDK()
+                let sut = makeSDK(replayOn: true)
                 defer { sut.close() }
                 let built = try #require(build(sut, "$wrapped"))
                 built.event = "renamed"

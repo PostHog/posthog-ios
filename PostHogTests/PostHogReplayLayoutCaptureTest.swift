@@ -40,33 +40,6 @@
 
         private final class CheckoutViewController: UIViewController {}
 
-        private final class Snapshots {
-            private let lock = NSLock()
-            private var values: [[String: Any]] = []
-
-            func record(_ event: PostHogEvent) {
-                guard event.event == "$snapshot",
-                      let data = event.properties["$snapshot_data"] as? [[String: Any]]
-                else { return }
-                lock.withLock { values.append(contentsOf: data) }
-            }
-
-            private func data(ofType type: Int) -> [[String: Any]] {
-                lock.withLock {
-                    values.filter { $0["type"] as? Int == type }.compactMap { $0["data"] as? [String: Any] }
-                }
-            }
-
-            var metas: [[String: Any]] { data(ofType: 4) }
-            var wireframes: [[String: Any]] { data(ofType: 2).flatMap { $0["wireframes"] as? [[String: Any]] ?? [] } }
-        }
-
-        private func drainReplayQueue() async {
-            await withCheckedContinuation { continuation in
-                PostHogReplayIntegration.dispatchQueue.async { continuation.resume() }
-            }
-        }
-
         @Test("Default config captures UIKit and SwiftUI screens as screenshots", arguments: Root.allCases)
         func defaultConfigCapturesScreenshots(_ root: Root) async throws {
             let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
@@ -80,41 +53,22 @@
             }
             try #require(UIApplication.getCurrentWindow() === window)
 
-            let config = PostHogConfig(projectToken: UUID().uuidString)
-            config.sessionReplay = true
-            config.sessionReplayConfig.captureNetworkTelemetry = false
-            config.disableReachabilityForTesting = true
-            config.disableQueueTimerForTesting = true
-            config.disableFlushOnBackgroundForTesting = true
-            config.disableRemoteConfigForTesting = true
-            config.preloadFeatureFlags = false
-            config.captureApplicationLifecycleEvents = false
-            config.captureScreenViews = false
-            let snapshots = Snapshots()
-            config.setBeforeSend { event in
-                snapshots.record(event)
-                return nil
-            }
-            PostHogStorage(config).setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
-            PostHogReplayIntegration.clearInstalls()
-            let sut = PostHogSDK.with(config)
+            let (sut, _, snapshots) = try makeScreenshotReplaySut()
             defer { sut.close() }
-            #expect(sut.isSessionReplayActive())
 
             // Each frame is encoded on the serial replay queue, which is slow on the simulator.
             // Nudge sparingly so frames don't pile up, then let the queue drain before closing.
-            for _ in 0 ..< 40 where snapshots.wireframes.isEmpty {
+            for _ in 0 ..< 40 where snapshots.screenshots.isEmpty {
                 window.setNeedsLayout()
                 window.layoutIfNeeded()
                 try await Task.sleep(nanoseconds: 500_000_000)
             }
             await drainReplayQueue()
 
-            let wireframe = try #require(snapshots.wireframes.first, "No snapshot was captured")
-            #expect(wireframe["type"] as? String == "screenshot")
-            #expect(!(wireframe["base64"] as? String ?? "").isEmpty)
-            let meta = try #require(snapshots.metas.first)
-            #expect(meta["href"] as? String == root.expectedHref)
+            let screenshot = try #require(snapshots.screenshots.first, "No screenshot was captured")
+            #expect(!(screenshot["base64"] as? String ?? "").isEmpty)
+            let href = try #require(snapshots.metaHrefs.first)
+            #expect(href == root.expectedHref)
         }
     }
 #endif

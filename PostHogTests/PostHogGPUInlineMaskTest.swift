@@ -491,6 +491,22 @@
             #expect(pixels.count(in: container.frame, where: Self.isBlack) == 180 * 60)
         }
 
+        @Test("A ph-no-capture view with a rect-only region too keeps that region alone, not a second rect for its inline one")
+        func noCaptureViewWithRectOnlyRegionKeepsOneRect() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let view = noCaptureView(CGRect(x: 10, y: 20, width: 180, height: 60))
+            fixture.window.addSubview(view)
+            let frame = try #require(fixture.mirror.build(window: fixture.window, scale: 1))
+            defer { frame.release() }
+            let rect = view.toPresentationRect(fixture.window, outsets: view.drawnOutsets)
+            let regions = [PostHogReplayIntegration.MaskedRegion(view, rect: rect, inline: .owned),
+                           PostHogReplayIntegration.MaskedRegion(view, rect: rect, inline: .rectOnly)]
+
+            let remaining = fixture.mirror.maskInline(regions, in: frame, tag: fixture.integration.inlineMaskTag(view:layer:))
+            #expect(remaining.map(\.inline) == [.rectOnly])
+        }
+
         @Test("A masked view whose layer mask is text, as in gradient text, is black over its bounds, not in the glyphs' shape",
               arguments: [false, true])
         func textShapedLayerMaskDoesNotSurvive(noCapture: Bool) async throws {

@@ -320,15 +320,18 @@
                     // A `ph-no-capture` region keeps a rect too, once, as the default path masks it: what's painted over the
                     // view isn't in its copy's subtree (React Native mounts a plain styled `View`'s children as its siblings).
                     // The rect is where the mirror draws each copy, so the view isn't measured.
-                    var blockedOwners = pass.blocked
-                    // A rect-only or portal region drawn in the mirror is masked where its copies are drawn.
-                    return regions.indices.filter { !inline.contains($0) || blockedOwners.remove(regions[$0].owner) != nil }.flatMap { regionIndex in
-                        let region = regions[regionIndex]
+                    // An owner that already keeps a rect-only region doesn't need its inline one too.
+                    var blockedWithoutRect = pass.blocked.subtracting(regions.indices.filter { !inline.contains($0) }.map { regions[$0].owner })
+                    var remaining: [PostHogReplayIntegration.MaskedRegion] = []
+                    for (regionIndex, region) in regions.enumerated() {
+                        guard !inline.contains(regionIndex) || blockedWithoutRect.remove(region.owner) != nil else { continue }
+                        // A rect-only or portal region drawn in the mirror is masked where its copies are drawn.
                         let rects = extents.drawnRects[regionIndex] ?? (pass.blocked.contains(region.owner) ? pass.copyRects(of: region.object) : nil)
-                        return rects.map { rects in
+                        remaining += rects.map { rects in
                             rects.map { PostHogReplayIntegration.MaskedRegion(region.object, rect: $0, inline: region.inline) }
                         } ?? [region]
                     }
+                    return remaining
                 }
             }
         }

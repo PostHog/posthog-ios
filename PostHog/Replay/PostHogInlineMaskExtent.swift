@@ -13,6 +13,9 @@
             /// `frame` cut to the rects its own and its ancestors' `masksToBounds` and masks confine it to; nil when one of
             /// those masks draws content or can't be bounded by a rect, so where its colour shows isn't known.
             let visibleFrame: CGRect?
+            /// Whether `visibleFrame` is the shape its colour shows in: false when the copy or a clipping ancestor is
+            /// rotated, skewed or moved in 3D, where a frame is only the bounding box of its shape.
+            let showsAsRect: Bool
             /// Bounds-to-window map, when affine and sublayers sit unchanged in bounds, so a cover can be placed.
             let coverable: CGAffineTransform?
             /// Where its shadow, cast by its whole subtree, can reach in window coordinates; nil when it casts none.
@@ -29,6 +32,8 @@
             let fadesApart: Bool
             /// Where they let it show, in window coordinates; nil when one's mask can't be bounded by a rect.
             let clip: CGRect?
+            /// Whether `clip` is exactly the shape they let it show in, not a bounding box of a rotated one.
+            let clipsToRect: Bool
         }
 
         /// The mirror flattened in paint order (the window's pre-order), with each copy's window place. A masked view
@@ -51,7 +56,8 @@
                 self.tracked = tracked
                 self.isBackdrop = isBackdrop
                 entries.reserveCapacity(copies.count)
-                let frame = collect(root, parent: nil, from: Ancestry(isDrawn: true, fadesApart: false, clip: .infinite), copies: copies)
+                let bounds = copies.windowFrame(of: root, root: root, local: root.bounds)
+                let frame = collect(root, parent: nil, from: Ancestry(isDrawn: true, fadesApart: false, clip: bounds, clipsToRect: true), copies: copies)
                 guard !frame.isNull, frame.minX.isFinite, frame.minY.isFinite, frame.width.isFinite, frame.height.isFinite else { return nil }
             }
 
@@ -112,12 +118,16 @@
                 let coverable = fadesApart ? nil : placement.flatMap { $0.hasPlainSublayers ? $0.toWindow : nil }
                 let ownClip = layer.mask.map { maskClip($0, of: layer, copies: copies) } ?? CGRect.infinite
                 let clip = ancestry.clip.flatMap { parent in ownClip.map { parent.intersection($0) } }
+                let isAxisAligned = placement.map { $0.toWindow.b == 0 && $0.toWindow.c == 0 } ?? false
+                let clipsToRect = ancestry.clipsToRect && (isAxisAligned || (layer.mask == nil && !layer.masksToBounds))
                 entries.append(ExtentEntry(copy: layer, frame: frame, visibleFrame: clip.map { frame.intersection($0) },
-                                           coverable: coverable, shadow: nil, subtreeFrame: frame, subtreeEnd: index + 1))
+                                           showsAsRect: clipsToRect && isAxisAligned, coverable: coverable, shadow: nil,
+                                           subtreeFrame: frame, subtreeEnd: index + 1))
                 if isDrawn, tracked.contains(ObjectIdentifier(layer)) { drawn[ObjectIdentifier(layer)] = index }
                 if isDrawn, layer.zPosition != 0 || Self.movesInDepth(layer) { layered.append((index, parent)) }
                 let bounds = layer.masksToBounds ? copies.windowFrame(of: layer, root: root, local: layer.bounds) : CGRect.infinite
-                let sublayers = Ancestry(isDrawn: isDrawn, fadesApart: fadesApart, clip: clip.map { $0.intersection(bounds) })
+                let sublayers = Ancestry(isDrawn: isDrawn, fadesApart: fadesApart, clip: clip.map { $0.intersection(bounds) },
+                                         clipsToRect: clipsToRect)
                 var subtreeFrame = frame
                 for sublayer in layer.sublayers ?? [] {
                     subtreeFrame = subtreeFrame.union(collect(sublayer, parent: index, from: sublayers, copies: copies))
@@ -423,14 +433,15 @@
         }
 
         /// nil when the copy shows nothing of its own under `rect` (only its shadow reached it), or only the colour of
-        /// an enclosing background, when `keepsEnclosing`. Copies already masked keep their redaction and only lose their colour.
+        /// a flat, rectangular enclosing background, when `keepsEnclosing`. Copies already masked keep their redaction and only lose their colour.
         private func extentTreatment(of entry: PostHogInlineMask.ExtentEntry, under rect: CGRect, source: CALayer?,
                                      keepsEnclosing: Bool) -> PostHogInlineMask.ExtentTreatment?
         {
             guard entry.frame.intersects(rect) else { return nil }
             let copy = entry.copy
             // Only colour seen around the extent is a background: clipping can leave it on the extent's own rect.
-            let enclosing = keepsEnclosing && entry.visibleFrame.map { PostHogInlineMask.encloses($0, rect) } ?? false
+            let enclosing = keepsEnclosing && entry.showsAsRect && !PostHogInlineMask.drawsContent(copy)
+                && entry.visibleFrame.map { PostHogInlineMask.encloses($0, rect) } ?? false
             let drawsColor = PostHogInlineMask.drawsColor(copy) && !enclosing
             if visited.contains(ObjectIdentifier(copy)) {
                 return drawsColor ? .color(strippingFirst: false) : nil

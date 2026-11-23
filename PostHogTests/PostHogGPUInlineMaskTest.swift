@@ -516,6 +516,74 @@
             #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 140 * 40)
         }
 
+        /// Masks `extent` and expects no magenta in it and `black` (the extent by default) fully black. A shape that
+        /// doesn't fill the extent leaves the window's background around it, and a rotated one blends at its edges.
+        private func expectExtentBlack(_ fixture: GPUCaptureFixture, _ extent: CGRect, black: CGRect? = nil) async throws {
+            let reporter = PostHogMaskReporterUIView(frame: extent)
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: extent, where: \.isMagenta) == 0)
+            let black = black ?? extent
+            #expect(pixels.count(in: black, where: Self.isBlack) == Int(black.width * black.height))
+        }
+
+        @Test("A colour running off the window edge is black under an extent that is only its visible part")
+        func colourClippedToExtentByWindowEdgeIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let band = UIView(frame: CGRect(x: -60, y: 200, width: 320, height: 60))
+            band.backgroundColor = .magenta
+            fixture.window.addSubview(band)
+
+            try await expectExtentBlack(fixture, CGRect(x: 0, y: 200, width: 200, height: 60))
+        }
+
+        @Test("A rotated thin bar across an extent is black under it, not kept as an enclosing background")
+        func rotatedBarAcrossExtentIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let bar = UIView(frame: CGRect(x: 0, y: 0, width: 140, height: 10))
+            bar.center = CGPoint(x: 100, y: 150)
+            bar.backgroundColor = .magenta
+            bar.transform = CGAffineTransform(rotationAngle: .pi / 4)
+            fixture.window.addSubview(bar)
+
+            try await expectExtentBlack(fixture, CGRect(x: 80, y: 130, width: 40, height: 40), black: CGRect(x: 98, y: 148, width: 4, height: 4))
+        }
+
+        @Test("A rotated view under an extent that is its unrotated frame is black under it")
+        func rotatedViewUnderUnrotatedFrameExtentIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let card = UIView(frame: CGRect(x: 50, y: 100, width: 100, height: 100))
+            card.backgroundColor = .magenta
+            card.transform = CGAffineTransform(rotationAngle: .pi / 9)
+            fixture.window.addSubview(card)
+
+            try await expectExtentBlack(fixture, CGRect(x: 50, y: 100, width: 100, height: 100), black: CGRect(x: 70, y: 120, width: 60, height: 60))
+        }
+
+        @Test("A pattern background enclosing an extent is black under it, as it can show the data")
+        func patternBackgroundEnclosingExtentIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let tile = try image(CGSize(width: 8, height: 8)) { context in
+                context.setFillColor(UIColor.magenta.cgColor)
+                context.fill(CGRect(x: 0, y: 0, width: 4, height: 8))
+                context.setFillColor(UIColor.white.cgColor)
+                context.fill(CGRect(x: 4, y: 0, width: 4, height: 8))
+            }
+            let field = UITextField(frame: CGRect(x: 10, y: 120, width: 180, height: 60))
+            field.text = "secret"
+            field.backgroundColor = UIColor(patternImage: tile)
+            fixture.window.addSubview(field)
+
+            try await expectExtentBlack(fixture, CGRect(x: 30, y: 130, width: 140, height: 40))
+        }
+
         @Test("An auto-masked view keeps its chrome; the same view under ph-no-capture doesn't")
         func autoMaskedViewKeepsChrome() async throws {
             let fixture = try await makeFixture()

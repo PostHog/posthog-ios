@@ -3933,9 +3933,9 @@ let maxRetryDelay = 30.0
          With `config.sessionReplay = false`, this also cancels a pending `startSessionRecording()` call, so
          remote config loads, event triggers and session changes will not start recording until the app
          calls `startSessionRecording()` again. Under React Native, where the JS layer drives recording, this
-         holds whatever `config.sessionReplay` is. Otherwise trigger group events and feature flag reloads don't
-         restart it either; a remote config load can. A later `optOut()` and `optIn()` don't restart it either. While
-         opted out this method is ignored.
+         holds whatever `config.sessionReplay` is. Otherwise remote config loads, trigger group events and
+         feature flag reloads don't restart it either; a matched event trigger can. A later `optOut()` and
+         `optIn()` don't restart it either. While opted out this method is ignored.
 
          Stopping also starts a best-effort, asynchronous flush of replay snapshots already recorded instead of
          waiting for the next scheduled flush. Normal buffering and delivery limits still apply: snapshots can be

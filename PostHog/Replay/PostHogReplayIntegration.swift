@@ -37,8 +37,8 @@
         private var stoppedByReactNative: Bool = false
 
         // Set by an explicit stop (`stop()`), cleared by the next start that takes: an explicit one, or
-        // an automatic one a config or event trigger callback is allowed to make (trigger group events and
-        // flags reloads never clear it). The session-change
+        // one a matched event trigger makes (remote config loads, trigger group events and flags reloads
+        // never clear it). The session-change
         // subscription lives for the whole install, so a stop that sampling or triggers caused can
         // re-evaluate on the next session; this keeps a session change from undoing an explicit stop.
         // Guarded by `bufferingLock`.
@@ -674,9 +674,9 @@
                 // recording resumes if `/flags` turns it on — a stopRecording() here would never restart.
                 stopRecording()
             } else if postHog?.remoteConfig?.hasSessionRecordingTriggerGroups() == true {
-                reevaluateTriggerGroups()
+                reevaluateTriggerGroups(respectExplicitStop: true)
             } else {
-                reevaluateSampling()
+                reevaluateSampling(respectExplicitStop: true)
             }
 
             // Only after the fresh config has decided: a reload that lowers the minimum and also
@@ -1706,7 +1706,7 @@
     // MARK: - Event triggers
 
     extension PostHogReplayIntegration {
-        /// With `respectExplicitStop`, a recorder the app stopped stays stopped; only a `/config` load or the app resumes it.
+        /// With `respectExplicitStop`, a recorder the app stopped stays stopped until the app starts it again.
         private func reevaluateTriggerGroups(respectExplicitStop: Bool = false) {
             guard let postHog else { return }
             guard postHog.remoteConfig?.hasSessionRecordingTriggerGroups() == true else { return }
@@ -1827,7 +1827,7 @@
                 }
             } else if previousTriggers?.isEmpty == false, remoteEventTriggers?.isEmpty != false, !isEnabled {
                 hedgeLog("[Session Replay] Event triggers removed. Starting replay.")
-                startRecording()
+                startRecording(respectExplicitStop: true)
             }
         }
     }

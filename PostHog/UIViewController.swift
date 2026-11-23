@@ -147,7 +147,7 @@
             if viewController.classForCoder == UIViewController.self {
                 return nil
             }
-            let name = String(describing: viewController.classForCoder).replacingOccurrences(of: "ViewController", with: "")
+            let name = _typeName(viewController.classForCoder, qualified: false).replacingOccurrences(of: "ViewController", with: "")
             return name.isEmpty ? nil : name
         }
     }

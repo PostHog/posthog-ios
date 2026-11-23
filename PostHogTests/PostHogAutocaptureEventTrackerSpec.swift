@@ -11,6 +11,8 @@
     import Testing
     import UIKit
 
+    private final class TopLevelSwiftAutocaptureView: UIView {}
+
     @Suite("PostHogAutocaptureEventTracker", .serialized, .resetsGlobalState)
     @MainActor
     struct PostHogAutocaptureEventTrackerSpec {
@@ -85,6 +87,39 @@
                 view.isHidden = false
                 view.isUserInteractionEnabled = true
                 #expect(view.eventData != nil)
+            }
+        }
+
+        @Suite("type name formatting")
+        @MainActor
+        struct TypeNameFormatting {
+            final class PlainSwiftView: UIView {}
+
+            final class CustomButton: UIButton {}
+
+            @objc(PostHogObjCAnnotatedTestView)
+            final class ObjCAnnotatedSwiftView: UIView {}
+
+            enum Container {
+                final class NestedSwiftView: UIView {}
+            }
+
+            final class GenericSwiftView<T>: UIView {}
+
+            @Test("formats Objective-C, Swift, nested, annotated, and generic class names without module prefixes or generic parameters")
+            func formatsDescriptiveAndBaseTypeNames() {
+                #expect(UIButton().descriptiveTypeName == "UIButton")
+                #expect(UIButton().baseTypeName == nil)
+
+                let customButton = CustomButton()
+                #expect(customButton.descriptiveTypeName == "CustomButton")
+                #expect(customButton.baseTypeName == "UIButton")
+
+                #expect(TopLevelSwiftAutocaptureView().descriptiveTypeName == "TopLevelSwiftAutocaptureView")
+                #expect(PlainSwiftView().descriptiveTypeName == "PlainSwiftView")
+                #expect(ObjCAnnotatedSwiftView().descriptiveTypeName == "ObjCAnnotatedSwiftView")
+                #expect(Container.NestedSwiftView().descriptiveTypeName == "NestedSwiftView")
+                #expect(GenericSwiftView<Int>().descriptiveTypeName == "GenericSwiftView")
             }
         }
     }

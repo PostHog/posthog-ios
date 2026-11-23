@@ -2589,17 +2589,21 @@
                 let image: UIImage
                 let rectRegions: [CGRect]
                 let inlineRegionCount: Int
+                /// Deferred region rects the mask walk's turn read, each a measurement of the view on main.
+                let deferredMeasurements: Int
                 let turn1Milliseconds: Double
                 let webpBytes: Int
             }
 
-            private static func result(encoding wireframe: RRScreenshotFrame, inlineRegionCount: Int, turn1Milliseconds: Double) -> MaskCaptureForTesting? {
+            private static func result(encoding wireframe: RRScreenshotFrame, inlineRegionCount: Int, deferredMeasurements: Int = 0,
+                                       turn1Milliseconds: Double) -> MaskCaptureForTesting?
+            {
                 let rects = wireframe.maskableWidgets ?? []
                 guard let (image, base64) = wireframe.encodeImage(), let base64,
                       let data = Data(base64Encoded: base64.components(separatedBy: ",").last ?? "")
                 else { return nil }
                 return MaskCaptureForTesting(image: image, rectRegions: rects, inlineRegionCount: inlineRegionCount,
-                                             turn1Milliseconds: turn1Milliseconds, webpBytes: data.count)
+                                             deferredMeasurements: deferredMeasurements, turn1Milliseconds: turn1Milliseconds, webpBytes: data.count)
             }
 
             /// The settled path as production runs it (rect collection, toImage, maskImage), then the upload's WebP encode.
@@ -2616,7 +2620,9 @@
                                           completion: @escaping (MaskCaptureForTesting?) -> Void)
             {
                 let start = CACurrentMediaTime()
+                let measuredBefore = MaskedRegion.deferredMeasurementsForTesting
                 let mirrored = mirrorAndMask(window, mirror: mirror, scale: scale)
+                let deferredMeasurements = MaskedRegion.deferredMeasurementsForTesting - measuredBefore
                 let milliseconds = (CACurrentMediaTime() - start) * 1000
                 guard case let .frozen(frame, wireframe) = mirrored else {
                     switch mirrored {
@@ -2637,7 +2643,8 @@
                         var result: MaskCaptureForTesting?
                         if let image {
                             wireframe.image = Self.screenshot(image, of: frame)
-                            result = Self.result(encoding: wireframe, inlineRegionCount: inlineCount, turn1Milliseconds: milliseconds)
+                            result = Self.result(encoding: wireframe, inlineRegionCount: inlineCount, deferredMeasurements: deferredMeasurements,
+                                                 turn1Milliseconds: milliseconds)
                         }
                         DispatchQueue.main.async {
                             frame.release()

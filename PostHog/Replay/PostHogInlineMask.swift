@@ -4,8 +4,8 @@
 
     /// Masks a GPU capture's mirror in place, between the mask walk and `freeze`: text as `*`, drawn off main (bars
     /// until drawn), images and any other content black. A `ph-no-capture` view is a black block over its bounds, chrome
-    /// and subtree included, as the rect pass draws it. A `postHogMask()` reporter masks everything painted under its
-    /// extent before it: content the same way, and chrome black. Whatever can't be placed, whole portals and objects
+    /// and subtree included, and keeps its rect for the rect pass, which covers what's painted over it. A `postHogMask()`
+    /// reporter masks everything painted under its extent before it: content the same way, and chrome black. Whatever can't be placed, whole portals and objects
     /// with no copy use the rect pass. Main thread.
     final class PostHogInlineMask {
         /// How copies of a class are redacted, before the instance it applies to is known.
@@ -107,6 +107,8 @@
         /// sits and under each portal that shows it.
         struct CopyMap {
             private var pairs: [CopyMapEntry] = []
+            /// In-place copies hidden because a portal that hides its source draws the source instead.
+            private var hiddenByPortal: Set<ObjectIdentifier> = []
 
             var count: Int { pairs.count }
 
@@ -116,6 +118,10 @@
 
             mutating func record(_ copy: CALayer, of source: CALayer, placement: Placement?) {
                 pairs.append(CopyMapEntry(source: source, copy: copy, placement: placement))
+            }
+
+            mutating func recordHiddenByPortal(_ copy: CALayer) {
+                hiddenByPortal.insert(ObjectIdentifier(copy))
             }
 
             func sources(in range: Range<Int>) -> [CALayer] {
@@ -131,6 +137,7 @@
 
             func index() -> CopyIndex {
                 var index = CopyIndex()
+                index.hiddenByPortal = hiddenByPortal
                 index.bySource.reserveCapacity(pairs.count)
                 index.byCopy.reserveCapacity(pairs.count)
                 for entry in pairs {
@@ -157,8 +164,21 @@
         struct CopyIndex {
             fileprivate var bySource: [ObjectIdentifier: [CALayer]] = [:]
             fileprivate var byCopy: [ObjectIdentifier: (source: CALayer, placement: Placement?)] = [:]
+            fileprivate var hiddenByPortal: Set<ObjectIdentifier> = []
 
             var count: Int { byCopy.count }
+
+            /// Whether `copy`, or a layer above it up to `root`, is hidden because a portal draws its source instead.
+            /// Checked by identity: the mask pass hides layers of its own in blocked copies.
+            func isHiddenByPortal(_ copy: CALayer, root: CALayer) -> Bool {
+                guard !hiddenByPortal.isEmpty else { return false }
+                var current: CALayer? = copy
+                while let layer = current, layer !== root {
+                    if hiddenByPortal.contains(ObjectIdentifier(layer)) { return true }
+                    current = layer.superlayer
+                }
+                return false
+            }
 
             func copies(of source: CALayer) -> [CALayer] {
                 bySource[ObjectIdentifier(source)] ?? []
@@ -360,13 +380,21 @@
                     #if TESTING
                         lastInlineRegionCountForTesting = inline.count
                     #endif
-                    // A rect-only or portal region drawn in the mirror is masked where its copies are drawn.
-                    return regions.indices.filter { !inline.contains($0) }.flatMap { regionIndex in
-                        let region = regions[regionIndex]
-                        return extents.drawnRects[regionIndex].map { rects in
+                    // A `ph-no-capture` region keeps a rect too, once, as the default path masks it: what's painted over the
+                    // view isn't in its copy's subtree (React Native mounts a plain styled `View`'s children as its siblings).
+                    // The rect is where the mirror draws each copy, so the view isn't measured.
+                    // An owner that already keeps a rect-only region doesn't need its inline one too.
+                    var blockedWithoutRect = pass.blocked.subtracting(regions.indices.filter { !inline.contains($0) }.map { regions[$0].owner })
+                    var remaining: [PostHogReplayIntegration.MaskedRegion] = []
+                    for (regionIndex, region) in regions.enumerated() {
+                        guard !inline.contains(regionIndex) || blockedWithoutRect.remove(region.owner) != nil else { continue }
+                        // A rect-only or portal region drawn in the mirror is masked where its copies are drawn.
+                        let rects = extents.drawnRects[regionIndex] ?? (pass.blocked.contains(region.owner) ? pass.copyRects(of: region.object) : nil)
+                        remaining += rects.map { rects in
                             rects.map { PostHogReplayIntegration.MaskedRegion(region.object, rect: $0, inline: region.inline) }
                         } ?? [region]
                     }
+                    return remaining
                 }
             }
         }
@@ -419,6 +447,8 @@
             fileprivate var signatures: [ObjectIdentifier: TextSignature?] = [:]
             /// Whether each view looked up is `ph-no-capture` or under one, for this capture.
             fileprivate var noCapture: [ObjectIdentifier: Bool] = [:]
+            /// Objects redacted as `ph-no-capture`.
+            fileprivate var blocked: Set<ObjectIdentifier> = []
             fileprivate var spent: CFTimeInterval = 0
             fileprivate var presentedSpent: CFTimeInterval = 0
             /// Whether text with a signature showed bars: its `*` weren't drawn yet.
@@ -432,7 +462,10 @@
                 guard !own.isEmpty else { return false }
                 let view = object as? UIView ?? (layer.delegate as? UIView).flatMap { $0.layer === layer ? $0 : nil }
                 var kind = mask.kind(of: layer, tag: tag)
-                if let view, isNoCapture(view) { kind = .blocked }
+                if let view, isNoCapture(view) {
+                    kind = .blocked
+                    blocked.insert(ObjectIdentifier(object))
+                }
                 for copy in own {
                     redactTree(copy, source: layer, kind: kind)
                 }
@@ -449,6 +482,36 @@
                     }
                 }
                 return true
+            }
+
+            /// Where the mirror draws each copy of `object`, in window coordinates: its bounds, since a blocked copy draws
+            /// nothing past them, cut to what clipping copies above it show (a portal can show a source through a
+            /// smaller viewport), skipping copies a portal hides. Empty when none is left visible. nil when there's
+            /// no copy, a copy lands nowhere finite, or there's no root to place it in, so the region keeps its
+            /// measured rect.
+            func copyRects(of object: AnyObject) -> [CGRect]? {
+                guard let root, let layer = (object as? UIView)?.layer ?? (object as? CALayer) else { return nil }
+                let copies = index.copies(of: layer)
+                let rects = copies.filter { !index.isHiddenByPortal($0, root: root) }.map { visibleFrame(of: $0, root: root) }
+                let finite = rects.allSatisfy { !$0.isNull && $0.minX.isFinite && $0.minY.isFinite && $0.width.isFinite && $0.height.isFinite }
+                guard !copies.isEmpty, finite else { return nil }
+                return rects.filter { !$0.isEmpty }
+            }
+
+            /// The copy's bounds in the window, intersected with every clipping copy above it. Empty, not null, when
+            /// clipped away entirely, so a hidden copy isn't mistaken for one that lands nowhere.
+            private func visibleFrame(of copy: CALayer, root: CALayer) -> CGRect {
+                var frame = index.windowFrame(of: copy, root: root, local: copy.bounds)
+                var ancestor = copy.superlayer
+                while let clipper = ancestor, clipper !== root, !frame.isNull {
+                    let clip = clipper.masksToBounds ? index.windowFrame(of: clipper, root: root, local: clipper.bounds) : .null
+                    // A clip that lands nowhere finite is skipped: the rect stays wider, never narrower.
+                    if !clip.isNull, clip.minX.isFinite, clip.minY.isFinite, clip.width.isFinite, clip.height.isFinite {
+                        frame = frame.intersects(clip) ? frame.intersection(clip) : CGRect(origin: frame.origin, size: .zero)
+                    }
+                    ancestor = clipper.superlayer
+                }
+                return frame
             }
 
             /// The walk masks a `ph-no-capture` view's rect, or each subview's when it fills the window, so its

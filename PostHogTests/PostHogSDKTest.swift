@@ -117,6 +117,35 @@ private final class OptOutObservingConfig: PostHogConfig {
     }
 }
 
+/// Installs `extraIntegrations` after the configured ones. `setup()` holds `setupLock` while it installs
+/// integrations, so a test integration can act at the point where a slow integration keeps setup busy.
+private final class ExtraIntegrationsConfig: PostHogConfig {
+    var extraIntegrations: [PostHogIntegration] = []
+
+    override func getIntegrations() -> [PostHogIntegration] {
+        super.getIntegrations() + extraIntegrations
+    }
+}
+
+/// Runs `onInstall` from `install(_:)`, on the thread running `setup()`.
+private final class InstallHookIntegration: PostHogIntegration {
+    let requiresSwizzling = false
+    private let onInstall: (PostHogSDK) -> Void
+
+    init(onInstall: @escaping (PostHogSDK) -> Void) {
+        self.onInstall = onInstall
+    }
+
+    func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
+        onInstall(postHog)
+        return .installed
+    }
+
+    func uninstall(_: PostHogSDK) {}
+    func start() {}
+    func stop() {}
+}
+
 private final class LockedBox<T>: @unchecked Sendable {
     private let lock = NSLock()
     private var _value: T
@@ -842,6 +871,40 @@ final class PostHogSDKTests {
         #expect(probed.value?.installed == false)
         #expect(sut.isOptOut())
         #expect(sut.getAppLifeCycleIntegration() == nil)
+    }
+
+    @Test("remote config and flags callbacks on the main queue don't wait for setup to finish")
+    func remoteConfigCallbacksDoNotWaitForSetup() {
+        let config = ExtraIntegrationsConfig(projectToken: fixture.projectToken, host: "http://localhost:9001")
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
+        config.disableRemoteConfigForTesting = true
+        PostHogStorage(config).reset()
+
+        let mainQueueDone = DispatchSemaphore(value: 0)
+        let ranDuringSetup = LockedBox<Bool?>(nil)
+        config.extraIntegrations = [InstallHookIntegration { postHog in
+            // Same thread as setup(), so the recursive setupLock lets this read through.
+            guard let remoteConfig = postHog.remoteConfig else { return }
+            // /config and /flags answer while setup() is still installing integrations. PostHogRemoteConfig
+            // notifies on the main queue; its subscribers must not wait for setup to return.
+            DispatchQueue.main.async {
+                remoteConfig.onRemoteConfigLoaded.invoke(nil)
+                remoteConfig.onFeatureFlagsLoaded.invoke(nil)
+                mainQueueDone.signal()
+            }
+            ranDuringSetup.value = mainQueueDone.wait(timeout: .now() + 2) == .success
+        }]
+
+        let sut = PostHogSDK.with(config)
+        fixture.track(sut)
+
+        #expect(ranDuringSetup.value == true)
+        // Without the fix the main queue is released once setup returns; drain it before teardown.
+        if ranDuringSetup.value != true {
+            _ = mainQueueDone.wait(timeout: .now() + 5)
+        }
     }
 
     @Test("does not capture event if opt out")

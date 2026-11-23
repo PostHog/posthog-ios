@@ -228,11 +228,12 @@ let maxRetryDelay = 30.0
             // available for flag requests. Seeded from the anonymous ID on first init.
             _ = config.storageManager?.getDeviceId()
 
-            remoteConfig = PostHogRemoteConfig(config, theStorage, api, { [weak self] in
+            let theRemoteConfig = PostHogRemoteConfig(config, theStorage, api, { [weak self] in
                 self?.getDefaultPersonProperties() ?? [:]
             }, { [weak self] flagKey, flagValue in
                 self?.reportFeatureFlagCalled(flagKey: flagKey, flagValue: flagValue)
             })
+            remoteConfig = theRemoteConfig
 
             #if !os(watchOS)
                 reachability = Reachability()
@@ -241,7 +242,7 @@ let maxRetryDelay = 30.0
                 context = PostHogContext()
             #endif
 
-            pushSubscriptionHandler = PostHogPushSubscriptionHandler(
+            let thePushSubscriptionHandler = PostHogPushSubscriptionHandler(
                 api,
                 theStorage,
                 config,
@@ -254,10 +255,16 @@ let maxRetryDelay = 30.0
                 pushAppIdsProvider: { [weak self] in self?.remoteConfig?.getPushAppIds() },
                 onEventContextChanged: onEventContextChanged
             )
+            pushSubscriptionHandler = thePushSubscriptionHandler
+
+            // The two subscribers below run on the main queue. They use the instances created above, not
+            // `self.remoteConfig`: its getter takes `setupLock`, which this method holds until the integrations
+            // are installed, and /config can answer before that, blocking the main thread until setup returns.
+            // Captured weakly, since `theRemoteConfig` owns the callbacks.
 
             // Invoked on the main queue, after the new flags are readable through the getters.
-            featureFlagsLoadedToken = remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] featureFlags in
-                guard let self, let remoteConfig = self.remoteConfig else { return }
+            featureFlagsLoadedToken = theRemoteConfig.onFeatureFlagsLoaded.subscribe { [weak self, weak theRemoteConfig] featureFlags in
+                guard let self, let remoteConfig = theRemoteConfig else { return }
                 let current = remoteConfig.getFeatureFlags() ?? [:]
                 // Each notification carries the flags cached when it was sent. If the cache has moved on
                 // since (reset() or a newer load), drop it: a newer notification follows if there is one.
@@ -276,16 +283,18 @@ let maxRetryDelay = 30.0
 
             // A device whose project had no push integration was answered 200 and stopped asking.
             // Draining the transition here is the only signal that reaches it.
-            pushRemoteConfigToken = remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] _ in
-                guard let self, let newlyRegisterable = self.remoteConfig?.consumeNewlyRegisterablePushAppIds(),
-                      !newlyRegisterable.isEmpty
-                else {
+            pushRemoteConfigToken = theRemoteConfig.onRemoteConfigLoaded.subscribe { [weak theRemoteConfig, weak thePushSubscriptionHandler] _ in
+                guard let remoteConfig = theRemoteConfig, let pushSubscriptionHandler = thePushSubscriptionHandler else {
+                    return
+                }
+                let newlyRegisterable = remoteConfig.consumeNewlyRegisterablePushAppIds()
+                guard !newlyRegisterable.isEmpty else {
                     return
                 }
                 // Mark the one-time upgrade recovery done only after the handler has durably cleared
                 // any delivered marker, so a crash in between re-runs recovery instead of stranding.
-                self.pushSubscriptionHandler?.onPushAppIdsChanged(newlyRegisterable) { [weak self] in
-                    self?.remoteConfig?.markPushAppIdsMigrated()
+                pushSubscriptionHandler.onPushAppIdsChanged(newlyRegisterable) { [weak remoteConfig] in
+                    remoteConfig?.markPushAppIdsMigrated()
                 }
             }
 

@@ -1,17 +1,17 @@
 //
-//  PostHogLogLevel.swift
+//  PostHogConsoleLogLevel.swift
 //  PostHog
 //
 //  Created by Ioannis Josephides on 09/05/2025.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
 
     /// The severity level of a console log entry.
     ///
     /// Used to categorize logs by their severity in session replay.
-    @objc public enum PostHogLogLevel: Int {
+    @objc public enum PostHogConsoleLogLevel: Int {
         /// Informational messages, debugging output, and general logs
         case info
         /// Warning messages indicating potential issues or deprecation notices

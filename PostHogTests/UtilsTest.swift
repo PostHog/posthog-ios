@@ -96,7 +96,7 @@ struct UtilsTest {
         }
     }
 
-    #if os(iOS)
+    #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
         @Suite("Survey color tests")
         struct SurveyColorTests {
             @Test(
@@ -225,6 +225,34 @@ struct UtilsTest {
 
             #expect(sanitized?["tags"] == nil)
             #expect(sanitized?["name"] as? String == "ada")
+        }
+
+        @Test("converts nested dictionary keys with a string form and drops the others")
+        func convertsNestedNonStringKeys() throws {
+            struct Opaque: Hashable {}
+            let sanitized = sanitizeDictionary([
+                "scores": [1: "one", 2: "two"] as [Int: Any],
+                "flags": [true: "yes", false: "no"] as [Bool: Any],
+                "ratios": [1.5: "x"] as [Double: Any],
+                "mixed": [AnyHashable("a"): 1, AnyHashable(3): 2, AnyHashable(Opaque()): 3, AnyHashable(NSNull()): 4] as [AnyHashable: Any],
+                "list": [[7: date] as [Int: Any]] as [Any],
+            ])
+
+            #expect(sanitized?["scores"] as? [String: String] == ["1": "one", "2": "two"])
+            #expect(sanitized?["flags"] as? [String: String] == ["true": "yes", "false": "no"])
+            #expect(sanitized?["ratios"] as? [String: String] == ["1.5": "x"])
+            #expect(sanitized?["mixed"] as? [String: Int] == ["a": 1, "3": 2, "null": 4])
+            let list = try #require(sanitized?["list"] as? [[String: Any]])
+            #expect(list.first?["7"] as? String == dateString)
+            #expect(try JSONSerialization.isValidJSONObject(#require(sanitized)))
+        }
+
+        @Test("sends nested non-string keys as strings on the wire")
+        func encodesNestedNonStringKeys() throws {
+            let data = try #require(toJSONData(["scores": [1: "one"] as [Int: Any], "name": "ada"]))
+            let decoded = try #require(fromJSONData(data))
+            #expect(decoded["scores"] as? [String: String] == ["1": "one"])
+            #expect(decoded["name"] as? String == "ada")
         }
 
         @Test("sanitizes mixed array items and drops non-serializable entries")

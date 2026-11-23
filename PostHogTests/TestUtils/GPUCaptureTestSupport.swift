@@ -1,4 +1,4 @@
-#if os(iOS) && canImport(Metal)
+#if os(iOS) && canImport(Metal) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import Testing
@@ -47,7 +47,7 @@
         func makeFixture(window: UIWindow? = nil, gpu: Bool = true) async throws -> GPUCaptureFixture {
             let mirror = try makeMirror()
             let window = window ?? makeWindow()
-            let (sut, integration, _) = try makeScreenshotReplaySut { $0.screenshotModeGPUCapture = gpu }
+            let (sut, integration, _) = try makeScreenshotReplaySut { $0.captureMethod = gpu ? .gpu : .standard }
             sut.stopSessionRecording()
             await prewarm(mirror, for: window)
             return GPUCaptureFixture(mirror: mirror, window: window, sut: sut, integration: integration)

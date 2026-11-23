@@ -1,5 +1,5 @@
 import Foundation
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 import XCTest
 
@@ -118,7 +118,7 @@ final class PostHogEventSnapshotTests {
         )
 
         let loaded = AsyncLatch()
-        sut.reloadFeatureFlags { loaded.signal() }
+        sut.reloadFeatureFlags { _ in loaded.signal() }
         await loaded.wait()
 
         let request = try #require(server.flagsRequests.first)
@@ -164,6 +164,18 @@ final class PostHogEventSnapshotTests {
             try #require(Int(contentLength) != nil)
             headers["content-length"] = "<content-length>"
         }
+        if let sdkInfo = headers["posthog-sdk-info"] {
+            #expect(sdkInfo.hasPrefix("posthog-ios/"))
+            headers["posthog-sdk-info"] = "posthog-ios/<sdk-version>"
+        }
+        if let requestId = headers["posthog-request-id"] {
+            try #require(UUID(uuidString: requestId) != nil)
+            headers["posthog-request-id"] = "<uuid>"
+        }
+        if let requestTimestamp = headers["posthog-request-timestamp"] {
+            try #require(toISO8601Date(requestTimestamp) != nil)
+            headers["posthog-request-timestamp"] = "<iso8601-timestamp>"
+        }
         if let userAgent = headers["user-agent"] {
             let prefix = "posthog-ios/"
             #expect(userAgent.hasPrefix(prefix))
@@ -189,9 +201,9 @@ final class PostHogEventSnapshotTests {
 
     private func normalizeBatchSnapshot(_ snapshot: inout [String: Any]) throws {
         var body = try #require(snapshot["body"] as? [String: Any])
-        let sentAt = try #require(body["sent_at"] as? String)
-        try #require(toISO8601Date(sentAt) != nil)
-        body["sent_at"] = "<iso8601-timestamp>"
+        let createdAt = try #require(body["created_at"] as? String)
+        try #require(toISO8601Date(createdAt) != nil)
+        body["created_at"] = "<iso8601-timestamp>"
 
         var events = try #require(body["batch"] as? [[String: Any]])
         for index in events.indices {
@@ -269,14 +281,6 @@ final class PostHogEventSnapshotTests {
             #expect(!value.isEmpty)
             properties.removeValue(forKey: key)
         }
-        // Only compiled under `#if os(iOS)` — present when this suite runs on an iOS
-        // destination (xcodebuild), absent under SwiftPM's macOS command-line test bundle.
-        // Validate then omit so the golden doesn't depend on which host compiled the test.
-        if let captureMode = properties["$sdk_debug_replay_capture_mode"] {
-            let mode = try #require(captureMode as? String)
-            #expect(mode == "wireframe" || mode == "screenshot")
-            properties.removeValue(forKey: "$sdk_debug_replay_capture_mode")
-        }
         if let appBuild = properties["$app_build"] {
             if let appBuild = appBuild as? String {
                 #expect(!appBuild.isEmpty)
@@ -288,7 +292,7 @@ final class PostHogEventSnapshotTests {
 
         let stringKeys = [
             "$app_namespace", "$device_model", "$device_type", "$device_name", "$os_name",
-            "$os_version", "$locale", "$timezone",
+            "$os_version", "$locale", "$app_language", "$timezone",
         ]
         for key in stringKeys where properties[key] != nil {
             _ = try #require(properties[key] as? String)
@@ -307,13 +311,6 @@ final class PostHogEventSnapshotTests {
         for key in ["$screen_width", "$screen_height"] where properties[key] != nil {
             _ = try #require(properties[key] as? NSNumber)
             properties[key] = "<environment-number>"
-        }
-
-        // Wall-clock-derived, not reproducible under a mocked `now()` fixed relative to a real
-        // sessionStartTimestamp — normalize rather than assert an exact value.
-        for key in ["$sdk_debug_session_start"] where properties[key] != nil {
-            _ = try #require(properties[key] as? NSNumber)
-            properties[key] = "<timestamp-ms>"
         }
     }
 

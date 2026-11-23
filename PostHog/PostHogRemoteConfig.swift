@@ -1544,6 +1544,16 @@ class PostHogRemoteConfig {
             return Self.hasLinkedFlag(sessionRecording)
         }
 
+        /// Whether the cached remote config turns replay off: `sessionRecording` is `false` or the mobile
+        /// recordings quota is reached. Reads the cached config, not the derived flag state that `reset()` clears.
+        /// Missing config or a failed first fetch is not off.
+        func isSessionRecordingRemotelyDisabled() -> Bool {
+            remoteConfigLock.withLock {
+                guard remoteConfigDidFetch, let cached = getCachedRemoteConfig() else { return false }
+                return cached["sessionRecording"] as? Bool == false || Self.isMobileRecordingsQuotaLimited(cached)
+            }
+        }
+
         /// Reads `configured` and `activated` under one lock acquisition so both describe the same config generation.
         func sessionReplayLinkedFlagSnapshot() -> (configured: Bool, activated: Bool) {
             sessionReplayLock.withLock {

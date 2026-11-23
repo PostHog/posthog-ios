@@ -37,7 +37,6 @@
           "$os_name" : "<environment-string>",
           "$os_version" : "<environment-string>",
           "$recording_status" : "disabled",
-          "$sdk_debug_pending_queue_size" : 0,
           "$set" : {
             "plan" : "pro"
           },
@@ -93,8 +92,6 @@
           "$os_name" : "<environment-string>",
           "$os_version" : "<environment-string>",
           "$recording_status" : "disabled",
-          "$sdk_debug_pending_queue_size" : 1,
-          "$sdk_debug_session_start" : "<timestamp-ms>",
           "$set" : {
             "email" : "person@example.com"
           },
@@ -151,7 +148,6 @@
           "$os_name" : "<environment-string>",
           "$os_version" : "<environment-string>",
           "$recording_status" : "disabled",
-          "$sdk_debug_pending_queue_size" : 2,
           "$timezone" : "<environment-string>",
           "registered_property" : "registered-value"
         },
@@ -195,7 +191,6 @@
           "$os_name" : "<environment-string>",
           "$os_version" : "<environment-string>",
           "$recording_status" : "disabled",
-          "$sdk_debug_pending_queue_size" : 3,
           "$set" : {
             "$feature_interaction\/checkout-redesign" : "test"
           },
@@ -267,7 +262,6 @@
           "$os_name" : "<environment-string>",
           "$os_version" : "<environment-string>",
           "$recording_status" : "disabled",
-          "$sdk_debug_pending_queue_size" : 4,
           "$timezone" : "<environment-string>",
           "handled_by" : "snapshot-test",
           "registered_property" : "registered-value"

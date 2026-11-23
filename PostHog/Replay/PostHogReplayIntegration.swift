@@ -305,6 +305,7 @@
                 }
             }
             startRecording()
+            notifyRecordingStatusChanged()
         }
 
         /// `config.sessionReplay` controls automatic starts; a recording explicitly started while it was
@@ -453,6 +454,7 @@
                 return wasEnabled
             }
             if wasEnabled { tearDownRecording() }
+            notifyRecordingStatusChanged()
         }
 
         /// An explicit `startSessionRecording()` request means the app wants recording, even when this
@@ -464,6 +466,7 @@
                 stoppedByReactNative = false
                 explicitlyStopped = false
             }
+            notifyRecordingStatusChanged()
         }
 
         /// Note: This does not clear remoteConfigLoadedToken, eventCapturedToken or sessionIdChangedToken
@@ -500,6 +503,23 @@
 
         func isActive() -> Bool {
             bufferingLock.withLock { isEnabled }
+        }
+
+        /// Replay is intentionally off, locally (not installed, explicitly stopped, or automatic replay
+        /// disabled with no manual start) or remotely. Not a `$recording_status` check: sampled-out and
+        /// trigger-pending sessions also report `disabled` but keep their diagnostics.
+        var isReplayOff: Bool {
+            guard let postHog else { return true }
+            // Read before `bufferingLock`, see isAutomaticStartPermittedLocked.
+            let sessionReplay = config?.sessionReplay ?? false
+            let (enabled, locallyOff) = bufferingLock.withLock {
+                (isEnabled, explicitlyStopped || (!sessionReplay && !startedWithAutomaticDisabled))
+            }
+            // A running recorder is never off, so `disabled` never contradicts isSessionReplayActive().
+            // Running means recording, not just enabled: the first `/config` leaves a remotely-off
+            // recorder enabled with the capturer gated on the flag.
+            if enabled, postHog.remoteConfig?.isSessionReplayFlagActive() ?? false { return false }
+            return locallyOff || (postHog.remoteConfig?.isSessionRecordingRemotelyDisabled() ?? false)
         }
 
         private func resetViews() {
@@ -1995,6 +2015,14 @@
         /// buffering fields are read in one `bufferingLock` acquisition so a concurrent startRecording()/stopRecording()
         /// can't tear them across keys on the same event.
         func debugProperties() -> [String: Any] {
+            debugSnapshot().properties
+        }
+
+        /// The off decision and the properties from one `isReplayOff` read, so a concurrent stop can't
+        /// pair a full bundle with "off" or an off-shape map with "on".
+        func debugSnapshot() -> (isReplayOff: Bool, properties: [String: Any]) {
+            guard !isReplayOff else { return (true, ["$recording_status": "disabled"]) }
+
             let (enabled, awaitingConfig, passedMinimumDuration, minimumDuration) = bufferingLock.withLock {
                 (isEnabled, awaitingFirstRemoteConfig, hasPassedMinimumDuration, cachedMinimumDuration)
             }
@@ -2064,7 +2092,7 @@
                 props["$sdk_debug_replay_pending_trigger_conditions"] = pendingConditions
             }
 
-            return props
+            return (false, props)
         }
     }
 
@@ -2566,6 +2594,7 @@
                     return .unsettled(frame)
                 }
                 if leftOutCover(of: frame, in: window) { return .fallback(frame) }
+                mirror.inlineMask.noteScreen(UIViewController.ph_topViewController(base: window.rootViewController) ?? window)
                 let remaining = mirror.maskInline(regions, in: frame, tag: inlineMaskTag(view:layer:))
                 let remainingRects = remaining.map(\.rect)
                 frame.freeze()

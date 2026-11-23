@@ -1,5 +1,12 @@
 ## Next
 
+## 4.0.3
+
+### Patch Changes
+
+- 9e2ba68: Draw masked text in a newly presented alert, sheet or screen as `*` on its first capture with `captureMethod = .gpu`, instead of showing placeholder bars for a few seconds.
+- 370574f: Drop the `$sdk_debug_replay_*` and `$sdk_debug_session_start` keys from events while session replay is off locally or remotely; `$recording_status` stays
+
 ## 4.0.2
 
 ### Patch Changes

@@ -2376,6 +2376,7 @@
                     return .unsettled(frame)
                 }
                 if leftOutCover(of: frame, in: window) { return .fallback(frame) }
+                mirror.inlineMask.noteScreen(UIViewController.ph_topViewController(base: window.rootViewController) ?? window)
                 let remaining = mirror.maskInline(regions, in: frame, tag: inlineMaskTag(view:layer:))
                 let remainingRects = remaining.map(\.rect)
                 frame.freeze()

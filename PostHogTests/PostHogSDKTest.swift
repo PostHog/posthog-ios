@@ -505,7 +505,7 @@ final class PostHogSDKTests {
                 #expect(event.properties["$recording_status"] as? String == "disabled")
                 #expect(event.properties["$sdk_debug_session_start"] == nil)
                 #expect(event.properties["$sdk_debug_replay_capture_mode"] == nil)
-                #expect(event.properties["$sdk_debug_pending_queue_size"] != nil)
+                #expect(event.properties["$sdk_debug_pending_queue_size"] == nil)
             }
 
             sut.reset()
@@ -542,7 +542,7 @@ final class PostHogSDKTests {
                 #expect(events[2]["$sdk_debug_replay_capture_mode"] == nil)
 
                 for event in events {
-                    #expect(event["$sdk_debug_pending_queue_size"] != nil)
+                    #expect(event["$sdk_debug_pending_queue_size"] == nil)
                 }
 
                 sut.reset()
@@ -576,7 +576,6 @@ final class PostHogSDKTests {
                 #expect(properties["$sdk_debug_replay_linked_flag_trigger_status"] != nil, sourceLocation: sourceLocation)
                 #expect(properties["$sdk_debug_replay_event_trigger_status"] != nil, sourceLocation: sourceLocation)
                 #expect(properties["$sdk_debug_replay_internal_buffer_length"] != nil, sourceLocation: sourceLocation)
-                #expect(properties["$sdk_debug_pending_queue_size"] != nil, sourceLocation: sourceLocation)
             }
 
             @Test("an event captured while replay is off does not consume the optional bundle window")
@@ -594,6 +593,27 @@ final class PostHogSDKTests {
                 sut.close()
             }
         #endif
+
+        @Test("a backed-up queue reports its depth")
+        func backedUpQueueReportsDepth() throws {
+            server.return500 = true
+            defer { server.return500 = false }
+            let captured = LockedBox<[String: Any]>([:])
+            let sut = getSut(flushAt: 2)
+
+            sut.capture("first")
+            sut.capture("second")
+            sut.config.setBeforeSend { event in
+                captured.value = event.properties
+                return event
+            }
+            sut.capture("third")
+
+            #expect(captured.value["$sdk_debug_pending_queue_size"] as? Int == 2)
+
+            sut.reset()
+            sut.close()
+        }
 
         @Test("excludes $recording_status and $sdk_debug_* properties from $snapshot events")
         func excludesRecordingStatusAndDebugPropertiesFromSnapshotEvents() throws {
@@ -646,12 +666,12 @@ final class PostHogSDKTests {
 
         private func expectOnlyRecordingStatus(_ properties: [String: Any], sourceLocation: SourceLocation = #_sourceLocation) {
             #expect(properties["$recording_status"] as? String == "disabled", sourceLocation: sourceLocation)
-            #expect(replayKeys(properties) == ["$recording_status", "$sdk_debug_pending_queue_size"], sourceLocation: sourceLocation)
+            #expect(replayKeys(properties) == ["$recording_status"], sourceLocation: sourceLocation)
         }
 
-        @Test("with no replay integration only $recording_status and the queue size are sent, including on $screen")
+        @Test("with no replay integration only $recording_status is sent, including on $screen")
         func localOffSendsOnlyRecordingStatus() {
-            let sut = getSut()
+            let sut = getSut(flushAt: 1000)
 
             let custom = captureProperties(sut) { sut.capture("custom event") }
             expectOnlyRecordingStatus(custom)
@@ -677,7 +697,7 @@ final class PostHogSDKTests {
             let props = try #require(events.first).properties
             #expect(props["$recording_status"] as? String == "disabled")
             #expect(!props.keys.contains { $0.hasPrefix("$sdk_debug_replay_") })
-            #expect(props["$sdk_debug_pending_queue_size"] != nil)
+            #expect(props["$sdk_debug_pending_queue_size"] == nil)
 
             sut.reset()
             sut.close()
@@ -1069,7 +1089,7 @@ final class PostHogSDKTests {
         // $feature_flag_called gets the required keys but never the optional ones.
         #expect(event.properties["$recording_status"] as? String == "disabled")
         #expect(event.properties["$sdk_debug_session_start"] == nil)
-        #expect(event.properties["$sdk_debug_pending_queue_size"] != nil)
+        #expect(event.properties["$sdk_debug_pending_queue_size"] == nil)
 
         sut.reset()
         sut.close()

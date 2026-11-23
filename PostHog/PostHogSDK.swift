@@ -887,9 +887,8 @@ let maxRetryDelay = 30.0
                     }
                 }
             }
-            if let depth = queue?.depth {
-                props["$sdk_debug_pending_queue_size"] = depth
-            }
+            // nil below flushAt, so a healthy queue never reports a backlog.
+            props["$sdk_debug_pending_queue_size"] = queue?.backedUpDepth
         }
 
         // Registered super properties win over everything the SDK set above.

@@ -704,7 +704,7 @@
             #expect(props["$sdk_debug_replay_internal_buffer_length"] as? Int == 1)
             #expect(props["$sdk_debug_replay_event_trigger_status"] as? String != nil)
             #expect(props["$sdk_debug_replay_linked_flag_trigger_status"] as? String != nil)
-            #expect(props["$sdk_debug_pending_queue_size"] != nil)
+            #expect(props["$sdk_debug_pending_queue_size"] == nil)
 
             #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
             #expect(props["$sdk_debug_replay_capture_mode"] == nil)
@@ -1096,7 +1096,7 @@
             try await fetchRemoteConfig(sut)
             let whileOff = captureProperties(sut) { sut.screen("while off") }
             #expect(whileOff["$recording_status"] as? String == "disabled")
-            #expect(replayKeys(whileOff) == ["$recording_status", "$sdk_debug_pending_queue_size"])
+            #expect(replayKeys(whileOff) == ["$recording_status"])
 
             server.returnReplay = true
             try await fetchRemoteConfig(sut)

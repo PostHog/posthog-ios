@@ -1,5 +1,5 @@
 ---
-title: "PostHog iOS SDK 4.x (experimental)"
+title: "PostHog iOS SDK 4.x"
 sidebar: Docs
 showTitle: true
 contentMaxWidthClass: max-w-full
@@ -264,7 +264,7 @@ Captures a custom event for an explicit distinct ID, timestamp and options.
 - `userPropertiesSetOnce`: Person properties to set only if they do not already exist.
 - `groups`: Group type/key pairs to attach to this event.
 - `timestamp`: Optional event timestamp. Defaults to the current time. The absolute instant is serialized in UTC, regardless of the calendar or time zone used to create it.
-- `options`: Optional settings that tell PostHog how to process this event, sent apart from its properties. Known keys: - `process_person_profile` (`Bool`): whether the event creates or updates a person profile. Defaults to whether the SDK currently processes person profiles for this user (see `personProfiles`). - `cookieless_mode` (`Bool`): process the event in cookieless mode. - `disable_skew_correction` (`Bool`): keep `timestamp` as sent, without correcting for device clock skew. - `product_tour_id` (`String`): the product tour the event belongs to. These replace the `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` properties. Those properties still work: they are removed from the event’s properties and used as the option, unless you set that option here. A `$process_person_profile` property you pass or register overrides the SDK’s default. Other keys are sent unchanged and ignored by PostHog. PostHog drops an event whose option value it can’t read. `beforeSend` can change them through `PostHogEvent.options`.
+- `options`: Optional settings that tell PostHog how to process this event, sent apart from its properties. Known keys: - `process_person_profile` (`Bool`): whether the event creates or updates a person profile. Defaults to whether the SDK currently processes person profiles for this user (see `personProfiles`). - `cookieless_mode` (`Bool`): process the event in cookieless mode. - `disable_skew_correction` (`Bool`): keep `timestamp` as sent, without correcting for device clock skew. - `product_tour_id` (`String`): the product tour the event belongs to. These replace the `$process_person_profile`, `$cookieless_mode`, `$ignore_sent_at` and `$product_tour_id` properties. Those properties still work: they are removed from the event’s properties and used as the option, unless you set that option here. A `$process_person_profile` property you pass or register overrides the SDK’s default, except that a registered one doesn’t apply to identity events (see `register(_:)`). Other keys are sent unchanged and ignored by PostHog. PostHog drops an event whose option value it can’t read. `beforeSend` can change them through `PostHogEvent.options`.
 
 ### `PostHogSDK.capture(_:properties:)`
 
@@ -1056,6 +1056,8 @@ Registers super properties that are included with every subsequent event.
 
 New values overwrite existing values for the same keys and persist across app restarts until removed with `unregister(_:)` or cleared by `reset()`.
 
+A registered `$process_person_profile` isn’t sent with `$identify`, `$create_alias`, `$merge_dangerously`, `$groupidentify`, `$set` or `$set_once`, so it can’t stop those events from updating persons and groups. A value passed on the call still applies.
+
 ## Reload feature flags
 
 ### `PostHogSDK.reloadFeatureFlags()`
@@ -1069,7 +1071,7 @@ Reloads feature flags for the current user and group context.
 ### `PostHogSDK.reloadFeatureFlags(_:)`
 
 ```swift
-@objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping (PostHogFeatureFlagsLoaded) -> Void)
+@objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping @Sendable (PostHogFeatureFlagsLoaded) -> Void)
 ```
 
 Reloads feature flags and invokes a callback with the result when finished.
@@ -2797,7 +2799,7 @@ Lower values deliver events closer to real time but can increase battery usage. 
 #### `PostHogConfig.getAnonymousId`
 
 ```swift
-@objc var getAnonymousId: ((UUID) -> UUID)
+@objc var getAnonymousId: (@Sendable (UUID) -> UUID)
 ```
 
 Hook used to customize newly generated anonymous IDs.
@@ -2909,7 +2911,7 @@ This field was formerly named `apiKey`.
 #### `PostHogConfig.pushIdentityProvider`
 
 ```swift
-@objc var pushIdentityProvider: ((_ distinctId: String, _ appId: String, _ completion: @escaping (String?) -> Void) -> Void)?
+@objc var pushIdentityProvider: (@Sendable (_ distinctId: String, _ appId: String, _ completion: @escaping @Sendable (String?) -> Void) -> Void)?
 ```
 
 Supplies a signed identity token to attach (as `identity_token`) to push subscription register/unregister requests, for projects that enable identity verification on their push integration. Invoked with the `distinct_id` and `app_id` the request carries; call `completion` **exactly once**, from any thread, with a token minted by your backend — or `nil` to send the request without one. The SDK never mints tokens itself: your backend signs an HS256 JWT with the project’s **secret** API key, claims `sub` = distinct id, `app_id`, `aud` = “posthog:push_identity”, and an `exp`.
@@ -3515,6 +3517,14 @@ let placeholder: String?
 
 Optional placeholder text for input fields
 
+#### `PostHogDisplaySurveyAppearance.position`
+
+```swift
+let position: String?
+```
+
+Where the survey should be placed on screen, as sent by PostHog (`appearance.position`). One of `top_left`, `top_center`, `top_right`, `middle_left`, `middle_center`, `middle_right`, `left`, `center`, or `right` (the last three are bottom-aligned). Nil when not set; treat nil and unknown values as `center`.
+
 #### `PostHogDisplaySurveyAppearance.ratingButtonActiveColor`
 
 ```swift
@@ -3689,7 +3699,7 @@ Whether crash autocapture is enabled.
 
 ##### Discussion
 
-When enabled, fatal crashes are persisted and sent as `$exception` events on the next launch. With Swift Package Manager, this is only available with the `CrashReporting` package trait, which is enabled by default. Default: `false`.
+When enabled, fatal crashes are persisted and sent as `$exception` events on the next launch. With Swift Package Manager, this is only available with the `CrashReporting` package trait, which is enabled by default. Before SDK version 3.57.3, Swift crashes appear as `SIGTRAP` without the actual error message. Default: `false`.
 
 #### `PostHogErrorTrackingConfig.exceptionSteps`
 
@@ -3727,23 +3737,19 @@ Default: `[]`.
 @objc var inAppByDefault: Bool
 ```
 
-Configures whether stack trace frames are considered in-app by default when the origin cannot be determined or no explicit includes/excludes match.
+Whether stack trace frames from a binary that no other rule matches are considered in-app.
 
 ##### Discussion
 
-- If `true` (default): Frames are in-app unless explicitly excluded (allowlist approach)
+- If `false` (default): only frames from your app’s executable and from binaries matching `inAppIncludes` are in-app. Frames from other frameworks, such as third-party dynamic frameworks, are not.
 
-- If `false`: Frames are external unless explicitly included (denylist approach)
+- If `true`: frames from every binary are in-app, except system frameworks and binaries matching `inAppExcludes`.
 
-**Default behavior when true:**
-
-- Known system frameworks (Foundation, UIKit, etc.) are excluded
-
-- All other packages are in-app unless in `inAppExcludes`
+Code linked statically into your app, such as most Swift packages, is part of your app’s executable, so it’s in-app either way. If your app ships its own code in a dynamic framework whose name doesn’t start with your app’s executable name or bundle identifier, add that framework’s name to `inAppIncludes`.
 
 **Precedence:** Priority 4 (final fallback)
 
-Default: true
+Default: false
 
 #### `PostHogErrorTrackingConfig.inAppExcludes`
 
@@ -3783,8 +3789,8 @@ Takes precedence over `inAppExcludes`. If a frame’s module matches any prefix 
 Example:
 
 ```swift
-config.errorTrackingConfig.inAppIncludes = [
-    "MyApp",
+config.errorTrackingConfig.inAppIncludes += [
+    "MySharedFramework",
     "SharedUtils"
 ]
 ```
@@ -3794,6 +3800,8 @@ config.errorTrackingConfig.inAppIncludes = [
 - Automatically includes main bundle identifier
 
 - Automatically includes executable name
+
+Append to this list instead of assigning it. Assigning removes the defaults, so frames from your app’s executable are no longer in-app.
 
 **Precedence:** Priority 1 (highest)
 
@@ -4604,6 +4612,18 @@ Note: When enabled, can be disabled remotely via project settings
 
 Further configuration for capturing console output
 
+#### `PostHogSessionReplayConfig.captureMethod`
+
+```swift
+@objc var captureMethod: PostHogSessionReplayCaptureMethod
+```
+
+How session replay captures each screenshot. See `PostHogSessionReplayCaptureMethod`.
+
+##### Discussion
+
+Default: `.standard`
+
 #### `PostHogSessionReplayConfig.captureNetworkTelemetry`
 
 ```swift
@@ -4666,22 +4686,6 @@ Values outside the 0.0–1.0 range are ignored and treated as `nil`.
 
 Defaults to `nil`
 
-#### `PostHogSessionReplayConfig.screenshotModeBackgroundCapture`
-
-```swift
-@objc var screenshotModeBackgroundCapture: Bool
-```
-
-Schedule screenshot image capture on a background queue.
-
-##### Discussion
-
-Try this if session replay causes main-thread hangs or dropped frames on complex screens.
-
-Warning: Enabling this option will trigger Main Thread Checker warnings and may briefly freeze the app the first time a screenshot is captured. Consider disabling Main Thread Checker in your scheme’s run diagnostics when enabling this.
-
-Experimental. Default: false
-
 #### `PostHogSessionReplayConfig.screenshotScale`
 
 ```swift
@@ -4696,9 +4700,9 @@ Resolution of screenshots, as a multiplier of the screen’s native resolution.
 
 - A value: that fraction of native resolution. On a 3x device, `1.0` uploads 1206×2622 pixels (native) and `0.5` uploads 603×1311 (1.5 pixels per point).
 
-Values are clamped to 0.1…1.0, and NaN or infinite values reset it to `nil`. The replay’s viewport in points is unchanged. Does not affect compression quality. Exposed as `NSNumber` so Objective-C can leave it unset.
+Values are clamped to 0.1…1.0, and NaN or infinite values reset it to `nil`. The replay’s viewport in points is unchanged. Does not affect compression quality. Exposed as `NSNumber` so Objective-C can leave it unset. Applies to every `captureMethod`.
 
-Experimental. Default: nil (one pixel per point)
+Default: nil (one pixel per point)
 
 #### `PostHogSessionReplayConfig.throttleDelay`
 
@@ -4723,7 +4727,7 @@ Used when `PostHogSessionReplayConfig.captureLogs` is enabled.
 #### `PostHogSessionReplayConsoleLogConfig.logSanitizer`
 
 ```swift
-@objc var logSanitizer: ((String) -> PostHogConsoleLogEntry?)
+@objc var logSanitizer: (@Sendable (String) -> PostHogConsoleLogEntry?)
 ```
 
 Block to process and format captured console output for session replay.
@@ -4992,6 +4996,10 @@ Called when an activated PostHog survey needs to be rendered on the app’s UI D
 - `onSurveyResponse`: Call when the user submits a response to a question; use the returned state to advance or complete the survey.
 - `onSurveyClosed`: To be called when the survey is dismissed
 
+##### Discussion
+
+Once handed to a custom delegate, cancel events do not invalidate the survey, even while the delegate defers display. The delegate must report each survey as shown or closed and retains ownership until it reports the survey closed. Cancel events only clear unconsumed activation and the built-in UI’s popup delay.
+
 #### `PostHogSurveysDelegate.updateSurvey(_:)`
 
 ```swift
@@ -5013,7 +5021,7 @@ Always delivered on the main thread. May arrive *before* the survey is visibly s
 ### `BeforeSendBlock`
 
 ```swift
-typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
+typealias BeforeSendBlock = @Sendable (PostHogEvent) -> PostHogEvent?
 ```
 
 Callback invoked before an event is persisted or sent.
@@ -5075,7 +5083,7 @@ To be called when a survey is successfully shown to the user
 ### `PostHogBeforeSendLogBlock`
 
 ```swift
-typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRecord?
+typealias PostHogBeforeSendLogBlock = @Sendable (PostHogLogRecord) -> PostHogLogRecord?
 ```
 
 A `beforeSend` callback gets one chance to mutate or drop a log record before it is enqueued. Returning `nil` drops the record; mutating the record’s `body` to an empty string also drops it. Multiple blocks compose left-to-right; if any returns `nil`, later blocks are skipped. Runs synchronously on the thread that called `captureLog`.
@@ -5297,6 +5305,48 @@ case never
 ```
 
 Never process person profiles. All events are sent with the `process_person_profile: false` option.
+
+### `PostHogSessionReplayCaptureMethod`
+
+```swift
+@objc(PostHogSessionReplayCaptureMethod) enum PostHogSessionReplayCaptureMethod
+```
+
+How session replay captures a screenshot. Set it with `PostHogSessionReplayConfig.captureMethod`.
+
+#### `PostHogSessionReplayCaptureMethod.PostHogSessionReplayCaptureMethod.gpu`
+
+```swift
+case gpu
+```
+
+Copies the window’s layer tree on the main thread and renders the copy on the GPU with Metal, so the main thread only builds the copy. Takes less main-thread time than `.standard`.
+
+##### Discussion
+
+Layers whose presentation can’t be copied safely (an app’s or a framework’s own `CALayer` subclasses) are drawn from their model state instead. While one of them has an animation that moves or reshapes it, a playing Lottie animation for example, it is left out of the frame with everything under it.
+
+Not captured exactly:
+
+- Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped “Metal content” placeholder.
+
+- Video and camera previews stay blank, as with `.standard`.
+
+- Liquid Glass is approximated without refraction: sheets, alerts and dialogs as a blur of what’s behind them, smaller glass as a flat fill in its shape. Tinted glass keeps its tint. The labels and icons on it are reproduced. On iOS 27, sheets, alerts and dialogs currently show as a flat panel instead of a blur.
+
+Captures fall back to `.standard` when the device has no Metal or a render fails.
+
+While recording, the app keeps roughly 25 to 30 MB more memory resident on average (GPU memory held by Metal and Core Animation); peak memory is about the same as with `.standard`. Measured on an iPhone 17 Pro with `screenshotScale` unset, one pixel per point; a larger scale holds more.
+
+Experimental. iOS and Mac Catalyst only.
+
+#### `PostHogSessionReplayCaptureMethod.PostHogSessionReplayCaptureMethod.standard`
+
+```swift
+case standard
+```
+
+Renders the window with `drawHierarchy` on the main thread, once the screen has settled.
 
 ### `PostHogSurveyResponseType`
 

@@ -140,6 +140,14 @@ class PostHogQueue<Record> {
         fileQueue.depth
     }
 
+    /// The depth once the queue has reached its flush threshold, else nil: below it the queue is
+    /// ordinary batching, not a backlog worth reporting.
+    var backedUpDepth: Int? {
+        let threshold = batchLimitsLock.withLock { batchLimits.flushAt }
+        let depth = fileQueue.depth
+        return depth > 0 && depth >= threshold ? depth : nil
+    }
+
     let fileQueue: PostHogFileBackedQueue
 
     #if !os(watchOS)

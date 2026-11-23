@@ -1,5 +1,12 @@
 ## Next
 
+## 4.0.4
+
+### Patch Changes
+
+- f10aeb4: Fix GPU session replay capture showing content drawn over a `ph-no-capture` view, such as the text of a React Native `View` tagged `ph-no-capture`, which is now a solid black block as on the default capture path.
+- 4ad26ec: Mask the text of a `CATextLayer` under a `postHogMask()` extent with `captureMethod = .gpu`. Its glyphs were uploaded readable.
+
 ## 4.0.3
 
 ### Patch Changes

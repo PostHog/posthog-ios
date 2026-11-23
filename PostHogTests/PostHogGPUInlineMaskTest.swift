@@ -526,6 +526,63 @@
             #expect(blackOutsidePortal == 0, "\(blackOutsidePortal) black pixels outside the portal")
         }
 
+        @Test("A ph-no-capture view its clipping ancestor cuts away is masked only where it shows, not at its measured rect",
+              arguments: [
+                  (y: 99.0, shadowed: false, rects: [CGRect(x: 10, y: 99, width: 180, height: 1)]),
+                  (y: 100.5, shadowed: false, rects: []),
+                  (y: 120.0, shadowed: true, rects: []),
+                  (y: 100.5, shadowed: true, rects: []),
+              ])
+        func clippedAwayNoCaptureViewKeepsNoRect(y: Double, shadowed: Bool, rects: [CGRect]) async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let bystander = UIView(frame: CGRect(x: 0, y: 100, width: 200, height: 100))
+            bystander.backgroundColor = .green
+            fixture.window.addSubview(bystander)
+            let clipper = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 100))
+            clipper.clipsToBounds = true
+            let card = noCaptureView(CGRect(x: 10, y: y, width: 180, height: 60))
+            if shadowed {
+                card.layer.shadowOpacity = 0.2
+                card.layer.shadowColor = UIColor.black.cgColor
+            }
+            clipper.addSubview(card)
+            fixture.window.addSubview(clipper)
+
+            let result = try await capture(fixture)
+            #expect(result.rectRegions == rects)
+            #expect(result.deferredMeasurements == 0)
+            #expect(try Pixels(result.image).count(in: bystander.frame, where: Self.isBlack) == 0)
+        }
+
+        @Test("A ph-no-capture view under a portal source the portal hides is masked only in the portal, whichever comes first",
+              arguments: [false, true])
+        func noCaptureViewUnderHiddenPortalSourceIsMaskedOnlyInPortal(portalAfterSource: Bool) async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let sourceBystander = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            sourceBystander.backgroundColor = .green
+            fixture.window.addSubview(sourceBystander)
+            let source = UIView(frame: sourceBystander.frame)
+            source.addSubview(noCaptureView(source.bounds.insetBy(dx: 10, dy: 10)))
+            fixture.window.addSubview(source)
+            let portalRect = CGRect(x: 40, y: 180, width: 60, height: 40)
+            let portal = try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false, hidesSource: true)
+            if portalAfterSource {
+                fixture.window.layer.addSublayer(portal)
+            } else {
+                fixture.window.layer.insertSublayer(portal, at: 0)
+            }
+
+            let result = try await capture(fixture)
+            let shownInPortal = CGRect(x: 50, y: 190, width: 50, height: 30)
+            #expect(result.rectRegions == [shownInPortal])
+            let pixels = try Pixels(result.image)
+            #expect(pixels.count(in: sourceBystander.frame, where: Self.isBlack) == 0)
+            #expect(pixels.count(in: portalRect, where: Self.isBlack) == Int(shownInPortal.width * shownInPortal.height))
+            #expect(pixels.count(where: Self.isMagentaHue) == 0)
+        }
+
         @Test("A masked view whose layer mask is text, as in gradient text, is black over its bounds, not in the glyphs' shape",
               arguments: [false, true])
         func textShapedLayerMaskDoesNotSurvive(noCapture: Bool) async throws {

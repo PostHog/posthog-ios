@@ -107,6 +107,8 @@
         /// sits and under each portal that shows it.
         struct CopyMap {
             private var pairs: [CopyMapEntry] = []
+            /// In-place copies hidden because a portal that hides its source draws the source instead.
+            private var hiddenByPortal: Set<ObjectIdentifier> = []
 
             var count: Int { pairs.count }
 
@@ -116,6 +118,10 @@
 
             mutating func record(_ copy: CALayer, of source: CALayer, placement: Placement?) {
                 pairs.append(CopyMapEntry(source: source, copy: copy, placement: placement))
+            }
+
+            mutating func recordHiddenByPortal(_ copy: CALayer) {
+                hiddenByPortal.insert(ObjectIdentifier(copy))
             }
 
             func sources(in range: Range<Int>) -> [CALayer] {
@@ -131,6 +137,7 @@
 
             func index() -> CopyIndex {
                 var index = CopyIndex()
+                index.hiddenByPortal = hiddenByPortal
                 index.bySource.reserveCapacity(pairs.count)
                 index.byCopy.reserveCapacity(pairs.count)
                 for entry in pairs {
@@ -157,8 +164,21 @@
         struct CopyIndex {
             fileprivate var bySource: [ObjectIdentifier: [CALayer]] = [:]
             fileprivate var byCopy: [ObjectIdentifier: (source: CALayer, placement: Placement?)] = [:]
+            fileprivate var hiddenByPortal: Set<ObjectIdentifier> = []
 
             var count: Int { byCopy.count }
+
+            /// Whether `copy`, or a layer above it up to `root`, is hidden because a portal draws its source instead.
+            /// Checked by identity: the mask pass hides layers of its own in blocked copies.
+            func isHiddenByPortal(_ copy: CALayer, root: CALayer) -> Bool {
+                guard !hiddenByPortal.isEmpty else { return false }
+                var current: CALayer? = copy
+                while let layer = current, layer !== root {
+                    if hiddenByPortal.contains(ObjectIdentifier(layer)) { return true }
+                    current = layer.superlayer
+                }
+                return false
+            }
 
             func copies(of source: CALayer) -> [CALayer] {
                 bySource[ObjectIdentifier(source)] ?? []
@@ -419,16 +439,16 @@
 
             /// Where the mirror draws each copy of `object`, in window coordinates: its bounds, since a blocked copy draws
             /// nothing past them, cut to what clipping copies above it show (a portal can show a source through a
-            /// smaller viewport). nil when a copy lands nowhere finite, none is left visible, or there's no root to place
-            /// it in, so the region keeps its measured rect.
+            /// smaller viewport), skipping copies a portal hides. Empty when none is left visible. nil when there's
+            /// no copy, a copy lands nowhere finite, or there's no root to place it in, so the region keeps its
+            /// measured rect.
             func copyRects(of object: AnyObject) -> [CGRect]? {
                 guard let root, let layer = (object as? UIView)?.layer ?? (object as? CALayer) else { return nil }
-                let rects = index.copies(of: layer).map { visibleFrame(of: $0, root: root) }
-                guard !rects.isEmpty, rects.allSatisfy({ !$0.isNull && $0.minX.isFinite && $0.minY.isFinite && $0.width.isFinite && $0.height.isFinite }) else {
-                    return nil
-                }
-                let visible = rects.filter { !$0.isEmpty }
-                return visible.isEmpty ? nil : visible
+                let copies = index.copies(of: layer)
+                let rects = copies.filter { !index.isHiddenByPortal($0, root: root) }.map { visibleFrame(of: $0, root: root) }
+                let finite = rects.allSatisfy { !$0.isNull && $0.minX.isFinite && $0.minY.isFinite && $0.width.isFinite && $0.height.isFinite }
+                guard !copies.isEmpty, finite else { return nil }
+                return rects.filter { !$0.isEmpty }
             }
 
             /// The copy's bounds in the window, intersected with every clipping copy above it. Empty, not null, when

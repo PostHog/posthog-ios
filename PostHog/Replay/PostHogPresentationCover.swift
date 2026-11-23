@@ -45,7 +45,7 @@
         private static func fullWindowCoverView(_ controller: UIViewController, in window: UIWindow) -> UIView? {
             guard
                 let view = controller.viewIfLoaded,
-                isOpaqueCover(view),
+                hasOpaqueBackground(view),
                 hasUnobstructedCoverage(view, in: window),
                 view.convert(view.bounds, to: window).contains(window.bounds),
                 view.toPresentationRect(window).contains(window.bounds)
@@ -144,7 +144,9 @@
             return !view.hasRenderedOpacity
         }
 
-        private static func isOpaqueCover(_ view: UIView) -> Bool {
+        /// Whether `view`'s background is opaque both in the model and as rendered: a cover fading in doesn't hide what's
+        /// behind it yet. UIKit stores the layer's color resolved for the view's current traits.
+        static func hasOpaqueBackground(_ view: UIView) -> Bool {
             let layer = view.layer
             // Presentation style and isOpaque are not proof of the pixels currently painted.
             return (layer.backgroundColor?.alpha ?? 0) >= 1 &&

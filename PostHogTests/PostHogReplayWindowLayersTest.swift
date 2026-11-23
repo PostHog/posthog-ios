@@ -154,6 +154,28 @@
             #expect(layers(key: lock, [app, lock]) == ids([lock]))
         }
 
+        @Test("each layer gets the mask rects of the layers above it, in its own coordinates and clipped to it")
+        func upperLayerMaskRects() {
+            let app = window()
+            let toast = UIWindow(frame: CGRect(x: 0, y: 100, width: 200, height: 100))
+            let alert = UIWindow(frame: CGRect(x: 20, y: 40, width: 160, height: 200))
+            let layers = [app, toast, alert]
+            let rects: [[CGRect]] = [
+                [CGRect(x: 0, y: 0, width: 5, height: 5)],
+                [CGRect(x: 10, y: 10, width: 30, height: 30)],
+                [CGRect(x: 0, y: 0, width: 50, height: 50), CGRect(x: 0, y: 100, width: 30, height: 30), CGRect(x: 150, y: 190, width: 40, height: 40)],
+            ]
+
+            let upper = PostHogReplayIntegration.upperLayerMaskRects(rects, bounds: layers.map(\.bounds)) { rect, source, target in
+                layers[target].convert(rect, from: layers[source])
+            }
+
+            #expect(upper[0] == [CGRect(x: 10, y: 110, width: 30, height: 30), CGRect(x: 20, y: 40, width: 50, height: 50),
+                                 CGRect(x: 20, y: 140, width: 30, height: 30), CGRect(x: 170, y: 230, width: 30, height: 40)])
+            #expect(upper[1] == [CGRect(x: 20, y: 40, width: 30, height: 30)])
+            #expect(upper[2].isEmpty)
+        }
+
         @Test("with no visible app window, or a key window outside the scene, the key window is captured alone")
         func noBase() {
             let hiddenApp = window(hidden: true), app = window(), alert = window(.rnAlert), stranger = window(.rnAlert)
@@ -381,6 +403,65 @@
             #expect(!mirror.hasAttachedFrameForTesting)
         }
 
+        @Test("a mask in the window above hides the app window under it too, in the app window's coordinates", arguments: [false, true])
+        func upperMaskHidesBase(gpu: Bool) async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, snapshots) = try makeSut(gpu: gpu, mirror: mirror)
+            defer { close(sut) }
+            let scene = makeScene(alertFrame: CGRect(x: 20, y: 40, width: 160, height: 200))
+            defer { scene.close() }
+            let shield = UIView(frame: CGRect(x: 0, y: 0, width: 160, height: 40))
+            shield.accessibilityIdentifier = "ph-no-capture"
+            scene.alert.addSubview(shield)
+            await prewarm(mirror, scene)
+
+            await capture(scene, integration, sut)
+
+            let wireframes = try #require(snapshots.fullSnapshots.first)
+            try #require(wireframes.count == 2)
+            let base = try pixels(wireframes[0])
+            let scale = CGFloat(base.width) / scene.app.bounds.width
+            let shielded = CGRect(x: 20, y: 40, width: 160, height: 40).applying(CGAffineTransform(scaleX: scale, y: scale))
+            // WebP is lossy, so a few edge pixels come back off black.
+            #expect(Double(base.count(in: shielded, where: Self.isBlack)) >= 0.97 * shielded.width * shielded.height)
+            let above = CGRect(x: 20, y: 30, width: 160, height: 8), beside = CGRect(x: 0, y: 42, width: 8, height: 36)
+            for clear in [above, beside] {
+                #expect(base.count(in: clear.applying(CGAffineTransform(scaleX: scale, y: scale)), where: Self.isBlack) == 0)
+            }
+            let marker = base[Int(scene.marker.frame.midX * scale), Int(scene.marker.frame.midY * scale)]
+            #expect(marker.blue > 200 && marker.red < 60, "\(marker)")
+        }
+
+        @Test("a clear window with a full-window mask hides the app window under it, from the key window or one between",
+              arguments: [false, true], [false, true])
+        func clearMaskingWindowHidesBase(gpu: Bool, between: Bool) async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, snapshots) = try makeSut(gpu: gpu, mirror: mirror)
+            defer { close(sut) }
+            let scene = makeScene()
+            defer { scene.close() }
+            scene.alert.subviews.forEach { $0.removeFromSuperview() }
+            let card = UIView(frame: CGRect(x: 50, y: 120, width: 100, height: 60))
+            card.backgroundColor = .green
+            scene.alert.addSubview(card)
+            let masking = UIWindow(frame: scene.app.frame)
+            masking.windowLevel = .alert
+            masking.isHidden = false
+            defer { masking.isHidden = true }
+            let shield = UIView(frame: scene.app.bounds)
+            shield.accessibilityIdentifier = "ph-no-capture"
+            (between ? masking : scene.alert).addSubview(shield)
+            PostHogReplayIntegration.windowLayerCandidatesForTesting = between ? [scene.app, masking, scene.alert] : [scene.app, scene.alert]
+            await prewarm(mirror, scene)
+
+            await capture(scene, integration, sut)
+
+            let wireframes = try #require(snapshots.fullSnapshots.first)
+            try #require(wireframes.count >= 2)
+            #expect(wireframes.first?["id"] as? Int == scene.app.hash)
+            #expect(try pixels(wireframes[0]).count(where: Self.isMagenta) == 0)
+        }
+
         @Test("a blank key window falls back instead of being left out, so the app is never sent without its cover")
         func blankKeyWindowFallsBack() async throws {
             let mirror = try makeMirror()
@@ -576,6 +657,40 @@
                 }
                 try #require(presented, "the cover did not finish presenting")
 
+                #expect(ids(PostHogReplayIntegration.screenshotLayers(keyWindow: lock, candidates: [app, lock])) == ids([lock]))
+            }
+
+            @Test("a window whose opaque background is still fading in doesn't hide the app window yet")
+            func coverFadingInKeepsBase() async throws {
+                let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+                let app = UIWindow(windowScene: scene), lock = UIWindow(windowScene: scene)
+                app.frame = CGRect(x: 0, y: 0, width: 200, height: 300)
+                app.isHidden = false
+                lock.frame = app.frame
+                lock.windowLevel = .rnAlert
+                lock.isHidden = false
+                defer { [app, lock].forEach { $0.isHidden = true } }
+                lock.backgroundColor = .black
+                let fade = CABasicAnimation(keyPath: "backgroundColor")
+                fade.fromValue = UIColor.clear.cgColor
+                fade.duration = 100
+                lock.layer.add(fade, forKey: "fade")
+                defer { lock.layer.removeAllAnimations() }
+                var rendered = false
+                for _ in 0 ..< 100 where !rendered {
+                    try await Task.sleep(nanoseconds: 20_000_000)
+                    rendered = lock.layer.presentation().map { ($0.backgroundColor?.alpha ?? 1) < 1 } ?? false
+                }
+                try #require(rendered, "the fade never reached the presentation layer")
+
+                #expect(ids(PostHogReplayIntegration.screenshotLayers(keyWindow: lock, candidates: [app, lock])) == ids([app, lock]))
+                lock.layer.removeAllAnimations()
+                var settled = false
+                for _ in 0 ..< 100 where !settled {
+                    try await Task.sleep(nanoseconds: 20_000_000)
+                    settled = lock.layer.presentation()?.backgroundColor?.alpha == 1
+                }
+                try #require(settled, "the presentation layer never settled")
                 #expect(ids(PostHogReplayIntegration.screenshotLayers(keyWindow: lock, candidates: [app, lock])) == ids([lock]))
             }
         }

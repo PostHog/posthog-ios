@@ -2437,8 +2437,9 @@
                 /// The mirror left out the full-window cover, so the frame would show what it hides: the default capture path
                 /// takes it instead.
                 case fallback(PostHogGPUMirrorCapture.Frame)
-                /// Frozen, with the regions the mirror couldn't mask itself left on the wireframe for the rect pass.
-                case frozen(PostHogGPUMirrorCapture.Frame, RRScreenshotFrame)
+                /// Frozen, with the regions the mirror couldn't mask itself left on the wireframe for the rect pass. `maskRects`
+                /// are all the window's masked regions, inline ones included.
+                case frozen(PostHogGPUMirrorCapture.Frame, RRScreenshotFrame, maskRects: [CGRect])
             }
 
             /// Main thread. Mirrors the window, walks it for masked regions, masks what it can in the mirror and freezes
@@ -2461,7 +2462,7 @@
                 wireframe.type = "screenshot"
                 wireframe.maskableWidgets = remainingRects
                 wireframe.screenshotPixelScale = frame.scale
-                return .frozen(frame, wireframe)
+                return .frozen(frame, wireframe, maskRects: regions.map(\.rect))
             }
 
             /// One capture instead of settle-then-shoot: the settle check exists because drawHierarchy shows the render
@@ -2484,7 +2485,7 @@
                 case let .fallback(unused):
                     endGPUCapture(unused, fallback: SettledCaptureRequest(layers: [window], screenName: screenName, postHog: postHog))
                     return
-                case let .frozen(frozen, frozenWireframe):
+                case let .frozen(frozen, frozenWireframe, _):
                     frame = frozen
                     wireframe = frozenWireframe
                 }
@@ -2590,10 +2591,13 @@
                 /// The base's size when the layers were picked; the frame is laid out in it.
                 let baseSize: CGSize
                 var captured: [(index: Int, wireframe: RRScreenshotFrame)] = []
+                /// Every layer's masked regions, a blank layer's included, by layer index.
+                var maskRects: [[CGRect]]
                 var count: Int { layers.count }
 
                 init(layers: [UIWindow], screenName: String?, postHog: PostHogSDK) {
                     self.layers = layers.map { Weak($0) }
+                    maskRects = Array(repeating: [], count: layers.count)
                     baseSize = layers.first?.bounds.size ?? .zero
                     self.screenName = screenName
                     self.postHog = postHog
@@ -2655,7 +2659,8 @@
                     endGPUCapture(frame)
                 case let .fallback(frame):
                     endGPUCapture(frame, fallback: capture.fallback)
-                case let .frozen(frame, wireframe):
+                case let .frozen(frame, wireframe, maskRects):
+                    capture.maskRects[index] = maskRects
                     PostHogGPUMirrorCapture.onNextRunLoopTurn { [weak self] in
                         guard let self else {
                             frame.release()
@@ -2702,9 +2707,11 @@
                             self.captureLayer(index + 1, of: capture, mirror: mirror)
                             return
                         }
-                        if let windows = capture.capturedWindows, windows.allSatisfy({ $0.isVisible() }) {
+                        if let allWindows = capture.windows, let windows = capture.capturedWindows, windows.allSatisfy({ $0.isVisible() }) {
                             if windows[0].bounds.size == capture.baseSize {
-                                self.enqueueLayers(capture.captured.map(\.wireframe), of: windows, screenName: capture.screenName,
+                                let wireframes = capture.captured.map(\.wireframe)
+                                Self.addUpperLayerMasks(to: wireframes, of: windows, maskRects: capture.maskRects, in: allWindows)
+                                self.enqueueLayers(wireframes, of: windows, screenName: capture.screenName,
                                                    postHog: capture.postHog, timestampDate: capture.timestampDate)
                             } else {
                                 hedgeLog("[Session Replay] Skipping snapshot: the app window resized during capture")
@@ -2796,7 +2803,7 @@
                 let start = CACurrentMediaTime()
                 let mirrored = mirrorAndMask(window, mirror: mirror, scale: scale)
                 let milliseconds = (CACurrentMediaTime() - start) * 1000
-                guard case let .frozen(frame, wireframe) = mirrored else {
+                guard case let .frozen(frame, wireframe, _) = mirrored else {
                     switch mirrored {
                     case let .unsettled(frame), let .fallback(frame): frame.release()
                     case .skipped, .unbuilt, .frozen: break
@@ -2974,9 +2981,9 @@
 
         private static func isOpaqueCover(_ window: UIWindow, over base: UIWindow) -> Bool {
             guard isUnclippedCover(window, over: base) else { return false }
-            if hasOpaqueBackground(window) { return true }
+            if PostHogPresentationCover.hasOpaqueBackground(window) { return true }
             if let root = window.rootViewController?.viewIfLoaded, !root.isHidden,
-               isUnclippedCover(root, over: base), hasOpaqueBackground(root)
+               isUnclippedCover(root, over: base), PostHogPresentationCover.hasOpaqueBackground(root)
             {
                 return true
             }
@@ -2988,8 +2995,19 @@
                 && view.convert(view.bounds, to: base).contains(base.bounds)
         }
 
-        private static func hasOpaqueBackground(_ view: UIView) -> Bool {
-            (view.backgroundColor?.resolvedColor(with: view.traitCollection).cgColor.alpha ?? 0) >= 1
+        /// For each layer, the mask rects of every layer above it, converted into its own coordinates by `convert(rect,
+        /// sourceLayer, targetLayer)` and clipped to its `bounds`.
+        static func upperLayerMaskRects(_ maskRects: [[CGRect]], bounds: [CGRect],
+                                        convert: (CGRect, _ source: Int, _ target: Int) -> CGRect) -> [[CGRect]]
+        {
+            maskRects.indices.map { lower in
+                maskRects.indices.dropFirst(lower + 1).flatMap { upper in
+                    maskRects[upper].compactMap { rect -> CGRect? in
+                        let clipped = convert(rect, upper, lower).intersection(bounds[lower])
+                        return clipped.isNull || clipped.isEmpty ? nil : clipped
+                    }
+                }
+            }
         }
 
         private static func isLayerCandidate(_ window: UIWindow) -> Bool {
@@ -3030,7 +3048,24 @@
                 }
                 wireframe.image = image
             }
+            Self.addUpperLayerMasks(to: wireframes, of: layers, maskRects: wireframes.map { $0.maskableWidgets ?? [] }, in: layers)
             enqueueLayers(wireframes, of: layers, screenName: screenName, postHog: postHog, timestampDate: timestampDate)
+        }
+
+        /// A mask hides what's under it, in the windows below too. A translucent or blur shield in an upper window isn't a
+        /// mask, so the layers under it are still captured as drawn. `maskRects` are each of `maskLayers`' masked regions
+        /// in its own coordinates; `maskLayers` are the windows picked for the frame, bottom first, any left out of
+        /// `layers` included.
+        static func addUpperLayerMasks(to wireframes: [RRScreenshotFrame], of layers: [UIWindow], maskRects: [[CGRect]],
+                                       in maskLayers: [UIWindow])
+        {
+            let upperMaskRects = upperLayerMaskRects(maskRects, bounds: maskLayers.map(\.bounds)) { rect, source, target in
+                maskLayers[target].convert(rect, from: maskLayers[source])
+            }
+            for (wireframe, layer) in zip(wireframes, layers) {
+                guard let index = maskLayers.firstIndex(where: { $0 === layer }), !upperMaskRects[index].isEmpty else { continue }
+                wireframe.maskableWidgets = (wireframe.maskableWidgets ?? []) + upperMaskRects[index]
+            }
         }
 
         fileprivate func enqueueLayers(_ wireframes: [RRScreenshotFrame], of layers: [UIWindow], screenName: String?, postHog: PostHogSDK,

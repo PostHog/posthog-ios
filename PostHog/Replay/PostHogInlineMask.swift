@@ -612,6 +612,9 @@
             }
             if let text = copy as? CATextLayer, text.string != nil {
                 text.string = nil
+                // The setter queues a redisplay, which draws the copy a backing store with glyphs at commit. Setting
+                // contents cancels it.
+                text.contents = nil
                 hadContent = true
             }
             if copy.shadowOpacity != 0 { copy.shadowOpacity = 0 }

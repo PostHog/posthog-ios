@@ -147,9 +147,10 @@
             }
 
             /// Where `mask` lets `layer` show, in window coordinates: what the mask draws, mapped through its geometry. nil
-            /// when it draws content, whose shape the colour would take, or its transform isn't affine.
+            /// when it draws content or a shape path, whose shape the colour would take, or its transform isn't affine.
             private func maskClip(_ mask: CALayer, of layer: CALayer, copies: CopyIndex) -> CGRect? {
-                guard !PostHogInlineMask.maskDrawsContent(mask), CATransform3DIsAffine(mask.transform) else { return nil }
+                guard !PostHogInlineMask.maskDrawsContent(mask), !PostHogInlineMask.drawsContent(mask),
+                      CATransform3DIsAffine(mask.transform) else { return nil }
                 let bounds = mask.bounds
                 let anchor = CGPoint(x: bounds.minX + mask.anchorPoint.x * bounds.width, y: bounds.minY + mask.anchorPoint.y * bounds.height)
                 let toLayer = CGAffineTransform(translationX: -anchor.x, y: -anchor.y)
@@ -367,9 +368,11 @@
                 if !reached.ordered { mask.extentStatsForTesting.unordered += 1 }
             #endif
             let inside = rect.insetBy(dx: -PostHogInlineMask.extentTolerance, dy: -PostHogInlineMask.extentTolerance)
-            // Under a mask drawn from content, what's blacked out shows in that content's shape, text included, on any
+            // Under a mask drawn from content or a shape, what's blacked out shows in that content's shape, text included, on any
             // background kept around it: then no background is kept, and the extent is black under the mask's shape too.
+            // The same when blacking out inner geometry would draw it on the kept background.
             let keepsEnclosing = !reached.indices.contains { tree.entries[$0].visibleFrame == nil }
+                && !showsInnerGeometry(reached.indices, in: tree, under: rect)
             // The end of a subtree a redaction hid.
             var skipUntil = 0
             for entryIndex in reached.indices where entryIndex >= skipUntil {
@@ -396,6 +399,27 @@
                     if isPartial { mask.extentStatsForTesting.replaced += 1 }
                 #endif
             }
+        }
+
+        /// Whether blacking out what the extent reaches would draw a shape smaller than the extent on a kept background:
+        /// any treated copy that isn't text, which draws as rows, or a flat rect covering the whole extent, whose outline is
+        /// the extent's. A backdrop could show anything, so it counts. Text inside the extent hides its sublayers.
+        private func showsInnerGeometry(_ indices: [Int], in tree: PostHogInlineMask.ExtentTree, under rect: CGRect) -> Bool {
+            let inside = rect.insetBy(dx: -PostHogInlineMask.extentTolerance, dy: -PostHogInlineMask.extentTolerance)
+            var skipUntil = 0
+            for entryIndex in indices where entryIndex >= skipUntil {
+                let entry = tree.entries[entryIndex]
+                switch extentTreatment(of: entry, under: rect, source: index.source(of: entry.copy), keepsEnclosing: true) {
+                case nil: continue
+                case .backdrop: return true
+                case .redact(.label), .redact(.textField), .redact(.textView), .redact(.unreadableText):
+                    if inside.contains(entry.frame) { skipUntil = entry.subtreeEnd }
+                case .redact, .color:
+                    let tolerance = -PostHogInlineMask.extentTolerance
+                    guard entry.showsAsRect, entry.visibleFrame?.insetBy(dx: tolerance, dy: tolerance).contains(rect) == true else { return true }
+                }
+            }
+            return false
         }
 
         /// Masks a backdrop, which the walk's redaction doesn't: covered over the extent, or hidden. Whether the copy's

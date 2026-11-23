@@ -320,7 +320,7 @@
             #expect(pixels.count(in: extent, where: Self.isYellow) == 0)
         }
 
-        @Test("S3: a masked List row is masked over its row background, which is kept, and the list outside it is untouched")
+        @Test("S3: a masked List row with an image is black over its row background, and the list outside it is untouched")
         func maskedListRow() async throws {
             let fixture = try await makeSwiftUIFixture()
             defer { fixture.close() }
@@ -343,7 +343,8 @@
             try expectPlacementsAgree(fixture)
 
             let (pixels, extent) = try await captureMasked(fixture)
-            #expect(pixels.count(in: extent, where: Self.isYellow) > 100, "the row background, enclosing the extent")
+            // The image would show as a box on the kept row background, so the extent is black as a whole.
+            #expect(pixels.count(in: extent, where: Self.isYellow) == 0)
             #expect(pixels.count(where: Self.isYellow) > 100, "the row background outside the extent")
             #expect(pixels.count(where: Self.isGreen) > 100)
             #expect(pixels.count(where: Self.isGroupedBackground) > 1000, "the list background")

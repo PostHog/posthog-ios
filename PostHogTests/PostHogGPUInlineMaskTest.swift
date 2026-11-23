@@ -584,6 +584,61 @@
             try await expectExtentBlack(fixture, CGRect(x: 30, y: 130, width: 140, height: 40))
         }
 
+        private static func signaturePath(in rect: CGRect) -> CGPath {
+            let path = CGMutablePath()
+            path.addRect(CGRect(x: rect.minX + 10, y: rect.minY + 10, width: 30, height: 8))
+            path.addEllipse(in: CGRect(x: rect.midX, y: rect.minY + 20, width: 30, height: 20))
+            return path
+        }
+
+        @Test("A view under a shape-path layer mask is black under its extent, not in the path's shape on a kept background")
+        func shapePathMaskedViewIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let view = UIView(frame: CGRect(x: 40, y: 120, width: 120, height: 60))
+            view.backgroundColor = .blue
+            let shape = CAShapeLayer()
+            shape.path = Self.signaturePath(in: view.bounds)
+            view.layer.mask = shape
+            fixture.window.addSubview(view)
+
+            try await expectExtentBlack(fixture, view.frame)
+        }
+
+        @Test("A coloured child under a container with a shape-path layer mask is black under the extent")
+        func shapePathMaskedContainerIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let container = UIView(frame: CGRect(x: 40, y: 220, width: 120, height: 60))
+            let child = UIView(frame: container.bounds)
+            child.backgroundColor = .blue
+            container.addSubview(child)
+            let shape = CAShapeLayer()
+            shape.path = Self.signaturePath(in: container.bounds)
+            container.layer.mask = shape
+            fixture.window.addSubview(container)
+
+            try await expectExtentBlack(fixture, container.frame)
+        }
+
+        @Test("Bars of different heights inside a masked chart are black under the extent, not drawn on the enclosing panel")
+        func barChartInsideEnclosingPanelIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let panel = UIView(frame: CGRect(x: 0, y: 100, width: 200, height: 150))
+            panel.backgroundColor = .systemTeal
+            fixture.window.addSubview(panel)
+            let chart = UIView(frame: CGRect(x: 30, y: 120, width: 140, height: 100))
+            for (position, height) in [20, 50, 80].enumerated() {
+                let bar = UIView(frame: CGRect(x: 10 + position * 40, y: 100 - height, width: 30, height: height))
+                bar.backgroundColor = .blue
+                chart.addSubview(bar)
+            }
+            fixture.window.addSubview(chart)
+
+            try await expectExtentBlack(fixture, chart.frame)
+        }
+
         @Test("An auto-masked view keeps its chrome; the same view under ph-no-capture doesn't")
         func autoMaskedViewKeepsChrome() async throws {
             let fixture = try await makeFixture()

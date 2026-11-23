@@ -148,12 +148,13 @@
         ].compactMap(NSClassFromString)
 
         /// `Text`, `Button`, `TextEditor` views
-        private let swiftUITextBasedViewTypes = [
-            "_TtC7SwiftUIP33_863CCF9D49B535DAEB1C7D61BEE53B5914CGDrawingLayer", // Text, Button (iOS 26+)
+        private let swiftUITextBasedViewTypes = (iOS26OnlyClassNames([
+            "_TtC7SwiftUIP33_863CCF9D49B535DAEB1C7D61BEE53B5914CGDrawingLayer", // Text, Button
+        ]) + [
             "SwiftUI.CGDrawingView", // Text, Button
             "SwiftUI.TextEditorTextView", // TextEditor
             "SwiftUI.VerticalTextView", // TextField, vertical axis
-        ].compactMap(NSClassFromString)
+        ]).compactMap(NSClassFromString)
 
         private let swiftUIGenericTypes = [
             "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView",
@@ -2150,14 +2151,24 @@
         }
     }
 
+    /// Names of classes that only exist from iOS 26, or none below it. Looking up a mangled Swift name
+    /// that isn't there makes the Swift runtime search every loaded image, and the miss isn't cached.
+    private func iOS26OnlyClassNames(_ names: [String]) -> [String] {
+        if #available(iOS 26.0, *) {
+            return names
+        }
+        return []
+    }
+
     // MARK: - Flattened SwiftUI content
 
     private extension PostHogReplayIntegration {
         /// `.drawingGroup()` and `Canvas` flatten their content (text, images, shapes) into one RenderBox surface
-        static let swiftUIFlattenedContentTypes = [
-            "_TtC7SwiftUIP33_863CCF9D49B535DAEB1C7D61BEE53B5914RBDrawingLayer", // iOS 26+
+        static let swiftUIFlattenedContentTypes = (iOS26OnlyClassNames([
+            "_TtC7SwiftUIP33_863CCF9D49B535DAEB1C7D61BEE53B5914RBDrawingLayer",
+        ]) + [
             "SwiftUI.RBDrawingView", // up to iOS 18
-        ].compactMap(NSClassFromString)
+        ]).compactMap(NSClassFromString)
 
         /// Whether `viewClass` is one of the views Compose Multiplatform draws its UI into: a container, a Metal
         /// surface and input views, all in the `androidx.compose.ui.window` Kotlin package. Kotlin/Native registers

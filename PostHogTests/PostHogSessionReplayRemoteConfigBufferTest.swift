@@ -1529,5 +1529,88 @@
             await waitUntil { replayQueue.bufferDepth == 0 && replayQueue.depth == 3 }
             #expect(replayQueue.depth == 3)
         }
+
+        /// The override is set while replay is not installed yet; the first manual start installs it.
+        private func lateInstallSut(
+            minimumDurationMilliseconds: Int? = nil,
+            setOverride: (PostHogSDK) -> Void
+        ) throws -> (sut: PostHogSDK, integration: PostHogReplayIntegration, replayQueue: PostHogReplayQueue) {
+            let sut = getSut(flagActive: true, minimumDurationMilliseconds: minimumDurationMilliseconds, sessionReplay: false)
+            #expect(sut.getReplayIntegration() == nil)
+            setOverride(sut)
+
+            sut.remoteConfig?.setRemoteConfigDidFetchForTesting(true)
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            sut.startSessionRecording()
+            let integration = try #require(sut.getReplayIntegration())
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isActive())
+            return (sut, integration, try #require(sut.replayQueue))
+        }
+
+        @Test("a minimum duration override set before replay is installed holds the buffer once it starts")
+        func minimumDurationOverrideBeforeInstallHolds() throws {
+            let (sut, integration, replayQueue) = try lateInstallSut { $0.setSessionReplayMinimumDuration(600_000) }
+            defer { sut.close() }
+
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+
+            #expect(integration.isBuffering == true)
+            #expect(replayQueue.bufferDepth == 2)
+            #expect(replayQueue.depth == 0)
+        }
+
+        @Test("a minimum duration override of 0 set before replay is installed beats the remote config minimum")
+        func zeroMinimumDurationOverrideBeforeInstallHoldsNothing() throws {
+            let (sut, integration, replayQueue) = try lateInstallSut(minimumDurationMilliseconds: 600_000) {
+                $0.setSessionReplayMinimumDuration(0)
+            }
+
+            replayQueue.add(snapshotEvent("1"))
+
+            #expect(integration.isBuffering == false)
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 1)
+
+            sut.close()
+            #expect(sut.sessionReplayMinimumDurationOverride == nil)
+        }
+
+        @Test("clearing the minimum duration override before replay is installed keeps the remote config minimum")
+        func clearedMinimumDurationOverrideBeforeInstallRestoresRemote() throws {
+            let (sut, integration, replayQueue) = try lateInstallSut(minimumDurationMilliseconds: 600_000) {
+                $0.setSessionReplayMinimumDuration(0)
+                $0.setSessionReplayMinimumDuration(nil)
+            }
+            defer { sut.close() }
+
+            replayQueue.add(snapshotEvent("1"))
+
+            #expect(integration.isBuffering == true)
+            #expect(replayQueue.bufferDepth == 1)
+            #expect(replayQueue.depth == 0)
+        }
+
+        @Test("a minimum duration override survives a replay uninstall and reinstall")
+        func minimumDurationOverrideSurvivesReinstall() throws {
+            let (sut, _, _) = try lateInstallSut(minimumDurationMilliseconds: 600_000) {
+                $0.setSessionReplayMinimumDuration(0)
+            }
+            defer { sut.close() }
+
+            sut.optOut()
+            #expect(sut.getReplayIntegration() == nil)
+            sut.optIn()
+
+            let integration = try #require(sut.getReplayIntegration())
+            integration.applyRemoteConfig(remoteConfig: nil)
+            let replayQueue = try #require(sut.replayQueue)
+            replayQueue.add(snapshotEvent("1"))
+
+            #expect(integration.isBuffering == false)
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 1)
+        }
     }
 #endif

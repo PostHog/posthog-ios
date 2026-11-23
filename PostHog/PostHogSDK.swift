@@ -153,6 +153,12 @@ let maxRetryDelay = 30.0
         /// and the app's last `startSessionRecording()`/`stopSessionRecording()` while opted in, so consent
         /// doesn't override a stop. Internal stops don't change it. Guarded by `setupLock`.
         private var startSessionRecordingOnOptIn = true
+
+        private var _sessionReplayMinimumDurationOverride: TimeInterval?
+        /// Kept here rather than on the integration so it reaches one installed after the host set it.
+        var sessionReplayMinimumDurationOverride: TimeInterval? {
+            setupLock.withLock { _sessionReplayMinimumDurationOverride }
+        }
     #endif
 
     #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
@@ -3810,6 +3816,7 @@ let maxRetryDelay = 30.0
             pushSubscriptionHandler = nil
             #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 startSessionRecordingOnOptIn = true
+                _sessionReplayMinimumDurationOverride = nil
             #endif
             replayDebugPropertiesLock.withLock {
                 lastReplayDebugPropertiesAt = nil
@@ -4021,7 +4028,15 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            replayIntegration?.setMinimumDurationOverride(milliseconds: milliseconds)
+            if let milliseconds, milliseconds < 0 {
+                hedgeLog("[Session Replay] Ignoring negative minimum duration \(milliseconds)ms.")
+                return
+            }
+            let integration = setupLock.withLock { () -> PostHogReplayIntegration? in
+                _sessionReplayMinimumDurationOverride = milliseconds.map { TimeInterval($0) / 1_000.0 }
+                return _replayIntegration
+            }
+            integration?.minimumDurationOverrideDidChange()
         }
     #endif
 

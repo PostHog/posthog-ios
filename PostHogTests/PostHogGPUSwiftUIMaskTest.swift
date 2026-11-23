@@ -743,7 +743,10 @@
 
         // MARK: - Cost
 
-        @Test("Turn-1 cost on a screen of masked rows, with and without reporter extents masked inline (prints, doesn't assert)")
+        @Test(
+            "Turn-1 cost on a screen of masked rows, with and without reporter extents masked inline (prints, doesn't assert)",
+            .enabled(if: benchmarksEnabled, "compile-gated (GPU_MASK_BENCHMARKS) — use `make gpuMaskBenchmarks`")
+        )
         func turnOneExtentCost() async throws {
             let fixture = try await makeSwiftUIFixture()
             defer { fixture.close() }

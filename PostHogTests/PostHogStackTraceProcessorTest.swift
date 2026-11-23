@@ -60,6 +60,7 @@ struct PostHogStackTraceProcessorTest {
         @Test("uses inAppByDefault for unknown modules")
         func usesInAppByDefault() {
             let config = PostHogErrorTrackingConfig()
+            #expect(PostHogStackTraceProcessor.isInApp(module: "UnknownModule", config: config) == false)
 
             config.inAppByDefault = true
             #expect(PostHogStackTraceProcessor.isInApp(module: "UnknownModule", config: config) == true)

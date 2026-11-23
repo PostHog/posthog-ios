@@ -12,6 +12,3 @@ NEW_VERSION="$1"
 
 # Replace `postHogVersion` with the given version
 perl -pi -e "s/postHogVersion = \".*\"/postHogVersion = \"$NEW_VERSION\"/" PostHog/PostHogVersion.swift
-
-# Replace `s.version` with the given version
-perl -pi -e "s/s.version          = \".*\"/s.version          = \"$NEW_VERSION\"/" PostHog.podspec

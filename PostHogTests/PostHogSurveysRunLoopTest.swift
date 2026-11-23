@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     import Foundation
     @testable import PostHog
     import Testing
@@ -27,7 +27,9 @@
         private func getSut(sessionReplay: Bool) -> PostHogSDK {
             let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9090")
             config._surveys = true
-            config.sessionReplay = sessionReplay
+            #if !SWIFT_PACKAGE || SessionReplay
+                config.sessionReplay = sessionReplay
+            #endif
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
             config.preloadFeatureFlags = false
@@ -41,7 +43,9 @@
             }
 
             PostHogSurveyIntegration.clearInstalls()
-            PostHogReplayIntegration.clearInstalls()
+            #if !SWIFT_PACKAGE || SessionReplay
+                PostHogReplayIntegration.clearInstalls()
+            #endif
             return PostHogSDK.with(config)
         }
 
@@ -58,19 +62,21 @@
             #expect(DI.main.runLoopPublisher.isObserving)
         }
 
-        @MainActor
-        @Test("replay and surveys together still leave the layout implementation alone")
-        func replayAndSurveysDoNotSwizzleLayout() async throws {
-            let before = try #require(layoutImplementation)
+        #if !SWIFT_PACKAGE || SessionReplay
+            @MainActor
+            @Test("replay and surveys together still leave the layout implementation alone")
+            func replayAndSurveysDoNotSwizzleLayout() async throws {
+                let before = try #require(layoutImplementation)
 
-            let sut = getSut(sessionReplay: true)
-            defer { sut.close() }
-            let replay = try #require(sut.getReplayIntegration())
-            try #require(replay.isActive())
-            await drainMain()
+                let sut = getSut(sessionReplay: true)
+                defer { sut.close() }
+                let replay = try #require(sut.getReplayIntegration())
+                try #require(replay.isActive())
+                await drainMain()
 
-            #expect(layoutImplementation == before)
-            #expect(DI.main.runLoopPublisher.isObserving)
-        }
+                #expect(layoutImplementation == before)
+                #expect(DI.main.runLoopPublisher.isObserving)
+            }
+        #endif
     }
 #endif

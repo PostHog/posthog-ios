@@ -79,12 +79,6 @@
         /// invalidating them.
         static let settleWindowSeconds: TimeInterval = 0.025
 
-        /// Gap between the first mask sample and the off-main background render. On device, a render
-        /// taken right after an abrupt scroll stop still showed the pre-stop position; a still
-        /// verdict must span longer than that lag. 25ms already avoided it in testing, so this
-        /// leaves margin for slower devices.
-        static let backgroundCaptureLeadSeconds: TimeInterval = 0.1
-
         /// At or below 80pt/s, geometry counts as unmoved and rects are used exactly as sampled.
         /// Raise only to stop idle screens paying for inflation, and only a little: this much
         /// displacement then goes uncompensated, so it is the one knob that trades directly
@@ -153,41 +147,6 @@
                 oldRects.append(oldRect)
             }
             return oldRects
-        }
-
-        /// Masks for a frame rendered off-main between two samples, or nil to skip the frame.
-        /// The off-main render copies the last committed frame, which can trail `before`, so
-        /// drifted masks take `settleVerdict`'s inflation, including its trail behind `before`.
-        /// Motion, an unpaired owner (a cell recycled mid-render), or a nil sample skips the frame:
-        /// no rect is known to cover where that content sat when the pixels were committed, and
-        /// the presentation-tree renderer the settled path falls back to is main-only.
-        static func backgroundCaptureMaskRects(before: [MaskedRegion]?, after: [MaskedRegion]?) -> [CGRect]? {
-            let verdict = settleVerdict(before: before, after: after)
-            switch verdict.band {
-            case .still:
-                // Within tolerance, but the pixels may still show `before`.
-                guard let after, let oldRects = pairedOldRects(before: before, after: after) else { return nil }
-                return zip(oldRects, after).map { $0.union($1.rect) }
-            case .drift:
-                return verdict.inflatedRects
-            case .motion:
-                return nil
-            }
-        }
-
-        /// Three-sample form: `lead` is taken `backgroundCaptureLeadSeconds` before `before`, so a
-        /// still span covers the render's lag, while `before` stays adjacent to the render and
-        /// catches anything that moved, appeared or vanished during the wait. Each consecutive
-        /// pair must be coverable on its own; the masks are the union of both.
-        static func backgroundCaptureMaskRects(
-            lead: [MaskedRegion]?, before: [MaskedRegion]?, after: [MaskedRegion]?
-        ) -> [CGRect]? {
-            guard let leading = backgroundCaptureMaskRects(before: lead, after: before),
-                  let trailing = backgroundCaptureMaskRects(before: before, after: after)
-            else {
-                return nil
-            }
-            return leading + trailing
         }
 
         /// Banded by measured drift:

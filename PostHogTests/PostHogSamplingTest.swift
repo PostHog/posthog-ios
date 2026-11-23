@@ -1,5 +1,5 @@
 import Foundation
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 
 @Suite("Session Replay Sampling Tests")
@@ -100,7 +100,7 @@ class PostHogSamplingTests {
     }
 }
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
 
     // MARK: - parseSampleRate Tests
 
@@ -225,7 +225,6 @@ class PostHogSamplingTests {
         @Test("parses sample rate from remote config response")
         func parsesSampleRateFromRemoteConfig() async {
             let config = PostHogConfig(projectToken: self.config.projectToken, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 
@@ -248,7 +247,6 @@ class PostHogSamplingTests {
         @Test("remote config without sample rate leaves it nil")
         func remoteConfigWithoutSampleRate() async {
             let config = PostHogConfig(projectToken: self.config.projectToken, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 

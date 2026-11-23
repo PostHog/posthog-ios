@@ -2,7 +2,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || Surveys)
     extension PostHogSurveyEventsTest {
         @MainActor
         private func renderingSDK(resetStorage: Bool, language: String) -> (PostHogSDK, PostHogSurveyIntegration, SurveyDisplayController) {

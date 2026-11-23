@@ -4,8 +4,40 @@
 //
 //  Created by Manoel Aranda Neto on 19.03.24.
 //
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
+
+    /// How session replay captures a screenshot. Set it with `PostHogSessionReplayConfig.captureMethod`.
+    @objc(PostHogSessionReplayCaptureMethod) public enum PostHogSessionReplayCaptureMethod: Int {
+        /// Renders the window with `drawHierarchy` on the main thread, once the screen has settled.
+        case standard
+
+        /// Copies the window's layer tree on the main thread and renders the copy on the GPU with Metal,
+        /// so the main thread only builds the copy. Takes less main-thread time than `.standard`.
+        ///
+        /// Layers whose presentation can't be copied safely (an app's or a framework's own `CALayer`
+        /// subclasses) are drawn from their model state instead. While one of them has an animation that
+        /// moves or reshapes it, a playing Lottie animation for example, it is left out of the frame with
+        /// everything under it.
+        ///
+        /// Not captured exactly:
+        /// - Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped
+        ///   "Metal content" placeholder.
+        /// - Video and camera previews stay blank, as with `.standard`.
+        /// - Liquid Glass is approximated without refraction: sheets, alerts and dialogs as a blur of what's
+        ///   behind them, smaller glass as a flat fill in its shape. Tinted glass keeps its tint. The labels and
+        ///   icons on it are reproduced. On iOS 27, sheets, alerts and dialogs currently show as a flat panel
+        ///   instead of a blur.
+        ///
+        /// Captures fall back to `.standard` when the device has no Metal or a render fails.
+        ///
+        /// While recording, the app keeps roughly 25 to 30 MB more memory resident on average (GPU memory held
+        /// by Metal and Core Animation); peak memory is about the same as with `.standard`. Measured on an
+        /// iPhone 17 Pro with `screenshotScale` unset, one pixel per point; a larger scale holds more.
+        ///
+        /// Experimental. iOS and Mac Catalyst only.
+        case gpu
+    }
 
     /// Configuration for iOS session replay capture.
     ///
@@ -24,15 +56,6 @@
         /// Default: true
         @objc public var maskAllSandboxedViews: Bool = true
 
-        /// Deprecated placeholder for photo-library image masking.
-        ///
-        /// This property has no effect. To manually mask user photos, see the privacy controls
-        /// documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS
-        ///
-        /// Default: `false`.
-        @available(*, deprecated, message: "This property has no effect and will be removed in the next major release. To learn how to manually mask user photos please see our Privacy controls documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS")
-        @objc public var maskPhotoLibraryImages: Bool = false
-
         /// Enable recording touch coordinates in session replay. Screenshot capture is unaffected.
         /// Set before SDK setup. Runtime changes are not supported.
         /// Default: true
@@ -41,64 +64,19 @@
         /// Enable capturing network telemetry
         /// Default: true
         ///
-        /// Note: When enabled, can be disabled remotely via project settings (requires `PostHogConfig.remoteConfig` to be enabled)
+        /// Note: When enabled, can be disabled remotely via project settings
         @objc public var captureNetworkTelemetry: Bool = true
 
-        /// By default Session replay will capture all the views on the screen as a wireframe,
-        /// By enabling this option, PostHog will capture the screenshot of the screen.
-        /// The screenshot may contain sensitive information, use with caution.
-        /// Default: false
-        @objc public var screenshotMode: Bool = false
-
-        /// Schedule screenshot image capture on a background queue when `screenshotMode` is enabled.
-        ///
-        /// Warning: Enabling this option will trigger Main Thread Checker warnings and may
-        /// briefly freeze the app the first time a screenshot is captured. Consider disabling
-        /// Main Thread Checker in your scheme's run diagnostics when enabling this.
-        ///
-        /// Experimental.
-        /// Default: false
-        @objc public var screenshotModeBackgroundCapture: Bool = false
-
-        /// Render screenshots on the GPU instead of with `drawHierarchy` when `screenshotMode` is enabled.
-        ///
-        /// Each capture commits pending changes, copies the window's layer tree and renders the copy into a
-        /// Metal texture, so the main thread only builds the copy. Layers whose presentation can't be copied
-        /// safely (an app's or a framework's own `CALayer` subclasses) are drawn from their model state
-        /// instead. While one of them has an animation that moves or reshapes it, a playing Lottie animation
-        /// for example, it is left out of the frame with everything under it.
-        ///
-        /// Not captured exactly:
-        /// - Metal content (MapKit, SceneKit, SpriteKit, `MTKView`) shows as a striped
-        ///   "Metal content" placeholder.
-        /// - Video and camera previews stay blank, as they do today.
-        /// - Liquid Glass is approximated without refraction: sheets, alerts and dialogs as a blur of what's
-        ///   behind them, smaller glass as a flat fill in its shape. Tinted glass keeps its tint. The labels and
-        ///   icons on it are reproduced. On iOS 27, sheets, alerts and dialogs currently show as a flat panel
-        ///   instead of a blur.
-        ///
-        /// Captures fall back to the default path when the device has no Metal or a render fails.
-        /// Takes precedence over `screenshotModeBackgroundCapture` when both are enabled.
-        ///
-        /// While recording, the app keeps roughly 25 to 30 MB more memory resident on average (GPU memory held
-        /// by Metal and Core Animation); peak memory is about the same as the default capture. Measured on an
-        /// iPhone 17 Pro with `screenshotScale` unset, one pixel per point; a larger scale holds more.
-        ///
-        /// Experimental. iOS and Mac Catalyst only.
-        /// Default: false
-        @objc public var screenshotModeGPUCapture: Bool = false
-
-        /// Resolution of `screenshotMode` screenshots, as a multiplier of the screen's native resolution.
+        /// Resolution of screenshots, as a multiplier of the screen's native resolution.
         ///
         /// - `nil`: one pixel per point on every device, so a 402×874 pt screen uploads 402×874 pixels.
         /// - A value: that fraction of native resolution. On a 3x device, `1.0` uploads 1206×2622 pixels
         ///   (native) and `0.5` uploads 603×1311 (1.5 pixels per point).
         ///
         /// Values are clamped to 0.1...1.0, and NaN or infinite values reset it to `nil`. The replay's viewport in
-        /// points is unchanged. Does not affect wireframe mode or compression quality. Exposed as `NSNumber` so
-        /// Objective-C can leave it unset.
+        /// points is unchanged. Does not affect compression quality. Exposed as `NSNumber` so
+        /// Objective-C can leave it unset. Applies to every `captureMethod`.
         ///
-        /// Experimental.
         /// Default: nil (one pixel per point)
         @objc public var screenshotScale: NSNumber? {
             didSet {
@@ -111,22 +89,15 @@
             screenshotScale.map { nativeScale * CGFloat($0.doubleValue) } ?? 1
         }
 
-        /// Debouncer delay used to reduce the number of snapshots captured and reduce performance impact
-        /// This is used for capturing the view as a wireframe or screenshot
-        /// The lower the number more snapshots will be captured but higher the performance impact
-        /// Defaults to 1s
-        @available(*, deprecated, message: "Deprecated in favor of 'throttleDelay' which provides identical functionality. Will be removed in the next major release.")
-        @objc public var debouncerDelay: TimeInterval {
-            get { throttleDelay }
-            set { throttleDelay = newValue }
-        }
+        /// How session replay captures each screenshot. See `PostHogSessionReplayCaptureMethod`.
+        ///
+        /// Default: `.standard`
+        @objc public var captureMethod: PostHogSessionReplayCaptureMethod = .standard
 
         /// Throttle delay used to reduce the number of snapshots captured and reduce performance impact
-        /// This is used for capturing the view as a wireframe or screenshot
+        /// This is used for capturing the screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact
         /// Defaults to 1s
-        ///
-        /// Note: Previously `debouncerDelay`
         @objc public var throttleDelay: TimeInterval = 1
 
         /// Enable capturing console output for session replay.
@@ -142,7 +113,7 @@
         ///
         /// Defaults to `false`
         ///
-        /// Note: When enabled, can be disabled remotely via project settings (requires `PostHogConfig.remoteConfig` to be enabled)
+        /// Note: When enabled, can be disabled remotely via project settings
         @objc public var captureLogs: Bool = false
 
         /// Further configuration for capturing console output
@@ -169,19 +140,21 @@
             }
         }
 
-        /// Returns an array of plugin types based on current configuration
-        func getPluginTypes() -> [PostHogSessionReplayPlugin.Type] {
-            var types: [PostHogSessionReplayPlugin.Type] = []
+        #if !SWIFT_PACKAGE || SessionReplay
+            /// Returns an array of plugin types based on current configuration
+            func getPluginTypes() -> [PostHogSessionReplayPlugin.Type] {
+                var types: [PostHogSessionReplayPlugin.Type] = []
 
-            if captureLogs {
-                types.append(PostHogSessionReplayConsoleLogsPlugin.self)
+                if captureLogs {
+                    types.append(PostHogSessionReplayConsoleLogsPlugin.self)
+                }
+
+                if captureNetworkTelemetry {
+                    types.append(PostHogSessionReplayNetworkPlugin.self)
+                }
+
+                return types
             }
-
-            if captureNetworkTelemetry {
-                types.append(PostHogSessionReplayNetworkPlugin.self)
-            }
-
-            return types
-        }
+        #endif
     }
 #endif

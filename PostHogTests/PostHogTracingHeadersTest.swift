@@ -133,10 +133,6 @@
 
         @Test("adds distinct and session tracing headers to listed hosts for async await URLSession APIs", arguments: asyncCases)
         func addsHeadersToListedHostsForAsyncAwaitURLSessionAPIs(_ testCase: AsyncTracingCase) async throws {
-            guard #available(iOS 15.0, *) else {
-                return
-            }
-
             try await withTracingSut(tracingHeaders: [Self.primaryHost]) { sut in
                 let capture = CapturedRequest()
                 stubRequest(host: Self.primaryHost, capture: capture)
@@ -151,10 +147,6 @@
 
         @Test("adds distinct and session tracing headers to PostHog URLSession wrapper APIs", arguments: wrapperCases)
         func addsHeadersToPostHogURLSessionWrapperAPIs(_ testCase: WrapperTracingCase) async throws {
-            guard #available(iOS 15.0, *) else {
-                return
-            }
-
             try await withTracingSut(tracingHeaders: [Self.primaryHost]) { sut in
                 let capture = CapturedRequest()
                 stubRequest(host: Self.primaryHost, capture: capture)
@@ -313,7 +305,6 @@
             }
         }
 
-        @available(iOS 15.0, *)
         private func invokeAsyncTracingCase(_ testCase: AsyncTracingCase) async throws {
             let url = try makeURL(host: Self.primaryHost)
             let request = URLRequest(url: url)
@@ -342,7 +333,6 @@
             }
         }
 
-        @available(iOS 15.0, *)
         private func invokeWrapperTracingCase(_ testCase: WrapperTracingCase) async throws {
             let url = try makeURL(host: Self.primaryHost)
             let request = URLRequest(url: url)
@@ -365,7 +355,6 @@
             }
         }
 
-        @available(iOS 15.0, *)
         private func consumeFirstByte(from bytes: URLSession.AsyncBytes) async throws {
             var iterator = bytes.makeAsyncIterator()
             _ = try await iterator.next()

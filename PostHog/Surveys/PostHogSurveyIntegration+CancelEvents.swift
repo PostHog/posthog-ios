@@ -3,7 +3,7 @@
 //  PostHog
 //
 
-#if os(iOS) || TESTING
+#if (os(iOS) || TESTING) && (!SWIFT_PACKAGE || Surveys)
 
     import Foundation
 

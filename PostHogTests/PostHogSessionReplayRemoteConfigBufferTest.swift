@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @_spi(PostHogInternal) @testable import PostHog
     import Testing
@@ -699,7 +699,7 @@
             #expect(props["$sdk_debug_replay_internal_buffer_length"] as? Int == 1)
             #expect(props["$sdk_debug_replay_event_trigger_status"] as? String != nil)
             #expect(props["$sdk_debug_replay_linked_flag_trigger_status"] as? String != nil)
-            #expect(props["$sdk_debug_pending_queue_size"] != nil)
+            #expect(props["$sdk_debug_pending_queue_size"] == nil)
 
             #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
             #expect(props["$sdk_debug_replay_capture_mode"] == nil)

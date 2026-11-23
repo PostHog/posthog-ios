@@ -5,14 +5,13 @@
 #
 # Xcode Build Phase Setup:
 #   SPM:        "${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh"
-#   CocoaPods:  "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #
 #
 # Usage Examples:
-#   Basic:          "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
-#   With source:    POSTHOG_INCLUDE_SOURCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
-#   Skip conflicts: POSTHOG_SKIP_ON_CONFLICT=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
-#   Overwrite:      POSTHOG_FORCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#   Basic:          "${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh"
+#   With source:    POSTHOG_INCLUDE_SOURCE=1 "${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh"
+#   Skip conflicts: POSTHOG_SKIP_ON_CONFLICT=1 "${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh"
+#   Overwrite:      POSTHOG_FORCE=1 "${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh"
 #
 # Build Settings (required):
 #   DEBUG_INFORMATION_FORMAT = DWARF with dSYM File

@@ -1,4 +1,4 @@
-#if os(iOS) && canImport(Metal)
+#if os(iOS) && canImport(Metal) && (!SWIFT_PACKAGE || SessionReplay)
     import QuartzCore
     import UIKit
 
@@ -437,6 +437,11 @@
             /// Whether its sublayers were hidden, as kinds that replace their subtree do.
             mutating func redactOwnContent(_ copy: CALayer, source: CALayer?, as kind: Kind, replacingWhole: Bool = false) -> Bool {
                 visited.insert(ObjectIdentifier(copy))
+                var descendantsDrew = false
+                if case .unreadableText = kind {
+                    // A React Native Fabric paragraph draws its text in a child view, hidden below.
+                    descendantsDrew = subviewsDrawContent(copy)
+                }
                 if kind.dropsDescendants {
                     // Before the redaction, which can add bars of its own.
                     copy.sublayers?.forEach { $0.isHidden = true }
@@ -444,13 +449,24 @@
                 if replacingWhole {
                     PostHogInlineMask.blackOut(copy, [.content, .fill])
                 } else {
-                    redactCopy(copy, source: source, as: kind)
+                    redactCopy(copy, source: source, as: kind, descendantsDrew: descendantsDrew)
                 }
                 return kind.dropsDescendants
             }
 
+            /// Whether a visible view's layer below the copy, at any depth, draws the content `stripContent` removes.
+            /// Layers that aren't a view's own, such as a Fabric view's border bitmap, are chrome, not text.
+            private func subviewsDrawContent(_ copy: CALayer) -> Bool {
+                (copy.sublayers ?? []).contains { sublayer in
+                    guard !sublayer.isHidden, let source = index.source(of: sublayer),
+                          (source.delegate as? UIView)?.layer === source else { return false }
+                    return sublayer.contents != nil || (sublayer as? CAShapeLayer)?.path != nil
+                        || (sublayer as? CATextLayer)?.string != nil || subviewsDrawContent(sublayer)
+                }
+            }
+
             /// Redacts one copy's own content in place.
-            private mutating func redactCopy(_ copy: CALayer, source: CALayer?, as kind: Kind) {
+            private mutating func redactCopy(_ copy: CALayer, source: CALayer?, as kind: Kind, descendantsDrew: Bool) {
                 if isBackdrop(copy) {
                     // A backdrop draws what's behind it, and has no chrome of its own.
                     copy.isHidden = true
@@ -467,8 +483,8 @@
                     copy.cornerRadius = 0
                     copy.opacity = 1
                 case .unreadableText:
-                    // Rows only where the layer drew something, so nothing reads as text that wasn't there.
-                    if hadContent { setText(copy, source: source, kind: kind, fallbackToBlack: true) }
+                    // Rows only where the layer or its subtree drew something, so nothing reads as text that wasn't there.
+                    if hadContent || descendantsDrew { setText(copy, source: source, kind: kind, fallbackToBlack: true) }
                 case .label, .textField, .textView:
                     setText(copy, source: source, kind: kind, fallbackToBlack: false)
                 }
@@ -668,7 +684,7 @@
 
         /// Non-whitespace becomes `*` (rrweb's `maskText`), or every character does (rrweb's `maskInputValue`).
         fileprivate static func masked(_ text: String, keepingWhitespace: Bool) -> String {
-            keepingWhitespace ? String(text.map { $0.isWhitespace ? $0 : "*" }) : text.mask()
+            keepingWhitespace ? String(text.map { $0.isWhitespace ? $0 : "*" }) : String(repeating: "*", count: text.count)
         }
 
         /// `masked(_:keepingWhitespace:)` for each run, keeping its attributes except attachments (images), shadows, and

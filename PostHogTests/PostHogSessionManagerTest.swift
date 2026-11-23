@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 
 @Suite(.serialized, .resetsGlobalState)
@@ -268,7 +268,6 @@ enum PostHogSessionManagerTest {
             captureApplicationLifecycleEvents: Bool = false,
             flushAt: Int = 1,
             optOut: Bool = false,
-            propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
             personProfiles: PostHogPersonProfiles = .identifiedOnly
         ) -> PostHogSDK {
             let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
@@ -281,7 +280,6 @@ enum PostHogSessionManagerTest {
             config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
             config.captureScreenViews = false
             config.optOut = optOut
-            config.propertiesSanitizer = propertiesSanitizer
             config.personProfiles = personProfiles
             config.maxBatchSize = max(flushAt, config.maxBatchSize)
             server.batchProjectToken = config.projectToken
@@ -424,7 +422,7 @@ enum PostHogSessionManagerTest {
 
             let properties = events[0].properties
             #expect(properties["$recording_status"] != nil)
-            #expect(properties["$sdk_debug_pending_queue_size"] != nil)
+            #expect(properties["$sdk_debug_pending_queue_size"] == nil)
             #expect(properties["$sdk_debug_session_start"] == nil)
             #expect(properties["$sdk_debug_replay_capture_mode"] == nil)
             #expect(properties["$sdk_debug_replay_flush_hold_reason"] == nil)

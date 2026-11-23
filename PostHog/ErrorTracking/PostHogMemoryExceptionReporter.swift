@@ -58,8 +58,10 @@ import Foundation
             )
 
             var distinctId: String?
+            var options: [String: Any]?
             if let saved {
                 distinctId = saved["distinct_id"] as? String
+                options = saved["options"] as? [String: Any]
                 let eventProperties = saved["event_properties"] as? [String: Any] ?? [:]
                 properties = eventProperties.merging(properties) { _, new in new }
                 if let steps = saved[PostHogExceptionStepFields.stepsKey] as? [[String: Any]], !steps.isEmpty {
@@ -80,6 +82,7 @@ import Foundation
                 distinctId: distinctId,
                 properties: properties,
                 timestamp: report.timeRange.end,
+                options: options,
                 skipBuildProperties: true
             )
             hedgeLog("Memory exception report processed")

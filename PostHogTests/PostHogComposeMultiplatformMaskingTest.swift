@@ -8,7 +8,7 @@
 //  of that shape, so it needs no Compose dependency.
 //
 
-#if os(iOS)
+#if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
     @testable import PostHog
     import Testing

@@ -281,13 +281,6 @@ final class PostHogEventSnapshotTests {
             #expect(!value.isEmpty)
             properties.removeValue(forKey: key)
         }
-        // Only compiled under `#if os(iOS)` — present when this suite runs on an iOS
-        // destination (xcodebuild), absent under SwiftPM's macOS command-line test bundle.
-        // Validate then omit so the golden doesn't depend on which host compiled the test.
-        if let captureMode = properties["$sdk_debug_replay_capture_mode"] {
-            #expect(captureMode as? String == "screenshot")
-            properties.removeValue(forKey: "$sdk_debug_replay_capture_mode")
-        }
         if let appBuild = properties["$app_build"] {
             if let appBuild = appBuild as? String {
                 #expect(!appBuild.isEmpty)
@@ -318,13 +311,6 @@ final class PostHogEventSnapshotTests {
         for key in ["$screen_width", "$screen_height"] where properties[key] != nil {
             _ = try #require(properties[key] as? NSNumber)
             properties[key] = "<environment-number>"
-        }
-
-        // Wall-clock-derived, not reproducible under a mocked `now()` fixed relative to a real
-        // sessionStartTimestamp — normalize rather than assert an exact value.
-        for key in ["$sdk_debug_session_start"] where properties[key] != nil {
-            _ = try #require(properties[key] as? NSNumber)
-            properties[key] = "<timestamp-ms>"
         }
     }
 

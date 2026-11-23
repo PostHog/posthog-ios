@@ -116,6 +116,44 @@
             #expect(layers(key: alert, [app, alert]) == ids([app, alert]))
         }
 
+        @Test("an opaque background that is masked or rounded doesn't hide the app window, because it shows through")
+        func maskedOrRoundedCoverKeepsBase() {
+            let app = window(), lock = window(.rnAlert)
+            defer { [app, lock].forEach { $0.isHidden = true } }
+            let root = UIViewController()
+            root.view.backgroundColor = .white
+            lock.rootViewController = root
+            #expect(layers(key: lock, [app, lock]) == ids([lock]))
+
+            let mask = CALayer()
+            mask.frame = CGRect(x: 0, y: 0, width: 100, height: 100)
+            mask.backgroundColor = UIColor.black.cgColor
+            root.view.layer.mask = mask
+            #expect(layers(key: lock, [app, lock]) == ids([app, lock]))
+
+            root.view.layer.mask = nil
+            root.view.layer.cornerRadius = 24
+            #expect(layers(key: lock, [app, lock]) == ids([app, lock]))
+
+            root.view.layer.cornerRadius = 0
+            lock.backgroundColor = .black
+            lock.layer.cornerRadius = 24
+            #expect(layers(key: lock, [app, lock]) == ids([app, lock]))
+        }
+
+        @Test("a dynamic color is judged in the window's own appearance")
+        func dynamicColorResolvesAgainstWindowTraits() {
+            let app = window(), lock = window(.rnAlert)
+            defer { [app, lock].forEach { $0.isHidden = true } }
+            lock.backgroundColor = UIColor { $0.userInterfaceStyle == .dark ? .black : .clear }
+
+            lock.overrideUserInterfaceStyle = .light
+            #expect(layers(key: lock, [app, lock]) == ids([app, lock]))
+
+            lock.overrideUserInterfaceStyle = .dark
+            #expect(layers(key: lock, [app, lock]) == ids([lock]))
+        }
+
         @Test("with no visible app window, or a key window outside the scene, the key window is captured alone")
         func noBase() {
             let hiddenApp = window(hidden: true), app = window(), alert = window(.rnAlert), stranger = window(.rnAlert)
@@ -357,9 +395,34 @@
 
             await capture(scene, integration, sut)
 
-            #expect(snapshots.fullSnapshots.allSatisfy { $0.count != 1 })
+            let wireframes = try #require(snapshots.fullSnapshots.first)
+            #expect(snapshots.fullSnapshots.count == 1)
+            #expect(wireframes.count == 2)
             #expect(!integration.isScreenshotRenderInFlightForTesting)
             #expect(!mirror.hasAttachedFrameForTesting)
+        }
+
+        @Test("an upper layer that fails to prepare drops the frame before any layer renders or the motion renderer pauses")
+        func failedPrepareSkipsRenderAndPause() async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, snapshots) = try makeSut(gpu: false, mask: true, mirror: mirror)
+            defer { close(sut) }
+            let scene = makeScene()
+            defer { scene.close() }
+            let before = integration.presentationTreeResumeTimeForTesting
+
+            CATransaction.flush()
+            #expect(integration.startScreenshotCapture(window: scene.alert, screenName: nil, postHog: sut))
+            // A field that appears between the settle samples makes the frame a motion frame, which uses the presentation tree.
+            let field = UITextField(frame: CGRect(x: 20, y: 20, width: 120, height: 40))
+            field.text = "secret"
+            scene.app.addSubview(field)
+            scene.app.layoutIfNeeded()
+            scene.alert.isHidden = true
+            await waitForCaptureToFinish(integration)
+
+            #expect(snapshots.fullSnapshots.isEmpty)
+            #expect(integration.presentationTreeResumeTimeForTesting == before)
         }
 
         @Test("a layer that can't be captured drops the whole frame, never sending the other layer alone",
@@ -456,6 +519,9 @@
             #expect(PostHogReplayIntegration.frameHash(for: [base, upper]) == PostHogReplayIntegration.frameHash(for: [base, upper]))
             #expect(PostHogReplayIntegration.frameHash(for: [base, upper]) != PostHogReplayIntegration.frameHash(for: [["base64": "base2"] as [String: Any], upper]))
             #expect(PostHogReplayIntegration.frameHash(for: [base, upper]) != PostHogReplayIntegration.frameHash(for: [base]))
+            let moved: [String: Any] = ["base64": "upper", "x": 20]
+            #expect(PostHogReplayIntegration.frameHash(for: [base, ["base64": "upper", "x": 10] as [String: Any]])
+                != PostHogReplayIntegration.frameHash(for: [base, moved]))
         }
 
         @Test("the idle fingerprint of a layered screen sees a change in the base window")
@@ -476,4 +542,42 @@
             #expect(PostHogReplayIntegration.structureFingerprint(ofLayers: [app, alert]) != before)
         }
     }
+
+    #if TEST_PRESENTATION_MASKS
+        /// UIKit presentation needs an app host; run through `make testPresentationMasks`.
+        @Suite("Replay window layers: presented cover")
+        @MainActor
+        struct PostHogReplayWindowLayerPresentedCoverTests {
+            @Test("a transparent window whose root presents an opaque full-screen controller is a cover, so the app window under it isn't captured")
+            func presentedFullScreenCoverCutsLayersBelow() async throws {
+                let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+                let app = UIWindow(windowScene: scene), lock = UIWindow(windowScene: scene)
+                app.frame = CGRect(x: 0, y: 0, width: 200, height: 300)
+                app.isHidden = false
+                lock.frame = app.frame
+                lock.windowLevel = .rnAlert
+                defer { [app, lock].forEach { $0.isHidden = true } }
+                let root = UIViewController()
+                root.view.backgroundColor = .clear
+                lock.rootViewController = root
+                lock.makeKeyAndVisible()
+                root.view.frame = lock.bounds
+                #expect(ids(PostHogReplayIntegration.screenshotLayers(keyWindow: lock, candidates: [app, lock])) == ids([app, lock]))
+
+                let cover = UIViewController()
+                cover.modalPresentationStyle = .fullScreen
+                cover.view.backgroundColor = .white
+                root.present(cover, animated: false)
+                var presented = false
+                for _ in 0 ..< 100 where !presented {
+                    lock.layoutIfNeeded()
+                    try await Task.sleep(nanoseconds: 50_000_000)
+                    presented = cover.view.window === lock && !cover.isBeingPresented
+                }
+                try #require(presented, "the cover did not finish presenting")
+
+                #expect(ids(PostHogReplayIntegration.screenshotLayers(keyWindow: lock, candidates: [app, lock])) == ids([lock]))
+            }
+        }
+    #endif
 #endif

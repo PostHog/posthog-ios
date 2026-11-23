@@ -2692,7 +2692,8 @@
                             // nothing. A blank key window may be a cover the mirror can't draw, so it falls back.
                             break
                         case .blank, .failed:
-                            self.endGPUCapture(frame, fallback: capture.postHog.isSessionReplayActive() ? capture.fallback : nil)
+                            let canFallBack = capture.postHog.isSessionReplayActive() && !DI.main.appLifecyclePublisher.isInBackground
+                            self.endGPUCapture(frame, fallback: canFallBack ? capture.fallback : nil)
                             return
                         }
                         // Released before the next layer builds: a same-size window renders through this frame's target.
@@ -2972,14 +2973,23 @@
         }
 
         private static func isOpaqueCover(_ window: UIWindow, over base: UIWindow) -> Bool {
-            guard window.alpha >= 1, window.convert(window.bounds, to: base).contains(base.bounds) else { return false }
-            if isOpaque(window.backgroundColor) { return true }
-            guard let root = window.rootViewController?.viewIfLoaded, !root.isHidden, root.alpha >= 1 else { return false }
-            return isOpaque(root.backgroundColor) && root.convert(root.bounds, to: base).contains(base.bounds)
+            guard isUnclippedCover(window, over: base) else { return false }
+            if hasOpaqueBackground(window) { return true }
+            if let root = window.rootViewController?.viewIfLoaded, !root.isHidden,
+               isUnclippedCover(root, over: base), hasOpaqueBackground(root)
+            {
+                return true
+            }
+            return !window.hasCameraForReplay() && PostHogPresentationCover.frontmostFullWindowCover(in: window) != nil
         }
 
-        private static func isOpaque(_ color: UIColor?) -> Bool {
-            (color?.cgColor.alpha ?? 0) >= 1
+        private static func isUnclippedCover(_ view: UIView, over base: UIWindow) -> Bool {
+            view.alpha >= 1 && view.layer.mask == nil && view.layer.cornerRadius == 0
+                && view.convert(view.bounds, to: base).contains(base.bounds)
+        }
+
+        private static func hasOpaqueBackground(_ view: UIView) -> Bool {
+            (view.backgroundColor?.resolvedColor(with: view.traitCollection).cgColor.alpha ?? 0) >= 1
         }
 
         private static func isLayerCandidate(_ window: UIWindow) -> Bool {
@@ -2996,6 +3006,14 @@
             guard postHog.isSessionReplayActive() else { return }
 
             let timestampDate = Date()
+            var wireframes: [RRScreenshotFrame] = []
+            for (layer, maskRects) in zip(layers, overrideMaskRects) {
+                guard let capture = collectScreenshotMetadata(layer, renderer: renderer, overrideMaskRects: maskRects, renderImage: false) else {
+                    return
+                }
+                wireframes.append(capture.wireframe)
+            }
+
             // One pause covering every layer's render, so a slow scene backs the motion renderer off as a whole.
             let start = CACurrentMediaTime()
             defer {
@@ -3004,15 +3022,13 @@
                     presentationTreeResumeTime = end + (end - start) * Self.presentationTreePauseFactor
                 }
             }
-            var wireframes: [RRScreenshotFrame] = []
-            for (layer, maskRects) in zip(layers, overrideMaskRects) {
-                guard let capture = collectScreenshotMetadata(layer, renderer: renderer, overrideMaskRects: maskRects),
-                      let image = capture.image, image.size.hasSize()
+            for (layer, wireframe) in zip(layers, wireframes) {
+                guard let image = renderScreenshot(layer, renderer: renderer, uploadScale: wireframe.screenshotPixelScale),
+                      image.size.hasSize()
                 else {
                     return
                 }
-                capture.wireframe.image = image
-                wireframes.append(capture.wireframe)
+                wireframe.image = image
             }
             enqueueLayers(wireframes, of: layers, screenName: screenName, postHog: postHog, timestampDate: timestampDate)
         }

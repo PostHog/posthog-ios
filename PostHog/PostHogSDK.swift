@@ -288,8 +288,11 @@ let maxRetryDelay = 30.0
                 }
                 // Mark the one-time upgrade recovery done only after the handler has durably cleared
                 // any delivered marker, so a crash in between re-runs recovery instead of stranding.
-                self.pushSubscriptionHandler?.onPushAppIdsChanged(newlyRegisterable) { [weak theRemoteConfig] in
-                    theRemoteConfig?.markPushAppIdsMigrated()
+                // Runs on the handler's queue, also when close() released the handler before it cleared
+                // anything: mark only while this instance is still the one the SDK is set up with.
+                self.pushSubscriptionHandler?.onPushAppIdsChanged(newlyRegisterable) { [weak self, weak theRemoteConfig] in
+                    guard let self, let theRemoteConfig, self.remoteConfig === theRemoteConfig else { return }
+                    theRemoteConfig.markPushAppIdsMigrated()
                 }
             }
 

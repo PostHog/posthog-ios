@@ -1,4 +1,6 @@
 import Foundation
+import OHHTTPStubs
+import OHHTTPStubsSwift
 @testable import PostHog
 import Testing
 
@@ -101,4 +103,66 @@ private final class SetupHoldingIntegration: PostHogIntegration {
     func start() {}
 
     func stop() {}
+}
+
+/// The push subscriber registered in `setup()` hands the handler a completion that records the one-time
+/// push recovery as done. The handler also calls it when `close()` released the handler first.
+@Suite("Push migration flag after close", .serialized)
+final class PostHogPushMigrationAfterCloseTest {
+    let server = MockPostHogServer()
+    let pushConfigStub: HTTPStubsDescriptor
+
+    init() {
+        server.start()
+        pushConfigStub = stub(condition: pathEndsWith("/config")) { _ in
+            HTTPStubsResponse(jsonObject: ["push": ["appIds": ["com.example.app"]]], statusCode: 200, headers: nil)
+        }
+    }
+
+    deinit {
+        HTTPStubs.removeStub(pushConfigStub)
+        server.stop()
+    }
+
+    @Test("is not set when close() releases the push handler before it ran")
+    func migrationFlagAfterClose() async throws {
+        let config = PostHogConfig(projectToken: "push_migration_after_close", host: "http://localhost:9001")
+        config.disableRemoteConfigForTesting = true
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
+        config.preloadFeatureFlags = false
+        let storage = PostHogStorage(config)
+        storage.reset()
+        storage.remove(key: .pushAppIdsMigrated)
+        storage.remove(key: .remoteConfig)
+
+        let sut = PostHogSDK.with(config)
+        // Held like an in-flight request would hold it, so the instance outlives close()
+        let remoteConfig = try #require(sut.remoteConfig)
+
+        // Park the handler's queue so close() runs before the handler does
+        let handlerQueue = try #require(Self.pushHandlerQueue(of: sut))
+        let closed = DispatchSemaphore(value: 0)
+        handlerQueue.async { closed.wait() }
+
+        var token: RegistrationToken?
+        await withCheckedContinuation { continuation in
+            // Subscribed after the SDK's push subscriber, so the handler has been called by now
+            token = remoteConfig.onRemoteConfigLoaded.subscribe { _ in continuation.resume() }
+            remoteConfig.reloadRemoteConfig()
+        }
+        withExtendedLifetime(token) {}
+
+        sut.close()
+        closed.signal()
+        handlerQueue.sync {}
+
+        #expect(storage.getBool(forKey: .pushAppIdsMigrated) != true)
+    }
+
+    private static func pushHandlerQueue(of sdk: PostHogSDK) -> DispatchQueue? {
+        let handler = Mirror(reflecting: sdk).descendant("pushSubscriptionHandler", "some")
+        return handler.flatMap { Mirror(reflecting: $0).descendant("workQueue") as? DispatchQueue }
+    }
 }

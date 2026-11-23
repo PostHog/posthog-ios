@@ -785,6 +785,7 @@
             }
         }
 
+        /// `sessionId` is the session the frame was captured in, for a caller that captured it before this call.
         func captureSnapshot(
             _ wireframe: RRScreenshotFrame,
             window: UIWindow,
@@ -792,9 +793,15 @@
             screenName: String?,
             postHog: PostHogSDK,
             timestampDate: Date,
+            sessionId capturedSessionId: String? = nil,
             episodeFirstFrame: Bool = false
         ) {
             let timestamp = timestampDate.toMillis()
+
+            // A frame belongs to the session it was captured in, and the block below can run much later.
+            guard let sessionId = capturedSessionId ?? postHog.sessionManager.getSessionId(readOnly: true), !sessionId.isEmpty else {
+                return
+            }
 
             // Queued frames share this status; its fields are confined to dispatchQueue.
             let snapshotStatus = windowViewsLock.withLock {
@@ -807,14 +814,27 @@
             }
 
             PostHogReplayIntegration.dispatchQueue.async { [weak self] in
-                // Frames keep arriving on an idle screen and aren't user activity, so they can't rotate
-                // an inactive session; the next touch or event does.
-                guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate, keepingInactiveSession: true) else {
+                // A new bridge episode needs fresh metadata even if its opening render fails.
+                if episodeFirstFrame {
+                    snapshotStatus.sentMetaEvent = false
+                }
+
+                // Read-only first: between endSession() and startSession() the read below would create a session.
+                guard postHog.isSessionReplayActive(),
+                      postHog.sessionManager.getSessionId(readOnly: true) == sessionId
+                else {
                     return
                 }
 
-                // A new bridge episode needs fresh metadata even if its opening render fails.
-                if episodeFirstFrame {
+                // Frames keep arriving on an idle screen and aren't user activity, so they can't rotate
+                // an inactive session; the next touch or event does.
+                guard postHog.sessionManager.getSessionId(at: timestampDate, keepingInactiveSession: true) == sessionId else {
+                    return
+                }
+
+                // A session opens with its own meta event, whatever this window sent in the previous one.
+                if snapshotStatus.sessionId != sessionId {
+                    snapshotStatus.sessionId = sessionId
                     snapshotStatus.sentMetaEvent = false
                 }
 
@@ -1319,6 +1339,7 @@
             postHog: PostHogSDK,
             timestampDate: Date,
             image collectedImage: UIImage?,
+            sessionId: String? = nil,
             episodeFirstFrame: Bool = false
         ) -> Bool {
             autoreleasepool {
@@ -1337,6 +1358,7 @@
                     screenName: screenName,
                     postHog: postHog,
                     timestampDate: timestampDate,
+                    sessionId: sessionId,
                     episodeFirstFrame: episodeFirstFrame
                 )
                 return true
@@ -2454,7 +2476,8 @@
                     wireframe = frozenWireframe
                 }
                 let capture = MirroredCapture(frame: frame, wireframe: wireframe, windowSize: window.bounds.size,
-                                              screenName: screenName, timestampDate: timestampDate)
+                                              screenName: screenName, timestampDate: timestampDate,
+                                              sessionId: postHog.sessionManager.getSessionId(readOnly: true))
                 // Build and render each cost up to a frame on older devices; keep them in separate turns.
                 PostHogGPUMirrorCapture.onNextRunLoopTurn { [weak self, weak window] in
                     guard let self else {
@@ -2506,6 +2529,7 @@
                 let windowSize: CGSize
                 let screenName: String?
                 let timestampDate: Date
+                let sessionId: String?
             }
 
             /// Main thread, with the render slot still claimed by `captureMirrored`. Renders the frozen mirror, then
@@ -2524,10 +2548,10 @@
 
                 let wireframe = capture.wireframe
                 frame.readback(on: Self.dispatchQueue) { [weak self, weak window] image in
-                    if let self, let image, let window, postHog.isSessionReplayActive() {
+                    if let self, let image, let window, let sessionId = capture.sessionId, postHog.isSessionReplayActive() {
                         self.renderAndEnqueueScreenshot(wireframe, window: window, windowSize: capture.windowSize, screenName: capture.screenName,
                                                         postHog: postHog, timestampDate: capture.timestampDate,
-                                                        image: Self.screenshot(image, of: frame))
+                                                        image: Self.screenshot(image, of: frame), sessionId: sessionId)
                     }
                     DispatchQueue.main.async {
                         guard let self else {

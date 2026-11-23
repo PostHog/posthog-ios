@@ -14,4 +14,5 @@ class ViewTreeSnapshotStatus {
     var keyboardVisible: Bool = false
     var lastSnapshot: Bool = false
     var lastImageHash: Int?
+    var sessionId: String?
 }

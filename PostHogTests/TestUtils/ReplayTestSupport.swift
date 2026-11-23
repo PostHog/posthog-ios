@@ -8,12 +8,21 @@
     final class ReplaySnapshots {
         private let lock = NSLock()
         private var values: [[String: Any]] = []
+        private var recordedPosts: [(sessionId: String?, data: [[String: Any]])] = []
 
         func record(_ event: PostHogEvent) {
             guard event.event == "$snapshot",
                   let data = event.properties["$snapshot_data"] as? [[String: Any]]
             else { return }
-            lock.withLock { values.append(contentsOf: data) }
+            lock.withLock {
+                values.append(contentsOf: data)
+                recordedPosts.append((event.properties["$session_id"] as? String, data))
+            }
+        }
+
+        /// Each `$snapshot` event with the session it was sent under, in the order they were sent.
+        var posts: [(sessionId: String?, data: [[String: Any]])] {
+            lock.withLock { recordedPosts }
         }
 
         var touches: [[String: Any]] {

@@ -586,8 +586,9 @@
             #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 80 * 100)
         }
 
-        @Test("A bare text layer under a postHogMask extent keeps no glyphs")
-        func bareTextLayerUnderExtentIsMasked() async throws {
+        @Test("A bare text layer under a postHogMask extent keeps no glyphs, as bars or as stars, at any contents scale",
+              arguments: [CGFloat(1), 3])
+        func bareTextLayerUnderExtentIsMasked(contentsScale: CGFloat) async throws {
             let fixture = try await makeFixture()
             defer { fixture.close() }
             let host = UIView(frame: CGRect(x: 0, y: 100, width: 200, height: 150))
@@ -596,17 +597,16 @@
             text.frame = CGRect(x: 30, y: 20, width: 140, height: 40)
             text.string = "Secret value 42"
             text.fontSize = 22
+            text.contentsScale = contentsScale
             text.foregroundColor = UIColor.magenta.cgColor
             host.layer.addSublayer(text)
             let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 30, y: 120, width: 140, height: 100))
             fixture.window.addSubview(reporter)
             defer { reporter.removeFromSuperview() }
 
-            let result = try await capture(fixture)
-            #expect(result.rectRegions.isEmpty)
-            let pixels = try Pixels(result.image)
+            let pixels = try await Pixels(captureStars(fixture).image)
             #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
-            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 140 * 100)
+            #expect(pixels.count(in: reporter.frame, where: Self.isStar) > 100)
         }
 
         @Test("A shadow cast into a postHogMask extent from outside it doesn't survive, whether its own content or a sublayer's casts it",

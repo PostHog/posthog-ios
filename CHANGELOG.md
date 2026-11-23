@@ -1,5 +1,11 @@
 ## Next
 
+## 4.0.5
+
+### Patch Changes
+
+- 7db331f: Keep the background colour of enclosing views under a `postHogMask()` region and draw SwiftUI text `*` rows in grey when `captureMethod` is `.gpu`, so masked text no longer uploads as a solid black box; colours belonging to the masked view itself stay black.
+
 ## 4.0.4
 
 ### Patch Changes

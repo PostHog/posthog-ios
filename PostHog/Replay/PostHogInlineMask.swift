@@ -675,6 +675,9 @@
             }
             if let text = copy as? CATextLayer, text.string != nil {
                 text.string = nil
+                // The setter queues a redisplay, which draws the copy a backing store with glyphs at commit. Setting
+                // contents cancels it.
+                text.contents = nil
                 hadContent = true
             }
             if copy.shadowOpacity != 0 { copy.shadowOpacity = 0 }
@@ -739,7 +742,6 @@
         }
 
         private static func setContents(_ image: CGImage, on copy: CALayer, scale: CGFloat) {
-            copy.contents = image
             copy.contentsGravity = .resize
             copy.contentsScale = scale
             copy.contentsRect = unitRect
@@ -747,6 +749,9 @@
             for key in PostHogGPUMirrorCapture.contentsKeys {
                 key.reset(on: copy)
             }
+            // Last: a text layer queues a redisplay when its scale changes, which would draw over the image at commit.
+            // Setting contents cancels it.
+            copy.contents = image
         }
 
         // MARK: - Text cache

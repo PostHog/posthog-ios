@@ -86,6 +86,8 @@
         private let bufferingLock = NSLock()
         private var hasPassedMinimumDuration: Bool = false
         private var cachedMinimumDuration: TimeInterval?
+        // Set by a hybrid host that evaluates trigger groups itself; wins over the remote config minimum.
+        private var minimumDurationOverride: TimeInterval?
 
         // First-remote-config buffering state. While the first live `/config` is still pending,
         // snapshots are buffered (not persisted) so a stale cached flag can't record a window the
@@ -809,11 +811,26 @@
             resolveFirstRemoteConfigBuffer(flagActive: flagActive)
         }
 
+        /// `nil` clears the override; `0` means no minimum. A lowered minimum releases the held window,
+        /// a raised one leaves already released snapshots alone.
+        func setMinimumDurationOverride(milliseconds: Int?) {
+            if let milliseconds, milliseconds < 0 {
+                hedgeLog("[Session Replay] Ignoring negative minimum duration \(milliseconds)ms.")
+                return
+            }
+            bufferingLock.withLock { minimumDurationOverride = milliseconds.map { TimeInterval($0) / 1_000.0 } }
+            updateCachedMinimumDuration()
+            releaseHeldWindowIfDue()
+            notifyRecordingStatusChanged()
+        }
+
         private func updateCachedMinimumDuration() {
             guard let postHog else { return }
 
             let minimumDuration: TimeInterval?
-            if let remoteConfig = postHog.remoteConfig, remoteConfig.hasSessionRecordingTriggerGroups() {
+            if let override = bufferingLock.withLock({ minimumDurationOverride }) {
+                minimumDuration = override
+            } else if let remoteConfig = postHog.remoteConfig, remoteConfig.hasSessionRecordingTriggerGroups() {
                 minimumDuration = postHog.sessionManager.getSessionId(readOnly: true)
                     .flatMap { remoteConfig.getSessionRecordingTriggerGroupsMinimumDuration(sessionId: $0) }
             } else {

@@ -1437,5 +1437,97 @@
             expectFullDebugKeys(props)
             #expect(props["$sdk_debug_session_start"] != nil)
         }
+
+        // MARK: - Minimum duration override (hybrid hosts)
+
+        /// A running recorder past the first `/config`, holding on the remote config minimum.
+        private func overrideSut(minimumDurationMilliseconds: Int) throws -> (sut: PostHogSDK, integration: PostHogReplayIntegration, replayQueue: PostHogReplayQueue) {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: minimumDurationMilliseconds)
+            sut.remoteConfig?.setRemoteConfigDidFetchForTesting(true)
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isActive())
+            return (sut, integration, replayQueue)
+        }
+
+        @Test("a minimum duration override above the remote config minimum keeps holding")
+        func minimumDurationOverrideAboveRemoteKeepsHolding() async throws {
+            let (sut, integration, replayQueue) = try overrideSut(minimumDurationMilliseconds: 300)
+            defer { sut.close() }
+
+            sut.setSessionReplayMinimumDuration(600_000)
+            replayQueue.add(snapshotEvent("1"))
+            try await Task.sleep(nanoseconds: 500_000_000)
+            replayQueue.add(snapshotEvent("2"))
+
+            // The window already spans the remote 300 ms, so only the override holds it.
+            #expect(integration.isBuffering == true)
+            #expect(replayQueue.bufferDepth == 2)
+            #expect(replayQueue.depth == 0)
+        }
+
+        @Test("lowering the minimum duration override releases the held window")
+        func loweringMinimumDurationOverrideReleasesHeldWindow() throws {
+            let (sut, integration, replayQueue) = try overrideSut(minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+            #expect(replayQueue.bufferDepth == 2)
+
+            sut.setSessionReplayMinimumDuration(0)
+
+            #expect(integration.isBuffering == false)
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 2)
+        }
+
+        @Test("a minimum duration override of 0 holds nothing, across a session change")
+        func zeroMinimumDurationOverrideHoldsNothing() async throws {
+            let (sut, integration, replayQueue) = try overrideSut(minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+
+            sut.setSessionReplayMinimumDuration(0)
+            replayQueue.add(snapshotEvent("1"))
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 1)
+
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            #expect(integration.isBuffering == false)
+        }
+
+        @Test("clearing the minimum duration override goes back to the remote config minimum")
+        func clearingMinimumDurationOverrideRestoresRemote() throws {
+            let (sut, integration, replayQueue) = try overrideSut(minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+
+            sut.setSessionReplayMinimumDuration(0)
+            #expect(integration.isBuffering == false)
+
+            sut.setSessionReplayMinimumDuration(nil)
+            #expect(integration.isBuffering == true)
+            replayQueue.add(snapshotEvent("1"))
+            #expect(replayQueue.bufferDepth == 1)
+            #expect(replayQueue.depth == 0)
+        }
+
+        @Test("a cleared minimum duration override leaves native trigger groups in charge")
+        func clearedMinimumDurationOverrideKeepsTriggerGroups() async throws {
+            let (sut, integration, replayQueue) = try await holdingSut()
+            defer { sut.close() }
+
+            sut.setSessionReplayMinimumDuration(-1)
+            sut.setSessionReplayMinimumDuration(600_000)
+            sut.setSessionReplayMinimumDuration(nil)
+            #expect(integration.isBuffering == true)
+            #expect(replayQueue.bufferDepth == 2)
+
+            sut.capture("purchase")
+            await waitUntil { integration.isBuffering == false }
+            replayQueue.add(snapshotEvent("later_incremental"))
+
+            await waitUntil { replayQueue.bufferDepth == 0 && replayQueue.depth == 3 }
+            #expect(replayQueue.depth == 3)
+        }
     }
 #endif

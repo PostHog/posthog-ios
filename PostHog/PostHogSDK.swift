@@ -4010,6 +4010,19 @@ let maxRetryDelay = 30.0
         @_spi(PostHogInternal) public func sessionReplayDebugProperties() -> [String: Any] {
             replayIntegration?.debugProperties() ?? [:]
         }
+
+        /// Overrides the minimum duration the replay buffer holds a session for, for first-party wrappers
+        /// that evaluate trigger groups themselves. `0` means no minimum, `nil` goes back to the remote
+        /// config value, and a negative value is ignored. Takes effect at once and survives session changes.
+        ///
+        /// SPI, not public API: no stability guarantees.
+        @_spi(PostHogInternal) public func setSessionReplayMinimumDuration(_ milliseconds: Int?) {
+            if !isEnabled() {
+                return
+            }
+
+            replayIntegration?.setMinimumDurationOverride(milliseconds: milliseconds)
+        }
     #endif
 
     /// Creates and sets up an additional SDK instance.

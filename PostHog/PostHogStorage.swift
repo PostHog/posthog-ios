@@ -262,6 +262,7 @@ class PostHogStorage {
         case deviceId = "posthog.deviceId"
         case pushSubscription = "posthog.pushSubscription"
         case pushPendingUnregister = "posthog.pushPendingUnregister"
+        case pushIdentityMerge = "posthog.pushIdentityMerge"
         case pushAppIdsMigrated = "posthog.pushAppIdsMigrated"
         case personPropertiesHash = "posthog.personPropertiesHash"
     }
@@ -526,6 +527,7 @@ class PostHogStorage {
             deleteSafely(url(forKey: .personPropertiesForFlags))
             deleteSafely(url(forKey: .groupPropertiesForFlags))
             deleteSafely(url(forKey: .personPropertiesHash))
+            deleteSafely(url(forKey: .pushIdentityMerge))
             // legacy slices, no longer written (config now lives in .remoteConfig); drop stragglers from older SDKs
             deleteSafely(url(forKey: .sessionReplay))
             deleteSafely(url(forKey: .errorTracking))

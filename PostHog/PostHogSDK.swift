@@ -1252,6 +1252,7 @@ let maxRetryDelay = 30.0
         // Read before taking identifyLock: `config`'s getter takes setupLock, and setup() holds
         // setupLock while reaching identify(), so reading it inside would invert the two.
         let reuseAnonymousId = config.reuseAnonymousId
+        let optedOut = isOptOutState()
         identifyLock.withLock {
             isIdentified = storageManager.isIdentified()
             hasDifferentDistinctId = distinctId != oldDistinctId
@@ -1261,6 +1262,11 @@ let maxRetryDelay = 30.0
                 if !reuseAnonymousId {
                     // We keep the AnonymousId to be used by flags calls and identify to link the previousId
                     storageManager.setAnonymousId(oldDistinctId)
+                    if !optedOut {
+                        // The $identify below merges the old person into the new one, so push must not
+                        // unregister the old id. Noted before the new id is visible to any reader.
+                        pushSubscriptionHandler?.noteIdentityMerge(from: oldDistinctId, into: distinctId)
+                    }
                 }
                 storageManager.setDistinctId(distinctId)
                 storageManager.setIdentified(true)
@@ -1271,7 +1277,7 @@ let maxRetryDelay = 30.0
 
         if hasDifferentDistinctId, !isIdentified {
             // Opt-out gates capture only: identity and flags still follow the new distinct id.
-            if !isOptOutState() {
+            if !optedOut {
                 var props: [String: Any] = ["distinct_id": distinctId]
 
                 if !config.reuseAnonymousId {
@@ -1293,10 +1299,14 @@ let maxRetryDelay = 30.0
                     properties: properties,
                     options: optionsForEvent(sanitizeDictionary(options), properties: properties, event: eventName)
                 ) else {
+                    pushSubscriptionHandler?.forgetIdentityMerge(from: oldDistinctId, into: distinctId)
                     return
                 }
 
-                queueEvent(event, queue: queue)
+                let queued = queueEvent(event, queue: queue)
+                if !queued || event.event != eventName || event.properties["$anon_distinct_id"] as? String != oldDistinctId {
+                    pushSubscriptionHandler?.forgetIdentityMerge(from: oldDistinctId, into: distinctId)
+                }
             }
 
             // Automatically set person properties for feature flags during identify() call

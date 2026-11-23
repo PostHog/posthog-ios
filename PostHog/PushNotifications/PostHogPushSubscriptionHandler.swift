@@ -6,13 +6,16 @@ import Foundation
 /// failed or offline send can be retried later (on `flush()` via `retryIfNeeded()`, or on the next
 /// launch). The `distinct_id` is read fresh at send time, never persisted. On success the record is
 /// kept and stamped with `deliveredForDistinctId`; when the distinct id later changes the token is
-/// re-sent so it follows the identified user (see the shared plan, decision 5).
+/// re-sent so it follows the identified user (see the shared plan, decision 5), and DELETEd from the
+/// previous id unless `identify()` merged the two (see `noteIdentityMerge`).
 final class PostHogPushSubscriptionHandler {
     private enum Key {
         static let deviceToken = "deviceToken"
         static let appId = "appId"
         static let deliveredForDistinctId = "deliveredForDistinctId"
         static let distinctId = "distinctId"
+        static let mergedFrom = "from"
+        static let mergedInto = "into"
     }
 
     private struct PendingRecord {
@@ -22,7 +25,7 @@ final class PostHogPushSubscriptionHandler {
     }
 
     /// A durable "delete this subscription" intent for the identity it names, persisted so an offline or
-    /// failed unregister (logout/reset) is retried on `flush()`/next launch instead of silently leaving
+    /// failed unregister (logout/reset, or a move to an unmerged distinct id) is retried on `flush()`/next launch instead of silently leaving
     /// the device associated with the logged-out user. Separate key from `PendingRecord` so it coexists
     /// with a fresh registration the reset path writes under the new anonymous id.
     ///
@@ -174,26 +177,32 @@ final class PostHogPushSubscriptionHandler {
 
         let currentDistinctId = distinctIdProvider()
         enum ExistingMatch { case delivered, undeliveredSame, none }
-        let match = recordLock.withLock { () -> ExistingMatch in
+        let (match, previousIdentity) = recordLock.withLock { () -> (ExistingMatch, PreviousIdentityUnregister) in
             if let record = loadRecordLocked(),
                record.deviceToken == deviceToken,
                record.appId == appId
             {
                 if !currentDistinctId.isEmpty, record.deliveredForDistinctId == currentDistinctId {
-                    return .delivered
+                    return (.delivered, .none)
                 }
                 if record.deliveredForDistinctId == nil {
                     writeRecord(deviceToken: deviceToken, appId: appId)
-                    return .undeliveredSame
+                    return (.undeliveredSame, .none)
                 }
+                // Delivered to an earlier identity. The rewrite below drops that stamp, and the
+                // identity-change resend would then have nothing left to unregister.
+                let previousIdentity = queuePreviousIdentityUnregisterLocked(record, currentDistinctId: currentDistinctId)
+                writeRecord(deviceToken: deviceToken, appId: appId)
+                return (.none, previousIdentity)
             }
             writeRecord(deviceToken: deviceToken, appId: appId)
-            return .none
+            return (.none, .none)
         }
         if match == .delivered {
             hedgeLog("Push subscription skipped: token already delivered for the current distinct id.")
             return
         }
+        attemptPreviousIdentityUnregister(previousIdentity)
 
         // A new token/appId supersedes any previous failure — reset the whole retry state. An
         // identical re-register of an already-undelivered record does not: APNs re-delivering the
@@ -256,6 +265,7 @@ final class PostHogPushSubscriptionHandler {
 
         // Delivered to a different user (identity changed while the app was closed) — treat as fresh.
         if let delivered = record.deliveredForDistinctId, delivered != distinctId {
+            unregisterPreviousIdentityIfUnmerged(currentDistinctId: distinctId)
             resetRetryState()
         }
 
@@ -486,9 +496,98 @@ final class PostHogPushSubscriptionHandler {
             return
         }
 
+        unregisterPreviousIdentityIfUnmerged(currentDistinctId: currentDistinctId)
+
         resetRetryState()
 
         attemptIfAllowed(deviceToken: record.deviceToken, appId: record.appId)
+    }
+
+    /// Records that `identify()` is linking `anonymousId` into `distinctId` with `$anon_distinct_id`.
+    /// Both ids then resolve to one person, so the subscription stored under the anonymous id must not
+    /// be DELETEd: the merge goes through ingestion, and a DELETE that lands after it would remove the
+    /// subscription the new id just registered. Call it before the new distinct id is persisted, so no
+    /// reader can see the new id without the note.
+    ///
+    /// One note is kept, the latest merge. Any other id change (`reuseAnonymousId`, an identify or a
+    /// bootstrap applied while opted out) links nothing, so the old id is unregistered.
+    func noteIdentityMerge(from anonymousId: String, into distinctId: String) {
+        recordLock.withLock {
+            storage.setDictionary(forKey: .pushIdentityMerge, contents: [
+                Key.mergedFrom: anonymousId,
+                Key.mergedInto: distinctId,
+            ])
+        }
+    }
+
+    /// Withdraws a note whose `$identify` was never queued (dropped or changed by `beforeSend`), so no
+    /// merge will happen.
+    func forgetIdentityMerge(from anonymousId: String, into distinctId: String) {
+        recordLock.withLock {
+            guard isMergeLocked(from: anonymousId, into: distinctId) else { return }
+            storage.remove(key: .pushIdentityMerge)
+        }
+    }
+
+    private func isMergeLocked(from: String, into: String) -> Bool {
+        guard let data = storage.getDictionary(forKey: .pushIdentityMerge) as? [String: String] else { return false }
+        return data[Key.mergedFrom] == from && data[Key.mergedInto] == into
+    }
+
+    private enum PreviousIdentityUnregister {
+        case none
+        case queued(PendingUnregister)
+        /// The single slot already holds a logout or opt-out DELETE for another identity.
+        case slotTaken
+    }
+
+    /// Without a merge, the person the token was delivered to keeps the subscription after the token
+    /// moves to the current id, and a push sent to that person would still reach this device. Queues a
+    /// durable DELETE for it. The supersede rule only drops a DELETE for the current id, and
+    /// `markDelivered` only clears one for the id it stamps, so registering the new id leaves it queued.
+    ///
+    /// Only an empty slot is written. A different intent already there is a logout or opt-out DELETE,
+    /// and it wins: those name an identified person, while every id change that links nothing leaves an
+    /// anonymous id behind (`identify()` never changes an already-identified id). Caller holds `recordLock`.
+    private func queuePreviousIdentityUnregisterLocked(_ record: PendingRecord, currentDistinctId: String) -> PreviousIdentityUnregister {
+        guard let delivered = record.deliveredForDistinctId,
+              !currentDistinctId.isEmpty,
+              delivered != currentDistinctId,
+              !isMergeLocked(from: delivered, into: currentDistinctId)
+        else {
+            return .none
+        }
+        let pending = PendingUnregister(distinctId: delivered, deviceToken: record.deviceToken, appId: record.appId)
+        switch loadPendingUnregisterLocked() {
+        case nil:
+            writePendingUnregisterLocked(pending)
+            return .queued(pending)
+        case pending?:
+            // Already queued by an earlier pass; its own attempt or the next flush sends it.
+            return .none
+        default:
+            return .slotTaken
+        }
+    }
+
+    private func unregisterPreviousIdentityIfUnmerged(currentDistinctId: String) {
+        let previousIdentity = recordLock.withLock { () -> PreviousIdentityUnregister in
+            guard let record = loadRecordLocked() else { return .none }
+            return queuePreviousIdentityUnregisterLocked(record, currentDistinctId: currentDistinctId)
+        }
+        attemptPreviousIdentityUnregister(previousIdentity)
+    }
+
+    private func attemptPreviousIdentityUnregister(_ previousIdentity: PreviousIdentityUnregister) {
+        switch previousIdentity {
+        case .none:
+            return
+        case let .queued(pending):
+            hedgeLog("Push subscription moving to a new distinct id that is not merged with the previous one; unregistering the previous one.")
+            attemptUnregister(pending)
+        case .slotTaken:
+            hedgeLog("Push unregister for the previous distinct id skipped: an unregister for another identity is already queued.")
+        }
     }
 
     /// Called when remote config resolves. `newlyRegisterable` are the app_ids that were not

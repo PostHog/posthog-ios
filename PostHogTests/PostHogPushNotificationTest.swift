@@ -279,8 +279,8 @@
             #expect(record(storage)?["deviceToken"] == "tok-2")
         }
 
-        @Test("re-registering the delivered token under a new distinct id sends again")
-        func sendResendsDeliveredTokenForNewDistinctId() async {
+        @Test("re-registering the delivered token under an unmerged distinct id sends again and DELETEs the old one")
+        func sendResendsDeliveredTokenForNewDistinctId() async throws {
             var distinctId = "user-1"
             let (handler, storage, _) = makeHandler(distinctIdProvider: { distinctId })
             handler.send(deviceToken: "tok", appId: "com.example.app")
@@ -289,8 +289,11 @@
             distinctId = "user-2"
             handler.send(deviceToken: "tok", appId: "com.example.app")
 
-            #expect(await waitFor { self.server.pushSubscriptionRequests.count == 2 })
+            #expect(await waitFor { self.server.pushSubscriptionRequests.count == 3 })
             #expect(await waitFor { self.record(storage)?["deliveredForDistinctId"] == "user-2" })
+            let delete = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
+            #expect(server.parseRequest(delete)?["distinct_id"] as? String == "user-1")
+            #expect(await waitFor { !handler.hasPendingUnregisterForTesting })
         }
 
         // MARK: - Unregister (decision 6)
@@ -513,6 +516,105 @@
                 #expect(postBody["identity_token"] as? String == "jwt-\(anonId)")
                 #expect(recorder.distinctIds.starts(with: ["user-A"]))
                 #expect(recorder.distinctIds.contains(anonId))
+            }
+        #endif
+
+        #if os(iOS)
+            @Test("identify() from anonymous merges the ids: re-registers under the identified id, no DELETE")
+            func identifyMergeSkipsDelete() async throws {
+                let sut = getSDK()
+                defer { sut.close() }
+
+                sut.registerPushNotificationToken("tokA", appId: "com.example.app")
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
+                server.pushSubscriptionRequests = []
+
+                sut.identify("user-B")
+
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
+                let post = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "POST" })
+                #expect(server.parseRequest(post)?["distinct_id"] as? String == "user-B")
+                try await Task.sleep(nanoseconds: 250_000_000)
+                #expect(!server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" })
+            }
+
+            @Test("identify() with reuseAnonymousId links nothing: DELETEs the anonymous id, registers the identified one")
+            func identifyWithoutMergeDeletesAnonymousId() async throws {
+                let sut = getSDK(reuseAnonymousId: true)
+                defer { sut.close() }
+
+                sut.registerPushNotificationToken("tokA", appId: "com.example.app")
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
+                let anonId = sut.getDistinctId()
+                server.pushSubscriptionRequests = []
+
+                sut.identify("user-B")
+
+                #expect(await waitFor {
+                    self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" }
+                        && self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" }
+                })
+                let delete = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
+                #expect(server.parseRequest(delete)?["distinct_id"] as? String == anonId)
+                let post = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "POST" })
+                #expect(server.parseRequest(post)?["distinct_id"] as? String == "user-B")
+            }
+
+            @Test("identify() with a beforeSend that drops $identify links nothing: DELETEs the anonymous id")
+            func identifyDroppedByBeforeSendDeletesAnonymousId() async throws {
+                let sut = getSDK()
+                defer { sut.close() }
+                sut.config.setBeforeSend { $0.event == "$identify" ? nil : $0 }
+
+                sut.registerPushNotificationToken("tokA", appId: "com.example.app")
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
+                let anonId = sut.getDistinctId()
+                server.pushSubscriptionRequests = []
+
+                sut.identify("user-B")
+                sut.flush()
+
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+                let delete = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
+                #expect(server.parseRequest(delete)?["distinct_id"] as? String == anonId)
+            }
+
+            @Test("identify() with another id while identified keeps the id and sends no push requests")
+            func identifyWhileIdentifiedSendsNothing() async throws {
+                let sut = getSDK()
+                defer { sut.close() }
+
+                sut.identify("user-A")
+                sut.registerPushNotificationToken("tokA", appId: "com.example.app")
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
+                server.pushSubscriptionRequests = []
+
+                sut.identify("user-B")
+
+                try await Task.sleep(nanoseconds: 250_000_000)
+                #expect(sut.getDistinctId() == "user-A")
+                #expect(server.pushSubscriptionRequests.isEmpty)
+            }
+
+            @Test("reset() after a merged identify sends one DELETE, for the logged-out id")
+            func resetAfterMergedIdentifySendsOneDelete() async throws {
+                let sut = getSDK()
+                defer { sut.close() }
+
+                sut.registerPushNotificationToken("tokA", appId: "com.example.app")
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
+                sut.identify("user-B")
+                let storage = PostHogStorage(sut.config)
+                #expect(await waitFor { self.record(storage)?["deliveredForDistinctId"] == "user-B" })
+                server.pushSubscriptionRequests = []
+
+                sut.reset()
+
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
+                try await Task.sleep(nanoseconds: 250_000_000)
+                let deletes = server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }
+                #expect(deletes.count == 1)
+                #expect(server.parseRequest(deletes[0])?["distinct_id"] as? String == "user-B")
             }
         #endif
 
@@ -1327,6 +1429,136 @@
             try await Task.sleep(nanoseconds: 300_000_000)
             #expect(server.pushSubscriptionRequests.count == 1)
             #expect(record(storage)?["deviceToken"] == "tok")
+        }
+
+        @Test("an identity change with no merge DELETEs the previous id and registers the new one")
+        func unmergedIdentityChangeDeletesPreviousId() async throws {
+            var distinctId = "anon-1"
+            let contextChanged = PostHogMulticastCallback<[String: Any]>()
+            let (handler, storage, _) = makeHandler(
+                distinctIdProvider: { distinctId },
+                onEventContextChanged: contextChanged
+            )
+
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { self.delivered(storage) })
+            server.pushSubscriptionRequests = []
+
+            distinctId = "user-B"
+            contextChanged.invoke(["distinct_id": "user-B"])
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.count == 2 })
+            let bodies = server.pushSubscriptionRequests.map { request in
+                (request.httpMethod, server.parseRequest(request)?["distinct_id"] as? String)
+            }
+            #expect(bodies.contains { $0.0 == "DELETE" && $0.1 == "anon-1" })
+            #expect(bodies.contains { $0.0 == "POST" && $0.1 == "user-B" })
+            #expect(await waitFor { self.record(storage)?["deliveredForDistinctId"] == "user-B" })
+            #expect(await waitFor { !handler.hasPendingUnregisterForTesting })
+        }
+
+        @Test("an identity change that identify() merged registers the new id without a DELETE")
+        func mergedIdentityChangeSkipsDelete() async throws {
+            var distinctId = "anon-1"
+            let contextChanged = PostHogMulticastCallback<[String: Any]>()
+            let (handler, storage, _) = makeHandler(
+                distinctIdProvider: { distinctId },
+                onEventContextChanged: contextChanged
+            )
+
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { self.delivered(storage) })
+            server.pushSubscriptionRequests = []
+
+            handler.noteIdentityMerge(from: "anon-1", into: "user-B")
+            distinctId = "user-B"
+            contextChanged.invoke(["distinct_id": "user-B"])
+
+            #expect(await waitFor { self.record(storage)?["deliveredForDistinctId"] == "user-B" })
+            try await Task.sleep(nanoseconds: 250_000_000)
+            #expect(server.pushSubscriptionRequests.map(\.httpMethod) == ["POST"])
+            #expect(!handler.hasPendingUnregisterForTesting)
+        }
+
+        @Test("a merge noted for other ids does not stop the DELETE")
+        func mergeNoteForOtherIdsStillDeletes() async throws {
+            var distinctId = "anon-1"
+            let (handler, storage, _) = makeHandler(distinctIdProvider: { distinctId })
+
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { self.delivered(storage) })
+            server.pushSubscriptionRequests = []
+
+            handler.noteIdentityMerge(from: "anon-0", into: "user-B")
+            handler.forgetIdentityMerge(from: "anon-1", into: "user-B") // a different note: left in place
+            distinctId = "user-B"
+            handler.retryIfNeeded()
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            let delete = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
+            #expect(server.parseRequest(delete)?["distinct_id"] as? String == "anon-1")
+        }
+
+        @Test("offline: the previous id's DELETE outlives the new id's registration and drains on flush")
+        func unmergedIdentityChangeOfflineKeepsDelete() async throws {
+            let lock = NSLock()
+            var distinctId = "anon-1"
+            var connected = true
+            let contextChanged = PostHogMulticastCallback<[String: Any]>()
+            let (handler, storage, _) = makeHandler(
+                distinctIdProvider: { lock.withLock { distinctId } },
+                isConnectedProvider: { lock.withLock { connected } },
+                onEventContextChanged: contextChanged
+            )
+
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { self.delivered(storage) })
+            server.pushSubscriptionRequests = []
+
+            lock.withLock {
+                connected = false
+                distinctId = "user-B"
+            }
+            contextChanged.invoke(["distinct_id": "user-B"])
+            #expect(await waitFor { handler.hasPendingUnregisterForTesting })
+            // A registration for the new id arriving meanwhile (APNs re-delivers the token on launch)
+            // must not supersede the DELETE: it names a different identity.
+            handler.send(deviceToken: "tok", appId: "app")
+            try await Task.sleep(nanoseconds: 150_000_000)
+            #expect(server.pushSubscriptionRequests.isEmpty)
+            let slot = try #require(storage.getDictionary(forKey: .pushPendingUnregister) as? [String: String])
+            #expect(slot["distinctId"] == "anon-1")
+
+            lock.withLock { connected = true }
+            handler.retryIfNeeded()
+
+            #expect(await waitFor { self.record(storage)?["deliveredForDistinctId"] == "user-B" })
+            #expect(await waitFor { !handler.hasPendingUnregisterForTesting })
+            let deletes = server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }
+            #expect(deletes.count == 1)
+            #expect(server.parseRequest(deletes[0])?["distinct_id"] as? String == "anon-1")
+        }
+
+        @Test("an identity change does not evict a queued logout DELETE for another identity")
+        func unmergedIdentityChangeKeepsQueuedLogoutDelete() async throws {
+            let (handler, storage, _) = makeHandler(distinctIdProvider: { "user-B" }, isConnectedProvider: { false })
+
+            storage.setDictionary(forKey: .pushPendingUnregister, contents: [
+                "distinctId": "user-Z",
+                "deviceToken": "tok",
+                "appId": "app",
+            ])
+            storage.setDictionary(forKey: .pushSubscription, contents: [
+                "deviceToken": "tok",
+                "appId": "app",
+                "deliveredForDistinctId": "anon-1",
+            ])
+
+            handler.retryIfNeeded()
+
+            try await Task.sleep(nanoseconds: 200_000_000)
+            let slot = try #require(storage.getDictionary(forKey: .pushPendingUnregister) as? [String: String])
+            #expect(slot["distinctId"] == "user-Z")
         }
 
         @Test("resendIfDistinctIdChanged's disk read never runs on the caller's (main) thread")

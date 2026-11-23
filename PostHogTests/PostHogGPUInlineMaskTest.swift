@@ -607,6 +607,194 @@
             #expect(pixels.count(in: frame, where: Self.isBlack) == Int(frame.width * frame.height))
         }
 
+        @Test("A colour enclosing an extent behind a text-shaped layer mask is black under it, not in the glyphs' shape")
+        func enclosingColourWithTextShapedMaskIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let colour = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            colour.backgroundColor = .magenta
+            let glyphs = UILabel(frame: colour.bounds)
+            glyphs.text = "SSN 078-05-1120"
+            glyphs.font = .boldSystemFont(ofSize: 28)
+            colour.mask = glyphs
+            fixture.window.addSubview(colour)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 30, y: 30, width: 140, height: 40))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 140 * 40)
+        }
+
+        @Test("A colour behind an extent inside a container whose layer mask is text is black under it, not in the glyphs' shape")
+        func enclosingColourUnderAncestorTextShapedMaskIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let container = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            let colour = UIView(frame: container.bounds)
+            colour.backgroundColor = .magenta
+            container.addSubview(colour)
+            let glyphs = UILabel(frame: container.bounds)
+            glyphs.text = "SSN 078-05-1120"
+            glyphs.font = .boldSystemFont(ofSize: 28)
+            container.mask = glyphs
+            fixture.window.addSubview(container)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 30, y: 30, width: 140, height: 40))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 140 * 40)
+            #expect(pixels.count(in: CGRect(x: 10, y: 20, width: 20, height: 60), where: Self.isMagentaHue) > 0)
+        }
+
+        @Test("A colour clipped by an ancestor to an extent's own rect is black under it, though it reaches past unclipped")
+        func colourClippedToExtentByAncestorIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let container = UIView(frame: CGRect(x: 30, y: 30, width: 140, height: 40))
+            container.clipsToBounds = true
+            let colour = UIView(frame: CGRect(x: -20, y: -10, width: 180, height: 60))
+            colour.backgroundColor = .magenta
+            container.addSubview(colour)
+            fixture.window.addSubview(container)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 30, y: 30, width: 140, height: 40))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 140 * 40)
+        }
+
+        /// Masks `extent` and expects no magenta in it and `black` (the extent by default) fully black. A shape that
+        /// doesn't fill the extent leaves the window's background around it, and a rotated one blends at its edges.
+        private func expectExtentBlack(_ fixture: GPUCaptureFixture, _ extent: CGRect, black: CGRect? = nil) async throws {
+            let reporter = PostHogMaskReporterUIView(frame: extent)
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: extent, where: \.isMagenta) == 0)
+            let black = black ?? extent
+            #expect(pixels.count(in: black, where: Self.isBlack) == Int(black.width * black.height))
+        }
+
+        @Test("A colour running off the window edge is black under an extent that is only its visible part")
+        func colourClippedToExtentByWindowEdgeIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let band = UIView(frame: CGRect(x: -60, y: 200, width: 320, height: 60))
+            band.backgroundColor = .magenta
+            fixture.window.addSubview(band)
+
+            try await expectExtentBlack(fixture, CGRect(x: 0, y: 200, width: 200, height: 60))
+        }
+
+        @Test("A rotated thin bar across an extent is black under it, not kept as an enclosing background")
+        func rotatedBarAcrossExtentIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let bar = UIView(frame: CGRect(x: 0, y: 0, width: 140, height: 10))
+            bar.center = CGPoint(x: 100, y: 150)
+            bar.backgroundColor = .magenta
+            bar.transform = CGAffineTransform(rotationAngle: .pi / 4)
+            fixture.window.addSubview(bar)
+
+            try await expectExtentBlack(fixture, CGRect(x: 80, y: 130, width: 40, height: 40), black: CGRect(x: 98, y: 148, width: 4, height: 4))
+        }
+
+        @Test("A rotated view under an extent that is its unrotated frame is black under it")
+        func rotatedViewUnderUnrotatedFrameExtentIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let card = UIView(frame: CGRect(x: 50, y: 100, width: 100, height: 100))
+            card.backgroundColor = .magenta
+            card.transform = CGAffineTransform(rotationAngle: .pi / 9)
+            fixture.window.addSubview(card)
+
+            try await expectExtentBlack(fixture, CGRect(x: 50, y: 100, width: 100, height: 100), black: CGRect(x: 70, y: 120, width: 60, height: 60))
+        }
+
+        @Test("A pattern background enclosing an extent is black under it, as it can show the data")
+        func patternBackgroundEnclosingExtentIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let tile = try image(CGSize(width: 8, height: 8)) { context in
+                context.setFillColor(UIColor.magenta.cgColor)
+                context.fill(CGRect(x: 0, y: 0, width: 4, height: 8))
+                context.setFillColor(UIColor.white.cgColor)
+                context.fill(CGRect(x: 4, y: 0, width: 4, height: 8))
+            }
+            let field = UITextField(frame: CGRect(x: 10, y: 120, width: 180, height: 60))
+            field.text = "secret"
+            field.backgroundColor = UIColor(patternImage: tile)
+            fixture.window.addSubview(field)
+
+            try await expectExtentBlack(fixture, CGRect(x: 30, y: 130, width: 140, height: 40))
+        }
+
+        private static func signaturePath(in rect: CGRect) -> CGPath {
+            let path = CGMutablePath()
+            path.addRect(CGRect(x: rect.minX + 10, y: rect.minY + 10, width: 30, height: 8))
+            path.addEllipse(in: CGRect(x: rect.midX, y: rect.minY + 20, width: 30, height: 20))
+            return path
+        }
+
+        @Test("A view under a shape-path layer mask is black under its extent, not in the path's shape on a kept background")
+        func shapePathMaskedViewIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let view = UIView(frame: CGRect(x: 40, y: 120, width: 120, height: 60))
+            view.backgroundColor = .blue
+            let shape = CAShapeLayer()
+            shape.path = Self.signaturePath(in: view.bounds)
+            view.layer.mask = shape
+            fixture.window.addSubview(view)
+
+            try await expectExtentBlack(fixture, view.frame)
+        }
+
+        @Test("A coloured child under a container with a shape-path layer mask is black under the extent")
+        func shapePathMaskedContainerIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let container = UIView(frame: CGRect(x: 40, y: 220, width: 120, height: 60))
+            let child = UIView(frame: container.bounds)
+            child.backgroundColor = .blue
+            container.addSubview(child)
+            let shape = CAShapeLayer()
+            shape.path = Self.signaturePath(in: container.bounds)
+            container.layer.mask = shape
+            fixture.window.addSubview(container)
+
+            try await expectExtentBlack(fixture, container.frame)
+        }
+
+        @Test("Bars of different heights inside a masked chart are black under the extent, not drawn on the enclosing panel")
+        func barChartInsideEnclosingPanelIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let panel = UIView(frame: CGRect(x: 0, y: 100, width: 200, height: 150))
+            panel.backgroundColor = .systemTeal
+            fixture.window.addSubview(panel)
+            let chart = UIView(frame: CGRect(x: 30, y: 120, width: 140, height: 100))
+            for (position, height) in [20, 50, 80].enumerated() {
+                let bar = UIView(frame: CGRect(x: 10 + position * 40, y: 100 - height, width: 30, height: height))
+                bar.backgroundColor = .blue
+                chart.addSubview(bar)
+            }
+            fixture.window.addSubview(chart)
+
+            try await expectExtentBlack(fixture, chart.frame)
+        }
+
         @Test("An auto-masked view keeps its chrome; the same view under ph-no-capture doesn't")
         func autoMaskedViewKeepsChrome() async throws {
             let fixture = try await makeFixture()
@@ -663,8 +851,8 @@
             #expect(result.rectRegions.isEmpty)
             let pixels = try Pixels(result.image)
             #expect(pixels.count(in: visible.frame, where: Self.isMagenta) > 50)
-            // The window's white background under the extent.
-            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 100 * 60)
+            // The window's white background encloses the extent, so it's kept.
+            #expect(pixels.count(in: reporter.frame) { $0.red > 230 && $0.green > 230 && $0.blue > 230 } == 100 * 60)
         }
 
         @Test("A shape drawn past its zero-size bounds under a postHogMask extent is masked, with no rect for the reporter")
@@ -739,7 +927,8 @@
             #expect(result.rectRegions.isEmpty)
             let pixels = try Pixels(result.image)
             #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
-            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 80 * 100)
+            // Half-transparent black over the window's white, which encloses the extent and is kept: one even grey.
+            #expect(pixels.count(in: reporter.frame) { abs(Int($0.red) - 128) < 12 && $0.red == $0.green && $0.green == $0.blue } == 80 * 100)
         }
 
         @Test("A bare text layer under a postHogMask extent keeps no glyphs, as bars or as stars, at any contents scale",

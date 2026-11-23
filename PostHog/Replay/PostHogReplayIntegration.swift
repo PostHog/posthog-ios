@@ -31,6 +31,9 @@
         // Guarded by `bufferingLock`.
         private var startedWithAutomaticDisabled: Bool = false
 
+        // Set by an explicit `stop()`; cleared by an explicit `start()` or once recording starts. Guarded by `bufferingLock`.
+        private var explicitlyStopped: Bool = false
+
         /// Last reported status handed to the crash context, so a reload that moved nothing doesn't
         /// rebuild the whole snapshot. Guards only itself.
         private let statusNotifyLock = NSLock()
@@ -270,10 +273,19 @@
         /// instead, so only an explicit request can establish manual-start provenance.
         func start() {
             // Record the intent before the gates below: the event-trigger gate can defer the actual start.
-            if let config, !config.sessionReplay {
-                bufferingLock.withLock { startedWithAutomaticDisabled = true }
+            let manualStart = config.map { !$0.sessionReplay } ?? false
+            bufferingLock.withLock {
+                if manualStart { startedWithAutomaticDisabled = true }
+                explicitlyStopped = false
             }
             startRecording()
+            notifyRecordingStatusChanged()
+        }
+
+        /// A start request clears the explicit stop even when a gate then refuses it.
+        func clearExplicitStop() {
+            bufferingLock.withLock { explicitlyStopped = false }
+            notifyRecordingStatusChanged()
         }
 
         /// `config.sessionReplay` controls automatic starts; a recording explicitly started while it was
@@ -294,6 +306,7 @@
             let claimed = bufferingLock.withLock { () -> Bool in
                 guard !isEnabled, isAutomaticStartPermittedLocked(sessionReplay: sessionReplay) else { return false }
                 isEnabled = true
+                explicitlyStopped = false
                 hasPassedMinimumDuration = false
                 awaitingFirstRemoteConfig = awaiting
                 return true
@@ -406,8 +419,12 @@
         /// forgets any manual start, so with `config.sessionReplay == false` nothing restarts until the app
         /// calls `start()` again. Internal stops call `stopRecording()` so a manual recording can resume.
         func stop() {
-            bufferingLock.withLock { startedWithAutomaticDisabled = false }
+            bufferingLock.withLock {
+                startedWithAutomaticDisabled = false
+                explicitlyStopped = true
+            }
             stopRecording()
+            notifyRecordingStatusChanged()
         }
 
         /// Note: This does not clear remoteConfigLoadedToken or eventCapturedToken as those are managed by install/uninstall.
@@ -440,6 +457,23 @@
 
         func isActive() -> Bool {
             bufferingLock.withLock { isEnabled }
+        }
+
+        /// Replay is intentionally off, locally (not installed, explicitly stopped, or automatic replay
+        /// disabled with no manual start) or remotely. Not a `$recording_status` check: sampled-out and
+        /// trigger-pending sessions also report `disabled` but keep their diagnostics.
+        var isReplayOff: Bool {
+            guard let postHog else { return true }
+            // Read before `bufferingLock`, see isAutomaticStartPermittedLocked.
+            let sessionReplay = config?.sessionReplay ?? false
+            let (enabled, locallyOff) = bufferingLock.withLock {
+                (isEnabled, explicitlyStopped || (!sessionReplay && !startedWithAutomaticDisabled))
+            }
+            // A running recorder is never off, so `disabled` never contradicts isSessionReplayActive().
+            // Running means recording, not just enabled: the first `/config` leaves a remotely-off
+            // recorder enabled with the capturer gated on the flag.
+            if enabled, postHog.remoteConfig?.isSessionReplayFlagActive() ?? false { return false }
+            return locallyOff || (postHog.remoteConfig?.isSessionRecordingRemotelyDisabled() ?? false)
         }
 
         private func resetViews() {
@@ -1817,6 +1851,14 @@
         /// buffering fields are read in one `bufferingLock` acquisition so a concurrent startRecording()/stopRecording()
         /// can't tear them across keys on the same event.
         func debugProperties() -> [String: Any] {
+            debugSnapshot().properties
+        }
+
+        /// The off decision and the properties from one `isReplayOff` read, so a concurrent stop can't
+        /// pair a full bundle with "off" or an off-shape map with "on".
+        func debugSnapshot() -> (isReplayOff: Bool, properties: [String: Any]) {
+            guard !isReplayOff else { return (true, ["$recording_status": "disabled"]) }
+
             let (enabled, awaitingConfig, passedMinimumDuration, minimumDuration) = bufferingLock.withLock {
                 (isEnabled, awaitingFirstRemoteConfig, hasPassedMinimumDuration, cachedMinimumDuration)
             }
@@ -1874,7 +1916,7 @@
                 props["$sdk_debug_replay_pending_trigger_conditions"] = pendingConditions
             }
 
-            return props
+            return (false, props)
         }
     }
 

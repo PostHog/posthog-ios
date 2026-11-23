@@ -1813,7 +1813,11 @@
 
             guard newlyActivated else { return }
 
-            hedgeLog("[Session Replay] Trigger group matched for session \(sessionId). Starting replay.")
+            if shouldRecordSession(postHog: postHog, sessionId: sessionId) {
+                hedgeLog("[Session Replay] Trigger group activated by event \(event.event) for session \(sessionId). Starting replay.")
+            } else {
+                hedgeLog("[Session Replay] Trigger group activated by event \(event.event) for session \(sessionId). Recording is not permitted for it.")
+            }
             updateCachedMinimumDuration()
             startRecording(respectExplicitStop: true)
             // After the start: this event may be what resumes the recorder, and the release only

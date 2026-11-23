@@ -154,11 +154,13 @@ dependencies: [
 ]
 ```
 
-Add the `PostHog` library to your app target. `import PostHog` is the same as in 3.x.x.
+In Xcode, add the `PostHog` library to your app target. In a `Package.swift` target, add `.product(name: "PostHog", package: "posthog-ios")` to `dependencies`. `import PostHog` is the same as in 3.x.x.
+
+Before you upgrade from 3.x.x, read the [migration guide](https://posthog.com/docs/libraries/ios/migration). It covers the toolchain, proxy, and API changes.
 
 #### Using CocoaPods?
 
-4.x.x isn't published to CocoaPods, and the repository has no `PostHog.podspec`. An app that installs with CocoaPods stays on 3.x.x, or moves to Swift Package Manager. 3.x.x versions stay installable from CocoaPods, but [CocoaPods trunk becomes read-only on December 2, 2026](https://blog.cocoapods.org/CocoaPods-Specs-Repo/).
+4.x.x isn't published to CocoaPods, and the repository has no `PostHog.podspec`. If you install with CocoaPods, stay on 3.x.x or move to Swift Package Manager. 3.x.x versions remain installable from CocoaPods, but [CocoaPods trunk becomes read-only on December 2, 2026](https://blog.cocoapods.org/CocoaPods-Specs-Repo/).
 
 To move to Swift Package Manager:
 
@@ -167,7 +169,7 @@ To move to Swift Package Manager:
 3. Add the `PostHog` library to your app target.
 4. If a Run Script phase uploads dSYMs with `${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh`, change the path to `${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh`. Without this change, symbol upload fails and crash reports lose symbolication.
 
-Before you upgrade from 3.x.x, read the [migration guide](/docs/libraries/ios/migration). It covers the toolchain, proxy, and API changes.
+React Native, Flutter, and Kotlin Multiplatform apps get this SDK through their PostHog wrapper package. Upgrade through that package instead of adding `posthog-ios` directly.
 
 ### Initialize
 
@@ -215,7 +217,7 @@ This page covers 4.x.x. If your app is on 3.x.x, check which version you have in
 - Swift Package Manager: find the `posthog-ios` entry in `Package.resolved` and read its `version`.
 - CocoaPods: find `PostHog` in `Podfile.lock`.
 
-For 3.x.x, see the [3.x.x reference](/docs/libraries/ios/3.x.x). To upgrade to 4.x.x, see the [migration guide](/docs/libraries/ios/migration).
+For 3.x.x, see the [3.x.x reference](https://posthog.com/docs/libraries/ios/3.x.x). To upgrade to 4.x.x, see the [migration guide](https://posthog.com/docs/libraries/ios/migration).
 
 ## Setup
 

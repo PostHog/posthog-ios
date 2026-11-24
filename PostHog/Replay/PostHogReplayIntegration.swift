@@ -75,6 +75,7 @@
         private let maskingLock = NSLock()
         private var remoteMasking = PostHogRemoteMasking(maskAllTextInputs: false, maskAllImages: false)
         private var loggedMaskFlags = Set<String>()
+        private var maskingGeneration = 0
 
         // Minimum duration buffering state
         private let bufferingLock = NSLock()
@@ -820,6 +821,13 @@
                     return
                 }
 
+                // A mask flag turned on after this frame was collected, so it may show content the
+                // config now masks (fail closed).
+                if wireframe.maskingGeneration != self?.currentMaskingGeneration {
+                    hedgeLog("[Session Replay] Skipping snapshot: a mask flag turned on after it was collected")
+                    return
+                }
+
                 // A new bridge episode needs fresh metadata even if its opening render fails.
                 if episodeFirstFrame {
                     snapshotStatus.sentMetaEvent = false
@@ -895,6 +903,7 @@
 
         private func createBasicWireframe(_ view: UIView) -> RRScreenshotFrame {
             let wireframe = RRScreenshotFrame()
+            wireframe.maskingGeneration = currentMaskingGeneration
 
             // since FE will render each node of the wireframe with position: fixed
             // we need to convert bounds to global screen coordinates
@@ -1703,6 +1712,11 @@
             (maskAllTextInputs, maskAllImages)
         }
 
+        /// Moves each time a mask flag turns on. Frames stamped with an older value are dropped.
+        var currentMaskingGeneration: Int {
+            maskingLock.withLock { maskingGeneration }
+        }
+
         private var localMasking: (text: Bool, images: Bool) {
             (config?.sessionReplayConfig.maskAllTextInputs == true, config?.sessionReplayConfig.maskAllImages == true)
         }
@@ -1720,23 +1734,26 @@
             let local = localMasking
             let next = PostHogRemoteMasking.resolve(local: local, remote: remote)
 
-            let (previous, flagsToLog) = maskingLock.withLock { () -> (PostHogRemoteMasking, [String]) in
+            let (turnedOn, flagsToLog) = maskingLock.withLock { () -> (Bool, [String]) in
                 let previous = PostHogRemoteMasking.resolve(local: local, remote: remoteMasking)
                 remoteMasking = remote
+                let turnedOn = (next.maskAllTextInputs && !previous.maskAllTextInputs)
+                    || (next.maskAllImages && !previous.maskAllImages)
+                if turnedOn {
+                    maskingGeneration += 1
+                }
 
                 var flags: [String] = []
                 if remote.maskAllTextInputs, !local.text { flags.append("maskAllTextInputs") }
                 if remote.maskAllImages, !local.images { flags.append("maskAllImages") }
                 flags = flags.filter { loggedMaskFlags.insert($0).inserted }
-                return (previous, flags)
+                return (turnedOn, flags)
             }
 
             for flag in flagsToLog {
                 hedgeLog("[Session Replay] The project's mobile masking setting turned on \(flag), which is off in the local config.")
             }
 
-            let turnedOn = (next.maskAllTextInputs && !previous.maskAllTextInputs)
-                || (next.maskAllImages && !previous.maskAllImages)
             if turnedOn {
                 replayQueue?.clearBuffer()
                 // The dropped frames carried the meta event and the last frame hash.

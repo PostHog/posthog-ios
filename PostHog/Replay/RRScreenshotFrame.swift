@@ -25,6 +25,8 @@ class RRScreenshotFrame {
         /// be rendered. The caller must drop the frame: the wireframe carries no image, and
         /// the raw screenshot would show masked content.
         private(set) var maskRenderFailed = false
+        /// The replay integration's mask generation when this frame was collected.
+        var maskingGeneration = 0
     #endif
     var base64: String?
 

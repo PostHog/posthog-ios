@@ -173,6 +173,7 @@
                 let wireframe = RRScreenshotFrame()
                 wireframe.type = "screenshot"
                 wireframe.base64 = "Screen"
+                wireframe.maskingGeneration = integration.currentMaskingGeneration
                 integration.captureSnapshot(
                     wireframe,
                     window: window,
@@ -191,6 +192,51 @@
             integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: ["mobile": ["maskAllText": true]]))
             sendFrame()
             #expect(lock.withLock { sentTypes } == [[4, 2], [4, 2]])
+        }
+
+        @Test("a frame collected before a mask turns on is dropped instead of queued")
+        @MainActor
+        func frameCollectedBeforeMaskTurnsOnIsDropped() throws {
+            let lock = NSLock()
+            var sent: [String] = []
+            let (sut, integration, _) = try makeSut(liveConfig: false, beforeSend: { event in
+                if event.event == "$snapshot", let data = event.properties["$snapshot_data"] as? [[String: Any]] {
+                    let frames = data.compactMap { (($0["data"] as? [String: Any])?["wireframes"] as? [[String: Any]])?.first?["base64"] as? String }
+                    lock.withLock { sent.append(contentsOf: frames) }
+                }
+                return nil
+            })
+            defer { sut.close() }
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+
+            func collectFrame(_ name: String) -> RRScreenshotFrame {
+                let wireframe = RRScreenshotFrame()
+                wireframe.type = "screenshot"
+                wireframe.base64 = name
+                wireframe.maskingGeneration = integration.currentMaskingGeneration
+                return wireframe
+            }
+            func enqueue(_ wireframe: RRScreenshotFrame) {
+                integration.captureSnapshot(
+                    wireframe,
+                    window: window,
+                    windowSize: window.bounds.size,
+                    screenName: nil,
+                    postHog: sut,
+                    timestampDate: Date()
+                )
+                PostHogReplayIntegration.dispatchQueue.sync {}
+            }
+
+            let collectedBefore = collectFrame("before")
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: ["mobile": ["maskAllText": true]]))
+            enqueue(collectedBefore)
+            #expect(lock.withLock { sent }.isEmpty)
+
+            // A config that repeats the flag is not a new turn-on, so later frames go through.
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: ["mobile": ["maskAllText": true]]))
+            enqueue(collectFrame("after"))
+            #expect(lock.withLock { sent } == ["after"])
         }
 
         @Test("a config that repeats an already-on flag does not drop the buffer")

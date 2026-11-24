@@ -19,4 +19,11 @@ protocol PostHogReplayBufferDelegate: AnyObject {
     /// `replayQueue.migrateBufferToQueue()` when the minimum duration has been met.
     /// This will copy temp buffer queue to the real replay queue
     func replayQueueDidBufferSnapshot(_ replayQueue: PostHogReplayQueue)
+
+    /// Called after a snapshot went to the real replay queue without buffering.
+    func replayQueueDidPersistSnapshot()
+}
+
+extension PostHogReplayBufferDelegate {
+    func replayQueueDidPersistSnapshot() {}
 }

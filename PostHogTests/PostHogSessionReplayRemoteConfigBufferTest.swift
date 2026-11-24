@@ -1553,6 +1553,27 @@
             #expect(integration.isBuffering == false)
         }
 
+        @Test("a minimum raised after snapshots persisted directly holds nothing for the rest of the session")
+        func minimumRaisedAfterDirectPersistHoldsNothing() throws {
+            let (sut, integration, replayQueue) = try overrideSut(minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+
+            sut.setSessionReplayMinimumDuration(0)
+            replayQueue.add(snapshotEvent("1"))
+            #expect(replayQueue.depth == 1)
+
+            sut.setSessionReplayMinimumDuration(600_000)
+            replayQueue.add(snapshotEvent("2"))
+
+            #expect(integration.isBuffering == false)
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 2)
+
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            #expect(replayQueue.depth == 2)
+            #expect(integration.isBuffering == true)
+        }
+
         @Test("clearing the minimum duration override goes back to the remote config minimum")
         func clearingMinimumDurationOverrideRestoresRemote() throws {
             let (sut, integration, replayQueue) = try overrideSut(minimumDurationMilliseconds: 600_000)

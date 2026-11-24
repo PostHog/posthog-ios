@@ -2161,6 +2161,11 @@
             }
         }
 
+        /// Part of the session already went out unheld, so a minimum raised later must not hold the rest of it.
+        func replayQueueDidPersistSnapshot() {
+            bufferingLock.withLock { hasPassedMinimumDuration = true }
+        }
+
         func replayQueueDidBufferSnapshot(_ replayQueue: PostHogReplayQueue) {
             guard let postHog else { return }
 

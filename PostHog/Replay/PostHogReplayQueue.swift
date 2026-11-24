@@ -73,6 +73,7 @@ class PostHogReplayQueue {
             bufferDelegate?.replayQueueDidBufferSnapshot(self)
         } else {
             innerQueue.add(event)
+            bufferDelegate?.replayQueueDidPersistSnapshot()
         }
     }
 

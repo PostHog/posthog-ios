@@ -328,8 +328,10 @@
             return isAncestor(screen, of: other) || isAncestor(other, of: screen)
         }
 
-        /// Redacts the regions' copies it can and returns the regions left for the rect pass, in order.
-        func mask(_ regions: [PostHogReplayIntegration.MaskedRegion], in frame: PostHogGPUMirrorCapture.Frame,
+        /// Redacts the regions' copies it can and returns the regions left for the rect pass, in order. Without
+        /// `usesPresentedBudget` (a window layer under the key window) text takes the `textBudget` path and the
+        /// `presentedTextBudget` window is left as it is.
+        func mask(_ regions: [PostHogReplayIntegration.MaskedRegion], in frame: PostHogGPUMirrorCapture.Frame, usesPresentedBudget: Bool = true,
                   tag: (_ viewClass: AnyClass?, _ layerClass: AnyClass) -> Tag, isBackdrop: (CALayer) -> Bool) -> [PostHogReplayIntegration.MaskedRegion]
         {
             #if TESTING
@@ -339,7 +341,9 @@
             #endif
             guard !regions.isEmpty else {
                 // No text pending either, so the window closes as it would after a fully drawn capture.
-                presentedCapturesLeft = 0
+                if usesPresentedBudget {
+                    presentedCapturesLeft = 0
+                }
                 return regions
             }
             CATransaction.begin()
@@ -349,9 +353,9 @@
                 withoutActuallyEscaping(isBackdrop) { isBackdrop in
                     var pass = Pass(mask: self, index: frame.copies.index(), portals: PortalIndex(frame.portalSources), scale: frame.scale,
                                     root: frame.rootCopy, tag: tag, isBackdrop: isBackdrop,
-                                    presentedBudget: presentedCapturesLeft > 0 ? presentedTextBudget : 0)
+                                    presentedBudget: usesPresentedBudget && presentedCapturesLeft > 0 ? presentedTextBudget : 0)
                     defer {
-                        if presentedCapturesLeft > 0 {
+                        if usesPresentedBudget, presentedCapturesLeft > 0 {
                             presentedCapturesLeft = pass.textPending ? presentedCapturesLeft - 1 : 0
                         }
                     }

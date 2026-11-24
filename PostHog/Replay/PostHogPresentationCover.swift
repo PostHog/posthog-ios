@@ -78,7 +78,7 @@
 
         // Check both trees: destination values can already be opaque/rectangular while the
         // rendered cover still exposes the presenter. Unknown shapes keep the masks behind them.
-        private static func isUnmodifiedRectangle(_ layer: CALayer, in windowLayer: CALayer) -> Bool {
+        static func isUnmodifiedRectangle(_ layer: CALayer, in windowLayer: CALayer) -> Bool {
             guard !layer.isHidden, layer.opacity >= 1,
                   layer.cornerRadius == 0, layer.mask == nil,
                   CATransform3DIsAffine(layer.transform),

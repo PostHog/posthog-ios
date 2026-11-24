@@ -2480,13 +2480,18 @@
                 /// takes it instead.
                 case fallback(PostHogGPUMirrorCapture.Frame)
                 /// Frozen, with the regions the mirror couldn't mask itself left on the wireframe for the rect pass. `maskRects`
-                /// are all the window's masked regions, inline ones included.
+                /// are all the window's masked regions, inline ones included, when collected.
                 case frozen(PostHogGPUMirrorCapture.Frame, RRScreenshotFrame, maskRects: [CGRect])
             }
 
             /// Main thread. Mirrors the window, walks it for masked regions, masks what it can in the mirror and freezes
             /// it, all in this turn: nothing may reach the mirror after `freeze`.
-            func mirrorAndMask(_ window: UIWindow, mirror: PostHogGPUMirrorCapture, scale: CGFloat) -> MirroredFrame {
+            /// `collectMaskRects` fills `.frozen`'s `maskRects`, which only a layer above the base needs: reading them measures
+            /// every deferred region on main. Only the key layer notes the screen and spends the presented-text budget, so the
+            /// layers under it can't reopen or close that window.
+            func mirrorAndMask(_ window: UIWindow, mirror: PostHogGPUMirrorCapture, scale: CGFloat, collectMaskRects: Bool = false,
+                               isKeyLayer: Bool = true) -> MirroredFrame
+            {
                 // Camera first: its layers can trap when presentation() copies them.
                 guard window.isVisible(), !window.hasCameraForReplay(), !isAnimatingTransition(window) else { return .skipped }
                 guard let frame = mirror.build(window: window, scale: scale) else { return .unbuilt }
@@ -2497,15 +2502,18 @@
                     return .unsettled(frame)
                 }
                 if leftOutCover(of: frame, in: window) { return .fallback(frame) }
-                mirror.inlineMask.noteScreen(UIViewController.ph_topViewController(base: window.rootViewController) ?? window)
-                let remaining = mirror.maskInline(regions, in: frame, tag: inlineMaskTag(view:layer:))
+                if isKeyLayer {
+                    mirror.inlineMask.noteScreen(UIViewController.ph_topViewController(base: window.rootViewController) ?? window)
+                }
+                let remaining = mirror.maskInline(regions, in: frame, usesPresentedBudget: isKeyLayer, tag: inlineMaskTag(view:layer:))
                 let remainingRects = remaining.map(\.rect)
+                let maskRects = collectMaskRects ? regions.map(\.rect) : []
                 frame.freeze()
                 let wireframe = createBasicWireframe(window)
                 wireframe.type = "screenshot"
                 wireframe.maskableWidgets = remainingRects
                 wireframe.screenshotPixelScale = frame.scale
-                return .frozen(frame, wireframe, maskRects: regions.map(\.rect))
+                return .frozen(frame, wireframe, maskRects: maskRects)
             }
 
             /// One capture instead of settle-then-shoot: the settle check exists because drawHierarchy shows the render
@@ -2692,7 +2700,7 @@
                     }
                     return
                 }
-                switch mirrorAndMask(window, mirror: mirror, scale: scale) {
+                switch mirrorAndMask(window, mirror: mirror, scale: scale, collectMaskRects: index > 0, isKeyLayer: index + 1 == capture.count) {
                 case .skipped:
                     endGPUCapture(nil)
                 case .unbuilt:
@@ -3040,9 +3048,23 @@
             return !window.hasCameraForReplay() && PostHogPresentationCover.frontmostFullWindowCover(in: window) != nil
         }
 
+        /// Checks the presentation as well as the model: a cover fading or sliding in doesn't hide the base yet.
         private static func isUnclippedCover(_ view: UIView, over base: UIWindow) -> Bool {
-            view.alpha >= 1 && view.layer.mask == nil && view.layer.cornerRadius == 0
-                && view.convert(view.bounds, to: base).contains(base.bounds)
+            let layer = view.layer
+            guard PostHogPresentationCover.isUnmodifiedRectangle(layer, in: base.layer),
+                  view.convert(view.bounds, to: base).contains(base.bounds)
+            else {
+                return false
+            }
+            // Under an app-defined layer the presentation can't be read without copying it; the model is the screen only
+            // while nothing in the chain animates.
+            if layer.hasAppDefinedLayerInChain {
+                return !layer.hasAnimationInChain
+            }
+            let presentation = layer.presentation() ?? layer
+            let basePresentation = base.layer.presentation() ?? base.layer
+            return PostHogPresentationCover.isUnmodifiedRectangle(presentation, in: basePresentation)
+                && presentation.convert(presentation.bounds, to: basePresentation).contains(basePresentation.bounds)
         }
 
         /// For each layer, the mask rects of every layer above it, converted into its own coordinates by `convert(rect,

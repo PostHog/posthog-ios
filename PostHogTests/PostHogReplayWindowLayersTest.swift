@@ -462,6 +462,77 @@
             #expect(try pixels(wireframes[0]).count(where: Self.isMagenta) == 0)
         }
 
+        @Test("a clear in-between window with a postHogMask() reporter is dropped as blank while still masking the app window")
+        func clearBlankReporterWindowHidesBase() async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, snapshots) = try makeSut(gpu: true, mirror: mirror)
+            defer { close(sut) }
+            let scene = makeScene()
+            defer { scene.close() }
+            let masking = UIWindow(frame: scene.app.frame)
+            masking.windowLevel = .alert
+            masking.isHidden = false
+            defer { masking.isHidden = true }
+            let reporter = PostHogMaskReporterUIView(frame: scene.app.bounds)
+            masking.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            masking.layoutIfNeeded()
+            PostHogReplayIntegration.windowLayerCandidatesForTesting = [scene.app, masking, scene.alert]
+            await prewarm(mirror, scene)
+
+            await capture(scene, integration, sut)
+
+            let wireframes = try #require(snapshots.fullSnapshots.first)
+            try #require(wireframes.count == 2)
+            #expect(wireframes.map { $0["id"] as? Int } == [scene.app.hash, scene.alert.hash])
+            #expect(try pixels(wireframes[0]).count(where: Self.isMagenta) == 0)
+        }
+
+        @Test("the app window under the key window never measures its masked views: only the layers above it need their rects")
+        func baseLayerSkipsDeferredMeasurements() async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, snapshots) = try makeSut(gpu: true, mirror: mirror)
+            defer { close(sut) }
+            let scene = makeScene()
+            defer { scene.close() }
+            let secret = UIView(frame: CGRect(x: 10, y: 100, width: 180, height: 60))
+            secret.backgroundColor = .magenta
+            secret.accessibilityIdentifier = "ph-no-capture"
+            scene.app.addSubview(secret)
+            await prewarm(mirror, scene)
+
+            let measuredBefore = PostHogReplayIntegration.MaskedRegion.deferredMeasurementsForTesting
+            await capture(scene, integration, sut)
+
+            #expect(PostHogReplayIntegration.MaskedRegion.deferredMeasurementsForTesting == measuredBefore)
+            let wireframes = try #require(snapshots.fullSnapshots.first)
+            try #require(wireframes.count == 2)
+            #expect(try pixels(wireframes[0]).count(in: secret.frame, where: Self.isMagenta) == 0)
+        }
+
+        @Test("repeated layered GPU captures don't keep reopening the presented-text budget on main")
+        func layeredGPUCaptureDoesNotThrashNoteScreen() async throws {
+            let mirror = try makeMirror()
+            mirror.inlineMask.presentedTextBudget = .infinity
+            mirror.inlineMask.textBudget = 0
+            let (sut, integration, _) = try makeSut(gpu: true, mask: true, mirror: mirror)
+            defer { close(sut) }
+            let scene = makeScene()
+            defer { scene.close() }
+            let ticker = UILabel(frame: CGRect(x: 10, y: 100, width: 180, height: 30))
+            scene.app.addSubview(ticker)
+            await prewarm(mirror, scene)
+
+            var counts: [Int] = []
+            for i in 1 ... 6 {
+                ticker.text = String(repeating: "A", count: 3 + i * 2)
+                await capture(scene, integration, sut)
+                counts.append(mirror.inlineMask.textDrawsOnMainForTesting)
+            }
+
+            #expect(counts[5] == counts[4], "progression: \(counts)")
+        }
+
         @Test("a blank key window falls back instead of being left out, so the app is never sent without its cover")
         func blankKeyWindowFallsBack() async throws {
             let mirror = try makeMirror()
@@ -692,6 +763,43 @@
                 }
                 try #require(settled, "the presentation layer never settled")
                 #expect(ids(PostHogReplayIntegration.screenshotLayers(keyWindow: lock, candidates: [app, lock])) == ids([lock]))
+            }
+
+            @Test("an opaque window still fading in or sliding in doesn't hide the app window yet", arguments: ["opacity", "position.y"])
+            func coverAnimatingInKeepsBase(keyPath: String) async throws {
+                let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+                let app = UIWindow(windowScene: scene), lock = UIWindow(windowScene: scene)
+                app.frame = CGRect(x: 0, y: 0, width: 200, height: 300)
+                app.isHidden = false
+                lock.frame = app.frame
+                lock.windowLevel = .rnAlert
+                lock.isHidden = false
+                lock.backgroundColor = .black
+                defer { [app, lock].forEach { $0.isHidden = true } }
+                #expect(ids(PostHogReplayIntegration.screenshotLayers(keyWindow: lock, candidates: [app, lock])) == ids([lock]))
+
+                let animation = CABasicAnimation(keyPath: keyPath)
+                let modelY = lock.layer.position.y
+                if keyPath == "opacity" {
+                    animation.fromValue = Float(0)
+                    animation.toValue = Float(0)
+                } else {
+                    animation.fromValue = modelY + 300
+                    animation.toValue = modelY + 300
+                }
+                animation.duration = 100
+                lock.layer.add(animation, forKey: "animateIn")
+                defer { lock.layer.removeAllAnimations() }
+                var rendered = false
+                for _ in 0 ..< 100 where !rendered {
+                    try await Task.sleep(nanoseconds: 20_000_000)
+                    rendered = lock.layer.presentation().map {
+                        keyPath == "opacity" ? $0.opacity < 1 : $0.position.y > modelY
+                    } ?? false
+                }
+                try #require(rendered, "the animation never reached the presentation layer")
+
+                #expect(ids(PostHogReplayIntegration.screenshotLayers(keyWindow: lock, candidates: [app, lock])) == ids([app, lock]))
             }
         }
     #endif

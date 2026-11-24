@@ -357,10 +357,10 @@
         }
 
         /// Main thread, after the mask walk and before `freeze`. Returns the regions still needing the rect pass.
-        func maskInline(_ regions: [PostHogReplayIntegration.MaskedRegion], in frame: Frame,
+        func maskInline(_ regions: [PostHogReplayIntegration.MaskedRegion], in frame: Frame, usesPresentedBudget: Bool = true,
                         tag: (_ viewClass: AnyClass?, _ layerClass: AnyClass) -> PostHogInlineMask.Tag) -> [PostHogReplayIntegration.MaskedRegion]
         {
-            inlineMask.mask(regions, in: frame, tag: tag) {
+            inlineMask.mask(regions, in: frame, usesPresentedBudget: usesPresentedBudget, tag: tag) {
                 classInfo(type(of: $0)).copiesWithInitLayer
             }
         }

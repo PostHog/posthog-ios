@@ -606,8 +606,14 @@ struct PostHogTriggerGroupsEvaluatorTests {
         #expect(!sessionChanged(to: "session-B"))
     }
 
-    private func startChecked(_ sessionId: String, personProperties: [String: Any?]? = nil) -> Bool {
-        evaluator.onSessionChanged(sessionId: sessionId, personProperties: personProperties, includeCurrentSession: true)
+    @Test("a session whose first event lands before its session change is still checked against the screen")
+    func eventBeforeSessionChangeStillChecksScreen() {
+        configure([urlOnlyCheckoutGroup()])
+        #expect(screen(sessionId: "session-A", name: "/checkout"))
+
+        #expect(!onEvent(sessionId: "session-B", event: "other"))
+        #expect(sessionChanged(to: "session-B"))
+        #expect(decide(sessionId: "session-B").shouldRecord)
     }
 
     @Test("a start checks a screen remembered in a session that already evaluated events")
@@ -617,8 +623,7 @@ struct PostHogTriggerGroupsEvaluatorTests {
 
         evaluator.rememberScreen("/checkout")
 
-        #expect(!sessionChanged(to: "session-A"))
-        #expect(startChecked("session-A"))
+        #expect(sessionChanged(to: "session-A"))
         #expect(decide(sessionId: "session-A").shouldRecord)
     }
 
@@ -628,11 +633,11 @@ struct PostHogTriggerGroupsEvaluatorTests {
         #expect(!onEvent(sessionId: "session-A", event: "app_opened"))
         evaluator.rememberScreen("/checkout")
 
-        #expect(!startChecked("session-A", personProperties: ["plan": "free"]))
-        #expect(!startChecked("session-A", personProperties: ["plan": "pro"]))
+        #expect(!sessionChanged(to: "session-A", personProperties: ["plan": "free"]))
+        #expect(!sessionChanged(to: "session-A", personProperties: ["plan": "pro"]))
 
         evaluator.rememberScreen("/checkout")
-        #expect(startChecked("session-A", personProperties: ["plan": "pro"]))
+        #expect(sessionChanged(to: "session-A", personProperties: ["plan": "pro"]))
     }
 
     @Test("a screen evaluated live is not checked again in its session after a reset")
@@ -643,7 +648,7 @@ struct PostHogTriggerGroupsEvaluatorTests {
 
         evaluator.reset()
 
-        #expect(!startChecked("session-A", personProperties: ["plan": "pro"]))
+        #expect(!sessionChanged(to: "session-A", personProperties: ["plan": "pro"]))
         #expect(!decide(sessionId: "session-A").shouldRecord)
     }
 
@@ -654,7 +659,7 @@ struct PostHogTriggerGroupsEvaluatorTests {
 
         configure([urlOnlyCheckoutGroup()])
 
-        #expect(!startChecked("session-A"))
+        #expect(!sessionChanged(to: "session-A"))
         #expect(evaluator.recheckScreen(sessionId: "session-A", personProperties: nil))
         #expect(decide(sessionId: "session-A").shouldRecord)
     }
@@ -667,7 +672,7 @@ struct PostHogTriggerGroupsEvaluatorTests {
         configure([urlOnlyCheckoutGroup()])
         evaluator.markScreenUnchecked()
 
-        #expect(startChecked("session-A"))
+        #expect(sessionChanged(to: "session-A"))
         #expect(decide(sessionId: "session-A").shouldRecord)
     }
 }

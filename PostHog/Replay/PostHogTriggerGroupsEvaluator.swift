@@ -115,12 +115,11 @@ class PostHogTriggerGroupsEvaluator {
     }
 
     /// A new session starts with no activated groups, so the screen the app is already on must be
-    /// re-checked: no `$screen` event follows to do it. With `includeCurrentSession`, the current session
-    /// is checked too, against a screen no group was checked against in it. Each screen is checked once per session.
-    func onSessionChanged(sessionId: String, personProperties: [String: Any?]?, includeCurrentSession: Bool = false) -> Bool {
+    /// re-checked: no `$screen` event follows to do it. An event of the new session can move activation
+    /// first, so the screen check is deduplicated per session, not by the activation move.
+    func onSessionChanged(sessionId: String, personProperties: [String: Any?]?) -> Bool {
         lock.withLock {
-            guard activationSessionId != sessionId || includeCurrentSession,
-                  moveActivationLocked(to: sessionId) else { return false }
+            guard moveActivationLocked(to: sessionId) else { return false }
 
             guard screenCheckedSessionId != sessionId else { return false }
             return checkScreenLocked(sessionId: sessionId, personProperties: personProperties)

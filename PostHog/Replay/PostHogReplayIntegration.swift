@@ -306,7 +306,7 @@
             }
             if let postHog, let sessionId = postHog.sessionManager.getSessionId(readOnly: true) {
                 // A $screen seen while stopped was not checked, also in a session that evaluated events.
-                checkTriggerGroupsForNewSession(postHog: postHog, sessionId: sessionId, includeCurrentSession: true)
+                checkTriggerGroupsForNewSession(postHog: postHog, sessionId: sessionId)
             }
             updateCachedMinimumDuration()
             startRecording()
@@ -1816,9 +1816,9 @@
             }
         }
 
-        private func checkTriggerGroupsForNewSession(postHog: PostHogSDK, sessionId: String, includeCurrentSession: Bool = false) {
+        private func checkTriggerGroupsForNewSession(postHog: PostHogSDK, sessionId: String) {
             if postHog.remoteConfig?.hasSessionRecordingTriggerGroups() == true {
-                _ = postHog.remoteConfig?.onSessionRecordingSessionChanged(sessionId: sessionId, includeCurrentSession: includeCurrentSession)
+                _ = postHog.remoteConfig?.onSessionRecordingSessionChanged(sessionId: sessionId)
             }
         }
 

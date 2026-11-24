@@ -336,6 +336,20 @@
             #expect(sut.getReplayIntegration()?.isActive() == false)
         }
 
+        @Test("a snapshot event does not activate a trigger group")
+        func snapshotEventDoesNotActivateTriggerGroup() async throws {
+            let sut = getSut(triggerGroups: [[
+                "id": "snapshot", "sampleRate": 1,
+                "conditions": ["matchType": "any", "events": [["name": "$snapshot"]]],
+            ]])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.capture("$snapshot", properties: ["$snapshot_data": []])
+
+            #expect(integration.isActive() == false)
+        }
+
         @Test("React Native leaves trigger groups to the JS layer")
         func reactNativeLeavesTriggerGroupsToJS() async throws {
             let original = postHogSdkName

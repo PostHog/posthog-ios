@@ -1800,7 +1800,8 @@
         }
 
         private func handleTriggerGroupsEventCaptured(event: PostHogEvent) {
-            guard let postHog, !isExplicitlyStopped,
+            guard event.event != PostHogKnownUnsafeEditableEvent.snapshot.rawValue,
+                  let postHog, !isExplicitlyStopped,
                   postHog.remoteConfig?.hasSessionRecordingTriggerGroups() == true,
                   let sessionId = postHog.sessionManager.getSessionId(readOnly: true)
             else { return }

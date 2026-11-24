@@ -73,7 +73,7 @@
         private var triggerActivatedSessionId: String?
 
         private let maskingLock = NSLock()
-        private var resolvedMaskingState: PostHogRemoteMasking?
+        private var remoteMasking = PostHogRemoteMasking(maskAllTextInputs: false, maskAllImages: false)
         private var loggedMaskFlags = Set<String>()
 
         // Minimum duration buffering state
@@ -1703,23 +1703,26 @@
             (maskAllTextInputs, maskAllImages)
         }
 
+        private var localMasking: (text: Bool, images: Bool) {
+            (config?.sessionReplayConfig.maskAllTextInputs == true, config?.sessionReplayConfig.maskAllImages == true)
+        }
+
         private var maskAllTextInputs: Bool {
-            maskingLock.withLock { resolvedMaskingState?.maskAllTextInputs } ?? (config?.sessionReplayConfig.maskAllTextInputs == true)
+            config?.sessionReplayConfig.maskAllTextInputs == true || maskingLock.withLock { remoteMasking.maskAllTextInputs }
         }
 
         private var maskAllImages: Bool {
-            maskingLock.withLock { resolvedMaskingState?.maskAllImages } ?? (config?.sessionReplayConfig.maskAllImages == true)
+            config?.sessionReplayConfig.maskAllImages == true || maskingLock.withLock { remoteMasking.maskAllImages }
         }
 
         private func updateMasking(from remoteConfig: [String: Any]?) {
             let remote = PostHogRemoteMasking.parse(from: remoteConfig)
-            let local = (text: config?.sessionReplayConfig.maskAllTextInputs == true,
-                         images: config?.sessionReplayConfig.maskAllImages == true)
+            let local = localMasking
             let next = PostHogRemoteMasking.resolve(local: local, remote: remote)
 
             let (previous, flagsToLog) = maskingLock.withLock { () -> (PostHogRemoteMasking, [String]) in
-                let previous = resolvedMaskingState ?? PostHogRemoteMasking(maskAllTextInputs: local.text, maskAllImages: local.images)
-                resolvedMaskingState = next
+                let previous = PostHogRemoteMasking.resolve(local: local, remote: remoteMasking)
+                remoteMasking = remote
 
                 var flags: [String] = []
                 if remote.maskAllTextInputs, !local.text { flags.append("maskAllTextInputs") }

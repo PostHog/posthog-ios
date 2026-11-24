@@ -104,7 +104,7 @@
             #expect(integration.resolvedMasking().maskAllImages == false)
         }
 
-        @Test("without a resolved value the local flags are returned")
+        @Test("without a server mask the local flags are returned")
         func localFlagsWithoutRemoteMasking() throws {
             let (sut, integration, _) = try makeSut(liveConfig: false, localMaskText: true, localMaskImages: false)
             defer { sut.close() }
@@ -112,6 +112,22 @@
             #expect(integration.resolvedMasking().maskAllTextInputs == true)
             #expect(integration.resolvedMasking().maskAllImages == false)
             #expect(sut.sessionReplayResolvedMasking() == ["maskAllTextInputs": true, "maskAllImages": false])
+        }
+
+        @Test("a local flag changed after install still applies, and cannot turn a server mask off")
+        func localFlagChangesAfterInstallApply() throws {
+            let (sut, integration, _) = try makeSut(liveConfig: false, cachedMasking: ["mobile": ["maskAllText": true]])
+            defer { sut.close() }
+
+            #expect(integration.resolvedMasking().maskAllImages == false)
+            sut.config.sessionReplayConfig.maskAllImages = true
+            #expect(integration.resolvedMasking().maskAllImages == true)
+            sut.config.sessionReplayConfig.maskAllImages = false
+            #expect(integration.resolvedMasking().maskAllImages == false)
+
+            sut.config.sessionReplayConfig.maskAllTextInputs = true
+            sut.config.sessionReplayConfig.maskAllTextInputs = false
+            #expect(integration.resolvedMasking().maskAllTextInputs == true)
         }
 
         @Test("a later config that turns a flag on drops frames held for the minimum duration")

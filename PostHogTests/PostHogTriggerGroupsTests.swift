@@ -17,12 +17,16 @@ struct PostHogTriggerGroupsTests {
         #expect(parseTriggerGroupsConfig(["version": 1, "triggerGroups": [group()]]) == nil)
     }
 
-    @Test("version 2 without usable groups keeps the v1 config")
-    func versionTwoWithoutUsableGroupsKeepsV1() {
+    @Test("version 2 without trigger groups keeps the v1 config")
+    func versionTwoWithoutTriggerGroupsKeepsV1() {
         #expect(parseTriggerGroupsConfig(["version": 2]) == nil)
         #expect(parseTriggerGroupsConfig(["version": 2, "triggerGroups": [Any]()]) == nil)
-        // a group without an id cannot be identified, so it is dropped and v1 stays in effect
-        #expect(parseTriggerGroupsConfig(["version": 2, "triggerGroups": [["name": "no id"]]]) == nil)
+    }
+
+    @Test("version 2 whose every group is rejected stays in v2 with no groups")
+    func versionTwoWithOnlyRejectedGroupsStaysV2() throws {
+        let config = try #require(parseTriggerGroupsConfig(["version": 2, "triggerGroups": [["id": "", "sampleRate": 0], ["name": "no id"]]]))
+        #expect(config.groups.isEmpty)
     }
 
     @Test("parses group sampling fields and conditions")

@@ -384,6 +384,37 @@
             #expect(integration.isActive() == false)
         }
 
+        @Test("a v2 config whose every group is rejected stays in v2 and records nothing")
+        func v2WithOnlyRejectedGroupsRecordsNothing() async throws {
+            let sut = getSut(triggerGroups: [["id": "", "sampleRate": 0, "conditions": [:]]])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+            let remoteConfig = try #require(sut.remoteConfig)
+
+            sut.screen("Checkout")
+            sut.capture("purchase_completed")
+
+            #expect(remoteConfig.hasSessionRecordingTriggerGroups() == true)
+            #expect(integration.isActive() == false)
+            let properties = integration.debugProperties()
+            #expect(properties["$sdk_debug_replay_remote_trigger_matching_config"] as? String == "v2_trigger_groups")
+            #expect(properties["$sdk_debug_replay_trigger_groups_count"] as? Int == 0)
+        }
+
+        @Test("a v2 config with an empty trigger group list keeps the v1 gates")
+        func v2WithEmptyTriggerGroupsKeepsV1() async throws {
+            let sut = getSut(eventTriggers: ["purchase_completed"], triggerGroups: [])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            #expect(sut.remoteConfig?.hasSessionRecordingTriggerGroups() == false)
+            #expect(integration.isActive() == false)
+
+            sut.capture("purchase_completed")
+
+            #expect(integration.isActive() == true)
+        }
+
         @Test("React Native leaves trigger groups to the JS layer")
         func reactNativeLeavesTriggerGroupsToJS() async throws {
             let original = postHogSdkName

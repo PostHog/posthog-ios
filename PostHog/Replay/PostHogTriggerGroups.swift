@@ -60,7 +60,7 @@ func parseTriggerGroupsConfig(_ sessionRecording: [String: Any]) -> PostHogTrigg
     let version = (sessionRecording["version"] as? NSNumber)?.int64Value ?? 1
     if version != 2 { return nil }
 
-    guard let rawGroups = sessionRecording["triggerGroups"] as? [Any] else { return nil }
+    guard let rawGroups = sessionRecording["triggerGroups"] as? [Any], !rawGroups.isEmpty else { return nil }
 
     let groups = rawGroups.compactMap { raw -> PostHogTriggerGroup? in
         guard let map = raw as? [String: Any],
@@ -78,7 +78,10 @@ func parseTriggerGroupsConfig(_ sessionRecording: [String: Any]) -> PostHogTrigg
         )
     }
 
-    if groups.isEmpty { return nil }
+    // Stays in v2 so the v1 gates can't record sessions the groups were meant to filter.
+    if groups.isEmpty {
+        hedgeLog("[Session Replay] No usable trigger group in the v2 config. Nothing records until one is configured.")
+    }
 
     return PostHogTriggerGroupsConfig(groups: groups)
 }

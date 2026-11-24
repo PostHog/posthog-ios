@@ -138,7 +138,7 @@
             HStack(alignment: .center, spacing: 8) {
                 content
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .font(isChecked ? .body.bold() : .body)
+                    .surveyFont(.body, bold: isChecked)
                     .animation(.linear(duration: 0.15), value: isChecked)
 
                 if isChecked {

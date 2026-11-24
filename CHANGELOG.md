@@ -1,5 +1,36 @@
 ## Next
 
+## 4.0.8
+
+### Patch Changes
+
+- ba9fa9e: Fix main-thread hangs on tap when rage-click detection is enabled, most noticeable in large React Native apps.
+
+## 4.0.7
+
+### Patch Changes
+
+- 414765b: Send a session replay frame or touch with the session it was captured in, or drop it. On a busy device a frame or touch could be sent late under a newer session, or after recording stopped, and that session could miss its first full snapshot. A new session's first buffered snapshots are also no longer lost when the previous session's buffer is cleared.
+
+## 4.0.6
+
+### Patch Changes
+
+- 890bd64: Apply the survey's `appearance.fontFamily` in the built-in survey UI. The first family of the CSS font list is used when it's installed on the device, keeping each element's size, weight and Dynamic Type scaling; `inherit`, `system-ui`, empty values and unavailable fonts keep the system font.
+
+## 4.0.5
+
+### Patch Changes
+
+- 7db331f: Keep the background colour of enclosing views under a `postHogMask()` region and draw SwiftUI text `*` rows in grey when `captureMethod` is `.gpu`, so masked text no longer uploads as a solid black box; colours belonging to the masked view itself stay black.
+
+## 4.0.4
+
+### Patch Changes
+
+- f10aeb4: Fix GPU session replay capture showing content drawn over a `ph-no-capture` view, such as the text of a React Native `View` tagged `ph-no-capture`, which is now a solid black block as on the default capture path.
+- 4ad26ec: Mask the text of a `CATextLayer` under a `postHogMask()` extent with `captureMethod = .gpu`. Its glyphs were uploaded readable.
+
 ## 4.0.3
 
 ### Patch Changes

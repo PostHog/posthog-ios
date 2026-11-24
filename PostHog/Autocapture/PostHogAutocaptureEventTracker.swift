@@ -181,11 +181,12 @@
             }
 
             // block all gestures for `UISwitch` (already captured via `.valueChanged` action)
-            if String(describing: type(of: view)).starts(with: "UISwitch") {
+            // and `UIPickerColumnView`
+            if view is UISwitch {
                 return
             }
-            // ignore gestures in `UIPickerColumnView`
-            if String(describing: type(of: view)) == "UIPickerColumnView" {
+            let viewClassName = NSStringFromClass(type(of: view))
+            if viewClassName.hasPrefix("UISwitch") || viewClassName == "UIPickerColumnView" {
                 return
             }
 
@@ -244,7 +245,7 @@
             }
 
             // block scrolls on UIPickerTableView. (captured via a forwarding delegate implementation)
-            if String(describing: type(of: self)) == "UIPickerTableView" {
+            if NSStringFromClass(type(of: self)) == "UIPickerTableView" {
                 return
             }
 
@@ -388,10 +389,12 @@
     }
 
     private func typeName(of type: AnyClass) -> String {
-        let typeName = String(describing: type)
-        if let match = typeName.range(of: "^[^<]+", options: .regularExpression) {
+        // Use `_typeName(_:qualified:)` instead of `String(describing:)` so metatype lookups
+        // don't go through `swift_dynamicCast` / `swift_conformsToProtocol` conformance scans.
+        let typeName = _typeName(type, qualified: false)
+        if let genericStart = typeName.firstIndex(of: "<"), genericStart > typeName.startIndex {
             // Extracts everything before the first '<' to deal with generics
-            return String(typeName[match])
+            return String(typeName[..<genericStart])
         }
         return typeName
     }

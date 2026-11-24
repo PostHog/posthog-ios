@@ -18,12 +18,12 @@
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(question)
-                    .font(.body.bold())
+                    .surveyFont(.body, bold: true)
                     .foregroundColor(foregroundTextColor)
                     .multilineTextAlignment(.leading)
                 if let description, !description.isEmpty, contentType == .text {
                     Text(description)
-                        .font(.callout)
+                        .surveyFont(.callout)
                         .foregroundColor(foregroundTextColor)
                         .multilineTextAlignment(.leading)
                 }

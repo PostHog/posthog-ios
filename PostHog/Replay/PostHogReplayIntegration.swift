@@ -744,14 +744,15 @@
             // - these objects may be released or erased by the system if accessed asynchronously, resulting in invalid/zeroed-out touch coordinates
             let touchInfo = touches.compactMap { recordableTouch($0, in: window) }
 
-            PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
-                // always make sure we have a fresh session id as early as possible
-                guard let sessionId = postHog?.sessionManager.getSessionId(at: date) else {
-                    return
-                }
+            // A touch is user activity, so this read can start a new session. The touch belongs to
+            // that session, and the block below can run much later.
+            guard let sessionId = postHog.sessionManager.getSessionId(at: date) else {
+                return
+            }
 
+            PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
                 // captured weakly since integration may have uninstalled by now
-                guard let postHog else { return }
+                guard let postHog, postHog.isRecordingReplay(in: sessionId) else { return }
 
                 var snapshotsData: [Any] = []
                 for touch in touchInfo {
@@ -785,6 +786,7 @@
             }
         }
 
+        /// `sessionId` is the session the frame was captured in. Defaults to the current one.
         func captureSnapshot(
             _ wireframe: RRScreenshotFrame,
             window: UIWindow,
@@ -792,9 +794,14 @@
             screenName: String?,
             postHog: PostHogSDK,
             timestampDate: Date,
+            sessionId capturedSessionId: String? = nil,
             episodeFirstFrame: Bool = false
         ) {
             let timestamp = timestampDate.toMillis()
+
+            guard let sessionId = capturedSessionId ?? postHog.sessionManager.getSessionId(readOnly: true), !sessionId.isEmpty else {
+                return
+            }
 
             // Queued frames share this status; its fields are confined to dispatchQueue.
             let snapshotStatus = windowViewsLock.withLock {
@@ -807,14 +814,26 @@
             }
 
             PostHogReplayIntegration.dispatchQueue.async { [weak self] in
-                // Frames keep arriving on an idle screen and aren't user activity, so they can't rotate
-                // an inactive session; the next touch or event does.
-                guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate, keepingInactiveSession: true) else {
+                // A new bridge episode needs fresh metadata even if its opening render fails.
+                if episodeFirstFrame {
+                    snapshotStatus.sentMetaEvent = false
+                    snapshotStatus.metaEventScreenName = nil
+                }
+
+                // Read-only first: between endSession() and startSession() the read below would create a session.
+                guard postHog.isRecordingReplay(in: sessionId) else {
                     return
                 }
 
-                // A new bridge episode needs fresh metadata even if its opening render fails.
-                if episodeFirstFrame {
+                // Frames keep arriving on an idle screen and aren't user activity, so they can't rotate
+                // an inactive session; the next touch or event does.
+                guard postHog.sessionManager.getSessionId(at: timestampDate, keepingInactiveSession: true) == sessionId else {
+                    return
+                }
+
+                // A session opens with its own meta event, whatever this window sent in the previous one.
+                if snapshotStatus.sessionId != sessionId {
+                    snapshotStatus.sessionId = sessionId
                     snapshotStatus.sentMetaEvent = false
                     snapshotStatus.metaEventScreenName = nil
                 }
@@ -1325,6 +1344,7 @@
             postHog: PostHogSDK,
             timestampDate: Date,
             image collectedImage: UIImage?,
+            sessionId: String? = nil,
             episodeFirstFrame: Bool = false
         ) -> Bool {
             autoreleasepool {
@@ -1343,6 +1363,7 @@
                     screenName: screenName,
                     postHog: postHog,
                     timestampDate: timestampDate,
+                    sessionId: sessionId,
                     episodeFirstFrame: episodeFirstFrame
                 )
                 return true
@@ -1734,6 +1755,13 @@
             if !source.hasInPlaceCopies, over.contains(where: { $0.inline == .extent && !owners.contains($0.owner) }) { return [] }
             owners.formUnion(over.map(\.owner))
             return owners.isEmpty ? nil : owners
+        }
+    }
+
+    private extension PostHogSDK {
+        /// Whether replay is still recording `sessionId`. Never creates or rotates a session.
+        func isRecordingReplay(in sessionId: String) -> Bool {
+            isSessionReplayActive() && sessionManager.getSessionId(readOnly: true) == sessionId
         }
     }
 
@@ -2460,7 +2488,8 @@
                     wireframe = frozenWireframe
                 }
                 let capture = MirroredCapture(frame: frame, wireframe: wireframe, windowSize: window.bounds.size,
-                                              screenName: screenName, timestampDate: timestampDate)
+                                              screenName: screenName, timestampDate: timestampDate,
+                                              sessionId: postHog.sessionManager.getSessionId(readOnly: true))
                 // Build and render each cost up to a frame on older devices; keep them in separate turns.
                 PostHogGPUMirrorCapture.onNextRunLoopTurn { [weak self, weak window] in
                     guard let self else {
@@ -2512,6 +2541,7 @@
                 let windowSize: CGSize
                 let screenName: String?
                 let timestampDate: Date
+                let sessionId: String?
             }
 
             /// Main thread, with the render slot still claimed by `captureMirrored`. Renders the frozen mirror, then
@@ -2530,10 +2560,10 @@
 
                 let wireframe = capture.wireframe
                 frame.readback(on: Self.dispatchQueue) { [weak self, weak window] image in
-                    if let self, let image, let window, postHog.isSessionReplayActive() {
+                    if let self, let image, let window, let sessionId = capture.sessionId, postHog.isSessionReplayActive() {
                         self.renderAndEnqueueScreenshot(wireframe, window: window, windowSize: capture.windowSize, screenName: capture.screenName,
                                                         postHog: postHog, timestampDate: capture.timestampDate,
-                                                        image: Self.screenshot(image, of: frame))
+                                                        image: Self.screenshot(image, of: frame), sessionId: sessionId)
                     }
                     DispatchQueue.main.async {
                         guard let self else {
@@ -2595,17 +2625,21 @@
                 let image: UIImage
                 let rectRegions: [CGRect]
                 let inlineRegionCount: Int
+                /// Deferred region rects the mask walk's turn read, each a measurement of the view on main.
+                let deferredMeasurements: Int
                 let turn1Milliseconds: Double
                 let webpBytes: Int
             }
 
-            private static func result(encoding wireframe: RRScreenshotFrame, inlineRegionCount: Int, turn1Milliseconds: Double) -> MaskCaptureForTesting? {
+            private static func result(encoding wireframe: RRScreenshotFrame, inlineRegionCount: Int, deferredMeasurements: Int = 0,
+                                       turn1Milliseconds: Double) -> MaskCaptureForTesting?
+            {
                 let rects = wireframe.maskableWidgets ?? []
                 guard let (image, base64) = wireframe.encodeImage(), let base64,
                       let data = Data(base64Encoded: base64.components(separatedBy: ",").last ?? "")
                 else { return nil }
                 return MaskCaptureForTesting(image: image, rectRegions: rects, inlineRegionCount: inlineRegionCount,
-                                             turn1Milliseconds: turn1Milliseconds, webpBytes: data.count)
+                                             deferredMeasurements: deferredMeasurements, turn1Milliseconds: turn1Milliseconds, webpBytes: data.count)
             }
 
             /// The settled path as production runs it (rect collection, toImage, maskImage), then the upload's WebP encode.
@@ -2622,7 +2656,9 @@
                                           completion: @escaping (MaskCaptureForTesting?) -> Void)
             {
                 let start = CACurrentMediaTime()
+                let measuredBefore = MaskedRegion.deferredMeasurementsForTesting
                 let mirrored = mirrorAndMask(window, mirror: mirror, scale: scale)
+                let deferredMeasurements = MaskedRegion.deferredMeasurementsForTesting - measuredBefore
                 let milliseconds = (CACurrentMediaTime() - start) * 1000
                 guard case let .frozen(frame, wireframe) = mirrored else {
                     switch mirrored {
@@ -2643,7 +2679,8 @@
                         var result: MaskCaptureForTesting?
                         if let image {
                             wireframe.image = Self.screenshot(image, of: frame)
-                            result = Self.result(encoding: wireframe, inlineRegionCount: inlineCount, turn1Milliseconds: milliseconds)
+                            result = Self.result(encoding: wireframe, inlineRegionCount: inlineCount, deferredMeasurements: deferredMeasurements,
+                                                 turn1Milliseconds: milliseconds)
                         }
                         DispatchQueue.main.async {
                             frame.release()

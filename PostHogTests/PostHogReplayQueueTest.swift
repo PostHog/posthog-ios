@@ -216,6 +216,25 @@ class PostHogReplayQueueTests {
         #expect(queue.depth == 3)
     }
 
+    @Test("a clear right after a migration keeps the migrated events and a later one stays buffered")
+    @MainActor
+    func clearAfterMigrationKeepsMigratedEvents() async {
+        let queue = createReplayQueue()
+        mockDelegate.isBuffering = true
+        queue.add(createTestEvent("snapshot_1"))
+        queue.add(createTestEvent("snapshot_2"))
+
+        queue.migrateBufferToQueue()
+        queue.clearBuffer()
+        queue.add(createTestEvent("snapshot_3"))
+        await waitUntil {
+            queue.depth == 2
+        }
+
+        #expect(queue.depth == 2)
+        #expect(queue.bufferDepth == 1)
+    }
+
     @Test("migrateBufferToQueue does nothing when buffer is empty")
     func migrateEmptyBuffer() {
         let queue = createReplayQueue()

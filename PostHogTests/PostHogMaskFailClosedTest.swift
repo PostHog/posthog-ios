@@ -137,23 +137,7 @@
             episodeFirstFrames: Set<Int> = [],
             windowSizes: [CGSize] = []
         ) -> [[[String: Any]]] {
-            let server = MockPostHogServer()
-            server.start()
-            defer { server.stop() }
-
-            let lock = NSLock()
-            var captured: [[[String: Any]]] = []
-            let config = PostHogConfig(projectToken: "phc_snapshotMetadataTest", host: "http://localhost:9001")
-            config.disableReachabilityForTesting = true
-            config.disableQueueTimerForTesting = true
-            config.captureApplicationLifecycleEvents = false
-            config.setBeforeSend { event in
-                if event.event == "$snapshot", let snapshots = event.properties["$snapshot_data"] as? [[String: Any]] {
-                    lock.withLock { captured.append(snapshots) }
-                }
-                return nil
-            }
-            let sdk = PostHogSDK.with(config)
+            guard let (sdk, _, captured) = try? makeScreenshotReplaySut() else { return [] }
             defer { sdk.close() }
             let integration = PostHogReplayIntegration()
             let window = makeWindow(containing: UIView())
@@ -187,7 +171,7 @@
                 queue.resume()
                 queue.sync {}
             }
-            return lock.withLock { captured }
+            return captured.posts.map(\.data)
         }
 
         @Test("first-frame failure preserves metadata for recovery")

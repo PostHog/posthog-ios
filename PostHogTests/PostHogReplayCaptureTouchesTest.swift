@@ -1,6 +1,6 @@
 #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
-    @testable import PostHog
+    @_spi(PostHogInternal) @testable import PostHog
     import Testing
     import UIKit
 
@@ -299,6 +299,88 @@
             #expect(snapshots.touches.count == 2)
         }
 
+        /// Sends a touch whose queued block only runs after `change`.
+        private func touchLate(
+            _ integration: PostHogReplayIntegration,
+            at date: Date = Date(),
+            then change: () -> Void
+        ) {
+            withReplayQueueHeld {
+                integration.handleApplicationEvent(event: TouchEvent(), date: date, window: UIWindow())
+                change()
+            }
+        }
+
+        /// The session of each event that carries a touch.
+        private func touchSessions(in snapshots: ReplaySnapshots) -> [String?] {
+            snapshots.posts
+                .filter { post in post.data.contains { $0["type"] as? Int == 3 } }
+                .map(\.sessionId)
+        }
+
+        @Test("A touch whose block runs in the session it happened in is sent")
+        func sameSessionTouchIsSent() throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let session = try #require(sut.sessionManager.getSessionId(readOnly: true))
+
+            touchLate(integration) {}
+
+            #expect(touchSessions(in: snapshots) == [session])
+        }
+
+        @Test("A touch after the inactivity timeout starts a new session and is sent with it")
+        func touchAfterTimeoutIsSentWithNewSession() throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let previous = try #require(sut.sessionManager.getSessionId(readOnly: true))
+
+            touchLate(integration, at: Date().addingTimeInterval(60 * 60)) {}
+
+            let current = try #require(sut.sessionManager.getSessionId(readOnly: true))
+            #expect(current != previous)
+            #expect(touchSessions(in: snapshots) == [current])
+        }
+
+        @Test("A touch whose block runs in a later session is dropped")
+        func laterSessionTouchIsDropped() throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let captured = try #require(sut.sessionManager.getSessionId(readOnly: true))
+
+            touchLate(integration) {
+                sut.startSession()
+            }
+
+            #expect(sut.sessionManager.getSessionId(readOnly: true) != captured)
+            #expect(touchSessions(in: snapshots).isEmpty)
+        }
+
+        @Test("A touch whose block runs after the session ended is dropped and creates no session")
+        func endedSessionTouchIsDropped() throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+
+            touchLate(integration) {
+                sut.endSession()
+            }
+
+            #expect(sut.sessionManager.getSessionId(readOnly: true) == nil)
+            #expect(touchSessions(in: snapshots).isEmpty)
+        }
+
+        @Test("A touch whose block runs after replay stopped is dropped")
+        func stoppedReplayTouchIsDropped() throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+
+            touchLate(integration) {
+                sut.stopSessionRecording()
+            }
+
+            #expect(touchSessions(in: snapshots).isEmpty)
+        }
+
         @Test("Initially disabled touch capture does not even read coordinates")
         func initiallyDisabled() async throws {
             let (sut, integration, snapshots) = try makeSut(captureTouches: false)
@@ -337,6 +419,37 @@
             #expect(!(screenshot["base64"] as? String ?? "").isEmpty)
             #expect(snapshots.touches.isEmpty)
             #expect(sut.isSessionReplayActive())
+        }
+
+        @Test("A touch that starts a new session survives that session's buffer clear")
+        func touchSurvivesBufferClear() async throws {
+            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
+            config.sessionReplay = true
+            config.sessionReplayConfig.captureNetworkTelemetry = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            // The first remote config never arrives, so every snapshot stays in the buffer.
+            config.disableRemoteConfigForTesting = true
+            config.preloadFeatureFlags = false
+            config.captureApplicationLifecycleEvents = false
+            config.captureScreenViews = false
+            PostHogStorage(config).setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
+            PostHogReplayIntegration.clearInstalls()
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+            let replayQueue = try #require(sut.replayQueue)
+            #expect(integration.isBuffering)
+
+            // The clear and the touch run on different queues, so one rotation could pass by luck.
+            var date = Date()
+            for _ in 0 ..< 20 {
+                date = date.addingTimeInterval(60 * 60)
+                integration.handleApplicationEvent(event: TouchEvent(), date: date, window: UIWindow())
+                await drainReplayQueue()
+                #expect(replayQueue.bufferDepth == 1)
+            }
         }
     }
 #endif

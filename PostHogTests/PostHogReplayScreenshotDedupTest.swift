@@ -454,28 +454,151 @@
         }
     }
 
+    @Suite("Replay frames and the session they were captured in", .serialized)
+    @MainActor
+    struct PostHogReplayFrameSessionTests {
+        private let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+
+        private func capture(
+            _ text: String,
+            with integration: PostHogReplayIntegration,
+            sut: PostHogSDK,
+            capturedIn sessionId: String? = nil
+        ) {
+            let wireframe = RRScreenshotFrame()
+            wireframe.type = "screenshot"
+            wireframe.base64 = text
+            integration.captureSnapshot(
+                wireframe,
+                window: window,
+                windowSize: window.bounds.size,
+                screenName: nil,
+                postHog: sut,
+                timestampDate: Date(),
+                sessionId: sessionId
+            )
+        }
+
+        /// Captures a frame whose queued block only runs after `change`.
+        private func captureLate(
+            _ text: String,
+            with integration: PostHogReplayIntegration,
+            sut: PostHogSDK,
+            then change: () -> Void
+        ) {
+            withReplayQueueHeld {
+                capture(text, with: integration, sut: sut)
+                change()
+            }
+        }
+
+        /// The session and snapshot types of each event that carries the frame `text`.
+        private func posts(of text: String, in snapshots: ReplaySnapshots) -> [(sessionId: String?, types: [Int])] {
+            snapshots.posts
+                .filter { post in
+                    post.data
+                        .compactMap { ($0["data"] as? [String: Any])?["wireframes"] as? [[String: Any]] }
+                        .joined()
+                        .contains { $0["base64"] as? String == text }
+                }
+                .map { ($0.sessionId, $0.data.compactMap { $0["type"] as? Int }) }
+        }
+
+        @Test("a frame whose block runs in the session it was captured in is sent")
+        func sameSessionFrameIsSent() throws {
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut()
+            defer { sut.close() }
+            let session = try #require(sut.sessionManager.getSessionId(readOnly: true))
+
+            captureLate("same session", with: integration, sut: sut) {}
+
+            let sent = posts(of: "same session", in: snapshots)
+            #expect(sent.map(\.sessionId) == [session])
+            #expect(sent.map(\.types) == [[4, 2]])
+        }
+
+        @Test("a frame whose block runs in a later session is dropped")
+        func laterSessionFrameIsDropped() throws {
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut()
+            defer { sut.close() }
+            let captured = try #require(sut.sessionManager.getSessionId(readOnly: true))
+
+            captureLate("previous session", with: integration, sut: sut) {
+                sut.startSession()
+            }
+
+            #expect(sut.sessionManager.getSessionId(readOnly: true) != captured)
+            #expect(posts(of: "previous session", in: snapshots).isEmpty)
+        }
+
+        @Test("a frame handed over after its session changed is dropped")
+        func frameHandedOverInLaterSessionIsDropped() throws {
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut()
+            defer { sut.close() }
+            let captured = try #require(sut.sessionManager.getSessionId(readOnly: true))
+            sut.startSession()
+
+            withReplayQueueHeld {
+                capture("handed over late", with: integration, sut: sut, capturedIn: captured)
+            }
+
+            #expect(posts(of: "handed over late", in: snapshots).isEmpty)
+        }
+
+        @Test("a frame whose block runs after the session ended is dropped and creates no session")
+        func endedSessionFrameIsDropped() throws {
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut()
+            defer { sut.close() }
+
+            captureLate("ended session", with: integration, sut: sut) {
+                sut.endSession()
+            }
+
+            #expect(sut.sessionManager.getSessionId(readOnly: true) == nil)
+            #expect(posts(of: "ended session", in: snapshots).isEmpty)
+        }
+
+        @Test("a frame whose block runs after replay stopped is dropped")
+        func stoppedReplayFrameIsDropped() throws {
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut()
+            defer { sut.close() }
+            let captured = try #require(sut.sessionManager.getSessionId(readOnly: true))
+
+            captureLate("stopped replay", with: integration, sut: sut) {
+                sut.stopSessionRecording()
+            }
+
+            #expect(sut.sessionManager.getSessionId(readOnly: true) == captured)
+            #expect(posts(of: "stopped replay", in: snapshots).isEmpty)
+        }
+
+        @Test("the first frame of a new session carries the meta event and a full snapshot")
+        func newSessionOpensWithMetaAndFullSnapshot() throws {
+            let (sut, _, snapshots) = try makeScreenshotReplaySut()
+            defer { sut.close() }
+            // Not subscribed to session changes, so the window keeps its status across the rotation.
+            let integration = PostHogReplayIntegration()
+
+            captureLate("first session", with: integration, sut: sut) {}
+            captureLate("first session, second frame", with: integration, sut: sut) {}
+            #expect(posts(of: "first session, second frame", in: snapshots).map(\.types) == [[2]])
+
+            sut.startSession()
+            let session = try #require(sut.sessionManager.getSessionId(readOnly: true))
+            captureLate("second session", with: integration, sut: sut) {}
+
+            let sent = posts(of: "second session", in: snapshots)
+            #expect(sent.map(\.sessionId) == [session])
+            #expect(sent.map(\.types) == [[4, 2]])
+        }
+    }
+
     @Suite("Unchanged frames across windows", .serialized)
     @MainActor
     struct PostHogReplayWindowSwitchDedupTests {
         @Test("returning to an unchanged window after another window sends its frame again")
-        func returningWindowResendsFrame() {
-            let server = MockPostHogServer()
-            server.start()
-            defer { server.stop() }
-
-            let lock = NSLock()
-            var snapshots = 0
-            let config = PostHogConfig(projectToken: "phc_replayWindowSwitch", host: "http://localhost:9001")
-            config.disableReachabilityForTesting = true
-            config.disableQueueTimerForTesting = true
-            config.captureApplicationLifecycleEvents = false
-            config.setBeforeSend { event in
-                if event.event == "$snapshot" {
-                    lock.withLock { snapshots += 1 }
-                }
-                return nil
-            }
-            let sdk = PostHogSDK.with(config)
+        func returningWindowResendsFrame() throws {
+            let (sdk, _, snapshots) = try makeScreenshotReplaySut()
             defer { sdk.close() }
             let integration = PostHogReplayIntegration()
             let screen = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
@@ -498,10 +621,10 @@
 
             sendFrame(screen, text: "Screen")
             sendFrame(screen, text: "Screen")
-            #expect(lock.withLock { snapshots } == 1)
+            #expect(snapshots.posts.count == 1)
             sendFrame(overlay, text: "Overlay")
             sendFrame(screen, text: "Screen")
-            #expect(lock.withLock { snapshots } == 3)
+            #expect(snapshots.posts.count == 3)
         }
     }
     @Suite("Replay meta screen name", .serialized)

@@ -771,5 +771,61 @@
 
             #expect(integration.isActive() == true)
         }
+
+        @Test("a matching screen seen while stopped activates the group at the next start in a session that evaluated events")
+        func screenSeenWhileStoppedCountsInEvaluatedSession() async throws {
+            let sut = getSut(triggerGroups: [checkoutUrlTriggerGroup])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.capture("app_opened")
+            let sessionId = try #require(sut.sessionManager.getSessionId(readOnly: true))
+            sut.stopSessionRecording()
+            sut.screen("Checkout")
+
+            sut.startSessionRecording(resumeCurrent: true)
+
+            #expect(sut.sessionManager.getSessionId(readOnly: true) == sessionId)
+            #expect(integration.isActive() == true)
+        }
+
+        @Test("a non-matching screen seen while stopped keeps the group pending at the next start")
+        func nonMatchingScreenSeenWhileStoppedStaysPending() async throws {
+            let sut = getSut(triggerGroups: [checkoutUrlTriggerGroup])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.capture("app_opened")
+            let sessionId = try #require(sut.sessionManager.getSessionId(readOnly: true))
+            sut.stopSessionRecording()
+            sut.screen("Home")
+
+            sut.startSessionRecording(resumeCurrent: true)
+
+            #expect(sut.remoteConfig?.hasPendingSessionRecordingTriggerGroups(sessionId: sessionId) == true)
+            #expect(integration.isActive() == false)
+        }
+
+        @Test("a screen evaluated live without a match is not activated by a stop and a start")
+        func liveScreenWithoutMatchIsNotRecheckedOnStart() async throws {
+            var group = checkoutUrlTriggerGroup
+            group["conditions"] = [
+                "matchType": "any",
+                "urls": [["url": "Checkout", "matching": "regex"]],
+                "properties": [["type": "person", "key": "plan", "value": "pro"]],
+            ]
+            let sut = getSut(triggerGroups: [group])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.screen("Checkout")
+            #expect(integration.isActive() == false)
+
+            sut.setPersonPropertiesForFlags(["plan": "pro"], reloadFeatureFlags: false)
+            sut.stopSessionRecording()
+            sut.startSessionRecording(resumeCurrent: true)
+
+            #expect(integration.isActive() == false)
+        }
     }
 #endif

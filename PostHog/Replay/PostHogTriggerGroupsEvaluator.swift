@@ -38,6 +38,8 @@ class PostHogTriggerGroupsEvaluator {
     private var eventActivatedGroupIds: Set<String> = []
     private var screenActivatedGroupIds: Set<String> = []
     private var lastScreenName: String?
+    /// The session the groups were last checked against `lastScreenName` in; nil while no group was.
+    private var screenCheckedSessionId: String?
 
     private var samplingDecisions: [String: StoredSamplingDecision] = [:]
 
@@ -66,7 +68,10 @@ class PostHogTriggerGroupsEvaluator {
     /// The screen the app is on, kept even when no event reaches `onEvent` (replay stopped, not installed,
     /// no groups loaded) so a later session change checks the right screen.
     func rememberScreen(_ screenName: String) {
-        lock.withLock { lastScreenName = screenName }
+        lock.withLock {
+            lastScreenName = screenName
+            screenCheckedSessionId = nil
+        }
     }
 
     func onEvent(sessionId: String,
@@ -82,6 +87,7 @@ class PostHogTriggerGroupsEvaluator {
                 : nil
             if let screenName {
                 lastScreenName = screenName
+                screenCheckedSessionId = sessionId
             }
 
             var anyNewlyActivated = false
@@ -106,13 +112,15 @@ class PostHogTriggerGroupsEvaluator {
     }
 
     /// A new session starts with no activated groups, so the screen the app is already on must be
-    /// re-checked: no `$screen` event follows to do it.
-    func onSessionChanged(sessionId: String, personProperties: [String: Any?]?) -> Bool {
+    /// re-checked: no `$screen` event follows to do it. With `includeCurrentSession`, the current session
+    /// is checked too, against a screen no group was checked against in it. Each screen is checked once per session.
+    func onSessionChanged(sessionId: String, personProperties: [String: Any?]?, includeCurrentSession: Bool = false) -> Bool {
         lock.withLock {
-            guard activationSessionId != sessionId else { return false }
+            guard activationSessionId != sessionId || includeCurrentSession else { return false }
             resetActivationForNewSessionLocked(sessionId)
 
-            guard let screenName = lastScreenName else { return false }
+            guard let screenName = lastScreenName, screenCheckedSessionId != sessionId else { return false }
+            screenCheckedSessionId = sessionId
 
             var anyNewlyActivated = false
             for group in groups where matchesScreenLegLocked(group, screenName: screenName, personProperties: personProperties) {

@@ -571,4 +571,45 @@ struct PostHogTriggerGroupsEvaluatorTests {
         #expect(sessionChanged(to: "session-B"))
         #expect(!sessionChanged(to: "session-B"))
     }
+
+    private func startChecked(_ sessionId: String, personProperties: [String: Any?]? = nil) -> Bool {
+        evaluator.onSessionChanged(sessionId: sessionId, personProperties: personProperties, includeCurrentSession: true)
+    }
+
+    @Test("a start checks a screen remembered in a session that already evaluated events")
+    func startChecksUncheckedScreenInEvaluatedSession() {
+        configure([urlOnlyCheckoutGroup()])
+        #expect(!onEvent(sessionId: "session-A", event: "app_opened"))
+
+        evaluator.rememberScreen("/checkout")
+
+        #expect(!sessionChanged(to: "session-A"))
+        #expect(startChecked("session-A"))
+        #expect(decide(sessionId: "session-A").shouldRecord)
+    }
+
+    @Test("a start checks each remembered screen once per session")
+    func startChecksEachScreenOnce() {
+        configure([urlOnlyCheckoutGroup(properties: [["type": "person", "key": "plan", "value": "pro"]])])
+        #expect(!onEvent(sessionId: "session-A", event: "app_opened"))
+        evaluator.rememberScreen("/checkout")
+
+        #expect(!startChecked("session-A", personProperties: ["plan": "free"]))
+        #expect(!startChecked("session-A", personProperties: ["plan": "pro"]))
+
+        evaluator.rememberScreen("/checkout")
+        #expect(startChecked("session-A", personProperties: ["plan": "pro"]))
+    }
+
+    @Test("a screen evaluated live is not checked again in its session after a reset")
+    func liveScreenNotRecheckedAfterReset() {
+        configure([urlOnlyCheckoutGroup(properties: [["type": "person", "key": "plan", "value": "pro"]])])
+        #expect(!evaluator.onEvent(sessionId: "session-A", eventName: "$screen",
+                                   eventProperties: ["$screen_name": "/checkout"], personProperties: ["plan": "free"]))
+
+        evaluator.reset()
+
+        #expect(!startChecked("session-A", personProperties: ["plan": "pro"]))
+        #expect(!decide(sessionId: "session-A").shouldRecord)
+    }
 }

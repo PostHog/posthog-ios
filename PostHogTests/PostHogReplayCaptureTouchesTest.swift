@@ -420,5 +420,36 @@
             #expect(snapshots.touches.isEmpty)
             #expect(sut.isSessionReplayActive())
         }
+
+        @Test("A touch that starts a new session survives that session's buffer clear")
+        func touchSurvivesBufferClear() async throws {
+            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
+            config.sessionReplay = true
+            config.sessionReplayConfig.captureNetworkTelemetry = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            // The first remote config never arrives, so every snapshot stays in the buffer.
+            config.disableRemoteConfigForTesting = true
+            config.preloadFeatureFlags = false
+            config.captureApplicationLifecycleEvents = false
+            config.captureScreenViews = false
+            PostHogStorage(config).setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
+            PostHogReplayIntegration.clearInstalls()
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+            let replayQueue = try #require(sut.replayQueue)
+            #expect(integration.isBuffering)
+
+            // The clear and the touch run on different queues, so one rotation could pass by luck.
+            var date = Date()
+            for _ in 0 ..< 20 {
+                date = date.addingTimeInterval(60 * 60)
+                integration.handleApplicationEvent(event: TouchEvent(), date: date, window: UIWindow())
+                await drainReplayQueue()
+                #expect(replayQueue.bufferDepth == 1)
+            }
+        }
     }
 #endif

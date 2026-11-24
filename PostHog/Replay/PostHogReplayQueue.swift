@@ -95,13 +95,16 @@ class PostHogReplayQueue {
         }
     }
 
-    /// Discards all buffered replay events.
+    /// Discards all buffered replay events. A snapshot added after this call is kept, so a new
+    /// session's first snapshots can't be lost to the previous session's clear.
     ///
-    /// If called from the main thread, clear is offloaded to a utility queue to
-    /// avoid blocking rendering. On background threads clear executes inline.
+    /// If called from the main thread, the files are deleted on a utility queue to
+    /// avoid blocking rendering. On background threads they are deleted inline.
     func clearBuffer() {
-        performBufferOperation { [weak self] in
-            self?.clearBufferNow()
+        let removed = bufferQueue.removeAll()
+        performBufferOperation { [bufferQueue] in
+            bufferQueue.delete(removed)
+            hedgeLog("Replay buffer cleared")
         }
     }
 
@@ -124,11 +127,6 @@ class PostHogReplayQueue {
         bufferQueue.migrateAll(to: innerQueue.fileQueue)
         hedgeLog("Migrated \(migratedCount) buffered replay events to replay queue. Queue depth: \(innerQueue.depth)")
         innerQueue.flushIfOverThreshold()
-    }
-
-    private func clearBufferNow() {
-        bufferQueue.clear()
-        hedgeLog("Replay buffer cleared")
     }
 
     /// Internal, used for testing

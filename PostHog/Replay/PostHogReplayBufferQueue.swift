@@ -86,6 +86,20 @@ class PostHogReplayBufferQueue {
         target.reloadFromDisk()
     }
 
+    /// Forgets every buffered item and returns their filenames, for `delete(_:)`.
+    func removeAll() -> [String] {
+        itemsLock.withLock {
+            defer { items.removeAll() }
+            return items
+        }
+    }
+
+    func delete(_ removed: [String]) {
+        for item in removed {
+            deleteSafely(queue.appendingPathComponent(item))
+        }
+    }
+
     /// Removes all buffered items from disk and memory.
     func clear() {
         deleteSafely(queue)

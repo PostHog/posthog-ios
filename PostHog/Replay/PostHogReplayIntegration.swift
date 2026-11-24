@@ -2130,10 +2130,11 @@
                let remoteConfig = postHog.remoteConfig,
                remoteConfig.hasSessionRecordingTriggerGroups()
             {
-                for (key, value) in remoteConfig.sessionRecordingTriggerGroupsDebugProperties(sessionId: sessionId) {
+                let debug = remoteConfig.sessionRecordingTriggerGroupsDebug(sessionId: sessionId)
+                for (key, value) in debug.properties {
                     props[key] = value
                 }
-                pendingConditions += remoteConfig.pendingSessionRecordingTriggerGroupConditions(sessionId: sessionId)
+                pendingConditions += debug.pendingConditions
             }
 
             if !pendingConditions.isEmpty {

@@ -766,6 +766,26 @@
             #expect(integration.isActive() == true)
         }
 
+        @Test("trigger group debug properties and pending conditions come from one decision")
+        func groupDebugPropertiesAgreeWithPendingConditions() async throws {
+            let sut = getSut(triggerGroups: [["id": "flagged", "sampleRate": 1, "conditions": ["flag": "replay-flag"]]])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+            let remoteConfig = try #require(sut.remoteConfig)
+
+            var reads = 0
+            remoteConfig.triggerGroupFlagsForTesting = { _ in
+                reads += 1
+                return reads % 2 == 1 ? ["replay-flag": true] : [:]
+            }
+            let props = integration.debugProperties()
+            remoteConfig.triggerGroupFlagsForTesting = nil
+
+            let matched = props["$sdk_debug_replay_matched_recording_trigger_groups"] as? [[String: Any]] ?? []
+            let pending = props["$sdk_debug_replay_pending_trigger_conditions"] as? [String] ?? []
+            #expect(matched.isEmpty == pending.contains { $0.contains("linked flag condition not matched") })
+        }
+
         @Test("a screen seen before an opt-out is not checked for the session after the opt-in")
         func screenBeforeOptOutIsForgotten() async throws {
             let sut = getSut(triggerGroups: [checkoutUrlTriggerGroup])

@@ -87,6 +87,8 @@ class PostHogRemoteConfig {
 
     /// Internal, only used for testing
     var canReloadFlagsForTesting = true
+    /// Test-only: replaces the flags each trigger group decision reads.
+    var triggerGroupFlagsForTesting: (([String: Any]?) -> [String: Any]?)?
 
     let onRemoteConfigLoaded = PostHogMulticastCallback<[String: Any]?>()
     let onFeatureFlagsLoaded = PostHogMulticastCallback<[String: Any]?>()
@@ -813,20 +815,14 @@ class PostHogRemoteConfig {
             return !decision.shouldRecord && decision.hasPendingGroups
         }
 
-        /// Empty unless the trigger groups hold the session back, as `hasPendingSessionRecordingTriggerGroups`.
-        func pendingSessionRecordingTriggerGroupConditions(sessionId: String) -> [String] {
-            guard let decision = decideTriggerGroups(sessionId: sessionId),
-                  !decision.shouldRecord, decision.hasPendingGroups
-            else { return [] }
-            return decision.pendingConditions
-        }
-
         func getSessionRecordingTriggerGroupsMinimumDuration(sessionId: String) -> TimeInterval? {
             guard let minDurationMs = decideTriggerGroups(sessionId: sessionId)?.minDurationMs else { return nil }
             return TimeInterval(minDurationMs) / 1_000.0
         }
 
-        func sessionRecordingTriggerGroupsDebugProperties(sessionId: String) -> [String: Any] {
+        /// Both from one decision, so a flag change between two reads can't make them disagree. The pending
+        /// conditions are empty unless the groups hold the session back, as `hasPendingSessionRecordingTriggerGroups`.
+        func sessionRecordingTriggerGroupsDebug(sessionId: String) -> (properties: [String: Any], pendingConditions: [String]) {
             let decision = decideTriggerGroups(sessionId: sessionId) ??
                 PostHogTriggerGroupsDecision(
                     shouldRecord: false,
@@ -836,7 +832,7 @@ class PostHogRemoteConfig {
                     matchedGroups: [],
                     pendingConditions: []
                 )
-            return [
+            let properties: [String: Any] = [
                 "$sdk_debug_replay_remote_trigger_matching_config": "v2_trigger_groups",
                 "$sdk_debug_replay_trigger_groups_count": decision.groupsCount,
                 "$sdk_debug_replay_matched_recording_trigger_groups": decision.matchedGroups.map { group in
@@ -848,12 +844,17 @@ class PostHogRemoteConfig {
                     ]
                 },
             ]
+            let holdsSession = !decision.shouldRecord && decision.hasPendingGroups
+            return (properties, holdsSession ? decision.pendingConditions : [])
         }
 
         private func decideTriggerGroups(sessionId: String) -> PostHogTriggerGroupsDecision? {
             guard hasSessionRecordingTriggerGroups() else { return nil }
             // Read flags before the evaluator lock: config is pushed under sessionReplayLock, so the reverse order deadlocks.
-            let flags = getFeatureFlags()
+            var flags = getFeatureFlags()
+            if let triggerGroupFlagsForTesting {
+                flags = triggerGroupFlagsForTesting(flags)
+            }
             return triggerGroupsEvaluator.evaluate(sessionId: sessionId, flags: flags)
         }
     #endif

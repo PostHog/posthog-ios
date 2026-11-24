@@ -62,6 +62,22 @@ final class SurveyAutoSubmitUITests: XCTestCase {
         assertAnswers("0:Custom answer")
     }
 
+    func testCustomFontFamilyAppliesToSurveyControls() {
+        app.launchEnvironment = ["SURVEY_KIND": "open", "SURVEY_SKIP": "false", "SURVEY_FONT": "\"Georgia\", serif"]
+        app.launch()
+        assertQuestion("First question")
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Other:")).firstMatch.tap()
+        let input = app.textFields.firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.typeText("Georgia input")
+        XCTAssertTrue(continueButton.isEnabled)
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "survey-font-georgia"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
     func testMultipleChoiceKeepsExplicitSubmission() {
         launch(kind: "multiple")
         app.buttons["First"].tap()

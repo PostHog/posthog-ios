@@ -45,6 +45,7 @@ private final class SurveyFixture: ObservableObject {
         let kind = environment["SURVEY_KIND"] ?? "number"
         let flag = environment["SURVEY_SKIP"] ?? "true"
         position = environment["SURVEY_POSITION"]
+        let fontFamily = environment["SURVEY_FONT"]
         let type = kind == "number" || kind == "emoji" ? "rating" : kind == "multiple" ? "multiple_choice" : "single_choice"
         var first: [String: Any] = [
             "id": "first", "question": "First question", "type": type,
@@ -74,7 +75,9 @@ private final class SurveyFixture: ObservableObject {
         }
         survey = PostHogDisplaySurvey(
             id: "ui-test", name: "UI test", questions: questions,
-            appearance: position.map(Self.appearance(position:)), startDate: nil, endDate: nil
+            appearance: position != nil || fontFamily != nil
+                ? Self.appearance(position: position, fontFamily: fontFamily) : nil,
+            startDate: nil, endDate: nil
         )
         controller.onSurveyResponse = { [weak self] _, index, response in
             let value = response.ratingValue.map(String.init)
@@ -112,9 +115,9 @@ private final class SurveyFixture: ObservableObject {
         }
     }
 
-    private static func appearance(position: String) -> PostHogDisplaySurveyAppearance {
+    private static func appearance(position: String?, fontFamily: String?) -> PostHogDisplaySurveyAppearance {
         PostHogDisplaySurveyAppearance(
-            fontFamily: nil,
+            fontFamily: fontFamily,
             backgroundColor: nil,
             borderColor: nil,
             submitButtonColor: nil,

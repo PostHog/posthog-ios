@@ -316,8 +316,8 @@
     /// Resolves a CSS `font-family` value to the PostScript name of an installed font, or nil to keep the system font.
     func resolveSurveyFontName(_ css: String?) -> String? {
         guard let family = surveyFontFamilyName(css) else { return nil }
-        // `UIFont(name:)` only accepts PostScript names ("ArialMT"), while CSS uses family names ("Arial").
-        // Unknown families resolve to a fallback font, so the result's family must be checked.
+        // CSS names a font family ("Arial"), while `UIFont(name:)` is documented for PostScript or full names ("ArialMT").
+        // A family descriptor matches by family, but an unknown family resolves to a fallback font, so check the result.
         let font = UIFont(descriptor: UIFontDescriptor(fontAttributes: [.family: family]), size: 0)
         return font.familyName.caseInsensitiveCompare(family) == .orderedSame ? font.fontName : nil
     }

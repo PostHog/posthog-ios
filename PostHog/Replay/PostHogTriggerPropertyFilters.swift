@@ -82,6 +82,10 @@ private enum PostHogTriggerPropertyFilters {
         if let array = value as? [Any] {
             return array.map(jsStringValue)
         }
+        // A `beforeSend` hook can put an unsanitized set into the event properties.
+        if let set = value as? NSSet {
+            return set.allObjects.map(jsStringValue)
+        }
         return [jsStringValue(value)]
     }
 

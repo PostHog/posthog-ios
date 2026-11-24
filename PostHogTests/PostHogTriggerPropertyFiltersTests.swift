@@ -72,6 +72,23 @@ struct PostHogTriggerPropertyFiltersTests {
         #expect(!match(filter: filter(value: ["free", "enterprise"]), event: ["plan": "pro"]))
     }
 
+    @Test("a set property value matches like the same values in an array")
+    func setValuesMatchLikeArrays() {
+        let values = ["free", "pro"]
+        let cases: [(filterOperator: String, value: Any)] = [
+            ("exact", "pro"), ("exact", ["enterprise", "pro"]), ("exact", "enterprise"),
+            ("is_not", "pro"), ("is_not", "enterprise"),
+            ("icontains", "PR"), ("not_icontains", "PR"), ("not_icontains", "team"),
+            ("regex", "^pr"), ("not_regex", "^pr"),
+        ]
+        for (filterOperator, value) in cases {
+            let propertyFilter = filter(operator: filterOperator, value: value)
+            let expected = match(filter: propertyFilter, event: ["plan": values])
+            #expect(match(filter: propertyFilter, event: ["plan": Set(values)]) == expected, "Set with \(filterOperator) \(value)")
+            #expect(match(filter: propertyFilter, event: ["plan": NSSet(array: values)]) == expected, "NSSet with \(filterOperator) \(value)")
+        }
+    }
+
     @Test("booleans stringify to true and false like js String()")
     func booleansStringifyLikeJS() {
         #expect(match(filter: filter(key: "vip", value: true), event: ["vip": true]))

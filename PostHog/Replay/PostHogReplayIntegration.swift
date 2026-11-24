@@ -884,6 +884,12 @@
                 let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
                 snapshotsData.append(snapshotData)
 
+                // The render above takes a while, so check again right before queueing.
+                if wireframe.maskingGeneration != self?.currentMaskingGeneration {
+                    hedgeLog("[Session Replay] Skipping snapshot: a mask flag turned on after it was collected")
+                    return
+                }
+
                 postHog.capture(
                     "$snapshot",
                     properties: [
@@ -901,9 +907,10 @@
             return imageHash == lastImageHash
         }
 
-        private func createBasicWireframe(_ view: UIView) -> RRScreenshotFrame {
+        /// - Parameter maskingGeneration: read before the frame's mask flags, so a flag that turns on in between drops the frame.
+        private func createBasicWireframe(_ view: UIView, maskingGeneration: Int) -> RRScreenshotFrame {
             let wireframe = RRScreenshotFrame()
-            wireframe.maskingGeneration = currentMaskingGeneration
+            wireframe.maskingGeneration = maskingGeneration
 
             // since FE will render each node of the wireframe with position: fixed
             // we need to convert bounds to global screen coordinates
@@ -1212,12 +1219,13 @@
             // content unmasked. Skip the tick (fail closed), like the transition bail.
             // overrideMaskRects: the settle check's drift band passes swept-region rects
             // measured moments ago, so masks cover the travel path instead of one instant.
+            let maskingGeneration = currentMaskingGeneration
             guard let maskableWidgets = overrideMaskRects ?? collectMaskableRects(in: window) else {
                 hedgeLog("[Session Replay] Skipping snapshot: a masked view hasn't been laid out yet")
                 return nil
             }
 
-            let wireframe = createBasicWireframe(window)
+            let wireframe = createBasicWireframe(window, maskingGeneration: maskingGeneration)
             wireframe.maskableWidgets = maskableWidgets
             wireframe.screenshotPixelScale = config?.sessionReplayConfig.screenshotPixelScale(nativeScale: window.screen.scale) ?? 1
             wireframe.type = "screenshot"
@@ -2483,6 +2491,7 @@
                 // Camera first: its layers can trap when presentation() copies them.
                 guard window.isVisible(), !window.hasCameraForReplay(), !isAnimatingTransition(window) else { return .skipped }
                 guard let frame = mirror.build(window: window, scale: scale) else { return .unbuilt }
+                let maskingGeneration = currentMaskingGeneration
                 let regions = MaskedRegion.deferringRects {
                     collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources)
                 }
@@ -2494,7 +2503,7 @@
                 let remaining = mirror.maskInline(regions, in: frame, tag: inlineMaskTag(view:layer:))
                 let remainingRects = remaining.map(\.rect)
                 frame.freeze()
-                let wireframe = createBasicWireframe(window)
+                let wireframe = createBasicWireframe(window, maskingGeneration: maskingGeneration)
                 wireframe.type = "screenshot"
                 wireframe.maskableWidgets = remainingRects
                 wireframe.screenshotPixelScale = frame.scale

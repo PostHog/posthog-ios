@@ -233,9 +233,10 @@
             enqueue(collectedBefore)
             #expect(lock.withLock { sent }.isEmpty)
 
-            // A config that repeats the flag is not a new turn-on, so later frames go through.
+            // A config that repeats the flag is not a new turn-on, so a frame collected before it goes through.
+            let collectedAfter = collectFrame("after")
             integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: ["mobile": ["maskAllText": true]]))
-            enqueue(collectFrame("after"))
+            enqueue(collectedAfter)
             #expect(lock.withLock { sent } == ["after"])
         }
 

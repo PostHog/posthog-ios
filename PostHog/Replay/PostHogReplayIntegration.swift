@@ -424,6 +424,8 @@
                 explicitlyStopped = true
             }
             stopRecording()
+            // Plugins installed while the recorder was off are not drained by `stopRecording()`.
+            stopInstalledPlugins()
             notifyRecordingStatusChanged()
         }
 
@@ -441,15 +443,7 @@
             applicationForegroundedToken = nil
             // drop replay's demand on the shared run-loop publisher
             stopCaptureScheduler()
-            // stop plugins
-            let pluginsToStop = installedPluginsLock.withLock {
-                defer { installedPlugins = [] }
-                return installedPlugins
-            }
-
-            for plugin in pluginsToStop {
-                plugin.stop()
-            }
+            stopInstalledPlugins()
 
             hedgeLog("Session replay recording stopped.")
             notifyRecordingStatusChanged()
@@ -1808,6 +1802,8 @@
             guard let postHog else { return }
 
             let allPluginTypes = postHog.config.sessionReplayConfig.getPluginTypes()
+            // While the recorder is off, `startRecording()` installs the enabled plugins when it claims.
+            let isRecording = isActive()
 
             var pluginsToStop: [PostHogSessionReplayPlugin] = []
             var pluginsToStart: [PostHogSessionReplayPlugin] = []
@@ -1821,7 +1817,7 @@
                         // Installed, but disabled in remote
                         pluginsToStop.append(installedPlugins[index])
                         installedPlugins.remove(at: index)
-                    } else if installedIndex == nil, isEnabled {
+                    } else if installedIndex == nil, isEnabled, isRecording {
                         // Not installed, but enabled in remote
                         let plugin = pluginType.init()
                         installedPlugins.append(plugin)
@@ -1839,6 +1835,27 @@
                 hedgeLog("[Session Replay] Plugin \(type(of: plugin)) installed - enabled by remote config")
             }
         }
+
+        private func stopInstalledPlugins() {
+            let pluginsToStop = installedPluginsLock.withLock {
+                defer { installedPlugins = [] }
+                return installedPlugins
+            }
+
+            for plugin in pluginsToStop {
+                plugin.stop()
+            }
+        }
+
+        #if TESTING
+            var installedPluginsForTesting: [PostHogSessionReplayPlugin] {
+                installedPluginsLock.withLock { installedPlugins }
+            }
+
+            func installPluginForTesting(_ plugin: PostHogSessionReplayPlugin) {
+                installedPluginsLock.withLock { installedPlugins.append(plugin) }
+            }
+        #endif
     }
 
     // MARK: - Debug properties

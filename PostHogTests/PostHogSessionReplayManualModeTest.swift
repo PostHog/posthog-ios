@@ -19,7 +19,8 @@
         private func getSut(
             sessionReplay: Bool,
             eventTriggers: [String]? = nil,
-            sampleRate: Double? = nil
+            sampleRate: Double? = nil,
+            pluginTypes: [PostHogSessionReplayPlugin.Type]? = nil
         ) -> PostHogSDK {
             // Unique token per SUT so the disk-backed replay queue is isolated across tests in this suite.
             let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
@@ -30,6 +31,7 @@
             // Drive recording config from the seeded .remoteConfig below, not the async /config fetch,
             // so the tests stay deterministic and independent of global stub state from other suites.
             config.disableRemoteConfigForTesting = true
+            config.sessionReplayConfig.pluginTypesForTesting = pluginTypes
 
             let storage = PostHogStorage(config)
             var sessionRecording: [String: Any] = ["endpoint": "/s/"]
@@ -347,6 +349,91 @@
 
             sut.capture("purchase_completed")
             #expect(sut.isSessionReplayActive() == true)
+        }
+
+        // MARK: - Plugins
+
+        enum Teardown: String, CaseIterable {
+            case optOut, close
+        }
+
+        @Test("Remote config reload while sampled out does not start plugins")
+        func reloadWhileSampledOutDoesNotStartPlugins() async throws {
+            SpyReplayPlugin.instances = []
+            let sut = getSut(sessionReplay: true, sampleRate: 0.0, pluginTypes: [SpyReplayPlugin.self])
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == false)
+
+            integration.applyRemoteConfig(remoteConfig: ["sessionRecording": ["endpoint": "/s/", "sampleRate": 0.0]])
+
+            #expect(integration.isActive() == false)
+            #expect(integration.installedPluginsForTesting.isEmpty)
+            #expect(SpyReplayPlugin.instances.allSatisfy { !$0.started })
+        }
+
+        @Test("Teardown stops plugins installed while the recorder is off", arguments: Teardown.allCases)
+        func teardownStopsPluginsInstalledWhileOff(_ teardown: Teardown) async throws {
+            let sut = getSut(sessionReplay: true, sampleRate: 0.0)
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == false)
+
+            let plugin = SpyReplayPlugin()
+            integration.installPluginForTesting(plugin)
+
+            switch teardown {
+            case .optOut: sut.optOut()
+            case .close: sut.close()
+            }
+
+            #expect(plugin.stopped)
+            #expect(integration.installedPluginsForTesting.isEmpty)
+        }
+
+        @Test("Recording starts plugins and an explicit stop stops them")
+        func recordingStartsAndStopStopsPlugins() async throws {
+            SpyReplayPlugin.instances = []
+            let sut = getSut(sessionReplay: true, pluginTypes: [SpyReplayPlugin.self])
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == true)
+            let plugin = try #require(integration.installedPluginsForTesting.first as? SpyReplayPlugin)
+            #expect(plugin.started)
+
+            sut.stopSessionRecording()
+
+            #expect(plugin.stopped)
+            #expect(integration.installedPluginsForTesting.isEmpty)
+        }
+    }
+
+    private final class SpyReplayPlugin: PostHogSessionReplayPlugin {
+        static var instances: [SpyReplayPlugin] = []
+        private(set) var started = false
+        private(set) var stopped = false
+
+        required init() {
+            Self.instances.append(self)
+        }
+
+        func start(postHog _: PostHogSDK) {
+            started = true
+        }
+
+        func stop() {
+            stopped = true
+        }
+
+        func pause() {}
+
+        func resume() {}
+
+        static func isEnabledRemotely(remoteConfig _: [String: Any]?) -> Bool {
+            true
         }
     }
 #endif

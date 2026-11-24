@@ -1858,9 +1858,8 @@
             // After the start: this event may be what resumes the recorder, and the release only
             // migrates for an active one.
             releaseHeldWindowIfDue()
-            if !isActive() {
-                notifyRecordingStatusChanged()
-            }
+            // An active recorder can still change status here, e.g. a lower group minimum ends the hold.
+            notifyRecordingStatusChanged()
         }
 
         /// Resolves event triggers from remote config payload.

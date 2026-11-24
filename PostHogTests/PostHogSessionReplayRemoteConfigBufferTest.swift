@@ -1000,6 +1000,39 @@
             withExtendedLifetime(token) {}
         }
 
+        @Test("crash context re-snapshots when an event activates a group that lowers the minimum while recording")
+        func crashContextAfterActivationWhileRecording() async throws {
+            let (sut, integration, _) = try makeSut(flagActive: true, triggerGroups: [
+                ["id": "always", "sampleRate": 1, "minDurationMs": 600_000, "conditions": ["matchType": "any"]],
+                ["id": "purchase", "sampleRate": 1, "minDurationMs": 0,
+                 "conditions": ["matchType": "any", "events": [["name": "purchase"]]]],
+            ])
+            defer { sut.close() }
+
+            let lock = NSLock()
+            var latest: [String: Any]?
+            let token = sut.onEventContextChanged.subscribe { context in
+                lock.withLock { latest = context["event_properties"] as? [String: Any] }
+            }
+            func status() -> String? {
+                lock.withLock { latest?["$recording_status"] as? String }
+            }
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isActive())
+            #expect(integration.debugProperties()["$recording_status"] as? String != "active")
+            await waitUntil { status() != nil }
+            #expect(status() != "active")
+
+            sut.capture("purchase")
+
+            #expect(integration.debugProperties()["$recording_status"] as? String == "active")
+            await waitUntil(timeout: 1) { status() == "active" }
+            #expect(status() == "active")
+
+            withExtendedLifetime(token) {}
+        }
+
         // MARK: - sessionReplayDebugProperties() SPI
 
         @Test("sessionReplayDebugProperties() returns the same replay debug keys and values a captured event carries")

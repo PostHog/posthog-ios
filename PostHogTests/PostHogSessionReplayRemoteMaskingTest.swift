@@ -2,6 +2,7 @@
     import Foundation
     @_spi(PostHogInternal) @testable import PostHog
     import Testing
+    import UIKit
 
     @Suite("Session Replay Remote Masking", .serialized)
     class PostHogSessionReplayRemoteMaskingTests {
@@ -21,7 +22,8 @@
             localMaskText: Bool = false,
             localMaskImages: Bool = false,
             minimumDurationMilliseconds: Int? = nil,
-            cachedMasking: [String: Any]? = nil
+            cachedMasking: [String: Any]? = nil,
+            beforeSend: ((PostHogEvent) -> PostHogEvent?)? = nil
         ) throws -> (sut: PostHogSDK, integration: PostHogReplayIntegration, replayQueue: PostHogReplayQueue) {
             let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
             config.sessionReplay = true
@@ -32,6 +34,9 @@
             config.preloadFeatureFlags = false
             config.flushAt = 1000
             config.disableRemoteConfigForTesting = !liveConfig
+            if let beforeSend {
+                config.setBeforeSend(beforeSend)
+            }
 
             var sessionRecording: [String: Any] = ["endpoint": "/s/"]
             if let minimumDurationMilliseconds {
@@ -148,6 +153,44 @@
             #expect(replayQueue.depth == 0)
             #expect(integration.resolvedMasking().maskAllImages == true)
             #expect(integration.resolvedMasking().maskAllTextInputs == false)
+        }
+
+        @Test("the first frame after a mask turns on is sent again with its meta event")
+        @MainActor
+        func frameAfterDropCarriesMetaEvent() throws {
+            let lock = NSLock()
+            var sentTypes: [[Int]] = []
+            let (sut, integration, _) = try makeSut(liveConfig: false, beforeSend: { event in
+                if event.event == "$snapshot", let data = event.properties["$snapshot_data"] as? [[String: Any]] {
+                    lock.withLock { sentTypes.append(data.compactMap { $0["type"] as? Int }) }
+                }
+                return nil
+            })
+            defer { sut.close() }
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+
+            func sendFrame() {
+                let wireframe = RRScreenshotFrame()
+                wireframe.type = "screenshot"
+                wireframe.base64 = "Screen"
+                integration.captureSnapshot(
+                    wireframe,
+                    window: window,
+                    windowSize: window.bounds.size,
+                    screenName: nil,
+                    postHog: sut,
+                    timestampDate: Date()
+                )
+                PostHogReplayIntegration.dispatchQueue.sync {}
+            }
+
+            sendFrame()
+            sendFrame()
+            #expect(lock.withLock { sentTypes } == [[4, 2]])
+
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: ["mobile": ["maskAllText": true]]))
+            sendFrame()
+            #expect(lock.withLock { sentTypes } == [[4, 2], [4, 2]])
         }
 
         @Test("a config that repeats an already-on flag does not drop the buffer")

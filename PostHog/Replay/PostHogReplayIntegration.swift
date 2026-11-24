@@ -1739,6 +1739,8 @@
                 || (next.maskAllImages && !previous.maskAllImages)
             if turnedOn {
                 replayQueue?.clearBuffer()
+                // The dropped frames carried the meta event and the last frame hash.
+                resetViews()
             }
         }
     }

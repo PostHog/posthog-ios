@@ -827,5 +827,77 @@
 
             #expect(integration.isActive() == false)
         }
+
+        // MARK: - Trigger groups loaded by a config
+
+        /// `applyRemoteConfig` runs on the main queue after the reload callback.
+        private func loadConfig(_ sut: PostHogSDK, triggerGroups: [[String: Any]]) async throws {
+            server.sessionRecordingTriggerGroups = triggerGroups
+            let remoteConfig = try #require(sut.remoteConfig)
+            await withCheckedContinuation { continuation in
+                remoteConfig.reloadRemoteConfig { _ in continuation.resume() }
+            }
+            await MainActor.run {}
+        }
+
+        @Test("a matching screen seen before the first v2 config records once the config loads")
+        func screenBeforeFirstGroupsLoadRecords() async throws {
+            let sut = getSut()
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.screen("Checkout")
+            try await loadConfig(sut, triggerGroups: [checkoutUrlTriggerGroup])
+
+            #expect(sut.remoteConfig?.hasSessionRecordingTriggerGroups() == true)
+            #expect(integration.isActive() == true)
+        }
+
+        @Test("a config reload that adds a group matching the current screen activates it")
+        func reloadAddingMatchingGroupActivates() async throws {
+            let sut = getSut(triggerGroups: [eventOnlyTriggerGroup])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.screen("Checkout")
+            #expect(integration.isActive() == false)
+
+            try await loadConfig(sut, triggerGroups: [eventOnlyTriggerGroup, checkoutUrlTriggerGroup])
+
+            #expect(integration.isActive() == true)
+        }
+
+        @Test("a config reload on a non-matching screen keeps the new group pending")
+        func reloadOnNonMatchingScreenStaysPending() async throws {
+            let sut = getSut(triggerGroups: [eventOnlyTriggerGroup])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.screen("Home")
+            try await loadConfig(sut, triggerGroups: [eventOnlyTriggerGroup, checkoutUrlTriggerGroup])
+
+            let sessionId = try #require(sut.sessionManager.getSessionId(readOnly: true))
+            #expect(sut.remoteConfig?.hasPendingSessionRecordingTriggerGroups(sessionId: sessionId) == true)
+            #expect(integration.isActive() == false)
+        }
+
+        @Test("a config loaded while replay is stopped activates nothing until the next start")
+        func reloadWhileStoppedWaitsForStart() async throws {
+            let sut = getSut(triggerGroups: [eventOnlyTriggerGroup])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.screen("Checkout")
+            sut.stopSessionRecording()
+            try await loadConfig(sut, triggerGroups: [eventOnlyTriggerGroup, checkoutUrlTriggerGroup])
+
+            let sessionId = try #require(sut.sessionManager.getSessionId(readOnly: true))
+            #expect(sut.remoteConfig?.hasPendingSessionRecordingTriggerGroups(sessionId: sessionId) == true)
+            #expect(integration.isActive() == false)
+
+            sut.startSessionRecording(resumeCurrent: true)
+
+            #expect(integration.isActive() == true)
+        }
     }
 #endif

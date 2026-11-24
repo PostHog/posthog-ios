@@ -612,4 +612,28 @@ struct PostHogTriggerGroupsEvaluatorTests {
         #expect(!startChecked("session-A", personProperties: ["plan": "pro"]))
         #expect(!decide(sessionId: "session-A").shouldRecord)
     }
+
+    @Test("loaded groups are checked against a screen the previous groups were checked against")
+    func loadedGroupsCheckAlreadyCheckedScreen() {
+        configure([group(id: "g0", conditions: eventLeg(["name": "purchase"]))])
+        #expect(!screen(sessionId: "session-A", name: "/checkout"))
+
+        configure([urlOnlyCheckoutGroup()])
+
+        #expect(!startChecked("session-A"))
+        #expect(evaluator.onGroupsLoaded(sessionId: "session-A", personProperties: nil))
+        #expect(decide(sessionId: "session-A").shouldRecord)
+    }
+
+    @Test("a screen left unchecked by a load is checked at the next start")
+    func screenMarkedUncheckedIsCheckedAtStart() {
+        configure([group(id: "g0", conditions: eventLeg(["name": "purchase"]))])
+        #expect(!screen(sessionId: "session-A", name: "/checkout"))
+
+        configure([urlOnlyCheckoutGroup()])
+        evaluator.markScreenUnchecked()
+
+        #expect(startChecked("session-A"))
+        #expect(decide(sessionId: "session-A").shouldRecord)
+    }
 }

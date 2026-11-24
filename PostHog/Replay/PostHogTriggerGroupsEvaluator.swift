@@ -119,20 +119,27 @@ class PostHogTriggerGroupsEvaluator {
             guard activationSessionId != sessionId || includeCurrentSession else { return false }
             resetActivationForNewSessionLocked(sessionId)
 
-            guard let screenName = lastScreenName, screenCheckedSessionId != sessionId else { return false }
-            screenCheckedSessionId = sessionId
-
-            var anyNewlyActivated = false
-            for group in groups where matchesScreenLegLocked(group, screenName: screenName, personProperties: personProperties) {
-                screenActivatedGroupIds.insert(group.id)
-                anyNewlyActivated = true
-            }
-            return anyNewlyActivated
+            guard screenCheckedSessionId != sessionId else { return false }
+            return checkScreenLocked(sessionId: sessionId, personProperties: personProperties)
         }
     }
 
+    /// Groups that just loaded were never checked against the screen the app is on, even when the previous
+    /// groups were checked against it in this session, so check it again.
+    func onGroupsLoaded(sessionId: String, personProperties: [String: Any?]?) -> Bool {
+        lock.withLock {
+            resetActivationForNewSessionLocked(sessionId)
+            return checkScreenLocked(sessionId: sessionId, personProperties: personProperties)
+        }
+    }
+
+    /// Leaves the screen the app is on unchecked in the current session, so the next explicit start checks it.
+    func markScreenUnchecked() {
+        lock.withLock { screenCheckedSessionId = nil }
+    }
+
     /// Read-only for activation: a caller holding a stale session id must not wipe the current
-    /// session's activated groups. Only `onEvent` and `onSessionChanged` move activation to a new session.
+    /// session's activated groups. Only `onEvent`, `onSessionChanged` and `onGroupsLoaded` move activation to a new session.
     func evaluate(sessionId: String, flags: [String: Any]?) -> PostHogTriggerGroupsDecision {
         lock.withLock {
             let activatedSession = activationSessionId == sessionId
@@ -286,6 +293,18 @@ class PostHogTriggerGroupsEvaluator {
             && conditions.urls.contains { $0.firstMatch(in: screenName, range: NSRange(screenName.startIndex..., in: screenName)) != nil }
             // The screen leg checks group-level filters without event properties
             && matchTriggerPropertyFilters(conditions.properties, nil, personProperties)
+    }
+
+    private func checkScreenLocked(sessionId: String, personProperties: [String: Any?]?) -> Bool {
+        guard let screenName = lastScreenName else { return false }
+        screenCheckedSessionId = sessionId
+
+        var anyNewlyActivated = false
+        for group in groups where matchesScreenLegLocked(group, screenName: screenName, personProperties: personProperties) {
+            screenActivatedGroupIds.insert(group.id)
+            anyNewlyActivated = true
+        }
+        return anyNewlyActivated
     }
 
     private func samplingDecisionLocked(_ group: PostHogTriggerGroup, sessionId: String) -> Bool {

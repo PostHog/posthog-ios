@@ -666,6 +666,8 @@
             // regardless. `notifyRecordingStatusChanged` drops the call when nothing actually moved.
             defer { notifyRecordingStatusChanged() }
 
+            // Before anything reads the groups: the screen the app is on may activate one this config loaded.
+            checkTriggerGroupsForLoadedConfig()
             updatePlugins(from: remoteConfig)
             updateEventTriggers(from: remoteConfig)
             updateCachedMinimumDuration()
@@ -1812,6 +1814,16 @@
         private func checkTriggerGroupsForNewSession(postHog: PostHogSDK, sessionId: String, includeCurrentSession: Bool = false) {
             if postHog.remoteConfig?.hasSessionRecordingTriggerGroups() == true {
                 _ = postHog.remoteConfig?.onSessionRecordingSessionChanged(sessionId: sessionId, includeCurrentSession: includeCurrentSession)
+            }
+        }
+
+        /// While stopped, the next explicit start checks the screen instead.
+        private func checkTriggerGroupsForLoadedConfig() {
+            guard let postHog, let remoteConfig = postHog.remoteConfig, remoteConfig.hasSessionRecordingTriggerGroups() else { return }
+            if isExplicitlyStopped {
+                remoteConfig.markSessionRecordingScreenUnchecked()
+            } else if let sessionId = postHog.sessionManager.getSessionId(readOnly: true) {
+                _ = remoteConfig.onSessionRecordingTriggerGroupsLoaded(sessionId: sessionId)
             }
         }
 

@@ -191,10 +191,31 @@
         // These assert the suppression decision directly, avoiding the async capture/flush pipeline.
 
         @MainActor
-        @Test("Taps on the on-screen keyboard window are ineligible for rage clicks")
-        func keyboardWindowIsIneligible() {
-            let integration = PostHogRageClickIntegration()
-            #expect(integration.isRageClickIneligibleForTesting(view: UIView(), isKeyboardWindow: true))
+        @Test("Taps on the on-screen keyboard window short-circuit before hit-testing and never emit rage clicks")
+        func keyboardWindowIsIneligible() throws {
+            #expect(UIWindow.isKeyboardWindowClassName("UIRemoteKeyboardWindow"))
+            #expect(UIWindow.isKeyboardWindowClassName("UITextEffectsWindow"))
+            #expect(!UIWindow.isKeyboardWindowClassName("UIWindow"))
+
+            let (posthog, integration, capturedEvents) = try setupInMemoryRageClick()
+            defer {
+                posthog.endSession()
+                posthog.close()
+                deleteSafely(applicationSupportDirectoryURL())
+            }
+            integration.setIsKeyboardWindowForTesting { _ in true }
+
+            let window = HitTestRecordingWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 400))
+            window.isHidden = false
+            defer { window.isHidden = true }
+
+            for offset in [0, 2, 1] {
+                let touch = SyntheticTouch(target: nil, window: window, point: CGPoint(x: 100 + offset, y: 100 + offset))
+                integration.handleApplicationEventForTesting(SyntheticTouchEvent(touch: touch))
+            }
+
+            #expect(window.recordedHitTestEvent == nil, "keyboard windows should return before hitTest")
+            #expect(capturedEvents().filter { $0.event == "$rageclick" }.isEmpty)
         }
 
         /// Controls where rapid repeated taps are intentional, as a `Sendable` enum so the test
@@ -334,6 +355,127 @@
             )
 
             #expect(window.recordedHitTestEvent == nil, "hitTest should not be called when touch.view is set")
+        }
+
+        // MARK: - Deferred element extraction on non-rage-click touches
+
+        final class EventDataSpyView: UIView {
+            private(set) var autocaptureTextReadCount = 0
+
+            override var ph_autocaptureText: String? {
+                autocaptureTextReadCount += 1
+                return "Retry"
+            }
+        }
+
+        private final class SyntheticTouch: UITouch {
+            let target: UIView?
+            let targetWindow: UIWindow
+            let point: CGPoint
+
+            init(target: UIView?, window: UIWindow, point: CGPoint) {
+                self.target = target
+                targetWindow = window
+                self.point = point
+                super.init()
+            }
+
+            override var phase: UITouch.Phase { .ended }
+            override var tapCount: Int { 1 }
+            override var view: UIView? { target }
+            override var window: UIWindow? { targetWindow }
+
+            override func location(in _: UIView?) -> CGPoint {
+                point
+            }
+        }
+
+        private final class SyntheticTouchEvent: UIEvent {
+            let touch: UITouch
+
+            init(touch: UITouch) {
+                self.touch = touch
+                super.init()
+            }
+
+            override var type: UIEvent.EventType { .touches }
+            override var allTouches: Set<UITouch>? { [touch] }
+        }
+
+        private func setupInMemoryRageClick() throws -> (PostHogSDK, PostHogRageClickIntegration, () -> [PostHogEvent]) {
+            PostHogRageClickIntegration.clearInstalls()
+
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            config.captureElementInteractions = false
+            config.rageClickConfig.enabled = true
+            config.rageClickConfig.minimumTapCount = 3
+            config.rageClickConfig.thresholdPoints = 30
+            config.rageClickConfig.timeoutInterval = 1.0
+            config.captureScreenViews = false
+            config.captureApplicationLifecycleEvents = false
+            config.preloadFeatureFlags = false
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+
+            let lock = NSLock()
+            var capturedEvents: [PostHogEvent] = []
+            config.setBeforeSend { event in
+                lock.withLock { capturedEvents.append(event) }
+                return nil
+            }
+
+            let posthog = PostHogSDK.with(config)
+            let integration = try #require(posthog.getRageClickIntegration())
+            return (posthog, integration, { lock.withLock { capturedEvents } })
+        }
+
+        @MainActor
+        @Test("Defers view hierarchy extraction until a rage click actually triggers")
+        func defersElementExtractionUntilRageClickTriggers() throws {
+            let (posthog, integration, capturedEvents) = try setupInMemoryRageClick()
+            defer {
+                posthog.endSession()
+                posthog.close()
+                deleteSafely(applicationSupportDirectoryURL())
+            }
+
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 400))
+            window.isHidden = false
+            defer { window.isHidden = true }
+            let spyView = EventDataSpyView(frame: CGRect(x: 50, y: 50, width: 100, height: 100))
+            spyView.postHogLabel = "retry-button"
+            window.addSubview(spyView)
+
+            func sendTap(at point: CGPoint) {
+                let touch = SyntheticTouch(target: spyView, window: window, point: point)
+                integration.handleApplicationEventForTesting(SyntheticTouchEvent(touch: touch))
+            }
+
+            // Taps 1 and 2 do not trigger a rage click and must not walk the view hierarchy.
+            sendTap(at: CGPoint(x: 100, y: 100))
+            #expect(spyView.autocaptureTextReadCount == 0)
+
+            sendTap(at: CGPoint(x: 105, y: 105))
+            #expect(spyView.autocaptureTextReadCount == 0)
+
+            // Tap 3 triggers the rage click and extracts element metadata once.
+            sendTap(at: CGPoint(x: 102, y: 102))
+            let countAfterTrigger = spyView.autocaptureTextReadCount
+            #expect(countAfterTrigger > 0)
+
+            // Tap 4 in the same area (already triggered) and tap 5 elsewhere must not extract again.
+            sendTap(at: CGPoint(x: 102, y: 102))
+            #expect(spyView.autocaptureTextReadCount == countAfterTrigger)
+
+            sendTap(at: CGPoint(x: 300, y: 300))
+            #expect(spyView.autocaptureTextReadCount == countAfterTrigger)
+
+            let rageclickEvents = capturedEvents().filter { $0.event == "$rageclick" }
+            #expect(rageclickEvents.count == 1)
+            let rageclickEvent = try #require(rageclickEvents.first)
+            let elementsChain = try #require(rageclickEvent.properties["$elements_chain"] as? String)
+            #expect(elementsChain.contains("EventDataSpyView"))
+            #expect(elementsChain.contains("attr_id=\"retry-button\""))
         }
     }
 #endif

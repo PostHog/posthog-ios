@@ -205,9 +205,12 @@ gpuMaskBenchmarks:
 	  "-only-testing:PostHogTests/PostHogGPUInlineMaskTest/turnOneCost()" \
 	  "-only-testing:PostHogTests/PostHogGPUInlineMaskTest/noCaptureCardsCost()" \
 	  "-only-testing:PostHogTests/PostHogGPUSwiftUIMaskTest/turnOneExtentCost()" 2>&1 | tee gpu-mask-benchmarks.log | xcpretty
-	@grep -E '^(PHOTO|INLINE|NOCAPTURE|EXTENT)-COST' gpu-mask-benchmarks.log || { \
-	  echo "error: no GPU masking benchmark printed; the GPU_MASK_BENCHMARKS gate or -only-testing selector likely broke."; \
-	  exit 1; }
+	@for prefix in PHOTO INLINE NOCAPTURE EXTENT; do \
+	  grep -q "^$$prefix-COST" gpu-mask-benchmarks.log || { \
+	    echo "error: no $$prefix-COST line printed; the GPU_MASK_BENCHMARKS gate or an -only-testing selector likely broke."; \
+	    exit 1; }; \
+	done
+	@grep -E '^[A-Z]+-COST' gpu-mask-benchmarks.log
 
 # Usage: make test filter=<pattern>
 # Examples:

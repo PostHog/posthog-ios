@@ -356,6 +356,46 @@ struct PostHogTriggerGroupsEvaluatorTests {
         #expect(!decide(sessionId: "session-a").shouldRecord)
     }
 
+    private func purchaseEvaluator(currentSessionId: @escaping () -> String?) throws -> PostHogTriggerGroupsEvaluator {
+        let evaluator = PostHogTriggerGroupsEvaluator(currentSessionId: currentSessionId)
+        let config = try #require(parseTriggerGroupsConfig([
+            "version": 2, "triggerGroups": [group(id: "g1", conditions: eventLeg(["name": "purchase"]))],
+        ]))
+        evaluator.onConfig(config.groups)
+        return evaluator
+    }
+
+    @Test("a left session the app returns to activates again, a stale call for it does not")
+    func returningToLeftSessionActivates() throws {
+        var current = "session-a"
+        let evaluator = try purchaseEvaluator { current }
+        func purchase(_ sessionId: String) -> Bool {
+            evaluator.onEvent(sessionId: sessionId, eventName: "purchase", eventProperties: nil, personProperties: nil)
+        }
+
+        #expect(!evaluator.onEvent(sessionId: "session-a", eventName: "other", eventProperties: nil, personProperties: nil))
+        current = "session-b"
+        #expect(!evaluator.onEvent(sessionId: "session-b", eventName: "other", eventProperties: nil, personProperties: nil))
+
+        #expect(!purchase("session-a"))
+        #expect(!evaluator.evaluate(sessionId: "session-a", flags: [:]).shouldRecord)
+
+        current = "session-a"
+        #expect(purchase("session-a"))
+        #expect(evaluator.evaluate(sessionId: "session-a", flags: [:]).shouldRecord)
+    }
+
+    @Test("only the last 16 left sessions are remembered")
+    func leftSessionsAreCapped() throws {
+        let evaluator = try purchaseEvaluator { nil }
+        for index in 0 ... 17 {
+            _ = evaluator.onEvent(sessionId: "session-\(index)", eventName: "other", eventProperties: nil, personProperties: nil)
+        }
+
+        #expect(!evaluator.onEvent(sessionId: "session-1", eventName: "purchase", eventProperties: nil, personProperties: nil))
+        #expect(evaluator.onEvent(sessionId: "session-0", eventName: "purchase", eventProperties: nil, personProperties: nil))
+    }
+
     @Test("sampling decision is deterministic per session and group")
     func samplingDecisionIsDeterministic() {
         // java "session-1g-empty".hashCode() -> bucket 23; "session-2g-empty" -> bucket 12

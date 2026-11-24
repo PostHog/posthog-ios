@@ -35,9 +35,12 @@ class PostHogTriggerGroupsEvaluator {
     private var groups: [PostHogTriggerGroup] = []
 
     private var activationSessionId: String?
-    /// Sessions activation moved away from. A caller that read its session id before a rotation can
-    /// deliver it late; ids are not ordered (an app can set its own), so these are remembered instead.
-    private var leftSessionIds: Set<String> = []
+    /// Sessions activation moved away from, oldest first. A caller that read its session id before a rotation
+    /// can deliver it late; ids are not ordered (an app can set its own), so these are remembered instead.
+    private var leftSessionIds: [String] = []
+    private static let maxLeftSessionIds = 16
+    /// The SDK's current session id. Called under `lock`, so it must not take a lock held while calling in here.
+    private let currentSessionId: () -> String?
     private var eventActivatedGroupIds: Set<String> = []
     private var screenActivatedGroupIds: Set<String> = []
     private var lastScreenName: String?
@@ -45,6 +48,10 @@ class PostHogTriggerGroupsEvaluator {
     private var screenCheckedSessionId: String?
 
     private var samplingDecisions: [String: StoredSamplingDecision] = [:]
+
+    init(currentSessionId: @escaping () -> String? = { nil }) {
+        self.currentSessionId = currentSessionId
+    }
 
     private struct StoredSamplingDecision {
         let sessionId: String
@@ -332,12 +339,19 @@ class PostHogTriggerGroupsEvaluator {
         return sampled
     }
 
-    /// False for a session activation already left, which keeps the current session's activation.
+    /// False for a session activation already left, which keeps the current session's activation, unless
+    /// the app went back to that session.
     private func moveActivationLocked(to sessionId: String) -> Bool {
         guard activationSessionId != sessionId else { return true }
-        guard !leftSessionIds.contains(sessionId) else { return false }
+        if let index = leftSessionIds.firstIndex(of: sessionId) {
+            guard currentSessionId() == sessionId else { return false }
+            leftSessionIds.remove(at: index)
+        }
         if let activationSessionId {
-            leftSessionIds.insert(activationSessionId)
+            leftSessionIds.append(activationSessionId)
+            if leftSessionIds.count > Self.maxLeftSessionIds {
+                leftSessionIds.removeFirst()
+            }
         }
         activationSessionId = sessionId
         eventActivatedGroupIds.removeAll()

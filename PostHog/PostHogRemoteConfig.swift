@@ -33,7 +33,7 @@ class PostHogRemoteConfig {
     private var recordingMinimumDuration: TimeInterval?
     #if os(iOS)
         private var sessionRecordingTriggerGroups: PostHogTriggerGroupsConfig?
-        private let triggerGroupsEvaluator = PostHogTriggerGroupsEvaluator()
+        private let triggerGroupsEvaluator: PostHogTriggerGroupsEvaluator
     #endif
 
     private let errorTrackingLock = NSLock()
@@ -130,8 +130,12 @@ class PostHogRemoteConfig {
          _ storage: PostHogStorage,
          _ api: PostHogApi,
          _ getDefaultPersonProperties: @escaping () -> [String: Any],
-         _ featureFlagCalledCallback: ((_ flagKey: String, _ flagValue: Any?) -> Void)? = nil)
+         _ featureFlagCalledCallback: ((_ flagKey: String, _ flagValue: Any?) -> Void)? = nil,
+         currentSessionId: @escaping () -> String? = { nil })
     {
+        #if os(iOS)
+            triggerGroupsEvaluator = PostHogTriggerGroupsEvaluator(currentSessionId: currentSessionId)
+        #endif
         self.config = config
         self.storage = storage
         self.api = api

@@ -240,6 +240,9 @@ let maxRetryDelay = 30.0
                 self?.getDefaultPersonProperties() ?? [:]
             }, { [weak self] flagKey, flagValue in
                 self?.reportFeatureFlagCalled(flagKey: flagKey, flagValue: flagValue)
+            }, currentSessionId: { [weak self] in
+                // Read-only: takes only the session manager's lock and never rotates.
+                self?.sessionManager.getSessionId(readOnly: true)
             })
 
             #if !os(watchOS)

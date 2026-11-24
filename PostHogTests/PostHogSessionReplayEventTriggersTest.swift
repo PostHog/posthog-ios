@@ -336,6 +336,40 @@
             #expect(sut.getReplayIntegration()?.isActive() == false)
         }
 
+        private var checkoutUrlTriggerGroup: [String: Any] {
+            ["id": "checkout", "sampleRate": 1, "conditions": ["matchType": "any", "urls": [["url": "Checkout", "matching": "regex"]]]]
+        }
+
+        @Test("a session rotation on a matching screen keeps the URL trigger group active")
+        func sessionRotationOnMatchingScreenStaysActive() async throws {
+            let sut = getSut(triggerGroups: [checkoutUrlTriggerGroup])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.screen("Checkout")
+            #expect(integration.isActive() == true)
+
+            sut.sessionManager.setSessionId(UUID().uuidString)
+
+            #expect(integration.isActive() == true)
+        }
+
+        @Test("a session rotation on a non-matching screen keeps the URL trigger group pending")
+        func sessionRotationOnOtherScreenStaysPending() async throws {
+            let sut = getSut(triggerGroups: [checkoutUrlTriggerGroup])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.screen("Home")
+            #expect(integration.isActive() == false)
+
+            let newSessionId = UUID().uuidString
+            sut.sessionManager.setSessionId(newSessionId)
+
+            #expect(integration.isActive() == false)
+            #expect(sut.remoteConfig?.hasPendingSessionRecordingTriggerGroups(sessionId: newSessionId) == true)
+        }
+
         @Test("a snapshot event does not activate a trigger group")
         func snapshotEventDoesNotActivateTriggerGroup() async throws {
             let sut = getSut(triggerGroups: [[

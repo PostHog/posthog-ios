@@ -593,6 +593,11 @@
             // Reset minimum duration buffering state for the new session
             resetBufferingState(for: postHog)
 
+            // Before the pending check below, so a group matching the current screen records this session
+            if postHog.remoteConfig?.hasSessionRecordingTriggerGroups() == true {
+                _ = postHog.remoteConfig?.onSessionRecordingSessionChanged(sessionId: currentSessionId)
+            }
+
             updateCachedMinimumDuration()
 
             if postHog.remoteConfig?.hasPendingSessionRecordingTriggerGroups(sessionId: currentSessionId) == true {

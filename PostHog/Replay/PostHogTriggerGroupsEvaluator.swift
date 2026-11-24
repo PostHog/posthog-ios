@@ -37,6 +37,7 @@ class PostHogTriggerGroupsEvaluator {
     private var activationSessionId: String?
     private var eventActivatedGroupIds: Set<String> = []
     private var screenActivatedGroupIds: Set<String> = []
+    private var lastScreenName: String?
 
     private var samplingDecisions: [String: StoredSamplingDecision] = [:]
 
@@ -70,6 +71,13 @@ class PostHogTriggerGroupsEvaluator {
         lock.withLock {
             resetActivationForNewSessionLocked(sessionId)
 
+            let screenName = eventName == Self.screenEventName
+                ? (eventProperties?[Self.screenNameProperty] ?? nil) as? String
+                : nil
+            if let screenName {
+                lastScreenName = screenName
+            }
+
             var anyNewlyActivated = false
             for group in groups {
                 let conditions = group.conditions
@@ -82,29 +90,35 @@ class PostHogTriggerGroupsEvaluator {
                     anyNewlyActivated = true
                 }
 
-                if eventName == Self.screenEventName {
-                    let screenName = (eventProperties?[Self.screenNameProperty] ?? nil) as? String
-                    let screenMatched = screenName != nil
-                        && !conditions.urls.isEmpty
-                        && !screenActivatedGroupIds.contains(group.id)
-                        && conditions.urls.contains { regex in
-                            guard let screenName else { return false }
-                            return regex.firstMatch(in: screenName, range: NSRange(screenName.startIndex..., in: screenName)) != nil
-                        }
-                        // The screen leg checks group-level filters without event properties
-                        && matchTriggerPropertyFilters(conditions.properties, nil, personProperties)
-                    if screenMatched {
-                        screenActivatedGroupIds.insert(group.id)
-                        anyNewlyActivated = true
-                    }
+                if let screenName, matchesScreenLegLocked(group, screenName: screenName, personProperties: personProperties) {
+                    screenActivatedGroupIds.insert(group.id)
+                    anyNewlyActivated = true
                 }
             }
             return anyNewlyActivated
         }
     }
 
+    /// A new session starts with no activated groups, so the screen the app is already on must be
+    /// re-checked: no `$screen` event follows to do it.
+    func onSessionChanged(sessionId: String, personProperties: [String: Any?]?) -> Bool {
+        lock.withLock {
+            guard activationSessionId != sessionId else { return false }
+            resetActivationForNewSessionLocked(sessionId)
+
+            guard let screenName = lastScreenName else { return false }
+
+            var anyNewlyActivated = false
+            for group in groups where matchesScreenLegLocked(group, screenName: screenName, personProperties: personProperties) {
+                screenActivatedGroupIds.insert(group.id)
+                anyNewlyActivated = true
+            }
+            return anyNewlyActivated
+        }
+    }
+
     /// Read-only for activation: a caller holding a stale session id must not wipe the current
-    /// session's activated groups. Only `onEvent` moves activation to a new session.
+    /// session's activated groups. Only `onEvent` and `onSessionChanged` move activation to a new session.
     func evaluate(sessionId: String, flags: [String: Any]?) -> PostHogTriggerGroupsDecision {
         lock.withLock {
             let activatedSession = activationSessionId == sessionId
@@ -246,6 +260,18 @@ class PostHogTriggerGroupsEvaluator {
         if !entryMatched { return false }
 
         return matchTriggerPropertyFilters(conditions.properties, eventProperties, personProperties)
+    }
+
+    private func matchesScreenLegLocked(_ group: PostHogTriggerGroup,
+                                        screenName: String,
+                                        personProperties: [String: Any?]?) -> Bool
+    {
+        let conditions = group.conditions
+        return !conditions.urls.isEmpty
+            && !screenActivatedGroupIds.contains(group.id)
+            && conditions.urls.contains { $0.firstMatch(in: screenName, range: NSRange(screenName.startIndex..., in: screenName)) != nil }
+            // The screen leg checks group-level filters without event properties
+            && matchTriggerPropertyFilters(conditions.properties, nil, personProperties)
     }
 
     private func samplingDecisionLocked(_ group: PostHogTriggerGroup, sessionId: String) -> Bool {

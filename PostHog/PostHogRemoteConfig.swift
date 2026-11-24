@@ -781,6 +781,10 @@ class PostHogRemoteConfig {
             )
         }
 
+        func onSessionRecordingSessionChanged(sessionId: String) -> Bool {
+            triggerGroupsEvaluator.onSessionChanged(sessionId: sessionId, personProperties: getPersonPropertiesForFlags())
+        }
+
         func isSessionRecordingPermittedByTriggerGroups(sessionId: String) -> Bool {
             decideTriggerGroups(sessionId: sessionId)?.shouldRecord ?? false
         }

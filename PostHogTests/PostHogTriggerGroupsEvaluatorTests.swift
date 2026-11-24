@@ -462,4 +462,78 @@ struct PostHogTriggerGroupsEvaluatorTests {
         #expect(!decide(sessionId: "session-1").shouldRecord)
         #expect(decide(sessionId: "session-2").shouldRecord)
     }
+
+    private func urlOnlyCheckoutGroup(properties: [[String: Any]]? = nil) -> [String: Any] {
+        var conditions = urlLeg("checkout")
+        if let properties {
+            conditions["properties"] = properties
+        }
+        return group(id: "g1", conditions: conditions)
+    }
+
+    private func sessionChanged(to sessionId: String, personProperties: [String: Any?]? = nil) -> Bool {
+        evaluator.onSessionChanged(sessionId: sessionId, personProperties: personProperties)
+    }
+
+    @Test("a session change re-checks the screen the app is already on")
+    func sessionChangeRechecksCurrentScreen() {
+        configure([urlOnlyCheckoutGroup()])
+        #expect(screen(sessionId: "session-A", name: "/checkout"))
+
+        #expect(!decide(sessionId: "session-B").shouldRecord)
+        #expect(sessionChanged(to: "session-B"))
+        #expect(decide(sessionId: "session-B").shouldRecord)
+    }
+
+    @Test("a session change on a non-matching screen keeps the group pending")
+    func sessionChangeOnNonMatchingScreenStaysPending() {
+        configure([urlOnlyCheckoutGroup()])
+        #expect(!screen(sessionId: "session-A", name: "/home"))
+
+        #expect(!sessionChanged(to: "session-B"))
+        let decision = decide(sessionId: "session-B")
+        #expect(!decision.shouldRecord)
+        #expect(decision.hasPendingGroups)
+    }
+
+    @Test("the remembered screen survives a reset")
+    func rememberedScreenSurvivesReset() {
+        configure([urlOnlyCheckoutGroup()])
+        #expect(screen(sessionId: "session-A", name: "/checkout"))
+
+        evaluator.reset()
+
+        #expect(sessionChanged(to: "session-B"))
+        #expect(decide(sessionId: "session-B").shouldRecord)
+    }
+
+    @Test("a session change to the active session leaves its activation alone")
+    func sessionChangeToActiveSessionDoesNothing() {
+        configure([group(id: "g1", conditions: eventLeg(["name": "purchase"]))])
+        #expect(onEvent(sessionId: "session-A", event: "purchase"))
+
+        #expect(!sessionChanged(to: "session-A"))
+        #expect(decide(sessionId: "session-A").shouldRecord)
+    }
+
+    @Test("a session change with no screen seen activates nothing")
+    func sessionChangeWithoutScreenActivatesNothing() {
+        configure([urlOnlyCheckoutGroup()])
+
+        #expect(!sessionChanged(to: "session-B"))
+        #expect(!decide(sessionId: "session-B").shouldRecord)
+    }
+
+    @Test("a session change applies group-level person property filters to the remembered screen")
+    func sessionChangeAppliesPersonPropertyFilters() {
+        configure([urlOnlyCheckoutGroup(properties: [["type": "person", "key": "plan", "value": "pro"]])])
+        #expect(!evaluator.onEvent(sessionId: "session-A", eventName: "$screen",
+                                   eventProperties: ["$screen_name": "/checkout"], personProperties: ["plan": "free"]))
+
+        #expect(!sessionChanged(to: "session-B", personProperties: ["plan": "free"]))
+        #expect(!decide(sessionId: "session-B").shouldRecord)
+
+        #expect(sessionChanged(to: "session-C", personProperties: ["plan": "pro"]))
+        #expect(decide(sessionId: "session-C").shouldRecord)
+    }
 }

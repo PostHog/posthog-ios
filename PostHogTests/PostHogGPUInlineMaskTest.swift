@@ -30,6 +30,26 @@
         override class var layerClass: AnyClass { CATransformLayer.self }
     }
 
+    /// Draws its text in `draw(_:)`, as React Native's `RCTParagraphTextView` does.
+    private final class TextDrawingView: UIView {
+        let text: String
+
+        init(frame: CGRect, text: String) {
+            self.text = text
+            super.init(frame: frame)
+            backgroundColor = .clear
+        }
+
+        @available(*, unavailable)
+        required init?(coder _: NSCoder) {
+            fatalError()
+        }
+
+        override func draw(_: CGRect) {
+            (text as NSString).draw(at: CGPoint(x: 2, y: 2), withAttributes: [.font: UIFont.boldSystemFont(ofSize: 22), .foregroundColor: UIColor.magenta])
+        }
+    }
+
     @Suite("Replay GPU inline masking", .serialized)
     @MainActor
     struct PostHogGPUInlineMaskTest: GPUCaptureTesting {
@@ -396,7 +416,7 @@
             fixture.window.addSubview(spilling)
             fixture.window.addSubview(container)
 
-            let pixels = try await expectFullyMasked(capture(fixture))
+            let pixels = try await expectFullyMasked(capture(fixture), keeping: [container])
             #expect(pixels.count(in: CGRect(x: 10, y: 100, width: 50, height: 60), where: { $0.red < 200 }) == 0)
         }
 
@@ -421,10 +441,146 @@
             }
             fixture.window.addSubview(container)
 
-            let pixels = try await expectFullyMasked(captureStars(fixture))
+            let blocked = [container, label, image, child]
+            let pixels = try await expectFullyMasked(captureStars(fixture, keeping: blocked), keeping: blocked)
             #expect(pixels.count(in: container.frame, where: Self.isBlack) == 180 * 260)
             #expect(pixels[11, 21] == RGBA(red: 0, green: 0, blue: 0, alpha: 255))
             #expect(pixels[100, 290] == .white)
+        }
+
+        enum NoCaptureText: String, CaseIterable {
+            case childLabel, childDrawnText
+            /// Painted over the view, not under it: React Native Fabric mounts the children of a view that forms no
+            /// stacking context (a plain styled `View`) as its siblings.
+            case siblingLabel, siblingFabricParagraph
+        }
+
+        @Test("Text in or over a ph-no-capture view is black with text masking off", arguments: NoCaptureText.allCases)
+        func noCaptureTextIsBlackWithTextMaskingOff(text placement: NoCaptureText) async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            fixture.config.maskAllTextInputs = false
+            fixture.config.maskAllImages = false
+            let container = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            container.backgroundColor = .green
+            container.layer.cornerRadius = 4
+            fixture.window.addSubview(container)
+            let inContainer = CGRect(x: 8, y: 8, width: 164, height: 44)
+            let overContainer = inContainer.offsetBy(dx: container.frame.minX, dy: container.frame.minY)
+            let text = "SECRET 42"
+            switch placement {
+            case .childLabel:
+                container.addSubview(secretLabel(inContainer, text: text))
+            case .childDrawnText:
+                container.addSubview(TextDrawingView(frame: inContainer, text: text))
+            case .siblingLabel:
+                fixture.window.addSubview(secretLabel(overContainer, text: text))
+            case .siblingFabricParagraph:
+                let paragraphClass = try #require(NSClassFromString("RCTParagraphComponentView") as? UIView.Type)
+                let paragraph = paragraphClass.init(frame: overContainer)
+                paragraph.addSubview(TextDrawingView(frame: paragraph.bounds, text: text))
+                fixture.window.addSubview(paragraph)
+            }
+            try #require(try await Pixels(capture(fixture).image).count(in: container.frame, where: Self.isMagenta) > 50)
+
+            container.accessibilityLabel = "ph-no-capture"
+            let masked = try await capture(fixture)
+            let pixels = try expectFullyMasked(masked, keeping: [container] + container.subviews)
+            #expect(masked.deferredMeasurements == 0, "no-capture rects come from the mirror, not from measuring the views")
+            #expect(pixels.count(where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: container.frame, where: Self.isBlack) == 180 * 60)
+        }
+
+        @Test("A ph-no-capture view with a rect-only region too keeps that region alone, not a second rect for its inline one")
+        func noCaptureViewWithRectOnlyRegionKeepsOneRect() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let view = noCaptureView(CGRect(x: 10, y: 20, width: 180, height: 60))
+            fixture.window.addSubview(view)
+            let frame = try #require(fixture.mirror.build(window: fixture.window, scale: 1))
+            defer { frame.release() }
+            let rect = view.toPresentationRect(fixture.window, outsets: view.drawnOutsets)
+            let regions = [PostHogReplayIntegration.MaskedRegion(view, rect: rect, inline: .owned),
+                           PostHogReplayIntegration.MaskedRegion(view, rect: rect, inline: .rectOnly)]
+
+            let remaining = fixture.mirror.maskInline(regions, in: frame, tag: fixture.integration.inlineMaskTag(view:layer:))
+            #expect(remaining.map(\.inline) == [.rectOnly])
+        }
+
+        @Test("A ph-no-capture view a smaller lens portal shows is black only inside the portal, not over what's past its edge")
+        func noCaptureViewInLensPortalStaysInsidePortal() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let bystander = UIView(frame: CGRect(x: 0, y: 150, width: 200, height: 100))
+            bystander.backgroundColor = .green
+            fixture.window.addSubview(bystander)
+            let source = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            source.addSubview(noCaptureView(source.bounds.insetBy(dx: 10, dy: 10)))
+            fixture.window.addSubview(source)
+            let portalRect = CGRect(x: 40, y: 180, width: 60, height: 40)
+            fixture.window.layer.addSublayer(try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false))
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(where: Self.isMagentaHue) == 0)
+            let blackOutsidePortal = pixels.count(in: bystander.frame, where: Self.isBlack) - pixels.count(in: portalRect, where: Self.isBlack)
+            #expect(blackOutsidePortal == 0, "\(blackOutsidePortal) black pixels outside the portal")
+        }
+
+        @Test("A ph-no-capture view its clipping ancestor cuts away is masked only where it shows, not at its measured rect",
+              arguments: [
+                  (y: 99.0, shadowed: false, rects: [CGRect(x: 10, y: 99, width: 180, height: 1)]),
+                  (y: 100.5, shadowed: false, rects: []),
+                  (y: 120.0, shadowed: true, rects: []),
+                  (y: 100.5, shadowed: true, rects: []),
+              ])
+        func clippedAwayNoCaptureViewKeepsNoRect(y: Double, shadowed: Bool, rects: [CGRect]) async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let bystander = UIView(frame: CGRect(x: 0, y: 100, width: 200, height: 100))
+            bystander.backgroundColor = .green
+            fixture.window.addSubview(bystander)
+            let clipper = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 100))
+            clipper.clipsToBounds = true
+            let card = noCaptureView(CGRect(x: 10, y: y, width: 180, height: 60))
+            if shadowed {
+                card.layer.shadowOpacity = 0.2
+                card.layer.shadowColor = UIColor.black.cgColor
+            }
+            clipper.addSubview(card)
+            fixture.window.addSubview(clipper)
+
+            let result = try await capture(fixture)
+            #expect(result.rectRegions == rects)
+            #expect(result.deferredMeasurements == 0)
+            #expect(try Pixels(result.image).count(in: bystander.frame, where: Self.isBlack) == 0)
+        }
+
+        @Test("A ph-no-capture view under a portal source the portal hides is masked only in the portal, whichever comes first",
+              arguments: [false, true])
+        func noCaptureViewUnderHiddenPortalSourceIsMaskedOnlyInPortal(portalAfterSource: Bool) async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let sourceBystander = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            sourceBystander.backgroundColor = .green
+            fixture.window.addSubview(sourceBystander)
+            let source = UIView(frame: sourceBystander.frame)
+            source.addSubview(noCaptureView(source.bounds.insetBy(dx: 10, dy: 10)))
+            fixture.window.addSubview(source)
+            let portalRect = CGRect(x: 40, y: 180, width: 60, height: 40)
+            let portal = try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false, hidesSource: true)
+            if portalAfterSource {
+                fixture.window.layer.addSublayer(portal)
+            } else {
+                fixture.window.layer.insertSublayer(portal, at: 0)
+            }
+
+            let result = try await capture(fixture)
+            let shownInPortal = CGRect(x: 50, y: 190, width: 50, height: 30)
+            #expect(result.rectRegions == [shownInPortal])
+            let pixels = try Pixels(result.image)
+            #expect(pixels.count(in: sourceBystander.frame, where: Self.isBlack) == 0)
+            #expect(pixels.count(in: portalRect, where: Self.isBlack) == Int(shownInPortal.width * shownInPortal.height))
+            #expect(pixels.count(where: Self.isMagentaHue) == 0)
         }
 
         @Test("A masked view whose layer mask is text, as in gradient text, is black over its bounds, not in the glyphs' shape",
@@ -447,8 +603,196 @@
             masked.mask = glyphs
             fixture.window.addSubview(masked)
 
-            let pixels = try await expectFullyMasked(capture(fixture))
+            let pixels = try await expectFullyMasked(capture(fixture), keeping: noCapture ? [masked] : [])
             #expect(pixels.count(in: frame, where: Self.isBlack) == Int(frame.width * frame.height))
+        }
+
+        @Test("A colour enclosing an extent behind a text-shaped layer mask is black under it, not in the glyphs' shape")
+        func enclosingColourWithTextShapedMaskIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let colour = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            colour.backgroundColor = .magenta
+            let glyphs = UILabel(frame: colour.bounds)
+            glyphs.text = "SSN 078-05-1120"
+            glyphs.font = .boldSystemFont(ofSize: 28)
+            colour.mask = glyphs
+            fixture.window.addSubview(colour)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 30, y: 30, width: 140, height: 40))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 140 * 40)
+        }
+
+        @Test("A colour behind an extent inside a container whose layer mask is text is black under it, not in the glyphs' shape")
+        func enclosingColourUnderAncestorTextShapedMaskIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let container = UIView(frame: CGRect(x: 10, y: 20, width: 180, height: 60))
+            let colour = UIView(frame: container.bounds)
+            colour.backgroundColor = .magenta
+            container.addSubview(colour)
+            let glyphs = UILabel(frame: container.bounds)
+            glyphs.text = "SSN 078-05-1120"
+            glyphs.font = .boldSystemFont(ofSize: 28)
+            container.mask = glyphs
+            fixture.window.addSubview(container)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 30, y: 30, width: 140, height: 40))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 140 * 40)
+            #expect(pixels.count(in: CGRect(x: 10, y: 20, width: 20, height: 60), where: Self.isMagentaHue) > 0)
+        }
+
+        @Test("A colour clipped by an ancestor to an extent's own rect is black under it, though it reaches past unclipped")
+        func colourClippedToExtentByAncestorIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let container = UIView(frame: CGRect(x: 30, y: 30, width: 140, height: 40))
+            container.clipsToBounds = true
+            let colour = UIView(frame: CGRect(x: -20, y: -10, width: 180, height: 60))
+            colour.backgroundColor = .magenta
+            container.addSubview(colour)
+            fixture.window.addSubview(container)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 30, y: 30, width: 140, height: 40))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 140 * 40)
+        }
+
+        /// Masks `extent` and expects no magenta in it and `black` (the extent by default) fully black. A shape that
+        /// doesn't fill the extent leaves the window's background around it, and a rotated one blends at its edges.
+        private func expectExtentBlack(_ fixture: GPUCaptureFixture, _ extent: CGRect, black: CGRect? = nil) async throws {
+            let reporter = PostHogMaskReporterUIView(frame: extent)
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            fixture.window.layoutIfNeeded()
+
+            let pixels = try await Pixels(capture(fixture).image)
+            #expect(pixels.count(in: extent, where: \.isMagenta) == 0)
+            let black = black ?? extent
+            #expect(pixels.count(in: black, where: Self.isBlack) == Int(black.width * black.height))
+        }
+
+        @Test("A colour running off the window edge is black under an extent that is only its visible part")
+        func colourClippedToExtentByWindowEdgeIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let band = UIView(frame: CGRect(x: -60, y: 200, width: 320, height: 60))
+            band.backgroundColor = .magenta
+            fixture.window.addSubview(band)
+
+            try await expectExtentBlack(fixture, CGRect(x: 0, y: 200, width: 200, height: 60))
+        }
+
+        @Test("A rotated thin bar across an extent is black under it, not kept as an enclosing background")
+        func rotatedBarAcrossExtentIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let bar = UIView(frame: CGRect(x: 0, y: 0, width: 140, height: 10))
+            bar.center = CGPoint(x: 100, y: 150)
+            bar.backgroundColor = .magenta
+            bar.transform = CGAffineTransform(rotationAngle: .pi / 4)
+            fixture.window.addSubview(bar)
+
+            try await expectExtentBlack(fixture, CGRect(x: 80, y: 130, width: 40, height: 40), black: CGRect(x: 98, y: 148, width: 4, height: 4))
+        }
+
+        @Test("A rotated view under an extent that is its unrotated frame is black under it")
+        func rotatedViewUnderUnrotatedFrameExtentIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let card = UIView(frame: CGRect(x: 50, y: 100, width: 100, height: 100))
+            card.backgroundColor = .magenta
+            card.transform = CGAffineTransform(rotationAngle: .pi / 9)
+            fixture.window.addSubview(card)
+
+            try await expectExtentBlack(fixture, CGRect(x: 50, y: 100, width: 100, height: 100), black: CGRect(x: 70, y: 120, width: 60, height: 60))
+        }
+
+        @Test("A pattern background enclosing an extent is black under it, as it can show the data")
+        func patternBackgroundEnclosingExtentIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let tile = try image(CGSize(width: 8, height: 8)) { context in
+                context.setFillColor(UIColor.magenta.cgColor)
+                context.fill(CGRect(x: 0, y: 0, width: 4, height: 8))
+                context.setFillColor(UIColor.white.cgColor)
+                context.fill(CGRect(x: 4, y: 0, width: 4, height: 8))
+            }
+            let field = UITextField(frame: CGRect(x: 10, y: 120, width: 180, height: 60))
+            field.text = "secret"
+            field.backgroundColor = UIColor(patternImage: tile)
+            fixture.window.addSubview(field)
+
+            try await expectExtentBlack(fixture, CGRect(x: 30, y: 130, width: 140, height: 40))
+        }
+
+        private static func signaturePath(in rect: CGRect) -> CGPath {
+            let path = CGMutablePath()
+            path.addRect(CGRect(x: rect.minX + 10, y: rect.minY + 10, width: 30, height: 8))
+            path.addEllipse(in: CGRect(x: rect.midX, y: rect.minY + 20, width: 30, height: 20))
+            return path
+        }
+
+        @Test("A view under a shape-path layer mask is black under its extent, not in the path's shape on a kept background")
+        func shapePathMaskedViewIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let view = UIView(frame: CGRect(x: 40, y: 120, width: 120, height: 60))
+            view.backgroundColor = .blue
+            let shape = CAShapeLayer()
+            shape.path = Self.signaturePath(in: view.bounds)
+            view.layer.mask = shape
+            fixture.window.addSubview(view)
+
+            try await expectExtentBlack(fixture, view.frame)
+        }
+
+        @Test("A coloured child under a container with a shape-path layer mask is black under the extent")
+        func shapePathMaskedContainerIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let container = UIView(frame: CGRect(x: 40, y: 220, width: 120, height: 60))
+            let child = UIView(frame: container.bounds)
+            child.backgroundColor = .blue
+            container.addSubview(child)
+            let shape = CAShapeLayer()
+            shape.path = Self.signaturePath(in: container.bounds)
+            container.layer.mask = shape
+            fixture.window.addSubview(container)
+
+            try await expectExtentBlack(fixture, container.frame)
+        }
+
+        @Test("Bars of different heights inside a masked chart are black under the extent, not drawn on the enclosing panel")
+        func barChartInsideEnclosingPanelIsBlack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let panel = UIView(frame: CGRect(x: 0, y: 100, width: 200, height: 150))
+            panel.backgroundColor = .systemTeal
+            fixture.window.addSubview(panel)
+            let chart = UIView(frame: CGRect(x: 30, y: 120, width: 140, height: 100))
+            for (position, height) in [20, 50, 80].enumerated() {
+                let bar = UIView(frame: CGRect(x: 10 + position * 40, y: 100 - height, width: 30, height: height))
+                bar.backgroundColor = .blue
+                chart.addSubview(bar)
+            }
+            fixture.window.addSubview(chart)
+
+            try await expectExtentBlack(fixture, chart.frame)
         }
 
         @Test("An auto-masked view keeps its chrome; the same view under ph-no-capture doesn't")
@@ -468,7 +812,7 @@
             fixture.window.addSubview(auto)
             fixture.window.addSubview(tagged)
 
-            let pixels = try await expectFullyMasked(capture(fixture))
+            let pixels = try await expectFullyMasked(capture(fixture), keeping: [tagged])
             let isOrange = { (pixel: RGBA) in pixel.red > 240 && (110 ... 150).contains(pixel.green) && pixel.blue < 20 }
             #expect(pixels.count(in: auto.frame, where: isOrange) > 1000)
             #expect(pixels.count(in: auto.frame.insetBy(dx: 6, dy: 6), where: Self.isBlack) == 148 * 88)
@@ -507,8 +851,8 @@
             #expect(result.rectRegions.isEmpty)
             let pixels = try Pixels(result.image)
             #expect(pixels.count(in: visible.frame, where: Self.isMagenta) > 50)
-            // The window's white background under the extent.
-            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 100 * 60)
+            // The window's white background encloses the extent, so it's kept.
+            #expect(pixels.count(in: reporter.frame) { $0.red > 230 && $0.green > 230 && $0.blue > 230 } == 100 * 60)
         }
 
         @Test("A shape drawn past its zero-size bounds under a postHogMask extent is masked, with no rect for the reporter")
@@ -583,7 +927,31 @@
             #expect(result.rectRegions.isEmpty)
             let pixels = try Pixels(result.image)
             #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
-            #expect(pixels.count(in: reporter.frame, where: Self.isBlack) == 80 * 100)
+            // Half-transparent black over the window's white, which encloses the extent and is kept: one even grey.
+            #expect(pixels.count(in: reporter.frame) { abs(Int($0.red) - 128) < 12 && $0.red == $0.green && $0.green == $0.blue } == 80 * 100)
+        }
+
+        @Test("A bare text layer under a postHogMask extent keeps no glyphs, as bars or as stars, at any contents scale",
+              arguments: [CGFloat(1), 3])
+        func bareTextLayerUnderExtentIsMasked(contentsScale: CGFloat) async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let host = UIView(frame: CGRect(x: 0, y: 100, width: 200, height: 150))
+            fixture.window.addSubview(host)
+            let text = CATextLayer()
+            text.frame = CGRect(x: 30, y: 20, width: 140, height: 40)
+            text.string = "Secret value 42"
+            text.fontSize = 22
+            text.contentsScale = contentsScale
+            text.foregroundColor = UIColor.magenta.cgColor
+            host.layer.addSublayer(text)
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 30, y: 120, width: 140, height: 100))
+            fixture.window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+
+            let pixels = try await Pixels(captureStars(fixture).image)
+            #expect(pixels.count(in: reporter.frame, where: Self.isMagentaHue) == 0)
+            #expect(pixels.count(in: reporter.frame, where: Self.isStar) > 100)
         }
 
         @Test("A shadow cast into a postHogMask extent from outside it doesn't survive, whether its own content or a sublayer's casts it",
@@ -683,7 +1051,7 @@
             let portalRect = CGRect(x: 20, y: 180, width: 160, height: 60)
             fixture.window.layer.addSublayer(try makePortal(showing: source.layer, frame: portalRect, matchesPosition: false, matchesTransform: false))
 
-            let pixels = try await expectFullyMasked(capture(fixture))
+            let pixels = try await expectFullyMasked(capture(fixture), keeping: [container])
             #expect(pixels.count(in: portalRect, where: Self.isBlack) == 160 * 60)
         }
 
@@ -988,6 +1356,186 @@
             #expect(mask.textDrawsForTesting == 1)
         }
 
+        /// A screen with one label, captured until its text is cached, so the next screen change is the only new text.
+        private func showScreen(_ fixture: GPUCaptureFixture) async throws -> UIViewController {
+            let screen = UIViewController()
+            screen.view.frame = fixture.window.bounds
+            screen.view.addSubview(secretLabel(CGRect(x: 10, y: 10, width: 180, height: 30), text: "Background"))
+            fixture.window.rootViewController = screen
+            try await expectFullyMasked(captureStars(fixture))
+            return screen
+        }
+
+        /// A new screen in place of the last, as an alert or sheet presents (the test bundle has no scene to present
+        /// in): the cached label behind it, and `count` labels of new text.
+        private func showOverlay(_ fixture: GPUCaptureFixture, labels count: Int) -> (UIViewController, [UILabel]) {
+            let overlay = UIViewController()
+            overlay.view.frame = fixture.window.bounds
+            overlay.view.addSubview(secretLabel(CGRect(x: 10, y: 10, width: 180, height: 30), text: "Background"))
+            // Lengths differ, so each masks to its own `*` and is drawn on its own.
+            let labels = (0 ..< count).map { secretLabel(CGRect(x: 10, y: 60 + CGFloat($0) * 50, width: 180, height: 40),
+                                                         text: String(repeating: "x", count: 3 + $0 * 2)) }
+            labels.forEach(overlay.view.addSubview)
+            fixture.window.rootViewController = overlay
+            return (overlay, labels)
+        }
+
+        @Test("Newly presented text is drawn as `*` on main on its first capture, with no bars")
+        func presentedTextIsStarredOnFirstCapture() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mask = fixture.mask
+            // A slow runner could spend the production budget before the third label.
+            mask.presentedTextBudget = .infinity
+            let previous = try await showScreen(fixture)
+            defer { withExtendedLifetime(previous) {} }
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            let bars = mask.textBarsForTesting, onMain = mask.textDrawsOnMainForTesting
+
+            let (overlay, labels) = showOverlay(fixture, labels: 3)
+            let pixels = try expectFullyMasked(await capture(fixture))
+            #expect(mask.textBarsForTesting == bars)
+            #expect(mask.textDrawsOnMainForTesting == onMain + 3)
+            for label in labels {
+                #expect((30 ..< 1500).contains(pixels.count(in: label.frame, where: Self.isStar)))
+            }
+
+            // Drawn whole, the window closes: new text on the same screen takes the off-main path.
+            let added = secretLabel(CGRect(x: 10, y: 220, width: 180, height: 40), text: "Arrived later")
+            overlay.view.addSubview(added)
+            try expectFullyMasked(await capture(fixture))
+            mask.waitForTextDrawsForTesting()
+            #expect(mask.textBarsForTesting == bars + 1)
+            #expect(mask.textDrawsOnMainForTesting == onMain + 3)
+        }
+
+        @Test("A new screen with nothing to mask closes the window, so text that appears on it later is drawn off main")
+        func emptyPresentedScreenClosesWindow() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mask = fixture.mask
+            let previous = try await showScreen(fixture)
+            defer { withExtendedLifetime(previous) {} }
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            let empty = UIViewController()
+            empty.view.frame = fixture.window.bounds
+            fixture.window.rootViewController = empty
+            try expectFullyMasked(await capture(fixture))
+            let bars = mask.textBarsForTesting, onMain = mask.textDrawsOnMainForTesting
+
+            empty.view.addSubview(secretLabel(CGRect(x: 10, y: 60, width: 180, height: 40), text: "Loaded later"))
+            try expectFullyMasked(await capture(fixture))
+            mask.waitForTextDrawsForTesting()
+            #expect(mask.textBarsForTesting == bars + 1)
+            #expect(mask.textDrawsOnMainForTesting == onMain)
+        }
+
+        @Test("Scrolling a container between one and two visible children isn't a new screen, so its text is drawn off main")
+        func containerScrollIsNotANewScreen() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mask = fixture.mask
+            let container = UIViewController()
+            container.view.frame = fixture.window.bounds
+            let scroll = UIScrollView(frame: container.view.bounds)
+            scroll.contentSize = CGSize(width: 200, height: 600)
+            container.view.addSubview(scroll)
+            let pages = (0 ..< 2).map { index in
+                let page = UIViewController()
+                container.addChild(page)
+                page.view.frame = CGRect(x: 0, y: CGFloat(index) * 300, width: 200, height: 300)
+                page.view.addSubview(secretLabel(CGRect(x: 10, y: 10, width: 180, height: 30), text: "Page \(index)"))
+                scroll.addSubview(page.view)
+                page.didMove(toParent: container)
+                return page
+            }
+            fixture.window.rootViewController = container
+            try await expectFullyMasked(captureStars(fixture))
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            let bars = mask.textBarsForTesting, onMain = mask.textDrawsOnMainForTesting
+
+            // Both pages visible: the topmost view controller moves from the first page to the container.
+            scroll.contentOffset = CGPoint(x: 0, y: 150)
+            pages[0].view.addSubview(secretLabel(CGRect(x: 10, y: 200, width: 180, height: 30), text: "Scrolled in"))
+            try expectFullyMasked(await capture(fixture))
+            mask.waitForTextDrawsForTesting()
+            #expect(mask.textBarsForTesting == bars + 1)
+            #expect(mask.textDrawsOnMainForTesting == onMain)
+        }
+
+        @Test("New text on an unchanged screen, as scrolling brings in, keeps its bars and is drawn off main")
+        func unchangedScreenTextIsDrawnOffMain() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mask = fixture.mask
+            let screen = try await showScreen(fixture)
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            let bars = mask.textBarsForTesting, draws = mask.textDrawsForTesting, onMain = mask.textDrawsOnMainForTesting
+
+            screen.view.addSubview(secretLabel(CGRect(x: 10, y: 60, width: 180, height: 40), text: "Scrolled in"))
+            try expectFullyMasked(await capture(fixture))
+            mask.waitForTextDrawsForTesting()
+            #expect(mask.textBarsForTesting == bars + 1)
+            #expect(mask.textDrawsForTesting == draws + 1)
+            #expect(mask.textDrawsOnMainForTesting == onMain)
+        }
+
+        @Test("Presented text past the main-thread draw budget keeps its bars and is drawn off main")
+        func presentedTextPastBudgetFallsBack() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mask = fixture.mask
+            let previous = try await showScreen(fixture)
+            defer { withExtendedLifetime(previous) {} }
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            // Spent by the first text, whatever it costs.
+            mask.presentedTextBudget = 1e-9
+            let bars = mask.textBarsForTesting, draws = mask.textDrawsForTesting, onMain = mask.textDrawsOnMainForTesting
+
+            _ = showOverlay(fixture, labels: 3)
+            try expectFullyMasked(await capture(fixture))
+            mask.waitForTextDrawsForTesting()
+            #expect(mask.textDrawsOnMainForTesting == onMain + 1)
+            #expect(mask.textBarsForTesting == bars + 2)
+            #expect(mask.textDrawsForTesting == draws + 3)
+        }
+
+        @Test("Presented text keeps its main-thread budget for up to presentedTextCaptures captures, then falls back off main")
+        func presentedTextWindowExpiresAfterCap() async throws {
+            let fixture = try await makeFixture()
+            defer { fixture.close() }
+            let mask = fixture.mask
+            let previous = try await showScreen(fixture)
+            defer { withExtendedLifetime(previous) {} }
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            // Spent by the first text each capture, and nothing drawn off main until the window has closed.
+            mask.presentedTextBudget = 1e-9
+            mask.textBudget = 0
+            let draws = mask.textDrawsForTesting, onMain = mask.textDrawsOnMainForTesting
+
+            _ = showOverlay(fixture, labels: PostHogInlineMask.presentedTextCaptures + 1)
+            for step in 1 ... PostHogInlineMask.presentedTextCaptures {
+                try expectFullyMasked(await capture(fixture))
+                #expect(mask.textDrawsOnMainForTesting == onMain + step)
+            }
+
+            try expectFullyMasked(await capture(fixture))
+            #expect(mask.textDrawsOnMainForTesting == onMain + PostHogInlineMask.presentedTextCaptures)
+            #expect(mask.textDrawsForTesting == draws + PostHogInlineMask.presentedTextCaptures)
+
+            mask.textBudget = .infinity
+            try expectFullyMasked(await capture(fixture))
+            mask.waitForTextDrawsForTesting()
+            #expect(mask.textDrawsOnMainForTesting == onMain + PostHogInlineMask.presentedTextCaptures)
+            #expect(mask.textDrawsForTesting == draws + PostHogInlineMask.presentedTextCaptures + 1)
+        }
+
         @Test("With GPU capture off, the default path collects the same rects and never builds a mirror or copy map")
         func defaultPathIsUnchanged() async throws {
             let mirror = try makeMirror()
@@ -1112,6 +1660,48 @@
             }
             print("INLINE-COST turn1 ms median: walk+freeze \(median(off)), walk+inline+freeze cold \(median(cold)), warm \(median(warm))")
             print("INLINE-COST turn1 ms min: walk+freeze \(off.min() ?? 0), walk+inline+freeze cold \(cold.min() ?? 0), warm \(warm.min() ?? 0)")
+        }
+
+        @Test("Cost of ph-no-capture cards with text painted over them at 2x (prints, doesn't assert)")
+        func noCaptureCardsCost() async throws {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+            window.backgroundColor = .white
+            window.isHidden = false
+            let fixture = try await makeFixture(window: window)
+            defer { fixture.close() }
+            fixture.config.maskAllTextInputs = false
+            fixture.config.maskAllImages = false
+            await prewarm(fixture.mirror, for: window, scale: 2)
+            let image = try photo(CGSize(width: 40, height: 40))
+            // A card's own subviews are blocked as descendants; its text is a sibling over it, as Fabric mounts it.
+            for index in 0 ..< 12 {
+                let card = UIView(frame: CGRect(x: 16, y: 40 + CGFloat(index) * 68, width: 370, height: 60))
+                card.backgroundColor = .systemGray5
+                card.accessibilityLabel = "ph-no-capture"
+                for column in 0 ..< 6 {
+                    let child = column.isMultiple(of: 2) ? UIImageView(image: image) : UIView()
+                    child.frame = CGRect(x: 8 + CGFloat(column) * 60, y: 10, width: 40, height: 40)
+                    child.backgroundColor = .systemTeal
+                    card.addSubview(child)
+                }
+                window.addSubview(card)
+                let label = UILabel(frame: card.frame.insetBy(dx: 12, dy: 18))
+                label.text = "Card \(index): Jane Doe, account \(4000 + index)"
+                window.addSubview(label)
+            }
+            func median(_ values: [Double]) -> Double {
+                values.sorted()[values.count / 2]
+            }
+            var turn1: [Double] = [], total: [Double] = [], rects = 0
+            for _ in 0 ..< 31 {
+                let start = CACurrentMediaTime()
+                let result = try await capture(fixture, scale: 2)
+                total.append((CACurrentMediaTime() - start) * 1000)
+                turn1.append(result.turn1Milliseconds)
+                rects = result.rectRegions.count
+            }
+            print("NOCAPTURE-COST rects \(rects), median ms: turn1 \(median(turn1)), capture through encode \(median(total)); "
+                + "min turn1 \(turn1.min() ?? 0)")
         }
 
         // MARK: - ph-no-capture under masked views, and run styling

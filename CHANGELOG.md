@@ -1,5 +1,25 @@
 ## Next
 
+## 4.0.5
+
+### Patch Changes
+
+- 7db331f: Keep the background colour of enclosing views under a `postHogMask()` region and draw SwiftUI text `*` rows in grey when `captureMethod` is `.gpu`, so masked text no longer uploads as a solid black box; colours belonging to the masked view itself stay black.
+
+## 4.0.4
+
+### Patch Changes
+
+- f10aeb4: Fix GPU session replay capture showing content drawn over a `ph-no-capture` view, such as the text of a React Native `View` tagged `ph-no-capture`, which is now a solid black block as on the default capture path.
+- 4ad26ec: Mask the text of a `CATextLayer` under a `postHogMask()` extent with `captureMethod = .gpu`. Its glyphs were uploaded readable.
+
+## 4.0.3
+
+### Patch Changes
+
+- 9e2ba68: Draw masked text in a newly presented alert, sheet or screen as `*` on its first capture with `captureMethod = .gpu`, instead of showing placeholder bars for a few seconds.
+- 370574f: Drop the `$sdk_debug_replay_*` and `$sdk_debug_session_start` keys from events while session replay is off locally or remotely; `$recording_status` stays
+
 ## 4.0.2
 
 ### Patch Changes

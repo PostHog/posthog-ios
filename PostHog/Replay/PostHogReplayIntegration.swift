@@ -31,6 +31,9 @@
         // Guarded by `bufferingLock`.
         private var startedWithAutomaticDisabled: Bool = false
 
+        // Set by an explicit `stop()`; cleared by an explicit `start()` or once recording starts. Guarded by `bufferingLock`.
+        private var explicitlyStopped: Bool = false
+
         /// Last reported status handed to the crash context, so a reload that moved nothing doesn't
         /// rebuild the whole snapshot. Guards only itself.
         private let statusNotifyLock = NSLock()
@@ -270,10 +273,19 @@
         /// instead, so only an explicit request can establish manual-start provenance.
         func start() {
             // Record the intent before the gates below: the event-trigger gate can defer the actual start.
-            if let config, !config.sessionReplay {
-                bufferingLock.withLock { startedWithAutomaticDisabled = true }
+            let manualStart = config.map { !$0.sessionReplay } ?? false
+            bufferingLock.withLock {
+                if manualStart { startedWithAutomaticDisabled = true }
+                explicitlyStopped = false
             }
             startRecording()
+            notifyRecordingStatusChanged()
+        }
+
+        /// A start request clears the explicit stop even when a gate then refuses it.
+        func clearExplicitStop() {
+            bufferingLock.withLock { explicitlyStopped = false }
+            notifyRecordingStatusChanged()
         }
 
         /// `config.sessionReplay` controls automatic starts; a recording explicitly started while it was
@@ -294,6 +306,7 @@
             let claimed = bufferingLock.withLock { () -> Bool in
                 guard !isEnabled, isAutomaticStartPermittedLocked(sessionReplay: sessionReplay) else { return false }
                 isEnabled = true
+                explicitlyStopped = false
                 hasPassedMinimumDuration = false
                 awaitingFirstRemoteConfig = awaiting
                 return true
@@ -406,8 +419,12 @@
         /// forgets any manual start, so with `config.sessionReplay == false` nothing restarts until the app
         /// calls `start()` again. Internal stops call `stopRecording()` so a manual recording can resume.
         func stop() {
-            bufferingLock.withLock { startedWithAutomaticDisabled = false }
+            bufferingLock.withLock {
+                startedWithAutomaticDisabled = false
+                explicitlyStopped = true
+            }
             stopRecording()
+            notifyRecordingStatusChanged()
         }
 
         /// Note: This does not clear remoteConfigLoadedToken or eventCapturedToken as those are managed by install/uninstall.
@@ -440,6 +457,23 @@
 
         func isActive() -> Bool {
             bufferingLock.withLock { isEnabled }
+        }
+
+        /// Replay is intentionally off, locally (not installed, explicitly stopped, or automatic replay
+        /// disabled with no manual start) or remotely. Not a `$recording_status` check: sampled-out and
+        /// trigger-pending sessions also report `disabled` but keep their diagnostics.
+        var isReplayOff: Bool {
+            guard let postHog else { return true }
+            // Read before `bufferingLock`, see isAutomaticStartPermittedLocked.
+            let sessionReplay = config?.sessionReplay ?? false
+            let (enabled, locallyOff) = bufferingLock.withLock {
+                (isEnabled, explicitlyStopped || (!sessionReplay && !startedWithAutomaticDisabled))
+            }
+            // A running recorder is never off, so `disabled` never contradicts isSessionReplayActive().
+            // Running means recording, not just enabled: the first `/config` leaves a remotely-off
+            // recorder enabled with the capturer gated on the flag.
+            if enabled, postHog.remoteConfig?.isSessionReplayFlagActive() ?? false { return false }
+            return locallyOff || (postHog.remoteConfig?.isSessionRecordingRemotelyDisabled() ?? false)
         }
 
         private func resetViews() {
@@ -1848,6 +1882,14 @@
         /// buffering fields are read in one `bufferingLock` acquisition so a concurrent startRecording()/stopRecording()
         /// can't tear them across keys on the same event.
         func debugProperties() -> [String: Any] {
+            debugSnapshot().properties
+        }
+
+        /// The off decision and the properties from one `isReplayOff` read, so a concurrent stop can't
+        /// pair a full bundle with "off" or an off-shape map with "on".
+        func debugSnapshot() -> (isReplayOff: Bool, properties: [String: Any]) {
+            guard !isReplayOff else { return (true, ["$recording_status": "disabled"]) }
+
             let (enabled, awaitingConfig, passedMinimumDuration, minimumDuration) = bufferingLock.withLock {
                 (isEnabled, awaitingFirstRemoteConfig, hasPassedMinimumDuration, cachedMinimumDuration)
             }
@@ -1905,7 +1947,7 @@
                 props["$sdk_debug_replay_pending_trigger_conditions"] = pendingConditions
             }
 
-            return props
+            return (false, props)
         }
     }
 
@@ -2455,6 +2497,7 @@
                     return .unsettled(frame)
                 }
                 if leftOutCover(of: frame, in: window) { return .fallback(frame) }
+                mirror.inlineMask.noteScreen(UIViewController.ph_topViewController(base: window.rootViewController) ?? window)
                 let remaining = mirror.maskInline(regions, in: frame, tag: inlineMaskTag(view:layer:))
                 let remainingRects = remaining.map(\.rect)
                 frame.freeze()
@@ -2774,17 +2817,21 @@
                 let image: UIImage
                 let rectRegions: [CGRect]
                 let inlineRegionCount: Int
+                /// Deferred region rects the mask walk's turn read, each a measurement of the view on main.
+                let deferredMeasurements: Int
                 let turn1Milliseconds: Double
                 let webpBytes: Int
             }
 
-            private static func result(encoding wireframe: RRScreenshotFrame, inlineRegionCount: Int, turn1Milliseconds: Double) -> MaskCaptureForTesting? {
+            private static func result(encoding wireframe: RRScreenshotFrame, inlineRegionCount: Int, deferredMeasurements: Int = 0,
+                                       turn1Milliseconds: Double) -> MaskCaptureForTesting?
+            {
                 let rects = wireframe.maskableWidgets ?? []
                 guard let (image, base64) = wireframe.encodeImage(), let base64,
                       let data = Data(base64Encoded: base64.components(separatedBy: ",").last ?? "")
                 else { return nil }
                 return MaskCaptureForTesting(image: image, rectRegions: rects, inlineRegionCount: inlineRegionCount,
-                                             turn1Milliseconds: turn1Milliseconds, webpBytes: data.count)
+                                             deferredMeasurements: deferredMeasurements, turn1Milliseconds: turn1Milliseconds, webpBytes: data.count)
             }
 
             /// The settled path as production runs it (rect collection, toImage, maskImage), then the upload's WebP encode.
@@ -2801,7 +2848,9 @@
                                           completion: @escaping (MaskCaptureForTesting?) -> Void)
             {
                 let start = CACurrentMediaTime()
+                let measuredBefore = MaskedRegion.deferredMeasurementsForTesting
                 let mirrored = mirrorAndMask(window, mirror: mirror, scale: scale)
+                let deferredMeasurements = MaskedRegion.deferredMeasurementsForTesting - measuredBefore
                 let milliseconds = (CACurrentMediaTime() - start) * 1000
                 guard case let .frozen(frame, wireframe, _) = mirrored else {
                     switch mirrored {
@@ -2822,7 +2871,8 @@
                         var result: MaskCaptureForTesting?
                         if let image {
                             wireframe.image = Self.screenshot(image, of: frame)
-                            result = Self.result(encoding: wireframe, inlineRegionCount: inlineCount, turn1Milliseconds: milliseconds)
+                            result = Self.result(encoding: wireframe, inlineRegionCount: inlineCount, deferredMeasurements: deferredMeasurements,
+                                                 turn1Milliseconds: milliseconds)
                         }
                         DispatchQueue.main.async {
                             frame.release()

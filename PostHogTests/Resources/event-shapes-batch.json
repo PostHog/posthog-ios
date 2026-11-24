@@ -92,7 +92,6 @@
           "$os_name" : "<environment-string>",
           "$os_version" : "<environment-string>",
           "$recording_status" : "disabled",
-          "$sdk_debug_session_start" : "<timestamp-ms>",
           "$set" : {
             "email" : "person@example.com"
           },

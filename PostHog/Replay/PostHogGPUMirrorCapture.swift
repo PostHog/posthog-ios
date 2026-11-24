@@ -539,7 +539,10 @@
 
             if portal.value(forKey: "hidesSourceLayer") as? Bool == true {
                 walk.hiddenSources.insert(id)
-                walk.viewCopies[id]?.isHidden = true
+                if let copy = walk.viewCopies[id] {
+                    copy.isHidden = true
+                    walk.copies.recordHiddenByPortal(copy)
+                }
             }
             switch placement {
             case let .inPlace(toPortal):

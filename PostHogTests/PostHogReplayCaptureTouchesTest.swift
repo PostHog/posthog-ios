@@ -1,6 +1,6 @@
 #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
     import Foundation
-    @testable import PostHog
+    @_spi(PostHogInternal) @testable import PostHog
     import Testing
     import UIKit
 
@@ -297,6 +297,88 @@
             integration.handleApplicationEvent(event: TouchEvent(location: CGPoint(x: 100, y: 120)), date: Date(), window: window)
             await drainReplayQueue()
             #expect(snapshots.touches.count == 2)
+        }
+
+        /// Sends a touch whose queued block only runs after `change`.
+        private func touchLate(
+            _ integration: PostHogReplayIntegration,
+            at date: Date = Date(),
+            then change: () -> Void
+        ) {
+            withReplayQueueHeld {
+                integration.handleApplicationEvent(event: TouchEvent(), date: date, window: UIWindow())
+                change()
+            }
+        }
+
+        /// The session of each event that carries a touch.
+        private func touchSessions(in snapshots: ReplaySnapshots) -> [String?] {
+            snapshots.posts
+                .filter { post in post.data.contains { $0["type"] as? Int == 3 } }
+                .map(\.sessionId)
+        }
+
+        @Test("A touch whose block runs in the session it happened in is sent")
+        func sameSessionTouchIsSent() throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let session = try #require(sut.sessionManager.getSessionId(readOnly: true))
+
+            touchLate(integration) {}
+
+            #expect(touchSessions(in: snapshots) == [session])
+        }
+
+        @Test("A touch after the inactivity timeout starts a new session and is sent with it")
+        func touchAfterTimeoutIsSentWithNewSession() throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let previous = try #require(sut.sessionManager.getSessionId(readOnly: true))
+
+            touchLate(integration, at: Date().addingTimeInterval(60 * 60)) {}
+
+            let current = try #require(sut.sessionManager.getSessionId(readOnly: true))
+            #expect(current != previous)
+            #expect(touchSessions(in: snapshots) == [current])
+        }
+
+        @Test("A touch whose block runs in a later session is dropped")
+        func laterSessionTouchIsDropped() throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+            let captured = try #require(sut.sessionManager.getSessionId(readOnly: true))
+
+            touchLate(integration) {
+                sut.startSession()
+            }
+
+            #expect(sut.sessionManager.getSessionId(readOnly: true) != captured)
+            #expect(touchSessions(in: snapshots).isEmpty)
+        }
+
+        @Test("A touch whose block runs after the session ended is dropped and creates no session")
+        func endedSessionTouchIsDropped() throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+
+            touchLate(integration) {
+                sut.endSession()
+            }
+
+            #expect(sut.sessionManager.getSessionId(readOnly: true) == nil)
+            #expect(touchSessions(in: snapshots).isEmpty)
+        }
+
+        @Test("A touch whose block runs after replay stopped is dropped")
+        func stoppedReplayTouchIsDropped() throws {
+            let (sut, integration, snapshots) = try makeSut()
+            defer { sut.close() }
+
+            touchLate(integration) {
+                sut.stopSessionRecording()
+            }
+
+            #expect(touchSessions(in: snapshots).isEmpty)
         }
 
         @Test("Initially disabled touch capture does not even read coordinates")

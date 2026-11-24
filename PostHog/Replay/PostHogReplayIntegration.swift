@@ -744,14 +744,15 @@
             // - these objects may be released or erased by the system if accessed asynchronously, resulting in invalid/zeroed-out touch coordinates
             let touchInfo = touches.compactMap { recordableTouch($0, in: window) }
 
-            PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
-                // always make sure we have a fresh session id as early as possible
-                guard let sessionId = postHog?.sessionManager.getSessionId(at: date) else {
-                    return
-                }
+            // A touch is user activity, so this read can start a new session. The touch belongs to
+            // that session, and the block below can run much later.
+            guard let sessionId = postHog.sessionManager.getSessionId(at: date) else {
+                return
+            }
 
+            PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
                 // captured weakly since integration may have uninstalled by now
-                guard let postHog else { return }
+                guard let postHog, postHog.isRecordingReplay(in: sessionId) else { return }
 
                 var snapshotsData: [Any] = []
                 for touch in touchInfo {
@@ -785,7 +786,7 @@
             }
         }
 
-        /// `sessionId` is the session the frame was captured in, for a caller that captured it before this call.
+        /// `sessionId` is the session the frame was captured in. Defaults to the current one.
         func captureSnapshot(
             _ wireframe: RRScreenshotFrame,
             window: UIWindow,
@@ -798,7 +799,6 @@
         ) {
             let timestamp = timestampDate.toMillis()
 
-            // A frame belongs to the session it was captured in, and the block below can run much later.
             guard let sessionId = capturedSessionId ?? postHog.sessionManager.getSessionId(readOnly: true), !sessionId.isEmpty else {
                 return
             }
@@ -820,9 +820,7 @@
                 }
 
                 // Read-only first: between endSession() and startSession() the read below would create a session.
-                guard postHog.isSessionReplayActive(),
-                      postHog.sessionManager.getSessionId(readOnly: true) == sessionId
-                else {
+                guard postHog.isRecordingReplay(in: sessionId) else {
                     return
                 }
 
@@ -1750,6 +1748,13 @@
             if !source.hasInPlaceCopies, over.contains(where: { $0.inline == .extent && !owners.contains($0.owner) }) { return [] }
             owners.formUnion(over.map(\.owner))
             return owners.isEmpty ? nil : owners
+        }
+    }
+
+    private extension PostHogSDK {
+        /// Whether replay is still recording `sessionId`. Never creates or rotates a session.
+        func isRecordingReplay(in sessionId: String) -> Bool {
+            isSessionReplayActive() && sessionManager.getSessionId(readOnly: true) == sessionId
         }
     }
 

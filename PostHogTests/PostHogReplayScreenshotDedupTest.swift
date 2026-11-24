@@ -458,7 +458,6 @@
     @MainActor
     struct PostHogReplayFrameSessionTests {
         private let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
-        private let queue = PostHogReplayIntegration.dispatchQueue
 
         private func capture(
             _ text: String,
@@ -487,11 +486,10 @@
             sut: PostHogSDK,
             then change: () -> Void
         ) {
-            queue.suspend()
-            capture(text, with: integration, sut: sut)
-            change()
-            queue.resume()
-            queue.sync {}
+            withReplayQueueHeld {
+                capture(text, with: integration, sut: sut)
+                change()
+            }
         }
 
         /// The session and snapshot types of each event that carries the frame `text`.
@@ -540,8 +538,9 @@
             let captured = try #require(sut.sessionManager.getSessionId(readOnly: true))
             sut.startSession()
 
-            capture("handed over late", with: integration, sut: sut, capturedIn: captured)
-            queue.sync {}
+            withReplayQueueHeld {
+                capture("handed over late", with: integration, sut: sut, capturedIn: captured)
+            }
 
             #expect(posts(of: "handed over late", in: snapshots).isEmpty)
         }

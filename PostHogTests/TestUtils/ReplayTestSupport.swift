@@ -96,6 +96,16 @@
         await drainReplayQueue()
     }
 
+    /// Runs `body` while the replay queue is held, then waits for the work it queued.
+    @MainActor
+    func withReplayQueueHeld(_ body: () -> Void) {
+        let queue = PostHogReplayIntegration.dispatchQueue
+        queue.suspend()
+        body()
+        queue.resume()
+        queue.sync {}
+    }
+
     /// Waits for work already queued on the replay queue, such as snapshot serialization.
     func drainReplayQueue() async {
         await withCheckedContinuation { continuation in

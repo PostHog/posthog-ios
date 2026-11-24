@@ -556,13 +556,22 @@
             #expect(snapshots.metaHrefs == ["Home"])
         }
 
+        @Test("a new episode clears the stored screen name, so returning to it after a nil opening frame re-sends meta")
+        func episodeFirstFrameClearsStoredScreenName() async throws {
+            let snapshots = try await sendFrames([(nil, "Home", "a"), (nil, nil, "b"), (nil, "Home", "c")], episodeStarts: [1])
+
+            #expect(snapshots.screenshots.count == 3)
+            #expect(snapshots.metaHrefs == ["Home", nil, "Home"])
+        }
+
         /// Sends screenshot frames of (window size, defaulting to the window's; screen name; image) and returns what was captured.
-        private func sendFrames(_ frames: [(CGSize?, String?, String)]) async throws -> ReplaySnapshots {
+        /// Frames whose index is in `episodeStarts` open a new bridge episode.
+        private func sendFrames(_ frames: [(CGSize?, String?, String)], episodeStarts: Set<Int> = []) async throws -> ReplaySnapshots {
             let (sut, integration, snapshots) = try makeScreenshotReplaySut()
             defer { sut.close() }
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
 
-            for (size, screenName, image) in frames {
+            for (index, (size, screenName, image)) in frames.enumerated() {
                 let wireframe = RRScreenshotFrame()
                 wireframe.type = "screenshot"
                 wireframe.base64 = image
@@ -572,7 +581,8 @@
                     windowSize: size ?? window.bounds.size,
                     screenName: screenName,
                     postHog: sut,
-                    timestampDate: Date()
+                    timestampDate: Date(),
+                    episodeFirstFrame: episodeStarts.contains(index)
                 )
                 await drainReplayQueue()
             }

@@ -85,23 +85,34 @@ class PostHogReplayQueue {
     }
 
     /// Migrates all buffered items to the inner (real) replay queue.
-    /// Both on-disk files and in-memory items are transferred.
+    /// Both on-disk files and in-memory items are transferred. The items are taken now, so a
+    /// later `clearBuffer()` can't discard them and a snapshot added after this call stays buffered.
     ///
-    /// If called from the main thread, migration is offloaded to a utility queue
-    /// to avoid blocking rendering. On background threads migration executes inline.
+    /// If called from the main thread, the files are moved on a utility queue
+    /// to avoid blocking rendering. On background threads they are moved inline.
     func migrateBufferToQueue() {
-        performBufferOperation { [weak self] in
-            self?.migrateBufferToQueueNow()
+        let batch = bufferQueue.removeAll()
+        guard !batch.isEmpty else {
+            hedgeLog("No buffered replay events to migrate")
+            return
+        }
+        performBufferOperation { [bufferQueue, innerQueue] in
+            bufferQueue.migrate(batch, to: innerQueue.fileQueue)
+            hedgeLog("Migrated \(batch.count) buffered replay events to replay queue. Queue depth: \(innerQueue.depth)")
+            innerQueue.flushIfOverThreshold()
         }
     }
 
-    /// Discards all buffered replay events.
+    /// Discards all buffered replay events. A snapshot added after this call is kept, so a new
+    /// session's first snapshots can't be lost to the previous session's clear.
     ///
-    /// If called from the main thread, clear is offloaded to a utility queue to
-    /// avoid blocking rendering. On background threads clear executes inline.
+    /// If called from the main thread, the files are deleted on a utility queue to
+    /// avoid blocking rendering. On background threads they are deleted inline.
     func clearBuffer() {
-        performBufferOperation { [weak self] in
-            self?.clearBufferNow()
+        let removed = bufferQueue.removeAll()
+        performBufferOperation { [bufferQueue] in
+            bufferQueue.delete(removed)
+            hedgeLog("Replay buffer cleared")
         }
     }
 
@@ -112,23 +123,6 @@ class PostHogReplayQueue {
         }
 
         operation()
-    }
-
-    private func migrateBufferToQueueNow() {
-        let migratedCount = bufferQueue.depth
-        guard migratedCount > 0 else {
-            hedgeLog("No buffered replay events to migrate")
-            return
-        }
-
-        bufferQueue.migrateAll(to: innerQueue.fileQueue)
-        hedgeLog("Migrated \(migratedCount) buffered replay events to replay queue. Queue depth: \(innerQueue.depth)")
-        innerQueue.flushIfOverThreshold()
-    }
-
-    private func clearBufferNow() {
-        bufferQueue.clear()
-        hedgeLog("Replay buffer cleared")
     }
 
     /// Internal, used for testing

@@ -635,8 +635,12 @@
             // restart it. Only the remote config path resumes it, once the flag is back on.
             guard isEnabled || postHog.remoteConfig?.isSessionReplayFlagActive() == true else { return }
 
-            // Re-evaluate sampling for the new session
-            reevaluateSampling()
+            #if TESTING
+                Self.onSessionChangeGatesPassedForTesting?()
+            #endif
+
+            // An explicit stop can still land after the gate above, so the claim re-checks it.
+            reevaluateSampling(respectExplicitStop: true)
         }
 
         /// Resets buffering state for a new session — clears the buffer, marks as not yet passed
@@ -2793,6 +2797,9 @@
             /// drawHierarchy draws nothing without a window scene, so hostless tests route the default path's
             /// render through this renderer instead.
             static var screenshotRendererForTesting: PostHogScreenshotRenderer?
+
+            /// Runs in `handleSessionChanged` after its explicit-stop and flag gates, before it re-evaluates sampling.
+            static var onSessionChangeGatesPassedForTesting: (() -> Void)?
 
             var isScreenshotRenderInFlightForTesting: Bool {
                 screenshotRenderLock.withLock { isScreenshotRenderInFlight }

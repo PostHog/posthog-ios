@@ -329,6 +329,27 @@
             #expect(integration.isActive() == true)
         }
 
+        @Test("Automatic mode stays stopped when an explicit stop lands while a session change re-evaluates sampling")
+        func automaticModeStaysStoppedWhenStopRacesSessionChange() async throws {
+            let sut = getSut(sessionReplay: true)
+            defer {
+                PostHogReplayIntegration.onSessionChangeGatesPassedForTesting = nil
+                sut.close()
+            }
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == true)
+
+            PostHogReplayIntegration.onSessionChangeGatesPassedForTesting = {
+                PostHogReplayIntegration.onSessionChangeGatesPassedForTesting = nil
+                sut.stopSessionRecording()
+            }
+            sut.sessionManager.setSessionId(UUID().uuidString)
+
+            #expect(integration.isActive() == false)
+            #expect(integration.isReplayOff == true)
+        }
+
         // MARK: - Opt-in
 
         @Test("Opt-in keeps a manual start waiting for a trigger, in a new session")

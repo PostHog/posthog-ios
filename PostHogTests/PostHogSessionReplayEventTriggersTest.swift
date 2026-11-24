@@ -737,6 +737,9 @@
 
         @Test("a screen event that rotates the session checks its own screen, not the one it left")
         func rotatingScreenEventChecksItsOwnScreen() async throws {
+            // An inactivity timeout rotates the session only in the foreground; in the background it clears it.
+            DI.main.appLifecyclePublisher = MockApplicationLifecyclePublisher()
+            defer { DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared }
             let sut = getSut(triggerGroups: [checkoutUrlTriggerGroup])
             defer { sut.close() }
             let integration = try #require(sut.getReplayIntegration())

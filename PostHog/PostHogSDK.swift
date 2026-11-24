@@ -67,6 +67,8 @@ let maxRetryDelay = 30.0
     private var setupGeneration = 0
     /// Test-only: runs after `captureInternal` builds an event and before it picks the queues.
     var onCapturePreparedForTesting: (() -> Void)?
+    /// Test-only: runs after `setSessionReplayMinimumDuration` checks the SDK is enabled and before it writes.
+    var onMinimumDurationCheckedForTesting: (() -> Void)?
     /// Bumped by `reset()`, so a wrapper send treats a reset that keeps the distinct ID as a new identity.
     private var wrapperResetGeneration = 0
     private var _lastScreenName: String?
@@ -4048,7 +4050,10 @@ let maxRetryDelay = 30.0
                 hedgeLog("[Session Replay] Ignoring negative minimum duration \(milliseconds)ms.")
                 return
             }
+            onMinimumDurationCheckedForTesting?()
             let integration = setupLock.withLock { () -> PostHogReplayIntegration? in
+                // close() can land after the check above; its cleared override must stay cleared.
+                guard enabled else { return nil }
                 _sessionReplayMinimumDurationOverride = milliseconds.map { TimeInterval($0) / 1_000.0 }
                 return _replayIntegration
             }

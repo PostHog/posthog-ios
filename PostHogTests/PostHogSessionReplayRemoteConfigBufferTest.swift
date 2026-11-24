@@ -1553,6 +1553,22 @@
             #expect(integration.isBuffering == false)
         }
 
+        @Test("a minimum duration override set while close() runs does not survive into the next setup")
+        func minimumDurationOverrideRacingCloseIsDropped() throws {
+            let (sut, _, _) = try overrideSut(minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+            let config = sut.config
+
+            sut.onMinimumDurationCheckedForTesting = { sut.close() }
+            sut.setSessionReplayMinimumDuration(5_000)
+            sut.onMinimumDurationCheckedForTesting = nil
+            #expect(sut.sessionReplayMinimumDurationOverride == nil)
+
+            PostHogReplayIntegration.clearInstalls()
+            sut.setup(config)
+            #expect(sut.sessionReplayMinimumDurationOverride == nil)
+        }
+
         @Test("a minimum raised after snapshots persisted directly holds nothing for the rest of the session")
         func minimumRaisedAfterDirectPersistHoldsNothing() throws {
             let (sut, integration, replayQueue) = try overrideSut(minimumDurationMilliseconds: 600_000)

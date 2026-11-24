@@ -63,9 +63,13 @@ final class SurveyAutoSubmitUITests: XCTestCase {
     }
 
     func testCustomFontFamilyAppliesToSurveyControls() {
-        app.launchEnvironment = ["SURVEY_KIND": "open", "SURVEY_SKIP": "false", "SURVEY_FONT": "\"Georgia\", serif"]
-        app.launch()
-        assertQuestion("First question")
+        let systemWidth = launchFontSurvey(font: nil)
+        app.terminate()
+        let georgiaWidth = launchFontSurvey(font: "\"Georgia\", serif")
+
+        // The header's frame hugs its glyphs, so another typeface at the same size changes its width.
+        XCTAssertNotEqual(georgiaWidth, systemWidth, accuracy: 1)
+
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Other:")).firstMatch.tap()
         let input = app.textFields.firstMatch
         XCTAssertTrue(input.waitForExistence(timeout: 5))
@@ -76,6 +80,14 @@ final class SurveyAutoSubmitUITests: XCTestCase {
         screenshot.name = "survey-font-georgia"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+    }
+
+    private func launchFontSurvey(font: String?) -> CGFloat {
+        app.launchEnvironment = ["SURVEY_KIND": "open", "SURVEY_SKIP": "false"]
+        app.launchEnvironment["SURVEY_FONT"] = font
+        app.launch()
+        assertQuestion("First question")
+        return app.staticTexts["First question"].frame.width
     }
 
     func testMultipleChoiceKeepsExplicitSubmission() {

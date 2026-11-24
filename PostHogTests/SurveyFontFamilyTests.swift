@@ -19,6 +19,8 @@
             (" 'Courier New' , monospace", "Courier New"),
             ("Arial,Helvetica,sans-serif", "Arial"),
             ("  \" Trebuchet MS \"  ", "Trebuchet MS"),
+            ("\"Georgia, Display\", serif", "Georgia, Display"),
+            ("'Times New Roman'", "Times New Roman"),
         ])
         func firstFamily(css: String, expected: String) {
             #expect(surveyFontFamilyName(css) == expected)
@@ -41,7 +43,7 @@
             }
 
             @Test("System keywords and unavailable fonts fall back to the system font", arguments: [
-                nil, "", "inherit", "system-ui", "Tahoma", "Not A Real Font",
+                nil, "", "inherit", "system-ui", "Tahoma", "Not A Real Font", "\"Georgia, Display\", serif",
             ])
             func systemFallback(css: String?) {
                 #expect(resolveSurveyFontName(css) == nil)

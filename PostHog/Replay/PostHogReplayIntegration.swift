@@ -667,7 +667,7 @@
             defer { notifyRecordingStatusChanged() }
 
             // Before anything reads the groups: the screen the app is on may activate one this config loaded.
-            checkTriggerGroupsForLoadedConfig()
+            recheckTriggerGroupsScreen()
             updatePlugins(from: remoteConfig)
             updateEventTriggers(from: remoteConfig)
             updateCachedMinimumDuration()
@@ -1817,13 +1817,14 @@
             }
         }
 
-        /// While stopped, the next explicit start checks the screen instead.
-        private func checkTriggerGroupsForLoadedConfig() {
+        /// Checks the screen the app is on again when a config loads groups or `reset()` drops their activation.
+        /// While stopped, the next explicit start checks it instead.
+        func recheckTriggerGroupsScreen() {
             guard let postHog, let remoteConfig = postHog.remoteConfig, remoteConfig.hasSessionRecordingTriggerGroups() else { return }
             if isExplicitlyStopped {
                 remoteConfig.markSessionRecordingScreenUnchecked()
             } else if let sessionId = postHog.sessionManager.getSessionId(readOnly: true) {
-                _ = remoteConfig.onSessionRecordingTriggerGroupsLoaded(sessionId: sessionId)
+                _ = remoteConfig.recheckSessionRecordingScreen(sessionId: sessionId)
             }
         }
 

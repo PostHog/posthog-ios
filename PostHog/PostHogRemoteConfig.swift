@@ -793,8 +793,8 @@ class PostHogRemoteConfig {
             )
         }
 
-        func onSessionRecordingTriggerGroupsLoaded(sessionId: String) -> Bool {
-            triggerGroupsEvaluator.onGroupsLoaded(sessionId: sessionId, personProperties: getPersonPropertiesForFlags())
+        func recheckSessionRecordingScreen(sessionId: String) -> Bool {
+            triggerGroupsEvaluator.recheckScreen(sessionId: sessionId, personProperties: getPersonPropertiesForFlags())
         }
 
         func markSessionRecordingScreenUnchecked() {

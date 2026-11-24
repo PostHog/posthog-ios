@@ -621,7 +621,7 @@ struct PostHogTriggerGroupsEvaluatorTests {
         configure([urlOnlyCheckoutGroup()])
 
         #expect(!startChecked("session-A"))
-        #expect(evaluator.onGroupsLoaded(sessionId: "session-A", personProperties: nil))
+        #expect(evaluator.recheckScreen(sessionId: "session-A", personProperties: nil))
         #expect(decide(sessionId: "session-A").shouldRecord)
     }
 

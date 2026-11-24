@@ -124,9 +124,9 @@ class PostHogTriggerGroupsEvaluator {
         }
     }
 
-    /// Groups that just loaded were never checked against the screen the app is on, even when the previous
-    /// groups were checked against it in this session, so check it again.
-    func onGroupsLoaded(sessionId: String, personProperties: [String: Any?]?) -> Bool {
+    /// Checks the screen the app is on past the once-per-session rule: groups that just loaded were never
+    /// checked against it, and `reset()` drops what an earlier check activated.
+    func recheckScreen(sessionId: String, personProperties: [String: Any?]?) -> Bool {
         lock.withLock {
             resetActivationForNewSessionLocked(sessionId)
             return checkScreenLocked(sessionId: sessionId, personProperties: personProperties)
@@ -139,7 +139,7 @@ class PostHogTriggerGroupsEvaluator {
     }
 
     /// Read-only for activation: a caller holding a stale session id must not wipe the current
-    /// session's activated groups. Only `onEvent`, `onSessionChanged` and `onGroupsLoaded` move activation to a new session.
+    /// session's activated groups. Only `onEvent`, `onSessionChanged` and `recheckScreen` move activation to a new session.
     func evaluate(sessionId: String, flags: [String: Any]?) -> PostHogTriggerGroupsDecision {
         lock.withLock {
             let activatedSession = activationSessionId == sessionId

@@ -1037,6 +1037,10 @@ let maxRetryDelay = 30.0
 
         // Clear all in-memory caches (feature flags, session replay state, etc.)
         remoteConfig?.clear()
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
+            // The new session was checked against the screen before clear() dropped the trigger group activation.
+            replayIntegration?.recheckTriggerGroupsScreen()
+        #endif
         featureFlagsListenersLock.withLock { lastFeatureFlagsLoaded = nil }
 
         lastScreenLock.withLock { _lastScreenName = nil }

@@ -899,5 +899,24 @@
 
             #expect(integration.isActive() == true)
         }
+
+        @Test("reset on a matching screen keeps the URL trigger group active for the session it starts")
+        func resetOnMatchingScreenStaysActive() async throws {
+            let sut = getSut(triggerGroups: [checkoutUrlTriggerGroup])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.screen("Checkout")
+            #expect(integration.isActive() == true)
+            let oldSessionId = try #require(sut.sessionManager.getSessionId(readOnly: true))
+
+            sut.reset()
+            sut.remoteConfig?.onFeatureFlagsLoaded.invoke([:])
+
+            let newSessionId = try #require(sut.sessionManager.getSessionId(readOnly: true))
+            #expect(newSessionId != oldSessionId)
+            #expect(sut.remoteConfig?.hasPendingSessionRecordingTriggerGroups(sessionId: newSessionId) == false)
+            #expect(integration.isActive() == true)
+        }
     }
 #endif

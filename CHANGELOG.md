@@ -1,5 +1,11 @@
 ## Next
 
+## 4.0.8
+
+### Patch Changes
+
+- ba9fa9e: Fix main-thread hangs on tap when rage-click detection is enabled, most noticeable in large React Native apps.
+
 ## 4.0.7
 
 ### Patch Changes

@@ -2,4 +2,4 @@
 "posthog-ios": patch
 ---
 
-Fix a main-thread crash with a call to address 0x0 in `PostHogThrottledMulticastCallback.invoke(_:)`, which runs on every main run-loop cycle when session replay or surveys are on. The throttle now reads a monotonic clock that each instance owns, and it does not compare `Date` values or call a global, mutable clock closure.
+Fix a main-thread null-call (`0x0`) crash on iOS 27.2 builds when apps compiled with Xcode 27.2 hit `Date.>=` in `PostHogThrottledMulticastCallback.invoke(_:)` (and the sibling `Date.<=` check in `PostHogProcessContextStore`). `PostHogThrottledMulticastCallback` now uses a monotonic `TimeInterval` clock and `PostHogProcessContextStore` compares `timeIntervalSinceReferenceDate`, avoiding Xcode 27.2's `@backDeployed(before: iOS 27.2)` `Date` operators.

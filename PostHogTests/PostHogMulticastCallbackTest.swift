@@ -123,7 +123,7 @@ class PostHogMulticastCallbackTests {
 }
 
 @MainActor
-@Suite("PostHogThrottledMulticastCallback Tests", .resetsGlobalState)
+@Suite("PostHogThrottledMulticastCallback Tests", .serialized, .resetsGlobalState)
 class PostHogThrottledMulticastCallbackTests {
     private func waitUntil(_ condition: () -> Bool) async {
         let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(testRequestTimeout * 1_000_000_000)
@@ -379,11 +379,11 @@ class PostHogThrottledMulticastCallbackTests {
         callback.invoke(1)
         await waitUntil { lock.withLock { receivedValues == [1] } }
 
-        // The run-loop observer calls invoke() on every cycle, so the throttle gate must not
-        // depend on the global, test-mutable `now` closure.
-        now = { Date.distantFuture }
-        callback.invoke(2)
-        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        // The throttle window uses its monotonic instance clock, not the wall-clock `now` hook.
+        await withMockedNow({ Date.distantFuture }) {
+            callback.invoke(2)
+            try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        }
         #expect(lock.withLock { receivedValues } == [1])
 
         mockNow.date.addTimeInterval(1.1)

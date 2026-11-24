@@ -109,8 +109,9 @@ final class PostHogThrottledMulticastCallback<T> {
     private let lock = NSLock()
     private let onSubscriberCountChanged: ((Int) -> Void)?
 
-    /// Monotonic seconds for the throttle windows. This runs on every main run-loop cycle, so it
-    /// does not call the global, test-mutable `now` closure and does not compare `Date` values.
+    /// Monotonic seconds for throttle windows. Comparing `TimeInterval` instead of `Date` avoids
+    /// `Date.>=`, which Xcode 27.2 marks `@backDeployed(before: iOS 27.2)` and emits as a weak
+    /// reference that resolves to 0x0 on iOS 27.2 builds missing the export.
     private let clock: () -> TimeInterval
 
     // Heuristic budget: keep small bursts synchronous, but yield under sustained churn instead
@@ -266,7 +267,7 @@ final class PostHogThrottledMulticastCallback<T> {
 
         /// Used only for leading-only subscriptions on the owning callback's `throttleQueue`.
         var nextEligibleTime: TimeInterval {
-            lastFired + interval
+            lastFired.isFinite ? lastFired + interval : -.infinity
         }
 
         init(handler: @escaping (T) -> Void, interval: TimeInterval, trailing: Bool, clock: @escaping () -> TimeInterval) {

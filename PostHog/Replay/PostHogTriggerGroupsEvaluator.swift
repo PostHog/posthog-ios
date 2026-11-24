@@ -246,7 +246,9 @@ class PostHogTriggerGroupsEvaluator {
         if let boolValue = value as? Bool {
             matches = boolValue
         } else if let variantValue = value as? String {
-            if let variant = flag.variant {
+            if flag.hasNonStringVariant {
+                matches = false
+            } else if let variant = flag.variant {
                 matches = variantValue == variant
             } else {
                 matches = !variantValue.isEmpty

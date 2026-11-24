@@ -46,6 +46,8 @@ struct PostHogTriggerEvent {
 struct PostHogTriggerFlag {
     let flag: String
     let variant: String?
+    /// A configured variant that isn't a string equals no string flag value.
+    var hasNonStringVariant = false
 }
 
 struct PostHogTriggerPropertyFilter {
@@ -140,7 +142,12 @@ private func parseTriggerFlag(_ flag: Any?) -> PostHogTriggerFlag? {
         return PostHogTriggerFlag(flag: flag, variant: nil)
     }
     if let map = flag as? [String: Any], let flag = map["flag"] as? String {
-        return PostHogTriggerFlag(flag: flag, variant: map["variant"] as? String)
+        let variant = map["variant"]
+        return PostHogTriggerFlag(
+            flag: flag,
+            variant: variant as? String,
+            hasNonStringVariant: variant != nil && !(variant is NSNull) && !(variant is String)
+        )
     }
     return nil
 }

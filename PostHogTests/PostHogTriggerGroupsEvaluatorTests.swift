@@ -294,6 +294,22 @@ struct PostHogTriggerGroupsEvaluatorTests {
         #expect(decide(flags: ["replay-flag": true]).shouldRecord)
     }
 
+    @Test("flag leg with a non-string variant matches no string variant")
+    func flagLegWithNonStringVariantMatchesNoVariant() {
+        configure([group(id: "g1", conditions: flagLeg(["flag": "replay-flag", "variant": 123]))])
+
+        #expect(!decide(flags: ["replay-flag": "control"]).shouldRecord)
+        #expect(!decide(flags: ["replay-flag": "123"]).shouldRecord)
+        #expect(decide(flags: ["replay-flag": true]).shouldRecord)
+    }
+
+    @Test("flag leg with a null variant matches any non-empty variant")
+    func flagLegWithNullVariantMatchesAnyVariant() {
+        configure([group(id: "g1", conditions: flagLeg(["flag": "replay-flag", "variant": NSNull()]))])
+
+        #expect(decide(flags: ["replay-flag": "control"]).shouldRecord)
+    }
+
     @Test("flag leg without variant matches any non-empty variant")
     func flagLegWithoutVariantMatchesAnyVariant() {
         configure([group(id: "g1", conditions: flagLeg("replay-flag"))])

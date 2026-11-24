@@ -627,6 +627,30 @@
             return (sut, integration, replayQueue)
         }
 
+        @Test("under trigger groups the group minimum applies, not the v1 minimum")
+        func groupMinimumReplacesV1Minimum() async throws {
+            let (sut, integration, replayQueue) = try makeSut(
+                flagActive: true,
+                minimumDurationMilliseconds: 300,
+                triggerGroups: [["id": "hold", "sampleRate": 1, "minDurationMs": 600_000, "conditions": ["matchType": "any"]]]
+            )
+            defer { sut.close() }
+            sut.remoteConfig?.setRemoteConfigDidFetchForTesting(true)
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            integration.applyRemoteConfig(remoteConfig: nil)
+            sut.startSessionRecording(resumeCurrent: true)
+            #expect(integration.isActive())
+
+            replayQueue.add(snapshotEvent("1"))
+            try await Task.sleep(nanoseconds: 500_000_000)
+            replayQueue.add(snapshotEvent("2"))
+
+            // The window already spans the v1 300 ms, so only the group minimum holds it.
+            #expect(integration.isBuffering == true)
+            #expect(replayQueue.bufferDepth == 2)
+            #expect(replayQueue.depth == 0)
+        }
+
         @Test("an event activating a group with no minimum releases the held opening window")
         func eventLoweringMinimumReleasesHeldWindow() async throws {
             let (sut, integration, replayQueue) = try await holdingSut()

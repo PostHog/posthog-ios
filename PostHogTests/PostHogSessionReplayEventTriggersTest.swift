@@ -445,6 +445,17 @@
             #expect(sut.remoteConfig?.sessionReplayLinkedFlagSnapshot().configured == false)
         }
 
+        @Test("v1 event triggers do not gate recording under trigger groups")
+        func eventTriggersIgnoredUnderTriggerGroups() async throws {
+            let sut = getSut(
+                eventTriggers: ["purchase_completed"],
+                triggerGroups: [["id": "unconditional", "sampleRate": 1, "conditions": ["matchType": "any"]]]
+            )
+            defer { sut.close() }
+
+            #expect(sut.getReplayIntegration()?.isActive() == true)
+        }
+
         @Test("the local sample rate still caps recording under trigger groups")
         func localSampleRateCapsTriggerGroups() async throws {
             let sut = getSut(

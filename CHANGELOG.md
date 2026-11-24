@@ -1,5 +1,11 @@
 ## Next
 
+## 4.0.7
+
+### Patch Changes
+
+- 414765b: Send a session replay frame or touch with the session it was captured in, or drop it. On a busy device a frame or touch could be sent late under a newer session, or after recording stopped, and that session could miss its first full snapshot. A new session's first buffered snapshots are also no longer lost when the previous session's buffer is cleared.
+
 ## 4.0.6
 
 ### Patch Changes

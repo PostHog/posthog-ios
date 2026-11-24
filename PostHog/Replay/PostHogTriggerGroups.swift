@@ -76,7 +76,7 @@ func parseTriggerGroupsConfig(_ sessionRecording: [String: Any]) -> PostHogTrigg
             name: map["name"] as? String ?? "",
             sampleRate: parseTriggerGroupSampleRate(map["sampleRate"]),
             minDurationMs: (map["minDurationMs"] as? NSNumber)?.int64Value,
-            conditions: parseTriggerConditions(map["conditions"])
+            conditions: parseTriggerConditions(map["conditions"], groupId: id)
         )
     }
 
@@ -100,13 +100,13 @@ private func parseTriggerGroupSampleRate(_ raw: Any?) -> Double? {
     return (raw as? NSNumber)?.doubleValue
 }
 
-private func parseTriggerConditions(_ conditions: Any?) -> PostHogTriggerConditions {
+private func parseTriggerConditions(_ conditions: Any?, groupId: String) -> PostHogTriggerConditions {
     let map = conditions as? [String: Any]
     let rawFlag = map?["flag"]
     return PostHogTriggerConditions(
         matchType: map?["matchType"] as? String == "any" ? .any : .all,
         events: parseTriggerEvents(map?["events"]),
-        urls: parseTriggerUrls(map?["urls"]),
+        urls: parseTriggerUrls(map?["urls"], groupId: groupId),
         flag: parseTriggerFlag(rawFlag),
         properties: parseTriggerPropertyFilters(map?["properties"]),
         hasEventsLeg: !(map?["events"] as? [Any] ?? []).isEmpty,
@@ -127,13 +127,17 @@ private func parseTriggerEvents(_ events: Any?) -> [PostHogTriggerEvent] {
     }
 }
 
-private func parseTriggerUrls(_ urls: Any?) -> [NSRegularExpression] {
+private func parseTriggerUrls(_ urls: Any?, groupId: String) -> [NSRegularExpression] {
     (urls as? [Any] ?? []).compactMap { raw in
         guard let map = raw as? [String: Any],
               let pattern = map["url"] as? String,
               map["matching"] as? String == "regex"
         else { return nil }
-        return try? NSRegularExpression(pattern: pattern)
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            hedgeLog("[Session Replay] Trigger group \(groupId) has an invalid URL pattern that never matches: \(pattern)")
+            return nil
+        }
+        return regex
     }
 }
 

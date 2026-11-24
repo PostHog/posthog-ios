@@ -61,12 +61,11 @@ class PostHogReplayBufferQueue {
     /// Moves both the on-disk files and appends filenames to the target's in-memory items list.
     /// After migration, the buffer is empty.
     func migrateAll(to target: PostHogFileBackedQueue) {
-        let itemsToMigrate: [String] = itemsLock.withLock {
-            let copy = items
-            items.removeAll()
-            return copy
-        }
+        migrate(removeAll(), to: target)
+    }
 
+    /// Moves items already taken with `removeAll()` to the target `PostHogFileBackedQueue`.
+    func migrate(_ itemsToMigrate: [String], to target: PostHogFileBackedQueue) {
         let fileManager = FileManager.default
         for item in itemsToMigrate {
             let sourceURL = queue.appendingPathComponent(item)

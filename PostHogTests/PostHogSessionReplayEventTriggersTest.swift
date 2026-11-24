@@ -719,5 +719,57 @@
             props = integration.debugProperties()
             #expect(props["$sdk_debug_replay_pending_trigger_conditions"] == nil)
         }
+
+        @Test("a screen seen while replay is stopped activates the group for the session the next start opens")
+        func screenSeenWhileStoppedCountsForTheNextSession() async throws {
+            let sut = getSut(triggerGroups: [checkoutUrlTriggerGroup])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.stopSessionRecording()
+            sut.screen("Checkout")
+            #expect(integration.isActive() == false)
+
+            sut.startSessionRecording(resumeCurrent: false)
+
+            #expect(integration.isActive() == true)
+        }
+
+        @Test("a screen event that rotates the session checks its own screen, not the one it left")
+        func rotatingScreenEventChecksItsOwnScreen() async throws {
+            let sut = getSut(triggerGroups: [checkoutUrlTriggerGroup])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.screen("Checkout")
+            #expect(integration.isActive() == true)
+            let oldSessionId = try #require(sut.sessionManager.getSessionId(readOnly: true))
+
+            let pastInactivityTimeout = Date().addingTimeInterval(60 * 60)
+            sut.capture("$screen", properties: ["$screen_name": "Home"], timestamp: pastInactivityTimeout)
+
+            let newSessionId = try #require(sut.sessionManager.getSessionId(readOnly: true))
+            #expect(newSessionId != oldSessionId)
+            #expect(sut.remoteConfig?.hasPendingSessionRecordingTriggerGroups(sessionId: newSessionId) == true)
+            #expect(integration.isActive() == false)
+        }
+
+        @Test("a session started while replay is stopped is checked against the screen at the next start")
+        func stoppedSessionIsCheckedOnNextStart() async throws {
+            let sut = getSut(triggerGroups: [checkoutUrlTriggerGroup])
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            sut.stopSessionRecording()
+            sut.screen("Checkout")
+
+            let newSessionId = UUID().uuidString
+            sut.sessionManager.setSessionId(newSessionId)
+            #expect(sut.remoteConfig?.hasPendingSessionRecordingTriggerGroups(sessionId: newSessionId) == true)
+
+            sut.startSessionRecording(resumeCurrent: true)
+
+            #expect(integration.isActive() == true)
+        }
     }
 #endif

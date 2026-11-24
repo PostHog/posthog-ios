@@ -811,6 +811,15 @@ let maxRetryDelay = 30.0
     {
         var props: [String: Any] = [:]
 
+        #if os(iOS)
+            // Before the session resolves below: a $screen that rotates the session must check its own screen.
+            if event == PostHogKnownUnsafeEditableEvent.screen.rawValue, !readOnlySession,
+               let name = properties?["$screen_name"] as? String, !Self.isBlank(name)
+            {
+                remoteConfig?.rememberSessionRecordingScreen(name)
+            }
+        #endif
+
         // Resolve the session before any $sdk_debug_* snapshot below: getSessionId(at:) can rotate
         // here, so the debug keys must describe the session this event lands in (mirrors posthog-js).
         // A caller-supplied $session_id wins so replay snapshots never land in the wrong session.

@@ -1636,5 +1636,23 @@
             #expect(replayQueue.bufferDepth == 0)
             #expect(replayQueue.depth == 1)
         }
+
+        @Test("a screen seen before replay is installed counts when the first start installs it")
+        func screenSeenBeforeInstallCountsAtFirstStart() throws {
+            let checkoutGroup: [String: Any] = [
+                "id": "checkout", "sampleRate": 1,
+                "conditions": ["matchType": "any", "urls": [["url": "Checkout", "matching": "regex"]]],
+            ]
+            let sut = getSut(flagActive: true, triggerGroups: [checkoutGroup], sessionReplay: false)
+            defer { sut.close() }
+            #expect(sut.getReplayIntegration() == nil)
+
+            sut.screen("Checkout")
+            sut.remoteConfig?.setRemoteConfigDidFetchForTesting(true)
+            sut.startSessionRecording(resumeCurrent: true)
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive())
+        }
     }
 #endif

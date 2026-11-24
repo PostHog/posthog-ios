@@ -63,6 +63,12 @@ class PostHogTriggerGroupsEvaluator {
         lock.withLock { activationSessionId = nil }
     }
 
+    /// The screen the app is on, kept even when no event reaches `onEvent` (replay stopped, not installed,
+    /// no groups loaded) so a later session change checks the right screen.
+    func rememberScreen(_ screenName: String) {
+        lock.withLock { lastScreenName = screenName }
+    }
+
     func onEvent(sessionId: String,
                  eventName: String,
                  eventProperties: [String: Any?]?,

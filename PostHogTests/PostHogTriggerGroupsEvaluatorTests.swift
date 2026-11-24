@@ -536,4 +536,39 @@ struct PostHogTriggerGroupsEvaluatorTests {
         #expect(sessionChanged(to: "session-C", personProperties: ["plan": "pro"]))
         #expect(decide(sessionId: "session-C").shouldRecord)
     }
+
+    @Test("a screen remembered before any group loads is checked at the next session change")
+    func rememberedScreenSurvivesBeforeGroupsLoad() {
+        evaluator.rememberScreen("/checkout")
+        configure([urlOnlyCheckoutGroup()])
+
+        #expect(sessionChanged(to: "session-B"))
+        #expect(decide(sessionId: "session-B").shouldRecord)
+    }
+
+    @Test("a screen remembered while a rotating event is built keeps the old screen from activating the new session")
+    func rememberedScreenBeforeRotationChecksTheNewScreen() {
+        configure([urlOnlyCheckoutGroup()])
+        #expect(screen(sessionId: "session-A", name: "/checkout"))
+
+        evaluator.rememberScreen("/home")
+
+        #expect(!sessionChanged(to: "session-B"))
+        #expect(!decide(sessionId: "session-B").shouldRecord)
+        #expect(decide(sessionId: "session-B").hasPendingGroups)
+
+        #expect(!screen(sessionId: "session-B", name: "/home"))
+        #expect(!decide(sessionId: "session-B").shouldRecord)
+    }
+
+    @Test("a session change checked late uses the latest remembered screen once")
+    func lateSessionChangeUsesLatestScreen() {
+        configure([urlOnlyCheckoutGroup()])
+        #expect(!screen(sessionId: "session-A", name: "/home"))
+
+        evaluator.rememberScreen("/checkout")
+
+        #expect(sessionChanged(to: "session-B"))
+        #expect(!sessionChanged(to: "session-B"))
+    }
 }

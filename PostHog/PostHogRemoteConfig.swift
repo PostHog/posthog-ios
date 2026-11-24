@@ -781,6 +781,10 @@ class PostHogRemoteConfig {
             )
         }
 
+        func rememberSessionRecordingScreen(_ screenName: String) {
+            triggerGroupsEvaluator.rememberScreen(screenName)
+        }
+
         func onSessionRecordingSessionChanged(sessionId: String) -> Bool {
             triggerGroupsEvaluator.onSessionChanged(sessionId: sessionId, personProperties: getPersonPropertiesForFlags())
         }

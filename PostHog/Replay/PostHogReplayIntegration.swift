@@ -304,6 +304,9 @@
                     startedWithAutomaticDisabled = true
                 }
             }
+            if let postHog, let sessionId = postHog.sessionManager.getSessionId(readOnly: true) {
+                checkTriggerGroupsForNewSession(postHog: postHog, sessionId: sessionId)
+            }
             startRecording()
             notifyRecordingStatusChanged()
         }
@@ -593,9 +596,10 @@
             // Reset minimum duration buffering state for the new session
             resetBufferingState(for: postHog)
 
-            // Before the pending check below, so a group matching the current screen records this session
-            if postHog.remoteConfig?.hasSessionRecordingTriggerGroups() == true {
-                _ = postHog.remoteConfig?.onSessionRecordingSessionChanged(sessionId: currentSessionId)
+            // Before the pending check below, so a group matching the current screen records this session.
+            // While stopped, the next explicit start() runs it instead.
+            if !isExplicitlyStopped {
+                checkTriggerGroupsForNewSession(postHog: postHog, sessionId: currentSessionId)
             }
 
             updateCachedMinimumDuration()
@@ -1801,6 +1805,12 @@
                 if !isActive() {
                     notifyRecordingStatusChanged()
                 }
+            }
+        }
+
+        private func checkTriggerGroupsForNewSession(postHog: PostHogSDK, sessionId: String) {
+            if postHog.remoteConfig?.hasSessionRecordingTriggerGroups() == true {
+                _ = postHog.remoteConfig?.onSessionRecordingSessionChanged(sessionId: sessionId)
             }
         }
 

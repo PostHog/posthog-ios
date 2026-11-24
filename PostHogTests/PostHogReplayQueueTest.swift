@@ -236,6 +236,35 @@ class PostHogReplayQueueTests {
         #expect(queue.depth == 2)
     }
 
+    @Test("a frame buffered while a mask turns on keeps its own generation and is not migrated")
+    func bufferedFrameKeepsItsOwnGeneration() async {
+        final class RacingDelegate: PostHogReplayBufferDelegate {
+            var isBuffering = true
+            var currentCaptureMaskingGeneration: Int? = 0
+            private var reads = 0
+            // The first read is the queue's stale check; a mask turns on right after it.
+            var currentMaskingGeneration: Int {
+                reads += 1
+                return reads == 1 ? 0 : 1
+            }
+
+            func replayQueueDidBufferSnapshot(_: PostHogReplayQueue) {}
+        }
+
+        let queue = createReplayQueue()
+        let delegate = RacingDelegate()
+        queue.bufferDelegate = delegate
+
+        queue.add(createTestEvent("snapshot_1"))
+        #expect(queue.bufferDepth == 1)
+
+        queue.migrateBufferToQueue()
+        await waitUntil(timeoutNanoseconds: 200_000_000) { queue.depth > 0 }
+
+        #expect(queue.depth == 0)
+        #expect(queue.bufferDepth == 1)
+    }
+
     @Test("migrateBufferToQueue does nothing when buffer is empty")
     func migrateEmptyBuffer() {
         let queue = createReplayQueue()

@@ -85,8 +85,9 @@ class PostHogReplayQueue {
             let depth: Int? = bufferLock.withLock {
                 if isStale() { return nil }
                 bufferQueue.add(data)
-                // Keep the oldest: a fresh frame must not make a stale window look current.
-                bufferedMaskingGeneration = bufferedMaskingGeneration ?? bufferDelegate?.currentMaskingGeneration
+                // Keep the oldest, taken from the frame's own stamp: the live generation can move after the
+                // stale check, and a fresh label would let a stale window migrate.
+                bufferedMaskingGeneration = bufferedMaskingGeneration ?? frameGeneration ?? bufferDelegate?.currentMaskingGeneration
                 return bufferQueue.depth
             }
             guard let depth else {

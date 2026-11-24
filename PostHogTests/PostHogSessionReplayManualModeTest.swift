@@ -422,6 +422,23 @@
             let plugin = try #require(integration.installedPluginsForTesting.first as? SpyReplayPlugin)
             #expect(plugin.started)
         }
+
+        @Test("Internal stop from sampling stops plugins")
+        func internalStopFromSamplingStopsPlugins() async throws {
+            let sut = getSut(sessionReplay: true, pluginTypes: [SpyReplayPlugin.self])
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            let plugin = try #require(integration.installedPluginsForTesting.first as? SpyReplayPlugin)
+
+            let remoteConfig = try #require(sut.remoteConfig)
+            remoteConfig.setRecordingSampleRateForTesting(0.0)
+            integration.applyRemoteConfig(remoteConfig: nil)
+
+            #expect(integration.isActive() == false)
+            #expect(plugin.stopped)
+            #expect(integration.installedPluginsForTesting.isEmpty)
+        }
     }
 
     private final class SpyReplayPlugin: PostHogSessionReplayPlugin {

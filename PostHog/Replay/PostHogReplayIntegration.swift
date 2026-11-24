@@ -308,6 +308,7 @@
                 // A $screen seen while stopped was not checked, also in a session that evaluated events.
                 checkTriggerGroupsForNewSession(postHog: postHog, sessionId: sessionId, includeCurrentSession: true)
             }
+            updateCachedMinimumDuration()
             startRecording()
             notifyRecordingStatusChanged()
         }

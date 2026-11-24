@@ -1654,5 +1654,30 @@
             let integration = try #require(sut.getReplayIntegration())
             #expect(integration.isActive())
         }
+
+        @Test("a screen seen before replay is installed applies its group's minimum duration at the first start")
+        func screenSeenBeforeInstallAppliesGroupMinimum() throws {
+            let checkoutGroup: [String: Any] = [
+                "id": "checkout", "sampleRate": 1, "minDurationMs": 600_000,
+                "conditions": ["matchType": "any", "urls": [["url": "Checkout", "matching": "regex"]]],
+            ]
+            let sut = getSut(flagActive: true, triggerGroups: [checkoutGroup], sessionReplay: false)
+            defer { sut.close() }
+
+            sut.screen("Checkout")
+            sut.remoteConfig?.setRemoteConfigDidFetchForTesting(true)
+            sut.startSessionRecording(resumeCurrent: true)
+
+            let integration = try #require(sut.getReplayIntegration())
+            let replayQueue = try #require(sut.replayQueue)
+            #expect(integration.isActive())
+
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+
+            #expect(integration.isBuffering == true)
+            #expect(replayQueue.bufferDepth == 2)
+            #expect(replayQueue.depth == 0)
+        }
     }
 #endif

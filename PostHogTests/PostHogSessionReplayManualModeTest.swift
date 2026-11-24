@@ -406,6 +406,22 @@
             #expect(plugin.stopped)
             #expect(integration.installedPluginsForTesting.isEmpty)
         }
+
+        @Test("Remote config reload while recording starts a newly enabled plugin")
+        func reloadWhileRecordingStartsNewlyEnabledPlugin() async throws {
+            let sut = getSut(sessionReplay: true)
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == true)
+            #expect(integration.installedPluginsForTesting.isEmpty)
+
+            sut.config.sessionReplayConfig.pluginTypesForTesting = [SpyReplayPlugin.self]
+            integration.applyRemoteConfig(remoteConfig: ["sessionRecording": ["endpoint": "/s/"]])
+
+            let plugin = try #require(integration.installedPluginsForTesting.first as? SpyReplayPlugin)
+            #expect(plugin.started)
+        }
     }
 
     private final class SpyReplayPlugin: PostHogSessionReplayPlugin {

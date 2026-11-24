@@ -72,6 +72,10 @@
         private var eventTriggers: [String]?
         private var triggerActivatedSessionId: String?
 
+        private let maskingLock = NSLock()
+        private var resolvedMaskingState: PostHogRemoteMasking?
+        private var loggedMaskFlags = Set<String>()
+
         // Minimum duration buffering state
         private let bufferingLock = NSLock()
         private var hasPassedMinimumDuration: Bool = false
@@ -200,9 +204,11 @@
                 replayQueue?.bufferDelegate = self
 
                 // Resolve event triggers and minimum duration from cached remote config (if available)
-                if let cachedRemoteConfig = postHog.remoteConfig?.getRemoteConfig() {
+                let cachedRemoteConfig = postHog.remoteConfig?.getRemoteConfig()
+                if let cachedRemoteConfig {
                     updateEventTriggers(from: cachedRemoteConfig)
                 }
+                updateMasking(from: cachedRemoteConfig)
                 updateCachedMinimumDuration()
 
                 // Buffer snapshots until the first live remote config resolves (unless it already has),
@@ -585,6 +591,7 @@
 
             updatePlugins(from: remoteConfig)
             updateEventTriggers(from: remoteConfig)
+            updateMasking(from: remoteConfig)
             updateCachedMinimumDuration()
 
             // `processSessionRecordingConfig` flipped `sessionReplayFlagActive` before this callback,
@@ -955,14 +962,14 @@
             }
 
             if let reactNativeTextView = reactNativeTextView {
-                if view.isKind(of: reactNativeTextView), config?.sessionReplayConfig.maskAllTextInputs == true {
+                if view.isKind(of: reactNativeTextView), maskAllTextInputs {
                     maskableWidgets.append(.init(view, in: window))
                     return
                 }
             }
 
             if let reactNativeParagraphView = reactNativeParagraphView {
-                if view.isKind(of: reactNativeParagraphView), config?.sessionReplayConfig.maskAllTextInputs == true {
+                if view.isKind(of: reactNativeParagraphView), maskAllTextInputs {
                     maskableWidgets.append(.init(view, in: window))
                     return
                 }
@@ -979,14 +986,14 @@
             }
 
             if let reactNativeImageView = reactNativeImageView {
-                if view.isKind(of: reactNativeImageView), config?.sessionReplayConfig.maskAllImages == true {
+                if view.isKind(of: reactNativeImageView), maskAllImages {
                     maskableWidgets.append(.init(view, in: window))
                     return
                 }
             }
 
             if let reactNativeImageComponentView = reactNativeImageComponentView {
-                if view.isKind(of: reactNativeImageComponentView), config?.sessionReplayConfig.maskAllImages == true {
+                if view.isKind(of: reactNativeImageComponentView), maskAllImages {
                     maskableWidgets.append(.init(view, in: window))
                     return
                 }
@@ -994,8 +1001,8 @@
 
             if let reactNativeSvgView, view.isKind(of: reactNativeSvgView) {
                 let content = reactNativeSvgContent(in: view)
-                let shouldMaskText = content.hasText && config?.sessionReplayConfig.maskAllTextInputs == true
-                let shouldMaskGraphics = content.hasGraphic && config?.sessionReplayConfig.maskAllImages == true
+                let shouldMaskText = content.hasText && maskAllTextInputs
+                let shouldMaskGraphics = content.hasGraphic && maskAllImages
                 if shouldMaskText || shouldMaskGraphics {
                     // SVG nodes share a drawing surface, so mask the root when enabled content is present.
                     maskableWidgets.append(.init(view, in: window))
@@ -1423,11 +1430,11 @@
         }
 
         private func isAnyInputSensitive(_ view: UIView) -> Bool {
-            isTextInputSensitive(view) || config?.sessionReplayConfig.maskAllImages == true
+            isTextInputSensitive(view) || maskAllImages
         }
 
         private func isTextInputSensitive(_ view: UIView) -> Bool {
-            config?.sessionReplayConfig.maskAllTextInputs == true || view.isNoCapture()
+            maskAllTextInputs || view.isNoCapture()
         }
 
         private func isLabelSensitive(_ view: UILabel) -> Bool {
@@ -1459,7 +1466,7 @@
         /// mask, so masking images masks text that holds one. Like image views, symbols and
         /// asset-catalog images stay visible; an attachment whose image can't be read is masked.
         private func hasSensitiveImageAttachment(_ text: NSAttributedString?) -> Bool {
-            guard config?.sessionReplayConfig.maskAllImages == true, let text, text.length > 0 else {
+            guard maskAllImages, let text, text.length > 0 else {
                 return false
             }
             var found = false
@@ -1492,7 +1499,7 @@
         private func isSwiftUIImageSensitive(_ view: UIView) -> Bool {
             // No way of checking if this is an asset image or not
             // No way of checking if there's actual content in the image or not
-            config?.sessionReplayConfig.maskAllImages == true || view.isNoCapture()
+            maskAllImages || view.isNoCapture()
         }
 
         private func isImageViewSensitive(_ view: UIImageView) -> Bool {
@@ -1511,7 +1518,7 @@
             }
 
             // asset images and symbols are probably not sensitive
-            return config?.sessionReplayConfig.maskAllImages == true
+            return maskAllImages
                 && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) }
         }
 
@@ -1690,6 +1697,49 @@
         }
     }
 
+    extension PostHogReplayIntegration {
+        /// The mask flags capture applies now, resolved from the local config and the project's mobile masking setting.
+        func resolvedMasking() -> (maskAllTextInputs: Bool, maskAllImages: Bool) {
+            (maskAllTextInputs, maskAllImages)
+        }
+
+        private var maskAllTextInputs: Bool {
+            maskingLock.withLock { resolvedMaskingState?.maskAllTextInputs } ?? (config?.sessionReplayConfig.maskAllTextInputs == true)
+        }
+
+        private var maskAllImages: Bool {
+            maskingLock.withLock { resolvedMaskingState?.maskAllImages } ?? (config?.sessionReplayConfig.maskAllImages == true)
+        }
+
+        private func updateMasking(from remoteConfig: [String: Any]?) {
+            let remote = PostHogRemoteMasking.parse(from: remoteConfig)
+            let local = (text: config?.sessionReplayConfig.maskAllTextInputs == true,
+                         images: config?.sessionReplayConfig.maskAllImages == true)
+            let next = PostHogRemoteMasking.resolve(local: local, remote: remote)
+
+            let (previous, flagsToLog) = maskingLock.withLock { () -> (PostHogRemoteMasking, [String]) in
+                let previous = resolvedMaskingState ?? PostHogRemoteMasking(maskAllTextInputs: local.text, maskAllImages: local.images)
+                resolvedMaskingState = next
+
+                var flags: [String] = []
+                if remote.maskAllTextInputs, !local.text { flags.append("maskAllTextInputs") }
+                if remote.maskAllImages, !local.images { flags.append("maskAllImages") }
+                flags = flags.filter { loggedMaskFlags.insert($0).inserted }
+                return (previous, flags)
+            }
+
+            for flag in flagsToLog {
+                hedgeLog("[Session Replay] The project's mobile masking setting turned on \(flag), which is off in the local config.")
+            }
+
+            let turnedOn = (next.maskAllTextInputs && !previous.maskAllTextInputs)
+                || (next.maskAllImages && !previous.maskAllImages)
+            if turnedOn {
+                replayQueue?.clearBuffer()
+            }
+        }
+    }
+
     // MARK: - Portals
 
     extension PostHogReplayIntegration {
@@ -1738,7 +1788,7 @@
         /// until the commit. An animation drawing an image the view no longer holds, such as a transition from it,
         /// counts too.
         func showsReplacedImage(_ view: UIImageView) -> Bool {
-            guard view.isNoCapture() || config?.sessionReplayConfig.maskAllImages == true else { return false }
+            guard view.isNoCapture() || maskAllImages else { return false }
             if view.animatesReplacedImage {
                 return true
             }

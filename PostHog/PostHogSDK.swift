@@ -4002,6 +4002,21 @@ let maxRetryDelay = 30.0
         @_spi(PostHogInternal) public func sessionReplayDebugProperties() -> [String: Any] {
             replayIntegration?.debugProperties() ?? [:]
         }
+
+        /// The session replay mask flags that capture applies now: each local flag, or the project's
+        /// mobile masking setting from remote config when that turns the mask on.
+        /// Keys: `maskAllTextInputs`, `maskAllImages`. Falls back to the local flags when replay is not installed.
+        ///
+        /// SPI, not public API: no stability guarantees.
+        @_spi(PostHogInternal) public func sessionReplayResolvedMasking() -> [String: Bool] {
+            if let resolved = replayIntegration?.resolvedMasking() {
+                return ["maskAllTextInputs": resolved.maskAllTextInputs, "maskAllImages": resolved.maskAllImages]
+            }
+            return [
+                "maskAllTextInputs": config.sessionReplayConfig.maskAllTextInputs,
+                "maskAllImages": config.sessionReplayConfig.maskAllImages,
+            ]
+        }
     #endif
 
     /// Creates and sets up an additional SDK instance.

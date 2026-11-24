@@ -161,8 +161,126 @@ final class PostHogPushMigrationAfterCloseTest {
         #expect(storage.getBool(forKey: .pushAppIdsMigrated) != true)
     }
 
+    @Test("does not run the push subscriber when a /config load finishes after close()")
+    func pushSubscriberAfterClose() async throws {
+        let config = PostHogConfig(projectToken: "push_subscriber_after_close", host: "http://localhost:9001")
+        config.disableRemoteConfigForTesting = true
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
+        config.preloadFeatureFlags = false
+        let storage = PostHogStorage(config)
+        storage.reset()
+        storage.remove(key: .pushAppIdsMigrated)
+        storage.remove(key: .remoteConfig)
+
+        let sut = PostHogSDK.with(config)
+        let remoteConfig = try #require(sut.remoteConfig)
+        sut.close()
+
+        #expect(remoteConfig.onRemoteConfigLoaded.subscriberCount == 0)
+
+        var remainingAfterCallback: Set<String> = []
+        var token: RegistrationToken?
+        await withCheckedContinuation { continuation in
+            token = remoteConfig.onRemoteConfigLoaded.subscribe { _ in
+                remainingAfterCallback = remoteConfig.consumeNewlyRegisterablePushAppIds()
+                continuation.resume()
+            }
+            remoteConfig.reloadRemoteConfig()
+        }
+        withExtendedLifetime(token) {}
+
+        #expect(remainingAfterCallback == ["com.example.app"])
+    }
+
     private static func pushHandlerQueue(of sdk: PostHogSDK) -> DispatchQueue? {
         let handler = Mirror(reflecting: sdk).descendant("pushSubscriptionHandler", "some")
         return handler.flatMap { Mirror(reflecting: $0).descendant("workQueue") as? DispatchQueue }
+    }
+}
+
+/// A `/flags` load in flight when `close()` runs belongs to the setup being closed, so its result
+/// reaches no `onFeatureFlags` listener.
+@Suite("Feature flags load during close", .serialized)
+final class PostHogFlagsLoadDuringCloseTest {
+    let server = MockPostHogServer()
+
+    init() {
+        server.start()
+    }
+
+    deinit {
+        server.stop()
+    }
+
+    @Test("is not delivered when it completes while close() is still running")
+    func inFlightFlagsDuringClose() async throws {
+        let config = PostHogConfig(projectToken: "flags_in_flight_during_close", host: "http://localhost:9001")
+        config.disableRemoteConfigForTesting = true
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
+        config.preloadFeatureFlags = false
+        PostHogStorage(config).reset()
+
+        let flagsRequestStarted = DispatchSemaphore(value: 0)
+        let releaseFlagsResponse = DispatchSemaphore(value: 0)
+        let flagsStub = stub(condition: pathEndsWith("/flags")) { _ in
+            flagsRequestStarted.signal()
+            _ = releaseFlagsResponse.wait(timeout: .now() + 5)
+            return HTTPStubsResponse(
+                jsonObject: ["featureFlags": ["flag-a": true], "errorsWhileComputingFlags": false],
+                statusCode: 200,
+                headers: nil
+            )
+        }
+        defer { HTTPStubs.removeStub(flagsStub) }
+
+        let sut = PostHogSDK.with(config)
+        let remoteConfig = try #require(sut.remoteConfig)
+        sut.addExceptionStep("seed")
+
+        // close() clears the exception steps while it holds its lock: hold it there
+        let enteredClose = DispatchSemaphore(value: 0)
+        let allowCloseToFinish = DispatchSemaphore(value: 0)
+        var didPauseClose = false
+        let stepsToken = sut.onExceptionStepsChanged.subscribe { steps in
+            if steps.isEmpty, !didPauseClose {
+                didPauseClose = true
+                enteredClose.signal()
+                _ = allowCloseToFinish.wait(timeout: .now() + 5)
+            }
+        }
+        defer { withExtendedLifetime(stepsToken) {} }
+
+        let receivedOnMain = DispatchSemaphore(value: 0)
+        var deliveredCount = 0
+        let subscription = sut.onFeatureFlags { _ in
+            deliveredCount += 1
+            receivedOnMain.signal()
+        }
+        defer { subscription.unsubscribe() }
+
+        remoteConfig.reloadFeatureFlags()
+        #expect(flagsRequestStarted.wait(timeout: .now() + 2) == .success)
+
+        let closeFinished = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            sut.close()
+            closeFinished.signal()
+        }
+        #expect(enteredClose.wait(timeout: .now() + 2) == .success)
+
+        releaseFlagsResponse.signal()
+        _ = receivedOnMain.wait(timeout: .now() + 0.5)
+
+        allowCloseToFinish.signal()
+        #expect(closeFinished.wait(timeout: .now() + 2) == .success)
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+
+        #expect(deliveredCount == 0)
     }
 }

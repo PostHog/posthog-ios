@@ -13,7 +13,13 @@ class PostHogReplayQueue {
     private let bufferIOQueue = DispatchQueue(label: "com.posthog.ReplayBufferIO",
                                               target: .global(qos: .utility))
 
-    weak var bufferDelegate: PostHogReplayBufferDelegate?
+    private let bufferLock = NSLock()
+    private var bufferedMaskingGeneration: Int?
+
+    weak var bufferDelegate: PostHogReplayBufferDelegate? {
+        // A generation only means something to the delegate that issued it.
+        didSet { bufferLock.withLock { bufferedMaskingGeneration = nil } }
+    }
 
     /// The time span of buffered snapshots (oldest to newest).
     var bufferDuration: TimeInterval? {
@@ -63,15 +69,37 @@ class PostHogReplayQueue {
     }
 
     func add(_ event: PostHogEvent) {
+        let frameGeneration = bufferDelegate?.currentCaptureMaskingGeneration
+        func isStale() -> Bool {
+            frameGeneration != nil && frameGeneration != bufferDelegate?.currentMaskingGeneration
+        }
+        func logStale() {
+            hedgeLog("Dropped replay event '\(event.event)': a mask flag turned on after it was captured")
+        }
+
         if bufferDelegate?.isBuffering == true {
             guard let data = toJSONData(event.toJSON()) else {
                 hedgeLog("Tried to buffer unserialisable PostHogEvent")
                 return
             }
-            bufferQueue.add(data)
-            hedgeLog("Buffered replay event '\(event.event)'. Buffer depth: \(bufferQueue.depth)")
+            let depth: Int? = bufferLock.withLock {
+                if isStale() { return nil }
+                bufferQueue.add(data)
+                // Keep the oldest: a fresh frame must not make a stale window look current.
+                bufferedMaskingGeneration = bufferedMaskingGeneration ?? bufferDelegate?.currentMaskingGeneration
+                return bufferQueue.depth
+            }
+            guard let depth else {
+                logStale()
+                return
+            }
+            hedgeLog("Buffered replay event '\(event.event)'. Buffer depth: \(depth)")
             bufferDelegate?.replayQueueDidBufferSnapshot(self)
         } else {
+            if isStale() {
+                logStale()
+                return
+            }
             innerQueue.add(event)
         }
     }
@@ -115,25 +143,46 @@ class PostHogReplayQueue {
     }
 
     private func migrateBufferToQueueNow() {
-        let migratedCount = bufferQueue.depth
-        guard migratedCount > 0 else {
-            hedgeLog("No buffered replay events to migrate")
-            return
+        let migrated: Int = bufferLock.withLock {
+            if let buffered = bufferedMaskingGeneration,
+               let delegate = bufferDelegate,
+               buffered != delegate.currentMaskingGeneration
+            {
+                hedgeLog("Replay buffer migration skipped: a mask flag turned on and the buffer is about to be cleared")
+                return 0
+            }
+
+            let migratedCount = bufferQueue.depth
+            guard migratedCount > 0 else {
+                hedgeLog("No buffered replay events to migrate")
+                return 0
+            }
+
+            bufferQueue.migrateAll(to: innerQueue.fileQueue)
+            bufferedMaskingGeneration = nil
+            hedgeLog("Migrated \(migratedCount) buffered replay events to replay queue. Queue depth: \(innerQueue.depth)")
+            return migratedCount
         }
 
-        bufferQueue.migrateAll(to: innerQueue.fileQueue)
-        hedgeLog("Migrated \(migratedCount) buffered replay events to replay queue. Queue depth: \(innerQueue.depth)")
-        innerQueue.flushIfOverThreshold()
+        if migrated > 0 {
+            innerQueue.flushIfOverThreshold()
+        }
     }
 
     private func clearBufferNow() {
-        bufferQueue.clear()
+        bufferLock.withLock {
+            bufferQueue.clear()
+            bufferedMaskingGeneration = nil
+        }
         hedgeLog("Replay buffer cleared")
     }
 
     /// Internal, used for testing
     func clear() {
         innerQueue.clear()
-        bufferQueue.clear()
+        bufferLock.withLock {
+            bufferQueue.clear()
+            bufferedMaskingGeneration = nil
+        }
     }
 }

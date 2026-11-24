@@ -19,4 +19,15 @@ protocol PostHogReplayBufferDelegate: AnyObject {
     /// `replayQueue.migrateBufferToQueue()` when the minimum duration has been met.
     /// This will copy temp buffer queue to the real replay queue
     func replayQueueDidBufferSnapshot(_ replayQueue: PostHogReplayQueue)
+
+    /// The mask generation of the frame being queued on the calling thread, nil when the event carries no frame.
+    var currentCaptureMaskingGeneration: Int? { get }
+
+    /// Moves each time a mask flag turns on. A frame stamped with an older value is stale.
+    var currentMaskingGeneration: Int { get }
+}
+
+extension PostHogReplayBufferDelegate {
+    var currentCaptureMaskingGeneration: Int? { nil }
+    var currentMaskingGeneration: Int { 0 }
 }

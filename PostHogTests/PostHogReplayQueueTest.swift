@@ -9,6 +9,7 @@ class MockReplayBufferDelegate: PostHogReplayBufferDelegate {
     var isBuffering: Bool = false
     var didBufferSnapshotCallCount: Int = 0
     var lastReplayQueue: PostHogReplayQueue?
+    var currentMaskingGeneration: Int = 0
 
     func replayQueueDidBufferSnapshot(_ replayQueue: PostHogReplayQueue) {
         didBufferSnapshotCallCount += 1
@@ -214,6 +215,25 @@ class PostHogReplayQueueTests {
         // Buffer should be empty, inner queue should have events
         #expect(queue.bufferDepth == 0)
         #expect(queue.depth == 3)
+    }
+
+    @Test("a new delegate does not inherit the previous delegate's mask generation")
+    func newDelegateResetsBufferedGeneration() async {
+        let queue = createReplayQueue()
+        mockDelegate.isBuffering = true
+        mockDelegate.currentMaskingGeneration = 2
+        queue.add(createTestEvent("snapshot_1"))
+        queue.add(createTestEvent("snapshot_2"))
+
+        let reinstalled = MockReplayBufferDelegate()
+        reinstalled.isBuffering = true
+        queue.bufferDelegate = reinstalled
+
+        queue.migrateBufferToQueue()
+        await waitUntil { queue.depth == 2 }
+
+        #expect(queue.bufferDepth == 0)
+        #expect(queue.depth == 2)
     }
 
     @Test("migrateBufferToQueue does nothing when buffer is empty")

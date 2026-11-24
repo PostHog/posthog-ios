@@ -209,7 +209,7 @@
                 if let cachedRemoteConfig {
                     updateEventTriggers(from: cachedRemoteConfig)
                 }
-                updateMasking(from: cachedRemoteConfig)
+                updateMasking(from: cachedRemoteConfig, isInitial: true)
                 updateCachedMinimumDuration()
 
                 // Buffer snapshots until the first live remote config resolves (unless it already has),
@@ -890,15 +890,18 @@
                     return
                 }
 
-                postHog.capture(
-                    "$snapshot",
-                    properties: [
-                        "$snapshot_source": "mobile",
-                        "$snapshot_data": snapshotsData,
-                        "$session_id": sessionId,
-                    ],
-                    timestamp: timestampDate
-                )
+                // The capture reaches the replay queue on this thread, which reads the stamp there.
+                Self.withCaptureMaskingGeneration(wireframe.maskingGeneration) {
+                    postHog.capture(
+                        "$snapshot",
+                        properties: [
+                            "$snapshot_source": "mobile",
+                            "$snapshot_data": snapshotsData,
+                            "$session_id": sessionId,
+                        ],
+                        timestamp: timestampDate
+                    )
+                }
             }
         }
 
@@ -1737,7 +1740,32 @@
             config?.sessionReplayConfig.maskAllImages == true || maskingLock.withLock { remoteMasking.maskAllImages }
         }
 
-        private func updateMasking(from remoteConfig: [String: Any]?) {
+        private static let captureMaskingGenerationKey = "com.posthog.replay.captureMaskingGeneration"
+
+        /// Runs `body` with `generation` as the current thread's capture stamp, which the replay queue reads when it adds the frame.
+        static func withCaptureMaskingGeneration<T>(_ generation: Int, _ body: () -> T) -> T {
+            let threadDictionary = Thread.current.threadDictionary
+            threadDictionary[captureMaskingGenerationKey] = generation
+            defer { threadDictionary.removeObject(forKey: captureMaskingGenerationKey) }
+            return body()
+        }
+
+        var currentCaptureMaskingGeneration: Int? {
+            Thread.current.threadDictionary[Self.captureMaskingGenerationKey] as? Int
+        }
+
+        /// Flags already logged as turned on by the project's setting, for tests.
+        var loggedMaskFlagsForTesting: Set<String> {
+            maskingLock.withLock { loggedMaskFlags }
+        }
+
+        /// Bumps the generation without clearing the buffer, for tests.
+        func bumpMaskingGenerationForTesting() {
+            maskingLock.withLock { maskingGeneration += 1 }
+        }
+
+        /// - Parameter isInitial: seeds the stored value from the cached config, which is not a turn-on.
+        private func updateMasking(from remoteConfig: [String: Any]?, isInitial: Bool = false) {
             let remote = PostHogRemoteMasking.parse(from: remoteConfig)
             let local = localMasking
             let next = PostHogRemoteMasking.resolve(local: local, remote: remote)
@@ -1747,7 +1775,7 @@
                 remoteMasking = remote
                 let turnedOn = (next.maskAllTextInputs && !previous.maskAllTextInputs)
                     || (next.maskAllImages && !previous.maskAllImages)
-                if turnedOn {
+                if turnedOn, !isInitial {
                     maskingGeneration += 1
                 }
 
@@ -1762,7 +1790,7 @@
                 hedgeLog("[Session Replay] The project's mobile masking setting turned on \(flag), which is off in the local config.")
             }
 
-            if turnedOn {
+            if turnedOn, !isInitial {
                 replayQueue?.clearBuffer()
                 // The dropped frames carried the meta event and the last frame hash.
                 resetViews()

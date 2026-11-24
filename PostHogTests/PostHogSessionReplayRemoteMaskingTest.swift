@@ -275,5 +275,139 @@
 
             #expect(replayQueue.bufferDepth == 1)
         }
+
+        @Test("a server mask over a local false is logged once per flag, and not when the local flag is on")
+        func serverMaskIsLoggedOncePerFlag() throws {
+            let masking: [String: Any] = ["mobile": ["maskAllText": true]]
+
+            let (sut, integration, _) = try makeSut(liveConfig: false)
+            defer { sut.close() }
+            #expect(integration.loggedMaskFlagsForTesting.isEmpty)
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: masking))
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: masking))
+            #expect(integration.loggedMaskFlagsForTesting == ["maskAllTextInputs"])
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: ["mobile": ["maskAllText": true, "maskAllImages": true]]))
+            #expect(integration.loggedMaskFlagsForTesting == ["maskAllTextInputs", "maskAllImages"])
+
+            let (localSut, localIntegration, _) = try makeSut(liveConfig: false, localMaskText: true)
+            defer { localSut.close() }
+            localIntegration.applyRemoteConfig(remoteConfig: remoteConfig(masking: masking))
+            localIntegration.applyRemoteConfig(remoteConfig: remoteConfig(masking: masking))
+            #expect(localIntegration.loggedMaskFlagsForTesting.isEmpty)
+        }
+
+        @Test("a later config with session recording off resets the stored server mask")
+        func sessionRecordingOffResetsServerMask() throws {
+            let (sut, integration, _) = try makeSut(liveConfig: false, localMaskImages: true)
+            defer { sut.close() }
+
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: ["mobile": ["maskAllText": true]]))
+            #expect(integration.resolvedMasking().maskAllTextInputs == true)
+
+            integration.applyRemoteConfig(remoteConfig: ["sessionRecording": false])
+            #expect(integration.resolvedMasking().maskAllTextInputs == false)
+            #expect(integration.resolvedMasking().maskAllImages == true)
+        }
+
+        @Test("the stored server mask survives a reset")
+        func serverMaskSurvivesReset() throws {
+            let (sut, integration, _) = try makeSut(liveConfig: false, cachedMasking: ["mobile": ["maskAllText": true]])
+            defer { sut.close() }
+
+            #expect(integration.resolvedMasking().maskAllTextInputs == true)
+            sut.reset()
+            #expect(integration.resolvedMasking().maskAllTextInputs == true)
+        }
+
+        @Test("a failed first config keeps the cached server mask")
+        func failedFirstConfigKeepsCachedMask() async throws {
+            server.return500 = true
+            let (sut, integration, _) = try makeSut(liveConfig: true, cachedMasking: ["mobile": ["maskAllText": true]])
+            defer { sut.close() }
+
+            #expect(integration.resolvedMasking().maskAllTextInputs == true)
+            let deadline = Date().addingTimeInterval(5)
+            while sut.remoteConfig?.hasFetchedRemoteConfig != true, Date() < deadline {
+                try await Task.sleep(nanoseconds: 20_000_000)
+            }
+            #expect(sut.remoteConfig?.hasFetchedRemoteConfig == true)
+            // Any listener notification is posted to main; let it run.
+            await MainActor.run {}
+            #expect(integration.resolvedMasking().maskAllTextInputs == true)
+            #expect(integration.currentMaskingGeneration == 0)
+        }
+
+        @Test("a buffered frame stamped before a mask turned on is dropped, a current one is buffered")
+        func staleFrameIsNotBuffered() throws {
+            let (sut, integration, replayQueue) = try makeSut(liveConfig: false, minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+            #expect(integration.isBuffering == true)
+
+            integration.bumpMaskingGenerationForTesting()
+            let current = integration.currentMaskingGeneration
+
+            PostHogReplayIntegration.withCaptureMaskingGeneration(current - 1) {
+                replayQueue.add(snapshotEvent("stale"))
+            }
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 0)
+
+            PostHogReplayIntegration.withCaptureMaskingGeneration(current) {
+                replayQueue.add(snapshotEvent("current"))
+            }
+            #expect(replayQueue.bufferDepth == 1)
+            #expect(replayQueue.depth == 0)
+        }
+
+        @Test("a stale frame is not added to the replay queue when not buffering")
+        func staleFrameIsNotQueuedDirectly() throws {
+            let (sut, integration, replayQueue) = try makeSut(liveConfig: false)
+            defer { sut.close() }
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: nil))
+            #expect(integration.isBuffering == false)
+
+            integration.bumpMaskingGenerationForTesting()
+            let current = integration.currentMaskingGeneration
+
+            PostHogReplayIntegration.withCaptureMaskingGeneration(current - 1) {
+                replayQueue.add(snapshotEvent("stale"))
+            }
+            #expect(replayQueue.depth == 0)
+
+            PostHogReplayIntegration.withCaptureMaskingGeneration(current) {
+                replayQueue.add(snapshotEvent("current"))
+            }
+            #expect(replayQueue.depth == 1)
+        }
+
+        @Test("the buffer is not migrated between a mask turning on and the clear")
+        func bufferIsNotMigratedAfterGenerationBump() async throws {
+            let (sut, integration, replayQueue) = try makeSut(liveConfig: false, minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+            #expect(replayQueue.bufferDepth == 2)
+
+            integration.bumpMaskingGenerationForTesting()
+            PostHogReplayIntegration.withCaptureMaskingGeneration(integration.currentMaskingGeneration) {
+                replayQueue.add(snapshotEvent("3"))
+            }
+            replayQueue.migrateBufferToQueue()
+            try await Task.sleep(nanoseconds: 200_000_000)
+
+            #expect(replayQueue.depth == 0)
+            #expect(replayQueue.bufferDepth == 3)
+        }
+
+        @Test("a cached server mask at install is not a turn-on")
+        func cachedMaskAtInstallIsNotATransition() throws {
+            let (sut, integration, _) = try makeSut(liveConfig: false, cachedMasking: ["mobile": ["maskAllText": true]])
+            defer { sut.close() }
+
+            #expect(integration.resolvedMasking().maskAllTextInputs == true)
+            #expect(integration.currentMaskingGeneration == 0)
+            #expect(integration.loggedMaskFlagsForTesting == ["maskAllTextInputs"])
+        }
     }
 #endif

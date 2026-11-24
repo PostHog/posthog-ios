@@ -35,6 +35,9 @@ class PostHogTriggerGroupsEvaluator {
     private var groups: [PostHogTriggerGroup] = []
 
     private var activationSessionId: String?
+    /// Sessions activation moved away from. A caller that read its session id before a rotation can
+    /// deliver it late; ids are not ordered (an app can set its own), so these are remembered instead.
+    private var leftSessionIds: Set<String> = []
     private var eventActivatedGroupIds: Set<String> = []
     private var screenActivatedGroupIds: Set<String> = []
     private var lastScreenName: String?
@@ -80,7 +83,7 @@ class PostHogTriggerGroupsEvaluator {
                  personProperties: [String: Any?]?) -> Bool
     {
         lock.withLock {
-            resetActivationForNewSessionLocked(sessionId)
+            guard moveActivationLocked(to: sessionId) else { return false }
 
             let screenName = eventName == Self.screenEventName
                 ? (eventProperties?[Self.screenNameProperty] ?? nil) as? String
@@ -116,8 +119,8 @@ class PostHogTriggerGroupsEvaluator {
     /// is checked too, against a screen no group was checked against in it. Each screen is checked once per session.
     func onSessionChanged(sessionId: String, personProperties: [String: Any?]?, includeCurrentSession: Bool = false) -> Bool {
         lock.withLock {
-            guard activationSessionId != sessionId || includeCurrentSession else { return false }
-            resetActivationForNewSessionLocked(sessionId)
+            guard activationSessionId != sessionId || includeCurrentSession,
+                  moveActivationLocked(to: sessionId) else { return false }
 
             guard screenCheckedSessionId != sessionId else { return false }
             return checkScreenLocked(sessionId: sessionId, personProperties: personProperties)
@@ -128,7 +131,7 @@ class PostHogTriggerGroupsEvaluator {
     /// checked against it, and `reset()` drops what an earlier check activated.
     func recheckScreen(sessionId: String, personProperties: [String: Any?]?) -> Bool {
         lock.withLock {
-            resetActivationForNewSessionLocked(sessionId)
+            guard moveActivationLocked(to: sessionId) else { return false }
             return checkScreenLocked(sessionId: sessionId, personProperties: personProperties)
         }
     }
@@ -320,12 +323,17 @@ class PostHogTriggerGroupsEvaluator {
         return sampled
     }
 
-    private func resetActivationForNewSessionLocked(_ sessionId: String) {
-        if activationSessionId != sessionId {
-            activationSessionId = sessionId
-            eventActivatedGroupIds.removeAll()
-            screenActivatedGroupIds.removeAll()
+    /// False for a session activation already left, which keeps the current session's activation.
+    private func moveActivationLocked(to sessionId: String) -> Bool {
+        guard activationSessionId != sessionId else { return true }
+        guard !leftSessionIds.contains(sessionId) else { return false }
+        if let activationSessionId {
+            leftSessionIds.insert(activationSessionId)
         }
+        activationSessionId = sessionId
+        eventActivatedGroupIds.removeAll()
+        screenActivatedGroupIds.removeAll()
+        return true
     }
 
     private static let screenEventName = "$screen"

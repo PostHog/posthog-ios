@@ -322,6 +322,24 @@ struct PostHogTriggerGroupsEvaluatorTests {
         #expect(decide(sessionId: "session-2").shouldRecord)
     }
 
+    @Test("a late call for a session already left keeps the current session's activation")
+    func lateCallForLeftSessionKeepsActivation() {
+        let conditions = eventLeg(["name": "purchase"]).merging(urlLeg("Checkout")) { $1 }.merging(["matchType": "any"]) { $1 }
+        configure([group(id: "g1", conditions: conditions)])
+
+        #expect(!onEvent(sessionId: "session-a", event: "other"))
+        #expect(onEvent(sessionId: "session-b", event: "purchase"))
+        #expect(decide(sessionId: "session-b").shouldRecord)
+
+        #expect(!screen(sessionId: "session-a", name: "Checkout"))
+        #expect(decide(sessionId: "session-b").shouldRecord)
+        #expect(!evaluator.onSessionChanged(sessionId: "session-a", personProperties: nil))
+        #expect(decide(sessionId: "session-b").shouldRecord)
+        #expect(!evaluator.recheckScreen(sessionId: "session-a", personProperties: nil))
+        #expect(decide(sessionId: "session-b").shouldRecord)
+        #expect(!decide(sessionId: "session-a").shouldRecord)
+    }
+
     @Test("sampling decision is deterministic per session and group")
     func samplingDecisionIsDeterministic() {
         // java "session-1g-empty".hashCode() -> bucket 23; "session-2g-empty" -> bucket 12

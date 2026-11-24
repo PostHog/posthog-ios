@@ -3778,6 +3778,9 @@ let maxRetryDelay = 30.0
             }
 
             uninstallIntegrations()
+            #if os(iOS)
+                remoteConfig?.forgetSessionRecordingScreen()
+            #endif
             return true
         }
 

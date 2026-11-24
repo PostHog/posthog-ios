@@ -766,6 +766,27 @@
             #expect(integration.isActive() == true)
         }
 
+        @Test("a screen seen before an opt-out is not checked for the session after the opt-in")
+        func screenBeforeOptOutIsForgotten() async throws {
+            let sut = getSut(triggerGroups: [checkoutUrlTriggerGroup])
+            defer { sut.close() }
+
+            sut.screen("Checkout")
+            #expect(sut.getReplayIntegration()?.isActive() == true)
+
+            sut.optOut()
+            sut.screen("Home")
+            sut.optIn()
+
+            let integration = try #require(sut.getReplayIntegration())
+            let sessionId = try #require(sut.sessionManager.getSessionId(readOnly: true))
+            #expect(sut.remoteConfig?.hasPendingSessionRecordingTriggerGroups(sessionId: sessionId) == true)
+            #expect(integration.isActive() == false)
+
+            sut.screen("Checkout")
+            #expect(integration.isActive() == true)
+        }
+
         @Test("a screen event that rotates the session checks its own screen, not the one it left")
         func rotatingScreenEventChecksItsOwnScreen() async throws {
             // An inactivity timeout rotates the session only in the foreground; in the background it clears it.

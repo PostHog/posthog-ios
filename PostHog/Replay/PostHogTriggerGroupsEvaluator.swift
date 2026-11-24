@@ -135,6 +135,14 @@ class PostHogTriggerGroupsEvaluator {
         }
     }
 
+    /// No `$screen` is recorded while opted out, so the remembered one may be a screen the app has left.
+    func forgetScreen() {
+        lock.withLock {
+            lastScreenName = nil
+            screenCheckedSessionId = nil
+        }
+    }
+
     /// Leaves the screen the app is on unchecked in the current session, so the next explicit start checks it.
     func markScreenUnchecked() {
         lock.withLock { screenCheckedSessionId = nil }

@@ -796,6 +796,10 @@ class PostHogRemoteConfig {
             triggerGroupsEvaluator.recheckScreen(sessionId: sessionId, personProperties: getPersonPropertiesForFlags())
         }
 
+        func forgetSessionRecordingScreen() {
+            triggerGroupsEvaluator.forgetScreen()
+        }
+
         func markSessionRecordingScreenUnchecked() {
             triggerGroupsEvaluator.markScreenUnchecked()
         }

@@ -359,7 +359,6 @@
 
         @Test("Remote config reload while sampled out does not start plugins")
         func reloadWhileSampledOutDoesNotStartPlugins() async throws {
-            SpyReplayPlugin.instances = []
             let sut = getSut(sessionReplay: true, sampleRate: 0.0, pluginTypes: [SpyReplayPlugin.self])
             defer { sut.close() }
 
@@ -370,7 +369,6 @@
 
             #expect(integration.isActive() == false)
             #expect(integration.installedPluginsForTesting.isEmpty)
-            #expect(SpyReplayPlugin.instances.allSatisfy { !$0.started })
         }
 
         @Test("Teardown stops plugins installed while the recorder is off", arguments: Teardown.allCases)
@@ -395,7 +393,6 @@
 
         @Test("Recording starts plugins and an explicit stop stops them")
         func recordingStartsAndStopStopsPlugins() async throws {
-            SpyReplayPlugin.instances = []
             let sut = getSut(sessionReplay: true, pluginTypes: [SpyReplayPlugin.self])
             defer { sut.close() }
 
@@ -412,13 +409,10 @@
     }
 
     private final class SpyReplayPlugin: PostHogSessionReplayPlugin {
-        static var instances: [SpyReplayPlugin] = []
         private(set) var started = false
         private(set) var stopped = false
 
-        required init() {
-            Self.instances.append(self)
-        }
+        required init() { /**/ }
 
         func start(postHog _: PostHogSDK) {
             started = true

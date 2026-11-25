@@ -1,5 +1,11 @@
 ## Next
 
+## 4.0.10
+
+### Patch Changes
+
+- 93ef04d: Fix a crash on iOS 27.2 in apps built with Xcode 27.2 when session replay, surveys, or crash reporting are enabled.
+
 ## 4.0.9
 
 ### Patch Changes

@@ -595,6 +595,61 @@
             #expect(snapshots.fullSnapshots.isEmpty)
             #expect(!mirror.hasAttachedFrameForTesting)
         }
+
+        @Test("a layered GPU capture drops its frame when the session rotates mid-capture")
+        func layeredGPUCaptureDropsOnSessionRotation() async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, snapshots) = try makeSut(gpu: true, mirror: mirror)
+            defer { close(sut) }
+            let scene = makeScene()
+            defer { scene.close() }
+            await prewarm(mirror, scene)
+            CATransaction.flush()
+            #expect(integration.startScreenshotCapture(window: scene.alert, screenName: nil, postHog: sut))
+            sut.startSession()
+            await waitForCaptureToFinish(integration)
+            #expect(snapshots.posts.isEmpty)
+            #expect(!mirror.hasAttachedFrameForTesting)
+        }
+    }
+
+    private final class CountingLayer: CALayer {
+        nonisolated(unsafe) static var copies = 0
+        override init() {
+            super.init()
+        }
+
+        override init(layer: Any) {
+            Self.copies += 1
+            super.init(layer: layer)
+        }
+
+        @available(*, unavailable) required init?(coder _: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+    }
+
+    private final class CountingLayerWindow: UIWindow {
+        override class var layerClass: AnyClass { CountingLayer.self }
+    }
+
+    @Suite("Replay window layers: app-defined base", .serialized)
+    @MainActor
+    struct PostHogReplayWindowLayerAppDefinedBaseTests {
+        @Test("an app-defined base layer is never copied while judging a cover")
+        func appDefinedBaseNotCopied() {
+            let base = CountingLayerWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 300))
+            base.isHidden = false
+            let alert = UIWindow(frame: base.frame)
+            alert.windowLevel = .rnAlert
+            alert.isHidden = false
+            defer { [base, alert].forEach { $0.isHidden = true } }
+            #expect(base.layer.isAppDefined)
+            CATransaction.flush()
+            CountingLayer.copies = 0
+            _ = PostHogReplayIntegration.screenshotLayers(keyWindow: alert, candidates: [base, alert])
+            #expect(CountingLayer.copies == 0)
+        }
     }
 
     @Suite("Replay window layers: emission, change hash and fingerprint", .serialized)
@@ -800,6 +855,37 @@
                 try #require(rendered, "the animation never reached the presentation layer")
 
                 #expect(ids(PostHogReplayIntegration.screenshotLayers(keyWindow: lock, candidates: [app, lock])) == ids([app, lock]))
+            }
+
+            @Test("a detached root view left under a translucent full-screen presentation is not a cover")
+            func detachedRootIsNotACover() async throws {
+                let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+                let app = UIWindow(windowScene: scene), lock = UIWindow(windowScene: scene)
+                app.frame = CGRect(x: 0, y: 0, width: 200, height: 300)
+                app.isHidden = false
+                lock.frame = app.frame
+                lock.windowLevel = .rnAlert
+                defer { [app, lock].forEach { $0.isHidden = true } }
+                let root = UIViewController()
+                root.view.backgroundColor = .white
+                lock.rootViewController = root
+                lock.makeKeyAndVisible()
+                root.view.frame = lock.bounds
+                #expect(ids(PostHogReplayIntegration.screenshotLayers(keyWindow: lock, candidates: [app, lock])) == ids([lock]))
+
+                let cover = UIViewController()
+                cover.modalPresentationStyle = .fullScreen
+                cover.view.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+                root.present(cover, animated: false)
+                var presented = false
+                for _ in 0 ..< 100 where !presented {
+                    lock.layoutIfNeeded()
+                    try await Task.sleep(nanoseconds: 50_000_000)
+                    presented = cover.view.window === lock && !cover.isBeingPresented
+                }
+                try #require(presented, "the cover did not finish presenting")
+                let layers = PostHogReplayIntegration.screenshotLayers(keyWindow: lock, candidates: [app, lock])
+                #expect(ids(layers) == ids([app, lock]))
             }
         }
     #endif

@@ -743,8 +743,9 @@
             // - this ensures that UITouch associated objects like UIView, UIWindow, or [UIGestureRecognizer] are still valid.
             // - these objects may be released or erased by the system if accessed asynchronously, resulting in invalid/zeroed-out touch coordinates
             // A layered frame is drawn in its base window's space, so its touches are too.
-            let space = Self.screenshotLayers(for: window).first ?? window
-            let touchInfo = touches.compactMap { recordableTouch($0, in: window) }.map {
+            let recorded = touches.compactMap { recordableTouch($0, in: window) }
+            let space = recorded.isEmpty ? window : (Self.screenshotLayers(for: window).first ?? window)
+            let touchInfo = recorded.map {
                 (phase: $0.phase, location: window.convert($0.location, to: space))
             }
 
@@ -798,11 +799,11 @@
             screenName: String?,
             postHog: PostHogSDK,
             timestampDate: Date,
-            sessionId _: String? = nil,
+            sessionId capturedSessionId: String? = nil,
             episodeFirstFrame: Bool = false
         ) {
             captureSnapshot([wireframe], window: window, windowSize: windowSize, screenName: screenName, postHog: postHog,
-                            timestampDate: timestampDate, episodeFirstFrame: episodeFirstFrame)
+                            timestampDate: timestampDate, sessionId: capturedSessionId, episodeFirstFrame: episodeFirstFrame)
         }
 
         /// `wireframes` are one screen's window layers, bottom first. `window` is the bottom one: the meta event and the
@@ -814,6 +815,7 @@
             screenName: String?,
             postHog: PostHogSDK,
             timestampDate: Date,
+            sessionId capturedSessionId: String? = nil,
             episodeFirstFrame: Bool = false
         ) {
             let timestamp = timestampDate.toMillis()
@@ -2674,6 +2676,8 @@
                 private let layers: [Weak<UIWindow>]
                 let screenName: String?
                 let postHog: PostHogSDK
+                /// The session the layers are captured in; a frame that outlives it is dropped.
+                let sessionId: String
                 let timestampDate = Date()
                 /// The base's size when the layers were picked; the frame is laid out in it.
                 let baseSize: CGSize
@@ -2682,12 +2686,13 @@
                 var maskRects: [[CGRect]]
                 var count: Int { layers.count }
 
-                init(layers: [UIWindow], screenName: String?, postHog: PostHogSDK) {
+                init(layers: [UIWindow], screenName: String?, postHog: PostHogSDK, sessionId: String) {
                     self.layers = layers.map { Weak($0) }
                     maskRects = Array(repeating: [], count: layers.count)
                     baseSize = layers.first?.bounds.size ?? .zero
                     self.screenName = screenName
                     self.postHog = postHog
+                    self.sessionId = sessionId
                 }
 
                 var windows: [UIWindow]? {
@@ -2708,7 +2713,11 @@
             /// Main thread, with the render slot claimed. Layers are captured one at a time because the mirror holds one frame
             /// per window size; the slot stays claimed until the last layer is read back.
             func scheduleLayeredGPUCapture(layers: [UIWindow], screenName: String?, postHog: PostHogSDK) {
-                let capture = LayeredGPUCapture(layers: layers, screenName: screenName, postHog: postHog)
+                guard let sessionId = postHog.sessionManager.getSessionId(readOnly: true), !sessionId.isEmpty else {
+                    endGPUCapture(nil)
+                    return
+                }
+                let capture = LayeredGPUCapture(layers: layers, screenName: screenName, postHog: postHog, sessionId: sessionId)
                 guard let mirror = gpuMirror else {
                     endGPUCapture(nil, fallback: capture.fallback)
                     return
@@ -2717,7 +2726,9 @@
             }
 
             private func captureLayer(_ index: Int, of capture: LayeredGPUCapture, mirror: PostHogGPUMirrorCapture) {
-                guard let windows = capture.windows, capture.postHog.isSessionReplayActive(), !DI.main.appLifecyclePublisher.isInBackground else {
+                guard let windows = capture.windows, capture.postHog.isRecordingReplay(in: capture.sessionId),
+                      !DI.main.appLifecyclePublisher.isInBackground
+                else {
                     endGPUCapture(nil)
                     return
                 }
@@ -2761,7 +2772,7 @@
             private func encodeLayer(_ index: Int, frame: PostHogGPUMirrorCapture.Frame, wireframe: RRScreenshotFrame, of capture: LayeredGPUCapture,
                                      mirror: PostHogGPUMirrorCapture)
             {
-                guard capture.windows != nil, capture.postHog.isSessionReplayActive(), !DI.main.appLifecyclePublisher.isInBackground else {
+                guard capture.windows != nil, capture.postHog.isRecordingReplay(in: capture.sessionId), !DI.main.appLifecyclePublisher.isInBackground else {
                     endGPUCapture(frame)
                     return
                 }
@@ -2784,7 +2795,7 @@
                             // nothing. A blank key window may be a cover the mirror can't draw, so it falls back.
                             break
                         case .blank, .failed:
-                            let canFallBack = capture.postHog.isSessionReplayActive() && !DI.main.appLifecyclePublisher.isInBackground
+                            let canFallBack = capture.postHog.isRecordingReplay(in: capture.sessionId) && !DI.main.appLifecyclePublisher.isInBackground
                             self.endGPUCapture(frame, fallback: canFallBack ? capture.fallback : nil)
                             return
                         }
@@ -2799,7 +2810,8 @@
                                 let wireframes = capture.captured.map(\.wireframe)
                                 Self.addUpperLayerMasks(to: wireframes, of: windows, maskRects: capture.maskRects, in: allWindows)
                                 self.enqueueLayers(wireframes, of: windows, screenName: capture.screenName,
-                                                   postHog: capture.postHog, timestampDate: capture.timestampDate)
+                                                   postHog: capture.postHog, timestampDate: capture.timestampDate,
+                                                   sessionId: capture.sessionId)
                             } else {
                                 hedgeLog("[Session Replay] Skipping snapshot: the app window resized during capture")
                             }
@@ -3076,7 +3088,7 @@
         private static func isOpaqueCover(_ window: UIWindow, over base: UIWindow) -> Bool {
             guard isUnclippedCover(window, over: base) else { return false }
             if PostHogPresentationCover.hasOpaqueBackground(window) { return true }
-            if let root = window.rootViewController?.viewIfLoaded, !root.isHidden,
+            if let root = window.rootViewController?.viewIfLoaded, root.window === window, !root.isHidden,
                isUnclippedCover(root, over: base), PostHogPresentationCover.hasOpaqueBackground(root)
             {
                 return true
@@ -3093,9 +3105,9 @@
                 return false
             }
             // Under an app-defined layer the presentation can't be read without copying it; the model is the screen only
-            // while nothing in the chain animates.
-            if layer.hasAppDefinedLayerInChain {
-                return !layer.hasAnimationInChain
+            // while nothing in either chain animates.
+            if layer.hasAppDefinedLayerInChain || base.layer.hasAppDefinedLayerInChain {
+                return !layer.hasAnimationInChain && !base.layer.hasAnimationInChain
             }
             let presentation = layer.presentation() ?? layer
             let basePresentation = base.layer.presentation() ?? base.layer
@@ -3177,16 +3189,16 @@
         }
 
         fileprivate func enqueueLayers(_ wireframes: [RRScreenshotFrame], of layers: [UIWindow], screenName: String?, postHog: PostHogSDK,
-                                       timestampDate: Date)
+                                       timestampDate: Date, sessionId: String? = nil)
         {
-            guard let base = layers.first, postHog.isSessionReplayActive() else { return }
+            guard let base = layers.first, sessionId.map(postHog.isRecordingReplay(in:)) ?? postHog.isSessionReplayActive() else { return }
             for (wireframe, layer) in zip(wireframes, layers).dropFirst() {
                 let frame = layer.convert(layer.bounds, to: base)
                 wireframe.posX = frame.origin.x.toInt() ?? 0
                 wireframe.posY = frame.origin.y.toInt() ?? 0
             }
             captureSnapshot(wireframes, window: base, windowSize: base.bounds.size, screenName: screenName, postHog: postHog,
-                            timestampDate: timestampDate)
+                            timestampDate: timestampDate, sessionId: sessionId)
         }
     }
 

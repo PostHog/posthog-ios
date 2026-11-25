@@ -2758,7 +2758,12 @@
                 case let .fallback(frame):
                     endGPUCapture(frame, fallback: capture.fallback)
                 case let .frozen(frame, wireframe, maskRects):
-                    capture.maskRects[index] = maskRects
+                    capture.maskRects[index] += maskRects
+                    guard preMeasureUpperLayerMasks(above: index, windows: windows, into: capture) else {
+                        hedgeLog("[Session Replay] Skipping snapshot: a masked view hasn't been laid out yet")
+                        endGPUCapture(frame)
+                        return
+                    }
                     PostHogGPUMirrorCapture.onNextRunLoopTurn { [weak self] in
                         guard let self else {
                             frame.release()
@@ -2767,6 +2772,16 @@
                         self.encodeLayer(index, frame: frame, wireframe: wireframe, of: capture, mirror: mirror)
                     }
                 }
+            }
+
+            /// The layers above freeze later, so a shield removed in between would unmask this layer: measure theirs now, in this
+            /// layer's turn. False when a masked view above isn't laid out yet.
+            private func preMeasureUpperLayerMasks(above index: Int, windows: [UIWindow], into capture: LayeredGPUCapture) -> Bool {
+                for upper in (index + 1) ..< windows.count {
+                    guard let regions = collectMaskedRegions(in: windows[upper]) else { return false }
+                    capture.maskRects[upper] += regions.map(\.rect)
+                }
+                return true
             }
 
             private func encodeLayer(_ index: Int, frame: PostHogGPUMirrorCapture.Frame, wireframe: RRScreenshotFrame, of capture: LayeredGPUCapture,

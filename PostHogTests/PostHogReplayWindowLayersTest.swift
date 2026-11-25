@@ -596,6 +596,65 @@
             #expect(!mirror.hasAttachedFrameForTesting)
         }
 
+        @Test("the base stays masked when an upper window's shield is removed after the base froze", arguments: [false, true])
+        func baseMaskedWhenShieldRemovedMidCapture(removeShield: Bool) async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, snapshots) = try makeSut(gpu: true, mirror: mirror)
+            defer { close(sut) }
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            let scene = makeScene()
+            defer { scene.close() }
+            let shield = UIView(frame: CGRect(x: 0, y: 30, width: 200, height: 60))
+            shield.backgroundColor = .clear
+            shield.accessibilityIdentifier = "ph-no-capture"
+            scene.alert.addSubview(shield)
+            scene.alert.layoutIfNeeded()
+            await prewarm(mirror, scene)
+            CATransaction.flush()
+            #expect(integration.startScreenshotCapture(window: scene.alert, screenName: nil, postHog: sut))
+            if removeShield { shield.removeFromSuperview() }
+            await waitForCaptureToFinish(integration)
+            let wireframes = try #require(snapshots.fullSnapshots.first)
+            try #require(wireframes.count == 2)
+            let magenta = try pixels(wireframes[0]).count(where: Self.isMagenta)
+            #expect(magenta == 0)
+        }
+
+        @Test("the base and a middle window stay masked when the top window's shield is removed after the base froze")
+        func baseAndMiddleMaskedWhenTopShieldRemovedMidCapture() async throws {
+            let mirror = try makeMirror()
+            let (sut, integration, snapshots) = try makeSut(gpu: true, mirror: mirror)
+            defer { close(sut) }
+            PostHogInlineMask.textColorForTesting = .blue
+            defer { PostHogInlineMask.textColorForTesting = nil }
+            let scene = makeScene()
+            defer { scene.close() }
+            let middle = UIWindow(frame: scene.app.frame)
+            middle.windowLevel = .alert
+            middle.isHidden = false
+            defer { middle.isHidden = true }
+            let secret = UIView(frame: CGRect(x: 0, y: 40, width: 200, height: 40))
+            secret.backgroundColor = .magenta
+            middle.addSubview(secret)
+            middle.layoutIfNeeded()
+            let shield = UIView(frame: CGRect(x: 0, y: 30, width: 200, height: 60))
+            shield.backgroundColor = .clear
+            shield.accessibilityIdentifier = "ph-no-capture"
+            scene.alert.addSubview(shield)
+            scene.alert.layoutIfNeeded()
+            PostHogReplayIntegration.windowLayerCandidatesForTesting = [scene.app, middle, scene.alert]
+            await prewarm(mirror, scene)
+            CATransaction.flush()
+            #expect(integration.startScreenshotCapture(window: scene.alert, screenName: nil, postHog: sut))
+            shield.removeFromSuperview()
+            await waitForCaptureToFinish(integration)
+            let wireframes = try #require(snapshots.fullSnapshots.first)
+            try #require(wireframes.count == 3)
+            #expect(try pixels(wireframes[0]).count(where: Self.isMagenta) == 0)
+            #expect(try pixels(wireframes[1]).count(where: Self.isMagenta) == 0)
+        }
+
         @Test("a layered GPU capture drops its frame when the session rotates mid-capture")
         func layeredGPUCaptureDropsOnSessionRotation() async throws {
             let mirror = try makeMirror()

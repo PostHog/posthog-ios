@@ -1590,6 +1590,28 @@
             #expect(integration.isBuffering == true)
         }
 
+        @Test("a snapshot added while a direct write is in flight under a raised minimum is not stranded")
+        func snapshotDuringInFlightDirectWriteIsNotStranded() throws {
+            let (sut, integration, replayQueue) = try overrideSut(minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+
+            sut.setSessionReplayMinimumDuration(0)
+            let second = snapshotEvent("2")
+            replayQueue.onDirectRouteForTesting = {
+                replayQueue.onDirectRouteForTesting = nil
+                sut.setSessionReplayMinimumDuration(600_000)
+                replayQueue.add(second)
+            }
+            replayQueue.add(snapshotEvent("1"))
+
+            #expect(integration.isBuffering == false)
+            #expect(replayQueue.bufferDepth == 0)
+            #expect(replayQueue.depth == 2)
+
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            #expect(replayQueue.depth == 2)
+        }
+
         @Test("clearing the minimum duration override goes back to the remote config minimum")
         func clearingMinimumDurationOverrideRestoresRemote() throws {
             let (sut, integration, replayQueue) = try overrideSut(minimumDurationMilliseconds: 600_000)

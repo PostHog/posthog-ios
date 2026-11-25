@@ -2149,22 +2149,30 @@
 
     extension PostHogReplayIntegration: PostHogReplayBufferDelegate {
         var isBuffering: Bool {
+            bufferingLock.withLock { isBufferingLocked() }
+        }
+
+        /// A snapshot routed unheld means the session already went out, so a minimum raised later must not
+        /// hold the rest of it. Marked with the route in one hold, so a snapshot added while another is still
+        /// being written can't be buffered behind it and never migrate.
+        func shouldBufferSnapshot() -> Bool {
             bufferingLock.withLock {
-                if awaitingFirstRemoteConfig {
-                    return true
+                let buffering = isBufferingLocked()
+                if !buffering, isEnabled {
+                    hasPassedMinimumDuration = true
                 }
-                guard let minimumDuration = cachedMinimumDuration,
-                      minimumDuration > 0
-                else {
-                    return false
-                }
-                return !hasPassedMinimumDuration
+                return buffering
             }
         }
 
-        /// Part of the session already went out unheld, so a minimum raised later must not hold the rest of it.
-        func replayQueueDidPersistSnapshot() {
-            bufferingLock.withLock { hasPassedMinimumDuration = true }
+        private func isBufferingLocked() -> Bool {
+            if awaitingFirstRemoteConfig {
+                return true
+            }
+            guard let minimumDuration = cachedMinimumDuration, minimumDuration > 0 else {
+                return false
+            }
+            return !hasPassedMinimumDuration
         }
 
         func replayQueueDidBufferSnapshot(_ replayQueue: PostHogReplayQueue) {

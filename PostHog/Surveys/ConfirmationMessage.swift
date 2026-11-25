@@ -16,11 +16,11 @@
         var body: some View {
             VStack(spacing: 16) {
                 Text(appearance.thankYouMessageHeader)
-                    .font(.body.bold())
+                    .surveyFont(.body, bold: true)
                     .foregroundStyle(foregroundTextColor)
                 if let description = appearance.thankYouMessageDescription, appearance.thankYouMessageDescriptionContentType == .text {
                     Text(description)
-                        .font(.body)
+                        .surveyFont(.body)
                         .foregroundStyle(foregroundTextColor)
                 }
 

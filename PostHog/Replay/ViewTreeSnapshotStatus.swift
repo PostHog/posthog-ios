@@ -11,7 +11,9 @@ class ViewTreeSnapshotStatus {
     var sentFullSnapshot: Bool = false
     var sentMetaEvent: Bool = false
     var metaEventSize: CGSize?
+    var metaEventScreenName: String?
     var keyboardVisible: Bool = false
     var lastSnapshot: Bool = false
     var lastImageHash: Int?
+    var sessionId: String?
 }

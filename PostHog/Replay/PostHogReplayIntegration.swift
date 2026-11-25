@@ -748,14 +748,15 @@
                 (phase: $0.phase, location: window.convert($0.location, to: space))
             }
 
-            PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
-                // always make sure we have a fresh session id as early as possible
-                guard let sessionId = postHog?.sessionManager.getSessionId(at: date) else {
-                    return
-                }
+            // A touch is user activity, so this read can start a new session. The touch belongs to
+            // that session, and the block below can run much later.
+            guard let sessionId = postHog.sessionManager.getSessionId(at: date) else {
+                return
+            }
 
+            PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
                 // captured weakly since integration may have uninstalled by now
-                guard let postHog else { return }
+                guard let postHog, postHog.isRecordingReplay(in: sessionId) else { return }
 
                 var snapshotsData: [Any] = []
                 for touch in touchInfo {
@@ -789,6 +790,7 @@
             }
         }
 
+        /// `sessionId` is the session the frame was captured in. Defaults to the current one.
         func captureSnapshot(
             _ wireframe: RRScreenshotFrame,
             window: UIWindow,
@@ -796,6 +798,7 @@
             screenName: String?,
             postHog: PostHogSDK,
             timestampDate: Date,
+            sessionId _: String? = nil,
             episodeFirstFrame: Bool = false
         ) {
             captureSnapshot([wireframe], window: window, windowSize: windowSize, screenName: screenName, postHog: postHog,
@@ -815,6 +818,10 @@
         ) {
             let timestamp = timestampDate.toMillis()
 
+            guard let sessionId = capturedSessionId ?? postHog.sessionManager.getSessionId(readOnly: true), !sessionId.isEmpty else {
+                return
+            }
+
             // Queued frames share this status; its fields are confined to dispatchQueue.
             let snapshotStatus = windowViewsLock.withLock {
                 if let status = windowViews.object(forKey: window) {
@@ -826,15 +833,28 @@
             }
 
             PostHogReplayIntegration.dispatchQueue.async { [weak self] in
-                // Frames keep arriving on an idle screen and aren't user activity, so they can't rotate
-                // an inactive session; the next touch or event does.
-                guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate, keepingInactiveSession: true) else {
-                    return
-                }
-
                 // A new bridge episode needs fresh metadata even if its opening render fails.
                 if episodeFirstFrame {
                     snapshotStatus.sentMetaEvent = false
+                    snapshotStatus.metaEventScreenName = nil
+                }
+
+                // Read-only first: between endSession() and startSession() the read below would create a session.
+                guard postHog.isRecordingReplay(in: sessionId) else {
+                    return
+                }
+
+                // Frames keep arriving on an idle screen and aren't user activity, so they can't rotate
+                // an inactive session; the next touch or event does.
+                guard postHog.sessionManager.getSessionId(at: timestampDate, keepingInactiveSession: true) == sessionId else {
+                    return
+                }
+
+                // A session opens with its own meta event, whatever this window sent in the previous one.
+                if snapshotStatus.sessionId != sessionId {
+                    snapshotStatus.sessionId = sessionId
+                    snapshotStatus.sentMetaEvent = false
+                    snapshotStatus.metaEventScreenName = nil
                 }
 
                 let wireframeDicts = autoreleasepool { wireframes.map { $0.toDict() } }
@@ -857,10 +877,15 @@
                 var snapshotsData: [Any] = []
                 let width = windowSize.width.toInt() ?? 0
                 let height = windowSize.height.toInt() ?? 0
-                if !snapshotStatus.sentMetaEvent || snapshotStatus.metaEventSize != CGSize(width: width, height: height) {
+                // Re-send the meta event when the screen changes too, so its `href` follows navigation
+                // on a window that keeps its size. A frame without a screen name (nil or empty) keeps the last one.
+                let frameScreenName = screenName?.isEmpty == false ? screenName : nil
+                let screenNameChanged = frameScreenName != nil && frameScreenName != snapshotStatus.metaEventScreenName
+                if !snapshotStatus.sentMetaEvent || snapshotStatus.metaEventSize != CGSize(width: width, height: height) || screenNameChanged {
                     var data: [String: Any] = ["width": width, "height": height]
-                    if let screenName = screenName {
-                        data["href"] = screenName
+                    if let frameScreenName = frameScreenName {
+                        data["href"] = frameScreenName
+                        snapshotStatus.metaEventScreenName = frameScreenName
                     }
                     let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
                     snapshotsData.append(snapshotData)
@@ -1342,6 +1367,7 @@
             postHog: PostHogSDK,
             timestampDate: Date,
             image collectedImage: UIImage?,
+            sessionId: String? = nil,
             episodeFirstFrame: Bool = false
         ) -> Bool {
             autoreleasepool {
@@ -1360,6 +1386,7 @@
                     screenName: screenName,
                     postHog: postHog,
                     timestampDate: timestampDate,
+                    sessionId: sessionId,
                     episodeFirstFrame: episodeFirstFrame
                 )
                 return true
@@ -1759,6 +1786,13 @@
             if !source.hasInPlaceCopies, over.contains(where: { $0.inline == .extent && !owners.contains($0.owner) }) { return [] }
             owners.formUnion(over.map(\.owner))
             return owners.isEmpty ? nil : owners
+        }
+    }
+
+    private extension PostHogSDK {
+        /// Whether replay is still recording `sessionId`. Never creates or rotates a session.
+        func isRecordingReplay(in sessionId: String) -> Bool {
+            isSessionReplayActive() && sessionManager.getSessionId(readOnly: true) == sessionId
         }
     }
 
@@ -2541,7 +2575,8 @@
                     wireframe = frozenWireframe
                 }
                 let capture = MirroredCapture(frame: frame, wireframe: wireframe, windowSize: window.bounds.size,
-                                              screenName: screenName, timestampDate: timestampDate)
+                                              screenName: screenName, timestampDate: timestampDate,
+                                              sessionId: postHog.sessionManager.getSessionId(readOnly: true))
                 // Build and render each cost up to a frame on older devices; keep them in separate turns.
                 PostHogGPUMirrorCapture.onNextRunLoopTurn { [weak self, weak window] in
                     guard let self else {
@@ -2593,6 +2628,7 @@
                 let windowSize: CGSize
                 let screenName: String?
                 let timestampDate: Date
+                let sessionId: String?
             }
 
             /// Main thread, with the render slot still claimed by `captureMirrored`. Renders the frozen mirror, then
@@ -2611,10 +2647,10 @@
 
                 let wireframe = capture.wireframe
                 frame.readback(on: Self.dispatchQueue) { [weak self, weak window] image in
-                    if let self, let image, let window, postHog.isSessionReplayActive() {
+                    if let self, let image, let window, let sessionId = capture.sessionId, postHog.isSessionReplayActive() {
                         self.renderAndEnqueueScreenshot(wireframe, window: window, windowSize: capture.windowSize, screenName: capture.screenName,
                                                         postHog: postHog, timestampDate: capture.timestampDate,
-                                                        image: Self.screenshot(image, of: frame))
+                                                        image: Self.screenshot(image, of: frame), sessionId: sessionId)
                     }
                     DispatchQueue.main.async {
                         guard let self else {

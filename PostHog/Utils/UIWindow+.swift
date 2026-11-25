@@ -43,8 +43,12 @@
     ]
 
     extension UIWindow {
+        static func isKeyboardWindowClassName(_ className: String) -> Bool {
+            knownKeyboardWindowTypes.contains(className)
+        }
+
         var isKeyboardWindow: Bool {
-            knownKeyboardWindowTypes.contains(String(describing: type(of: self)))
+            Self.isKeyboardWindowClassName(NSStringFromClass(type(of: self)))
         }
     }
 #endif

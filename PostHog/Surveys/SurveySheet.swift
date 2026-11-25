@@ -45,6 +45,8 @@
                     cardContent
                 }
             }
+            // Default for text without an explicit survey font, such as inputs, placeholders and rating labels.
+            .font(appearance.font(.body))
             .environment(\.surveyAppearance, appearance)
         }
 
@@ -201,7 +203,8 @@
     }
 
     struct SwiftUISurveyAppearance {
-        var fontFamily: Font
+        /// PostScript name of the survey font's regular face, or nil to use the system font.
+        var fontName: String?
         var backgroundColor: Color
         var submitButtonColor: Color
         var submitButtonText: String
@@ -240,7 +243,7 @@
     extension SwiftUISurveyAppearance {
         static func getAppearanceWithDefaults(_ appearance: PostHogDisplaySurveyAppearance? = nil) -> SwiftUISurveyAppearance {
             SwiftUISurveyAppearance(
-                fontFamily: Font.customFont(family: appearance?.fontFamily ?? "") ?? Font.body,
+                fontName: resolveSurveyFontName(appearance?.fontFamily),
                 backgroundColor: colorFrom(css: appearance?.backgroundColor, defaultColor: .tertiarySystemBackground),
                 submitButtonColor: colorFrom(css: appearance?.submitButtonColor, defaultColor: .black),
                 submitButtonText: appearance?.submitButtonText ?? "Submit",
@@ -310,12 +313,63 @@
         }
     }
 
-    extension Font {
-        static func customFont(family: String) -> Font? {
-            if let uiFont = UIFont(name: family, size: UIFont.systemFontSize) {
-                return Font(uiFont)
+    /// Resolves a CSS `font-family` value to the PostScript name of an installed font, or nil to keep the system font.
+    func resolveSurveyFontName(_ css: String?) -> String? {
+        guard let family = surveyFontFamilyName(css) else { return nil }
+        // CSS names a font family ("Arial"), while `UIFont(name:)` is documented for PostScript or full names ("ArialMT").
+        // A family descriptor matches by family, but an unknown family resolves to a fallback font, so check the result.
+        let font = UIFont(descriptor: UIFontDescriptor(fontAttributes: [.family: family]), size: 0)
+        return font.familyName.caseInsensitiveCompare(family) == .orderedSame ? font.fontName : nil
+    }
+
+    enum SurveyTextStyle {
+        case body
+        case callout
+
+        fileprivate var systemFont: Font {
+            switch self {
+            case .body: return .body
+            case .callout: return .callout
             }
-            return nil
+        }
+
+        fileprivate var textStyle: Font.TextStyle {
+            switch self {
+            case .body: return .body
+            case .callout: return .callout
+            }
+        }
+
+        /// Size at the default content size category; `Font.custom(_:size:relativeTo:)` scales it with Dynamic Type.
+        fileprivate var defaultPointSize: CGFloat {
+            let style: UIFont.TextStyle = self == .body ? .body : .callout
+            let traits = UITraitCollection(preferredContentSizeCategory: .large)
+            return UIFont.preferredFont(forTextStyle: style, compatibleWith: traits).pointSize
+        }
+    }
+
+    extension SwiftUISurveyAppearance {
+        func font(_ style: SurveyTextStyle, bold: Bool = false) -> Font {
+            let font = fontName.map { Font.custom($0, size: style.defaultPointSize, relativeTo: style.textStyle) }
+                ?? style.systemFont
+            return bold ? font.bold() : font
+        }
+    }
+
+    private struct SurveyFontModifier: ViewModifier {
+        @Environment(\.surveyAppearance) private var appearance
+        let style: SurveyTextStyle
+        let bold: Bool
+
+        func body(content: Content) -> some View {
+            content.font(appearance.font(style, bold: bold))
+        }
+    }
+
+    extension View {
+        /// Applies the survey's `fontFamily` (or the system font) at the given text style's size and Dynamic Type scaling.
+        func surveyFont(_ style: SurveyTextStyle, bold: Bool = false) -> some View {
+            modifier(SurveyFontModifier(style: style, bold: bold))
         }
     }
 

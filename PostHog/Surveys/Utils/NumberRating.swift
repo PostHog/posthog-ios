@@ -24,7 +24,7 @@
                     selectedValue: $selectedValue
                 ) { value, selected in
                     Text("\(value)")
-                        .font(.body.bold())
+                        .surveyFont(.body, bold: true)
                         .foregroundColor(
                             foregroundTextColor(selected: selected)
                         )
@@ -48,12 +48,12 @@
                 if !lowerBoundLabel.isEmpty || !upperBoundLabel.isEmpty {
                     HStack {
                         Text(lowerBoundLabel)
-                            .font(.callout)
+                            .surveyFont(.callout)
                             .foregroundColor(appearance.descriptionTextColor)
                             .frame(alignment: .leading)
                         Spacer()
                         Text(upperBoundLabel)
-                            .font(.callout)
+                            .surveyFont(.callout)
                             .foregroundColor(appearance.descriptionTextColor)
                             .frame(alignment: .trailing)
                     }

@@ -31,7 +31,7 @@
                             let isSelected = selectedValue == value
                             emoji(for: value)
                                 .frame(width: 48, height: 48)
-                                .font(.body.bold())
+                                .surveyFont(.body, bold: true)
                                 .foregroundColor(foregroundColor(selected: isSelected))
                         }
 

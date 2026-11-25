@@ -1,5 +1,29 @@
 ## Next
 
+## 4.0.9
+
+### Patch Changes
+
+- b31d239: Show the current screen name in session replay after navigating to a screen of the same size. The replay kept the screen name of the first frame until the window size changed.
+
+## 4.0.8
+
+### Patch Changes
+
+- ba9fa9e: Fix main-thread hangs on tap when rage-click detection is enabled, most noticeable in large React Native apps.
+
+## 4.0.7
+
+### Patch Changes
+
+- 414765b: Send a session replay frame or touch with the session it was captured in, or drop it. On a busy device a frame or touch could be sent late under a newer session, or after recording stopped, and that session could miss its first full snapshot. A new session's first buffered snapshots are also no longer lost when the previous session's buffer is cleared.
+
+## 4.0.6
+
+### Patch Changes
+
+- 890bd64: Apply the survey's `appearance.fontFamily` in the built-in survey UI. The first family of the CSS font list is used when it's installed on the device, keeping each element's size, weight and Dynamic Type scaling; `inherit`, `system-ui`, empty values and unavailable fonts keep the system font.
+
 ## 4.0.5
 
 ### Patch Changes

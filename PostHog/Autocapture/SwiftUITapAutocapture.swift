@@ -186,7 +186,7 @@
             guard let label, !label.isEmpty else { return nil }
 
             let hierarchy = ancestors.prefix(12).map { view in
-                let name = String(describing: type(of: view)).components(separatedBy: "<").first ?? "View"
+                let name = view.descriptiveTypeName
                 return PostHogAutocaptureEventTracker.Element(
                     text: "", targetClass: name, baseClass: nil,
                     label: nil
@@ -204,7 +204,7 @@
         }
 
         static func isSwiftUI(_ view: UIView) -> Bool {
-            let name = String(reflecting: type(of: view))
+            let name = _typeName(type(of: view), qualified: true)
             return name.hasPrefix("SwiftUI.") || name.hasPrefix("SwiftUICore.")
         }
 

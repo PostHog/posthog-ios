@@ -3813,6 +3813,8 @@ let maxRetryDelay = 30.0
                 featureFlagsSetupGeneration += 1
                 lastFeatureFlagsLoaded = nil
             }
+            featureFlagsLoadedToken = nil
+            pushRemoteConfigToken = nil
             PostHogSDK.projectTokens.remove(config.projectToken)
 
             queue?.flush()
@@ -3845,8 +3847,6 @@ let maxRetryDelay = 30.0
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
             remoteConfig = nil
-            featureFlagsLoadedToken = nil
-            pushRemoteConfigToken = nil
             storage = nil
             #if !os(watchOS)
                 self.reachability?.stopNotifier()

@@ -194,9 +194,69 @@ final class PostHogPushMigrationAfterCloseTest {
         #expect(remainingAfterCallback == ["com.example.app"])
     }
 
+    @Test("does not run the push subscriber when a /config load finishes while close() is still running")
+    func pushSubscriberDuringClose() async throws {
+        let config = PostHogConfig(projectToken: "push_subscriber_during_close", host: "http://localhost:9001")
+        config.disableRemoteConfigForTesting = true
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
+        config.preloadFeatureFlags = false
+        let storage = PostHogStorage(config)
+        storage.reset()
+        storage.remove(key: .pushAppIdsMigrated)
+        storage.remove(key: .remoteConfig)
+
+        let sut = PostHogSDK.with(config)
+        let remoteConfig = try #require(sut.remoteConfig)
+        // Held like its queued work would hold it, so the subscriber still finds it after close() lets go
+        let handler = try #require(Self.pushHandler(of: sut))
+        defer { withExtendedLifetime(handler) {} }
+        sut.addExceptionStep("seed")
+
+        // close() clears the exception steps while it holds its lock: hold it there
+        let enteredClose = DispatchSemaphore(value: 0)
+        let allowCloseToFinish = DispatchSemaphore(value: 0)
+        var didPauseClose = false
+        let stepsToken = sut.onExceptionStepsChanged.subscribe { steps in
+            if steps.isEmpty, !didPauseClose {
+                didPauseClose = true
+                enteredClose.signal()
+                _ = allowCloseToFinish.wait(timeout: .now() + 5)
+            }
+        }
+        defer { withExtendedLifetime(stepsToken) {} }
+
+        let closeFinished = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            sut.close()
+            closeFinished.signal()
+        }
+        #expect(enteredClose.wait(timeout: .now() + 2) == .success)
+
+        var remainingAfterCallback: Set<String> = []
+        var token: RegistrationToken?
+        await withCheckedContinuation { continuation in
+            token = remoteConfig.onRemoteConfigLoaded.subscribe { _ in
+                remainingAfterCallback = remoteConfig.consumeNewlyRegisterablePushAppIds()
+                continuation.resume()
+            }
+            remoteConfig.reloadRemoteConfig()
+        }
+        withExtendedLifetime(token) {}
+
+        allowCloseToFinish.signal()
+        #expect(closeFinished.wait(timeout: .now() + 2) == .success)
+
+        #expect(remainingAfterCallback == ["com.example.app"])
+    }
+
+    private static func pushHandler(of sdk: PostHogSDK) -> AnyObject? {
+        Mirror(reflecting: sdk).descendant("pushSubscriptionHandler", "some") as AnyObject?
+    }
+
     private static func pushHandlerQueue(of sdk: PostHogSDK) -> DispatchQueue? {
-        let handler = Mirror(reflecting: sdk).descendant("pushSubscriptionHandler", "some")
-        return handler.flatMap { Mirror(reflecting: $0).descendant("workQueue") as? DispatchQueue }
+        pushHandler(of: sdk).flatMap { Mirror(reflecting: $0).descendant("workQueue") as? DispatchQueue }
     }
 }
 

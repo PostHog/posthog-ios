@@ -362,8 +362,8 @@
             // enablement re-arms when the integration restarts after an identity change.
             let pluginTypes = postHog.config.sessionReplayConfig.getPluginTypes()
             let remoteConfig = postHog.remoteConfig?.getRemoteConfig()
+            stopInstalledPlugins()
             let pluginsToStart = installedPluginsLock.withLock {
-                installedPlugins = []
                 for pluginType in pluginTypes {
                     if !pluginType.isEnabledRemotely(remoteConfig: remoteConfig) {
                         hedgeLog("[Session Replay] Plugin \(pluginType) skipped - disabled by cached remote config")

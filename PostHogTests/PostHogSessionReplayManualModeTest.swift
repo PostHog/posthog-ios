@@ -391,6 +391,25 @@
             #expect(integration.installedPluginsForTesting.isEmpty)
         }
 
+        @Test("Starting recording stops plugins installed while the recorder was off")
+        func startStopsPluginsInstalledWhileOff() async throws {
+            let sut = getSut(sessionReplay: true, sampleRate: 0.0)
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == false)
+
+            let plugin = SpyReplayPlugin()
+            integration.installPluginForTesting(plugin)
+
+            let remoteConfig = try #require(sut.remoteConfig)
+            remoteConfig.setRecordingSampleRateForTesting(1.0)
+            integration.applyRemoteConfig(remoteConfig: nil)
+
+            #expect(integration.isActive() == true)
+            #expect(plugin.stopped)
+        }
+
         @Test("Recording starts plugins and an explicit stop stops them")
         func recordingStartsAndStopStopsPlugins() async throws {
             let sut = getSut(sessionReplay: true, pluginTypes: [SpyReplayPlugin.self])

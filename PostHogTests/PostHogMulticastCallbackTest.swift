@@ -123,7 +123,7 @@ class PostHogMulticastCallbackTests {
 }
 
 @MainActor
-@Suite("PostHogThrottledMulticastCallback Tests", .resetsGlobalState)
+@Suite("PostHogThrottledMulticastCallback Tests", .serialized, .resetsGlobalState)
 class PostHogThrottledMulticastCallbackTests {
     private func waitUntil(_ condition: () -> Bool) async {
         let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(testRequestTimeout * 1_000_000_000)
@@ -337,10 +337,7 @@ class PostHogThrottledMulticastCallbackTests {
     @Test("Throttle prevents rapid invocations")
     func throttlePreventsRapidInvocations() async {
         let mockNow = MockDate()
-        now = { mockNow.date }
-        defer { now = { Date() } }
-
-        let callback = PostHogThrottledMulticastCallback<Int>()
+        let callback = PostHogThrottledMulticastCallback<Int>(clock: { mockNow.date.timeIntervalSinceReferenceDate })
         var receivedValues: [Int] = []
         let lock = NSLock()
 
@@ -368,13 +365,46 @@ class PostHogThrottledMulticastCallbackTests {
         _ = token
     }
 
+    @Test("Throttle windows use the monotonic clock, not the global now closure")
+    func throttleIgnoresGlobalNow() async {
+        let mockNow = MockDate()
+        let callback = PostHogThrottledMulticastCallback<Int>(clock: { mockNow.date.timeIntervalSinceReferenceDate })
+        let defaultClockCallback = PostHogThrottledMulticastCallback<Int>()
+        var receivedValues: [Int] = []
+        var defaultReceivedValues: [Int] = []
+        let lock = NSLock()
+
+        let token = callback.subscribe(throttle: 1.0) { value in
+            lock.withLock { receivedValues.append(value) }
+        }
+        let defaultToken = defaultClockCallback.subscribe(throttle: 10.0) { value in
+            lock.withLock { defaultReceivedValues.append(value) }
+        }
+
+        callback.invoke(1)
+        defaultClockCallback.invoke(1)
+        await waitUntil { lock.withLock { receivedValues == [1] && defaultReceivedValues == [1] } }
+
+        // The throttle window uses its monotonic clock, not the wall-clock `now` hook.
+        await withMockedNow({ mockNow.date.addingTimeInterval(60) }) {
+            callback.invoke(2)
+            defaultClockCallback.invoke(2)
+            try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        }
+        #expect(lock.withLock { receivedValues } == [1])
+        #expect(lock.withLock { defaultReceivedValues } == [1])
+
+        mockNow.date.addTimeInterval(1.1)
+        callback.invoke(3)
+        await waitUntil { lock.withLock { receivedValues == [1, 3] } }
+
+        _ = (token, defaultToken)
+    }
+
     @Test("Different subscribers can have different throttle intervals")
     func differentThrottleIntervals() async {
         let mockNow = MockDate()
-        now = { mockNow.date }
-        defer { now = { Date() } }
-
-        let callback = PostHogThrottledMulticastCallback<Int>()
+        let callback = PostHogThrottledMulticastCallback<Int>(clock: { mockNow.date.timeIntervalSinceReferenceDate })
         var fastValues: [Int] = []
         var slowValues: [Int] = []
         let lock = NSLock()
@@ -456,10 +486,7 @@ class PostHogThrottledMulticastCallbackTests {
     @Test("Subscriber added during another subscriber's throttle window fires immediately")
     func lateSubscriberFiresImmediately() async {
         let mockNow = MockDate()
-        now = { mockNow.date }
-        defer { now = { Date() } }
-
-        let callback = PostHogThrottledMulticastCallback<Int>()
+        let callback = PostHogThrottledMulticastCallback<Int>(clock: { mockNow.date.timeIntervalSinceReferenceDate })
         var slowValues: [Int] = []
         var lateValues: [Int] = []
         let lock = NSLock()

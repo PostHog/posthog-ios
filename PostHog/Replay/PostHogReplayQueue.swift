@@ -119,27 +119,34 @@ class PostHogReplayQueue {
     ///
     /// If called from the main thread, the files are moved on a utility queue
     /// to avoid blocking rendering. On background threads they are moved inline.
-    func migrateBufferToQueue() {
-        let batch: [String] = bufferLock.withLock {
+    ///
+    /// - Returns: false when skipped because a mask flag turned on after the buffer's frames were captured.
+    @discardableResult
+    func migrateBufferToQueue() -> Bool {
+        let batch: [String]? = bufferLock.withLock {
             if let buffered = bufferedMaskingGeneration,
                let delegate = bufferDelegate,
                buffered != delegate.currentMaskingGeneration
             {
-                hedgeLog("Replay buffer migration skipped: a mask flag turned on and the buffer is about to be cleared")
-                return []
+                return nil
             }
             bufferedMaskingGeneration = nil
             return bufferQueue.removeAll()
         }
+        guard let batch else {
+            hedgeLog("Replay buffer migration skipped: a mask flag turned on and the buffer is about to be cleared")
+            return false
+        }
         guard !batch.isEmpty else {
             hedgeLog("No buffered replay events to migrate")
-            return
+            return true
         }
         performBufferOperation { [bufferQueue, innerQueue] in
             bufferQueue.migrate(batch, to: innerQueue.fileQueue)
             hedgeLog("Migrated \(batch.count) buffered replay events to replay queue. Queue depth: \(innerQueue.depth)")
             innerQueue.flushIfOverThreshold()
         }
+        return true
     }
 
     /// Discards all buffered replay events. A snapshot added after this call is kept, so a new

@@ -409,5 +409,278 @@
             #expect(integration.currentMaskingGeneration == 0)
             #expect(integration.loggedMaskFlagsForTesting == ["maskAllTextInputs"])
         }
+
+        @Test("flags notification queued before /config notification must not migrate unmasked opening buffer")
+        @MainActor
+        func bootstrapFlagsDoesNotMigrateUnmaskedBuffer() async throws {
+            server.returnReplay = true
+            server.sessionRecordingMasking = ["mobile": ["maskAllText": true]]
+            server.configResponseDelay = 0.05
+
+            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
+            config.sessionReplay = true
+            config.sessionReplayConfig.maskAllTextInputs = false
+            config.sessionReplayConfig.maskAllImages = false
+            config.bootstrap = PostHogBootstrapConfig(featureFlags: ["beta-ui": true], featureFlagPayloads: nil)
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.preloadFeatureFlags = false
+            config.flushAt = 1000
+            config.disableRemoteConfigForTesting = false
+
+            PostHogStorage(config).setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
+            PostHogReplayIntegration.clearInstalls()
+
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+            let replayQueue = try #require(sut.replayQueue)
+
+            replayQueue.add(snapshotEvent("unmasked-opening"))
+            #expect(replayQueue.bufferDepth == 1)
+            #expect(replayQueue.depth == 0)
+
+            let deadline = Date().addingTimeInterval(5)
+            while sut.remoteConfig?.hasFetchedRemoteConfig != true, Date() < deadline {
+                usleep(1_000)
+            }
+            #expect(sut.remoteConfig?.hasFetchedRemoteConfig == true)
+
+            let observed = NotificationCenter.default.addObserver(
+                forName: PostHogSDK.didStartNotification,
+                object: nil,
+                queue: nil
+            ) { _ in
+                usleep(20_000)
+            }
+            defer { NotificationCenter.default.removeObserver(observed) }
+
+            await waitUntil(timeout: 5) { integration.resolvedMasking().maskAllTextInputs }
+            await waitUntil(timeout: 5) { replayQueue.bufferDepth == 0 }
+
+            #expect(replayQueue.depth == 0)
+        }
+
+        @Test("dropping an opening buffer for stricter masking on main does not bypass minimumDurationMilliseconds")
+        @MainActor
+        func stricterMaskOnFirstConfigKeepsMinimumDurationBuffering() async throws {
+            let (sut, integration, replayQueue) = try makeSut(
+                liveConfig: false,
+                localMaskText: false,
+                minimumDurationMilliseconds: 100
+            )
+            defer { sut.close() }
+
+            replayQueue.add(snapshotEvent("1"))
+            try await Task.sleep(nanoseconds: 150_000_000)
+            replayQueue.add(snapshotEvent("2"))
+            #expect(replayQueue.bufferDepth == 2)
+
+            integration.applyRemoteConfig(remoteConfig: [
+                "sessionRecording": [
+                    "endpoint": "/s/",
+                    "minimumDurationMilliseconds": 100,
+                    "masking": ["mobile": ["maskAllText": true]],
+                ],
+            ])
+            await waitUntil { replayQueue.bufferDepth == 0 }
+
+            #expect(replayQueue.depth == 0)
+            #expect(integration.isBuffering == true)
+
+            PostHogReplayIntegration.withCaptureMaskingGeneration(integration.currentMaskingGeneration) {
+                replayQueue.add(snapshotEvent("3"))
+            }
+            #expect(replayQueue.bufferDepth == 1)
+            #expect(replayQueue.depth == 0)
+        }
+
+        @Test("a buffer about to be dropped for a mask turn-on does not pass the minimum duration")
+        func staleBufferDoesNotPassMinimumDuration() async throws {
+            let (sut, integration, replayQueue) = try makeSut(liveConfig: false, minimumDurationMilliseconds: 100)
+            defer { sut.close() }
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: nil))
+            #expect(integration.isBuffering == true)
+
+            replayQueue.add(snapshotEvent("1"))
+            try await Task.sleep(nanoseconds: 150_000_000)
+            // The window between the generation bump and the buffer clear.
+            integration.bumpMaskingGenerationForTesting()
+            PostHogReplayIntegration.withCaptureMaskingGeneration(integration.currentMaskingGeneration) {
+                replayQueue.add(snapshotEvent("2"))
+            }
+
+            #expect(replayQueue.depth == 0)
+            #expect(integration.isBuffering == true)
+        }
+
+        @Test("gen-1 opening frame added immediately after main-thread masking turn-on survives prior clear")
+        @MainActor
+        func postDropOpeningFrameSurvivesMainThreadClear() async throws {
+            let (sut, integration, replayQueue) = try makeSut(
+                liveConfig: false,
+                localMaskText: false,
+                minimumDurationMilliseconds: 600_000
+            )
+            defer { sut.close() }
+
+            var lostCount = 0
+            for i in 0 ..< 10 {
+                let isText = (i % 2 == 0)
+                integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: nil))
+                replayQueue.add(snapshotEvent("gen0_\(i)"))
+                #expect(replayQueue.bufferDepth >= 1)
+
+                let flag = isText ? "maskAllText" : "maskAllImages"
+                integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: ["mobile": [flag: true]]))
+                PostHogReplayIntegration.withCaptureMaskingGeneration(integration.currentMaskingGeneration) {
+                    replayQueue.add(snapshotEvent("gen1_opening_\(i)"))
+                }
+
+                try await Task.sleep(nanoseconds: 100_000_000)
+                if replayQueue.bufferDepth == 0 {
+                    lostCount += 1
+                }
+                replayQueue.clear()
+            }
+            #expect(lostCount == 0)
+        }
+
+        @Test("off-main setup: /config landing between cache read and subscribe must still apply the mask")
+        func configLostDuringOffMainInstall() async throws {
+            server.returnReplay = true
+            server.sessionRecordingMasking = ["mobile": ["maskAllText": true]]
+            server.configResponseDelay = 0.05
+            PostHogReplayIntegration.beforeRemoteConfigSubscribeForTesting = { Thread.sleep(forTimeInterval: 0.4) }
+            defer { PostHogReplayIntegration.beforeRemoteConfigSubscribeForTesting = nil }
+
+            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
+            config.sessionReplay = true
+            config.sessionReplayConfig.maskAllTextInputs = false
+            config.sessionReplayConfig.maskAllImages = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.preloadFeatureFlags = false
+            config.flushAt = 1000
+            config.disableRemoteConfigForTesting = false
+            PostHogStorage(config).setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
+            PostHogReplayIntegration.clearInstalls()
+
+            let sut: PostHogSDK = await withCheckedContinuation { cont in
+                DispatchQueue.global().async { cont.resume(returning: PostHogSDK.with(config)) }
+            }
+            defer { sut.close() }
+            let integration = try #require(sut.getReplayIntegration())
+
+            await waitUntil(timeout: 3) { sut.remoteConfig?.hasFetchedRemoteConfig == true }
+            await MainActor.run {}
+            #expect(integration.resolvedMasking().maskAllTextInputs == true)
+        }
+
+        @Test("a server mask masks real labels and images, and ph-no-mask still wins")
+        @MainActor
+        func serverMaskAppliesToViewHierarchy() throws {
+            let (sut, integration, _) = try makeSut(liveConfig: false)
+            defer { sut.close() }
+
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let label = UILabel(frame: CGRect(x: 10, y: 10, width: 200, height: 30))
+            label.text = "secret"
+            let imageView = UIImageView(frame: CGRect(x: 10, y: 60, width: 100, height: 100))
+            imageView.image = UIGraphicsImageRenderer(size: CGSize(width: 10, height: 10)).image { context in
+                UIColor.red.setFill()
+                context.fill(CGRect(x: 0, y: 0, width: 10, height: 10))
+            }
+            let unmaskedLabel = UILabel(frame: CGRect(x: 10, y: 200, width: 200, height: 30))
+            unmaskedLabel.text = "public"
+            unmaskedLabel.accessibilityIdentifier = "ph-no-mask"
+            for view in [label, imageView, unmaskedLabel] {
+                window.addSubview(view)
+            }
+            window.isHidden = false
+            defer { window.isHidden = true }
+
+            func isMasked(_ view: UIView) -> Bool {
+                (integration.collectMaskableRects(in: window) ?? []).contains { $0.intersects(view.frame) }
+            }
+
+            #expect(!isMasked(label))
+            #expect(!isMasked(imageView))
+
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: ["mobile": ["maskAllText": true]]))
+            #expect(isMasked(label))
+            #expect(!isMasked(imageView))
+            #expect(!isMasked(unmaskedLabel))
+
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: ["mobile": ["maskAllText": true, "maskAllImages": true]]))
+            #expect(isMasked(label))
+            #expect(isMasked(imageView))
+            #expect(!isMasked(unmaskedLabel))
+        }
+
+        @Test("a server mask turned off mid-session reverts to the local flags and keeps the buffer")
+        func serverMaskTurnedOffKeepsBuffer() async throws {
+            let (sut, integration, replayQueue) = try makeSut(
+                liveConfig: false,
+                localMaskImages: true,
+                minimumDurationMilliseconds: 600_000
+            )
+            defer { sut.close() }
+
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: ["mobile": ["maskAllText": true]]))
+            #expect(integration.resolvedMasking().maskAllTextInputs == true)
+            let generation = integration.currentMaskingGeneration
+            PostHogReplayIntegration.withCaptureMaskingGeneration(generation) {
+                replayQueue.add(snapshotEvent("1"))
+                replayQueue.add(snapshotEvent("2"))
+            }
+            #expect(replayQueue.bufferDepth == 2)
+
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: ["mobile": ["maskAllText": false]]))
+            try await Task.sleep(nanoseconds: 200_000_000)
+
+            #expect(integration.resolvedMasking().maskAllTextInputs == false)
+            #expect(integration.resolvedMasking().maskAllImages == true)
+            #expect(integration.currentMaskingGeneration == generation)
+            #expect(replayQueue.bufferDepth == 2)
+            #expect(integration.isBuffering == true)
+        }
+
+        @Test("without an installed replay integration the resolved masking falls back to the local config")
+        func resolvedMaskingFallsBackWithoutReplay() throws {
+            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
+            config.sessionReplay = false
+            config.sessionReplayConfig.maskAllTextInputs = true
+            config.sessionReplayConfig.maskAllImages = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.preloadFeatureFlags = false
+            config.disableRemoteConfigForTesting = true
+            PostHogReplayIntegration.clearInstalls()
+
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+
+            #expect(sut.getReplayIntegration() == nil)
+            #expect(sut.sessionReplayResolvedMasking() == ["maskAllTextInputs": true, "maskAllImages": false])
+
+            sut.config.sessionReplayConfig.maskAllImages = true
+            #expect(sut.sessionReplayResolvedMasking() == ["maskAllTextInputs": true, "maskAllImages": true])
+        }
+
+        @Test("mask turn-on wakes capture backoff")
+        @MainActor
+        func maskTurnOnWakesBackoff() async throws {
+            let (sut, integration, _) = try makeSut(liveConfig: false)
+            defer { sut.close() }
+            let backoff = integration.captureBackoffForTesting
+            for _ in 0 ..< 12 {
+                backoff.noteFrame(unchanged: true)
+            }
+            #expect(backoff.isInBackoffForTesting == true)
+
+            integration.applyRemoteConfig(remoteConfig: remoteConfig(masking: ["mobile": ["maskAllText": true]]))
+            #expect(backoff.isInBackoffForTesting == false)
+        }
     }
 #endif

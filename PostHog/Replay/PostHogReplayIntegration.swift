@@ -206,11 +206,9 @@
                 replayQueue?.bufferDelegate = self
 
                 // Resolve event triggers and minimum duration from cached remote config (if available)
-                let cachedRemoteConfig = postHog.remoteConfig?.getRemoteConfig()
-                if let cachedRemoteConfig {
+                if let cachedRemoteConfig = postHog.remoteConfig?.getRemoteConfig() {
                     updateEventTriggers(from: cachedRemoteConfig)
                 }
-                updateMasking(from: cachedRemoteConfig, isInitial: true)
                 updateCachedMinimumDuration()
 
                 // Buffer snapshots until the first live remote config resolves (unless it already has),
@@ -219,9 +217,7 @@
                 bufferingLock.withLock { awaitingFirstRemoteConfig = awaiting }
 
                 // Subscribe to remote config changes (needed before start to update triggers)
-                remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] config in
-                    self?.applyRemoteConfig(remoteConfig: config)
-                }
+                subscribeToRemoteConfig(postHog)
 
                 // Subscribe to feature flag reloads so the buffer also resolves after reset()/identity
                 // changes, which reload flags but not `/config` (the only path that fires applyRemoteConfig).
@@ -593,7 +589,7 @@
 
             updatePlugins(from: remoteConfig)
             updateEventTriggers(from: remoteConfig)
-            updateMasking(from: remoteConfig)
+            let droppedForMasking = updateMasking(from: remoteConfig)
             updateCachedMinimumDuration()
 
             // `processSessionRecordingConfig` flipped `sessionReplayFlagActive` before this callback,
@@ -619,7 +615,7 @@
                 && (postHog?.remoteConfig?.isRecordingGatedOnLinkedFlag() ?? false)
 
             if !deferToFeatureFlags {
-                resolveFirstRemoteConfigBuffer(flagActive: flagActive)
+                resolveFirstRemoteConfigBuffer(flagActive: flagActive, droppedForMasking: droppedForMasking)
             }
 
             if !flagActive, !wasFirstRemoteConfig {
@@ -637,7 +633,7 @@
         /// Drops the buffer if recording isn't permitted, else hands it to the minimum-duration gate
         /// (not a force-flush). The `awaitingFirstRemoteConfig` flip is atomic under `bufferingLock`;
         /// the clear/migrate runs after the lock to keep buffer I/O out of the critical section.
-        private func resolveFirstRemoteConfigBuffer(flagActive: Bool) {
+        private func resolveFirstRemoteConfigBuffer(flagActive: Bool, droppedForMasking: Bool) {
             let wasAwaiting = bufferingLock.withLock { () -> Bool in
                 guard awaitingFirstRemoteConfig else { return false }
                 awaitingFirstRemoteConfig = false
@@ -645,6 +641,12 @@
             }
 
             guard wasAwaiting else { return }
+
+            // The dropped window was unmasked. Kept activity starts again from the next masked frame.
+            guard !droppedForMasking else {
+                notifyRecordingStatusChanged()
+                return
+            }
 
             // Keep the buffered opening window only if this session is recordable under the fresh
             // config — flag on, still sampled in, and not gated behind a not-yet-fired event trigger.
@@ -687,7 +689,11 @@
             hedgeLog("[Session Replay] Minimum duration met. Migrating \(replayQueue.bufferDepth) buffered events to replay queue.")
             // Flip state before migration so new snapshots don't keep entering the buffer during long-running migrations.
             bufferingLock.withLock { hasPassedMinimumDuration = true }
-            replayQueue.migrateBufferToQueue()
+            guard replayQueue.migrateBufferToQueue() else {
+                // The span came from frames a mask turn-on is about to drop.
+                bufferingLock.withLock { hasPassedMinimumDuration = false }
+                return false
+            }
             return true
         }
 
@@ -718,8 +724,11 @@
                 hedgeLog("[Session Replay] First /config attempt did not complete. Falling back to the disk-cached recording config.")
             }
 
+            // `/config` stores its result before posting `applyRemoteConfig` to main, so a flags reload
+            // queued ahead of that post would otherwise resolve the buffer under the old mask.
+            let droppedForMasking = updateMasking(from: postHog?.remoteConfig?.getRemoteConfig())
             let flagActive = postHog?.remoteConfig?.isSessionReplayFlagActive() ?? false
-            resolveFirstRemoteConfigBuffer(flagActive: flagActive)
+            resolveFirstRemoteConfigBuffer(flagActive: flagActive, droppedForMasking: droppedForMasking)
         }
 
         private func updateCachedMinimumDuration() {
@@ -1792,8 +1801,22 @@
             maskingLock.withLock { maskingGeneration += 1 }
         }
 
+        /// Seeds the mask from the stored config after subscribing, so a `/config` that lands during
+        /// install reaches either the listener or the seed.
+        private func subscribeToRemoteConfig(_ postHog: PostHogSDK) {
+            #if TESTING
+                Self.beforeRemoteConfigSubscribeForTesting?()
+            #endif
+            remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] config in
+                self?.applyRemoteConfig(remoteConfig: config)
+            }
+            updateMasking(from: postHog.remoteConfig?.getRemoteConfig(), isInitial: true)
+        }
+
         /// - Parameter isInitial: seeds the stored value from the cached config, which is not a turn-on.
-        private func updateMasking(from remoteConfig: [String: Any]?, isInitial: Bool = false) {
+        /// - Returns: whether a mask flag turned on and the buffer was dropped.
+        @discardableResult
+        private func updateMasking(from remoteConfig: [String: Any]?, isInitial: Bool = false) -> Bool {
             let remote = PostHogRemoteMasking.parse(from: remoteConfig)
             let local = localMasking
             let next = PostHogRemoteMasking.resolve(local: local, remote: remote)
@@ -1818,11 +1841,13 @@
                 hedgeLog("[Session Replay] The project's mobile masking setting turned on \(flag), which is off in the local config.")
             }
 
-            if turnedOn, !isInitial {
-                replayQueue?.clearBuffer()
-                // The dropped frames carried the meta event and the last frame hash.
-                resetViews()
-            }
+            guard turnedOn, !isInitial else { return false }
+            replayQueue?.clearBuffer()
+            // The dropped frames carried the meta event and the last frame hash.
+            resetViews()
+            // An idle backoff must not delay the replacement opening frame.
+            captureBackoff.wake()
+            return true
         }
     }
 
@@ -2936,6 +2961,9 @@
             var captureBackoffForTesting: PostHogReplayCaptureBackoff {
                 captureBackoff
             }
+
+            /// Runs during install just before the remote config listener is registered.
+            static var beforeRemoteConfigSubscribeForTesting: (() -> Void)?
         }
     #endif
 

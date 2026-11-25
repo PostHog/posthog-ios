@@ -134,6 +134,8 @@ let maxRetryDelay = 30.0
     private var featureFlagsListenerTokens: [UUID: RegistrationToken] = [:]
     /// The last update delivered to listeners, replayed to late subscribers. Nil until flags load.
     private var lastFeatureFlagsLoaded: PostHogFeatureFlagsLoaded?
+    /// Bumped by `close()`, so a flags notification from the setup it ended is dropped.
+    private var featureFlagsSetupGeneration = 0
     private var featureFlagsLoadedToken: RegistrationToken?
 
     /// Logger facade exposing `trace/debug/info/warn/error/fatal(_:attributes:)`.
@@ -228,11 +230,12 @@ let maxRetryDelay = 30.0
             // available for flag requests. Seeded from the anonymous ID on first init.
             _ = config.storageManager?.getDeviceId()
 
-            remoteConfig = PostHogRemoteConfig(config, theStorage, api, { [weak self] in
+            let theRemoteConfig = PostHogRemoteConfig(config, theStorage, api, { [weak self] in
                 self?.getDefaultPersonProperties() ?? [:]
             }, { [weak self] flagKey, flagValue in
                 self?.reportFeatureFlagCalled(flagKey: flagKey, flagValue: flagValue)
             })
+            remoteConfig = theRemoteConfig
 
             #if !os(watchOS)
                 reachability = Reachability()
@@ -241,7 +244,7 @@ let maxRetryDelay = 30.0
                 context = PostHogContext()
             #endif
 
-            pushSubscriptionHandler = PostHogPushSubscriptionHandler(
+            let thePushSubscriptionHandler = PostHogPushSubscriptionHandler(
                 api,
                 theStorage,
                 config,
@@ -254,10 +257,16 @@ let maxRetryDelay = 30.0
                 pushAppIdsProvider: { [weak self] in self?.remoteConfig?.getPushAppIds() },
                 onEventContextChanged: onEventContextChanged
             )
+            pushSubscriptionHandler = thePushSubscriptionHandler
+
+            // The two subscribers below run on the main queue. Reading `self.remoteConfig` there would take
+            // setupLock and wait for setup() to finish, so they capture the instance: weakly, as it stores them.
+            // Without the lock they can run while close() does, so each checks it still belongs to this setup.
+            let flagsGeneration = featureFlagsListenersLock.withLock { featureFlagsSetupGeneration }
 
             // Invoked on the main queue, after the new flags are readable through the getters.
-            featureFlagsLoadedToken = remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] featureFlags in
-                guard let self, let remoteConfig = self.remoteConfig else { return }
+            featureFlagsLoadedToken = theRemoteConfig.onFeatureFlagsLoaded.subscribe { [weak self, weak theRemoteConfig] featureFlags in
+                guard let self, let remoteConfig = theRemoteConfig else { return }
                 let current = remoteConfig.getFeatureFlags() ?? [:]
                 // Each notification carries the flags cached when it was sent. If the cache has moved on
                 // since (reset() or a newer load), drop it: a newer notification follows if there is one.
@@ -270,22 +279,31 @@ let maxRetryDelay = 30.0
                     featureFlags: featureFlags ?? current,
                     errorsLoading: featureFlags == nil || remoteConfig.didLatestFeatureFlagsLoadFail()
                 )
-                self.featureFlagsListenersLock.withLock { self.lastFeatureFlagsLoaded = loaded }
+                let isCurrentSetup = self.featureFlagsListenersLock.withLock { () -> Bool in
+                    guard self.featureFlagsSetupGeneration == flagsGeneration else { return false }
+                    self.lastFeatureFlagsLoaded = loaded
+                    return true
+                }
+                guard isCurrentSetup else { return }
                 self.onFeatureFlagsLoaded.invoke(loaded)
             }
 
             // A device whose project had no push integration was answered 200 and stopped asking.
             // Draining the transition here is the only signal that reaches it.
-            pushRemoteConfigToken = remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] _ in
-                guard let self, let newlyRegisterable = self.remoteConfig?.consumeNewlyRegisterablePushAppIds(),
+            pushRemoteConfigToken = theRemoteConfig.onRemoteConfigLoaded.subscribe { [weak self, weak theRemoteConfig, weak thePushSubscriptionHandler] _ in
+                guard let thePushSubscriptionHandler,
+                      let newlyRegisterable = theRemoteConfig?.consumeNewlyRegisterablePushAppIds(),
                       !newlyRegisterable.isEmpty
                 else {
                     return
                 }
                 // Mark the one-time upgrade recovery done only after the handler has durably cleared
                 // any delivered marker, so a crash in between re-runs recovery instead of stranding.
-                self.pushSubscriptionHandler?.onPushAppIdsChanged(newlyRegisterable) { [weak self] in
-                    self?.remoteConfig?.markPushAppIdsMigrated()
+                // Runs on the handler's queue, also when close() released the handler before it cleared
+                // anything: mark only while this instance is still the one the SDK is set up with.
+                thePushSubscriptionHandler.onPushAppIdsChanged(newlyRegisterable) { [weak self, weak theRemoteConfig] in
+                    guard let self, let theRemoteConfig, self.remoteConfig === theRemoteConfig else { return }
+                    theRemoteConfig.markPushAppIdsMigrated()
                 }
             }
 
@@ -3791,6 +3809,12 @@ let maxRetryDelay = 30.0
         setupLock.withLock {
             enabled = false
             wrapperSendLock.withLock { setupGeneration += 1 }
+            featureFlagsListenersLock.withLock {
+                featureFlagsSetupGeneration += 1
+                lastFeatureFlagsLoaded = nil
+            }
+            featureFlagsLoadedToken = nil
+            pushRemoteConfigToken = nil
             PostHogSDK.projectTokens.remove(config.projectToken)
 
             queue?.flush()
@@ -3823,8 +3847,6 @@ let maxRetryDelay = 30.0
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
             remoteConfig = nil
-            featureFlagsLoadedToken = nil
-            featureFlagsListenersLock.withLock { lastFeatureFlagsLoaded = nil }
             storage = nil
             #if !os(watchOS)
                 self.reachability?.stopNotifier()

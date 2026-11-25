@@ -15,7 +15,7 @@
 
         func makeBody(configuration: Configuration) -> some View {
             configuration.label
-                .font(.body.bold())
+                .surveyFont(.body, bold: true)
                 .frame(maxWidth: .infinity)
                 .shadow(color: Color.black.opacity(0.12), radius: 0, x: 0, y: -1) // Text shadow
                 .padding(12)

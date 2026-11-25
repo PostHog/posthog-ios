@@ -19,12 +19,12 @@
             VStack(spacing: 16) {
                 if !appearance.introScreenHeader.isEmpty {
                     Text(appearance.introScreenHeader)
-                        .font(.body.bold())
+                        .surveyFont(.body, bold: true)
                         .foregroundStyle(foregroundTextColor)
                 }
                 if let description = appearance.introScreenDescription, appearance.introScreenDescriptionContentType == .text {
                     Text(description)
-                        .font(.body)
+                        .surveyFont(.body)
                         .foregroundStyle(foregroundTextColor)
                 }
 

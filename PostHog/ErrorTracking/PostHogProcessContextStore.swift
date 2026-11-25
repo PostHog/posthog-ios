@@ -86,7 +86,10 @@ final class PostHogProcessContextStore {
         queue.sync {
             let url = fileURL(for: pid)
             guard let lastWritten = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
-                  lastWritten <= latest,
+                  // Compare time intervals instead of `Date.<=`: in Xcode 27.2, `Date.<=` is
+                  // `@backDeployed(before: iOS 27.2)` and emits a weak reference that resolves to
+                  // 0x0 on iOS 27.2 builds missing the export.
+                  lastWritten.timeIntervalSinceReferenceDate <= latest.timeIntervalSinceReferenceDate,
                   let data = try? Data(contentsOf: url),
                   let context = fromJSONData(data)
             else {

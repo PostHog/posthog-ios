@@ -16,6 +16,7 @@
         private weak var postHog: PostHogSDK?
         private var rageClickDetector: RageClickDetector?
         private var applicationEventToken: RegistrationToken?
+        private var isKeyboardWindow: (UIWindow) -> Bool = { $0.isKeyboardWindow }
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
             installIfNeeded(using: Self.integrationInstallState) {
@@ -67,6 +68,10 @@
                 return
             }
 
+            guard !isKeyboardWindow(window) else {
+                return
+            }
+
             let touchCoordinates = touch.location(in: window)
 
             // `touch.view` is nil for taps consumed by a gesture recognizer (text fields, pickers,
@@ -76,29 +81,33 @@
             // Skip taps where rapid repeats are intentional before they reach the detector.
             // The ancestor walk covers UIKit; SwiftUI hosts controls below the hit view, so we
             // also point-search the window's subtree.
-            let ineligible = isRageClickIneligible(view: hitView, isKeyboardWindow: window.isKeyboardWindow)
+            let ineligible = isRageClickIneligible(view: hitView)
                 || ineligibleViewExists(in: window, at: touchCoordinates)
             guard !ineligible else {
                 return
             }
 
-            let captureElementText = postHog?.config.captureAutocaptureElementText ?? true
-            let eventData = hitView?.eventData(touchCoordinates: touchCoordinates, captureElementText: captureElementText)
-            let elementsChain = eventData?.getElementChain(captureElementText: captureElementText) ?? ""
+            captureRageClickIfNeeded(touchCoordinates: touchCoordinates) {
+                let captureElementText = postHog?.config.captureAutocaptureElementText ?? true
+                let eventData = hitView?.eventData(touchCoordinates: touchCoordinates, captureElementText: captureElementText)
+                let elementsChain = eventData?.getElementChain(captureElementText: captureElementText) ?? ""
+                return RageClickMetadata(
+                    screenName: eventData?.screenName ?? currentScreenName(),
+                    elementsChain: elementsChain,
+                    eventData: eventData
+                )
+            }
+        }
 
-            captureRageClickIfNeeded(
-                touchCoordinates: touchCoordinates,
-                screenName: eventData?.screenName ?? currentScreenName(),
-                elementsChain: elementsChain,
-                eventData: eventData
-            )
+        private struct RageClickMetadata {
+            let screenName: String?
+            let elementsChain: String
+            let eventData: PostHogAutocaptureEventTracker.EventData?
         }
 
         private func captureRageClickIfNeeded(
             touchCoordinates: CGPoint,
-            screenName: String?,
-            elementsChain: String,
-            eventData: PostHogAutocaptureEventTracker.EventData?
+            extractMetadata: () -> RageClickMetadata
         ) {
             guard let postHog,
                   let rageClickDetector,
@@ -111,10 +120,12 @@
                 return
             }
 
-            let normalizedScreenName = screenName?.trimmingCharacters(in: .whitespacesAndNewlines)
-            let normalizedElementsChain = elementsChain.trimmingCharacters(in: .whitespacesAndNewlines)
+            let metadata = extractMetadata()
+
+            let normalizedScreenName = metadata.screenName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let normalizedElementsChain = metadata.elementsChain.trimmingCharacters(in: .whitespacesAndNewlines)
             let hasScreenName = normalizedScreenName?.isEmpty == false
-            let hasElementId = eventData?.viewHierarchy.contains { $0.label?.isEmpty == false } ?? false
+            let hasElementId = metadata.eventData?.viewHierarchy.contains { $0.label?.isEmpty == false } ?? false
 
             // Keep rage clicks only when they contain enough context to be actionable:
             // - screen name is sufficient context when paired with touch coordinates
@@ -160,12 +171,7 @@
 
         /// Whether a tap should be excluded from rage click detection, i.e. it landed on a control
         /// where rapid repeated taps are deliberate rather than frustration.
-        private func isRageClickIneligible(view: UIView?, isKeyboardWindow: Bool) -> Bool {
-            // The keyboard, text-selection magnifier and copy/paste menus live in dedicated windows.
-            if isKeyboardWindow {
-                return true
-            }
-
+        private func isRageClickIneligible(view: UIView?) -> Bool {
             // The hit-test view is often an internal subview of the control, so walk up.
             var node = view
             while let current = node {
@@ -248,16 +254,21 @@
                         debounceInterval: 0
                     )
                 }
-                captureRageClickIfNeeded(
-                    touchCoordinates: CGPoint(x: touchX, y: touchY),
-                    screenName: screenName,
-                    elementsChain: elementsChain,
-                    eventData: eventData
-                )
+                captureRageClickIfNeeded(touchCoordinates: CGPoint(x: touchX, y: touchY)) {
+                    RageClickMetadata(screenName: screenName, elementsChain: elementsChain, eventData: eventData)
+                }
             }
 
-            func isRageClickIneligibleForTesting(view: UIView?, isKeyboardWindow: Bool = false) -> Bool {
-                isRageClickIneligible(view: view, isKeyboardWindow: isKeyboardWindow)
+            func isRageClickIneligibleForTesting(view: UIView?) -> Bool {
+                isRageClickIneligible(view: view)
+            }
+
+            func setIsKeyboardWindowForTesting(_ check: @escaping (UIWindow) -> Bool) {
+                isKeyboardWindow = check
+            }
+
+            func handleApplicationEventForTesting(_ event: UIEvent) {
+                handleApplicationEvent(event)
             }
 
             func tappedViewForTesting(touchView: UIView?, in window: UIWindow, at point: CGPoint, for event: UIEvent?) -> UIView? {

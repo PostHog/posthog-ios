@@ -135,6 +135,21 @@ struct PostHogMemoryExceptionTest {
         #expect(store.takeContext(pid: 42, notAfter: Date().addingTimeInterval(-3600)) == nil)
     }
 
+    @Test("returns a context written at the exact notAfter boundary")
+    func takesContextAtExactBoundary() throws {
+        let directory = makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("42.json")
+        try blob("boundary-process").write(to: url)
+        let boundary = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970) - 60)
+        try FileManager.default.setAttributes([.modificationDate: boundary], ofItemAtPath: url.path)
+
+        let store = PostHogProcessContextStore(directory: directory, currentPid: 999)
+        let saved = store.takeContext(pid: 42, notAfter: boundary)
+        #expect(saved?["distinct_id"] as? String == "boundary-process")
+    }
+
     @Test("keeps only the newest contexts when more than the cap are on disk")
     func capsContextFiles() throws {
         let directory = makeDirectory()

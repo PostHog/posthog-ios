@@ -27,6 +27,7 @@ enum PostHogSessionManagerTest {
                 sdk.close()
                 deleteSafely(storage.appFolderUrl)
             }
+            DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared
         }
 
         func getSut() -> PostHogSDK {
@@ -260,6 +261,7 @@ enum PostHogSessionManagerTest {
             now = { Date() }
             server.stop()
             server = nil
+            DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared
         }
 
         func getSut(
@@ -1144,12 +1146,16 @@ enum PostHogSessionManagerTest {
     }
 
     @Suite("setup() seeds isAppInBackground from current application state")
-    struct AppStateSeeding {
+    final class AppStateSeeding {
         let mockAppLifecycle: MockApplicationLifecyclePublisher
 
         init() {
             mockAppLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockAppLifecycle
+        }
+
+        deinit {
+            DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared
         }
 
         @Test("late setup() with foreground app: snapshot reads false, not the initial true")

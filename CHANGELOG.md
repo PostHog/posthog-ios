@@ -1,5 +1,13 @@
 ## Next
 
+## 4.1.0
+
+### Minor Changes
+
+- 9bf7ed2: Support session replay v2 trigger groups from remote config
+  
+  Session replay sampling now handles negative hashes like posthog-js, so a session gets the same sampling decision on mobile and web
+
 ## 4.0.11
 
 ### Patch Changes

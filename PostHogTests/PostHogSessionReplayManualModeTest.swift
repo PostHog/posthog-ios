@@ -19,7 +19,8 @@
         private func getSut(
             sessionReplay: Bool,
             eventTriggers: [String]? = nil,
-            sampleRate: Double? = nil
+            sampleRate: Double? = nil,
+            pluginTypes: [PostHogSessionReplayPlugin.Type]? = nil
         ) -> PostHogSDK {
             // Unique token per SUT so the disk-backed replay queue is isolated across tests in this suite.
             let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
@@ -30,6 +31,7 @@
             // Drive recording config from the seeded .remoteConfig below, not the async /config fetch,
             // so the tests stay deterministic and independent of global stub state from other suites.
             config.disableRemoteConfigForTesting = true
+            config.sessionReplayConfig.pluginTypesForTesting = pluginTypes
 
             let storage = PostHogStorage(config)
             var sessionRecording: [String: Any] = ["endpoint": "/s/"]
@@ -278,8 +280,8 @@
 
         // MARK: - Automatic mode control
 
-        @Test("Automatic mode restarts on the next remote config load after a stop")
-        func automaticModeRestartsOnNextRemoteConfigLoad() async throws {
+        @Test("Automatic mode stays stopped across a remote config load until an explicit start")
+        func automaticModeStaysStoppedAcrossRemoteConfigLoad() async throws {
             let sut = getSut(sessionReplay: true)
             defer { sut.close() }
 
@@ -290,7 +292,24 @@
             #expect(integration.isActive() == false)
 
             integration.applyRemoteConfig(remoteConfig: ["sessionRecording": ["endpoint": "/s/"]])
+            #expect(integration.isActive() == false)
+
+            sut.startSessionRecording()
             #expect(integration.isActive() == true)
+        }
+
+        @Test("Automatic mode stays stopped when a remote config load removes the event triggers")
+        func automaticModeStaysStoppedWhenRemoteConfigRemovesTriggers() async throws {
+            let sut = getSut(sessionReplay: true, eventTriggers: ["purchase_completed"])
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            sut.capture("purchase_completed")
+            #expect(integration.isActive() == true)
+
+            sut.stopSessionRecording()
+            integration.applyRemoteConfig(remoteConfig: ["sessionRecording": ["endpoint": "/s/"]])
+            #expect(integration.isActive() == false)
         }
 
         @Test("Automatic mode with triggers restarts on a matched trigger in a new session after a stop")
@@ -310,6 +329,27 @@
             sut.sessionManager.setSessionId(UUID().uuidString)
             sut.capture("purchase_completed")
             #expect(integration.isActive() == true)
+        }
+
+        @Test("Automatic mode stays stopped when an explicit stop lands while a session change re-evaluates sampling")
+        func automaticModeStaysStoppedWhenStopRacesSessionChange() async throws {
+            let sut = getSut(sessionReplay: true)
+            defer {
+                PostHogReplayIntegration.onSessionChangeGatesPassedForTesting = nil
+                sut.close()
+            }
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == true)
+
+            PostHogReplayIntegration.onSessionChangeGatesPassedForTesting = {
+                PostHogReplayIntegration.onSessionChangeGatesPassedForTesting = nil
+                sut.stopSessionRecording()
+            }
+            sut.sessionManager.setSessionId(UUID().uuidString)
+
+            #expect(integration.isActive() == false)
+            #expect(integration.isReplayOff == true)
         }
 
         // MARK: - Opt-in
@@ -347,6 +387,137 @@
 
             sut.capture("purchase_completed")
             #expect(sut.isSessionReplayActive() == true)
+        }
+
+        // MARK: - Plugins
+
+        enum Teardown: String, CaseIterable {
+            case optOut, close
+        }
+
+        @Test("Remote config reload while sampled out does not start plugins")
+        func reloadWhileSampledOutDoesNotStartPlugins() async throws {
+            let sut = getSut(sessionReplay: true, sampleRate: 0.0, pluginTypes: [SpyReplayPlugin.self])
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == false)
+
+            integration.applyRemoteConfig(remoteConfig: ["sessionRecording": ["endpoint": "/s/", "sampleRate": 0.0]])
+
+            #expect(integration.isActive() == false)
+            #expect(integration.installedPluginsForTesting.isEmpty)
+        }
+
+        @Test("Teardown stops plugins installed while the recorder is off", arguments: Teardown.allCases)
+        func teardownStopsPluginsInstalledWhileOff(_ teardown: Teardown) async throws {
+            let sut = getSut(sessionReplay: true, sampleRate: 0.0)
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == false)
+
+            let plugin = SpyReplayPlugin()
+            integration.installPluginForTesting(plugin)
+
+            switch teardown {
+            case .optOut: sut.optOut()
+            case .close: sut.close()
+            }
+
+            #expect(plugin.stopped)
+            #expect(integration.installedPluginsForTesting.isEmpty)
+        }
+
+        @Test("Starting recording stops plugins installed while the recorder was off")
+        func startStopsPluginsInstalledWhileOff() async throws {
+            let sut = getSut(sessionReplay: true, sampleRate: 0.0)
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == false)
+
+            let plugin = SpyReplayPlugin()
+            integration.installPluginForTesting(plugin)
+
+            let remoteConfig = try #require(sut.remoteConfig)
+            remoteConfig.setRecordingSampleRateForTesting(1.0)
+            integration.applyRemoteConfig(remoteConfig: nil)
+
+            #expect(integration.isActive() == true)
+            #expect(plugin.stopped)
+        }
+
+        @Test("Recording starts plugins and an explicit stop stops them")
+        func recordingStartsAndStopStopsPlugins() async throws {
+            let sut = getSut(sessionReplay: true, pluginTypes: [SpyReplayPlugin.self])
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == true)
+            let plugin = try #require(integration.installedPluginsForTesting.first as? SpyReplayPlugin)
+            #expect(plugin.started)
+
+            sut.stopSessionRecording()
+
+            #expect(plugin.stopped)
+            #expect(integration.installedPluginsForTesting.isEmpty)
+        }
+
+        @Test("Remote config reload while recording starts a newly enabled plugin")
+        func reloadWhileRecordingStartsNewlyEnabledPlugin() async throws {
+            let sut = getSut(sessionReplay: true)
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == true)
+            #expect(integration.installedPluginsForTesting.isEmpty)
+
+            sut.config.sessionReplayConfig.pluginTypesForTesting = [SpyReplayPlugin.self]
+            integration.applyRemoteConfig(remoteConfig: ["sessionRecording": ["endpoint": "/s/"]])
+
+            let plugin = try #require(integration.installedPluginsForTesting.first as? SpyReplayPlugin)
+            #expect(plugin.started)
+        }
+
+        @Test("Internal stop from sampling stops plugins")
+        func internalStopFromSamplingStopsPlugins() async throws {
+            let sut = getSut(sessionReplay: true, pluginTypes: [SpyReplayPlugin.self])
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            let plugin = try #require(integration.installedPluginsForTesting.first as? SpyReplayPlugin)
+
+            let remoteConfig = try #require(sut.remoteConfig)
+            remoteConfig.setRecordingSampleRateForTesting(0.0)
+            integration.applyRemoteConfig(remoteConfig: nil)
+
+            #expect(integration.isActive() == false)
+            #expect(plugin.stopped)
+            #expect(integration.installedPluginsForTesting.isEmpty)
+        }
+    }
+
+    private final class SpyReplayPlugin: PostHogSessionReplayPlugin {
+        private(set) var started = false
+        private(set) var stopped = false
+
+        required init() { /**/ }
+
+        func start(postHog _: PostHogSDK) {
+            started = true
+        }
+
+        func stop() {
+            stopped = true
+        }
+
+        func pause() {}
+
+        func resume() {}
+
+        static func isEnabledRemotely(remoteConfig _: [String: Any]?) -> Bool {
+            true
         }
     }
 #endif

@@ -3,7 +3,7 @@ import Foundation
 /// Delegate protocol for controlling session replay buffering behavior
 //  This will be usually the `PostHogReplayIntegation`
 ///
-/// The replay queue is passive: it checks `isBuffering` on every `add()` and `flush()`,
+/// The replay queue is passive: it asks `shouldBufferSnapshot()` on every `add()` and checks `isBuffering` on `flush()`,
 /// and notifies the delegate after buffering a snapshot. The delegate (replay integration)
 /// has full control over:
 /// 1. Whether we are buffering (`isBuffering`)
@@ -25,9 +25,17 @@ protocol PostHogReplayBufferDelegate: AnyObject {
 
     /// Moves each time a mask flag turns on. A frame stamped with an older value is stale.
     var currentMaskingGeneration: Int { get }
+
+    /// Decides where `queue.add()` routes a snapshot: `true` buffers it. Unlike `isBuffering`, a delegate
+    /// may record that the session went out unheld, in the same decision.
+    func shouldBufferSnapshot() -> Bool
 }
 
 extension PostHogReplayBufferDelegate {
     var currentCaptureMaskingGeneration: Int? { nil }
     var currentMaskingGeneration: Int { 0 }
+
+    func shouldBufferSnapshot() -> Bool {
+        isBuffering
+    }
 }

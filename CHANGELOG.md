@@ -1,5 +1,19 @@
 ## Next
 
+## 4.1.1
+
+### Patch Changes
+
+- e483351: Session replay no longer starts the console log and network plugins while the recorder is off, for example when a session is sampled out or waiting for an event trigger. Stopping replay, opting out, or closing the SDK now stops any plugins left running.
+
+## 4.1.0
+
+### Minor Changes
+
+- 9bf7ed2: Support session replay v2 trigger groups from remote config
+  
+  Session replay sampling now handles negative hashes like posthog-js, so a session gets the same sampling decision on mobile and web
+
 ## 4.0.11
 
 ### Patch Changes

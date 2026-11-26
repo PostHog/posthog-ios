@@ -432,7 +432,9 @@ final class PostHogCaptureV1Test {
         _ = await send(makeApi(), [PostHogEvent(event: "test", distinctId: "user")])
 
         // No check on the result: OHHTTPStubs delivers the 3xx without waiting for the redirect
-        // decision, so the task can end with either response. The redirected request is what counts.
+        // decision, so the task can end with either response, and before the redirected request is
+        // made. The redirected request is what counts.
+        await waitUntil { server.batchRequests.count == 2 }
         let requests = server.batchRequests
         try #require(requests.count == 2)
         #expect(requests[1].url?.path == "/moved/i/v1/analytics/events")

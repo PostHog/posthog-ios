@@ -141,8 +141,15 @@
         }
 
         #if !SWIFT_PACKAGE || SessionReplay
+            #if TESTING
+                var pluginTypesForTesting: [PostHogSessionReplayPlugin.Type]?
+            #endif
+
             /// Returns an array of plugin types based on current configuration
             func getPluginTypes() -> [PostHogSessionReplayPlugin.Type] {
+                #if TESTING
+                    if let pluginTypesForTesting { return pluginTypesForTesting }
+                #endif
                 var types: [PostHogSessionReplayPlugin.Type] = []
 
                 if captureLogs {

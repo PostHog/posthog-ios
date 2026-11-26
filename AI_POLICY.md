@@ -19,7 +19,7 @@ For changes with user-visible UI, include a short demo (screenshot, screen recor
 PRs that clearly weren't run or tested will be closed under this policy.
 
 **Disclose AI usage.**
-Our [PR template](.github/pull_request_template.md) includes an Agent context section — please use it (most agents will pick it up automatically).
+Our [PR template](.github/PULL_REQUEST_TEMPLATE.md) includes an Agent context section — please use it (most agents will pick it up automatically).
 If an agent co-authored or authored your PR, say so and leave context about the tools and session.
 This helps reviewers calibrate.
 

@@ -657,6 +657,9 @@
                 }
                 // Its own mirror per scenario, so no text or image cache carries over between scenarios.
                 let mirror = try #require(PostHogGPUMirrorCapture(), "the simulator has no Metal device")
+                // The 1ms production budget lets a slow runner leave later text unread by the first capture, so the
+                // golden frame would still show its bars.
+                mirror.inlineMask.textBudget = .infinity
                 await withCheckedContinuation { continuation in
                     mirror.prewarm(size: window.bounds.size, scale: 1) { continuation.resume() }
                 }

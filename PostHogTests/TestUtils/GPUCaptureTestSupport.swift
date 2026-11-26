@@ -27,6 +27,12 @@
     protocol GPUCaptureTesting {}
 
     extension GPUCaptureTesting {
+        #if GPU_MASK_BENCHMARKS
+            nonisolated static var benchmarksEnabled: Bool { true }
+        #else
+            nonisolated static var benchmarksEnabled: Bool { false }
+        #endif
+
         static func isMagenta(_ pixel: RGBA) -> Bool {
             pixel.red > 200 && pixel.green < 60 && pixel.blue > 200
         }

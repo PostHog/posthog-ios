@@ -1552,6 +1552,8 @@ Ingestion controls are not overridden when calling this method. The recording wi
 
 - Event triggers are configured and have not been activated for the current session.
 
+Under React Native, a call also lifts the hold an earlier `stopSessionRecording()` put on automatic starts, even when the call itself can’t start recording yet.
+
 ## Stop session recording
 
 ### `PostHogSDK.stopSessionRecording()`
@@ -1564,7 +1566,7 @@ Stops the current session recording if one is in progress.
 
 #### Discussion
 
-With `config.sessionReplay = false`, this also cancels a pending `startSessionRecording()` call, so remote config loads, event triggers and session changes will not start recording until the app calls `startSessionRecording()` again. A later `optOut()` and `optIn()` don’t restart it either. While opted out this method is ignored.
+With `config.sessionReplay = false`, this also cancels a pending `startSessionRecording()` call, so remote config loads, event triggers and session changes will not start recording until the app calls `startSessionRecording()` again. Under React Native, where the JS layer drives recording, this holds whatever `config.sessionReplay` is. Otherwise remote config loads, trigger group events and feature flag reloads don’t restart it either; a matched event trigger can. A later `optOut()` and `optIn()` don’t restart it either. While opted out this method is ignored.
 
 Stopping also starts a best-effort, asynchronous flush of replay snapshots already recorded instead of waiting for the next scheduled flush. Normal buffering and delivery limits still apply: snapshots can be held back, for example because the session is shorter than the minimum duration, and a large backlog is sent over more than one flush.
 

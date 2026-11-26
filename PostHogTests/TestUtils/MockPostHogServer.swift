@@ -179,6 +179,8 @@ class MockPostHogServer {
     var disabledFlag: Bool = false
     var sessionRecordingSampleRate: String?
     var sessionRecordingEventTriggers: [String]?
+    /// Served by `/config` only, as a v2 recording config.
+    var sessionRecordingTriggerGroups: [[String: Any]]?
     var remoteConfigErrorTracking: Any? = ["autocaptureExceptions": true]
     var remoteConfigQuotaLimited: [String]?
 
@@ -547,6 +549,10 @@ class MockPostHogServer {
                     }
                     if let eventTriggers = self.sessionRecordingEventTriggers {
                         sessionRecording["eventTriggers"] = eventTriggers
+                    }
+                    if let triggerGroups = self.sessionRecordingTriggerGroups {
+                        sessionRecording["version"] = 2
+                        sessionRecording["triggerGroups"] = triggerGroups
                     }
                     if let data = try? JSONSerialization.data(withJSONObject: sessionRecording),
                        let jsonString = String(data: data, encoding: .utf8)

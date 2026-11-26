@@ -509,6 +509,12 @@ final class PostHogPushSubscriptionHandler {
             // returns), so the flag never advances ahead of the recovery.
             defer { onComplete() }
 
+            // While opted out, a delivered record is what retryIfNeeded() unregisters: leave its marker.
+            // Asked before the record lock: during setup() this waits for setup, which takes that lock.
+            if isEnabledProvider(), !isAllowedProvider() {
+                return
+            }
+
             // Read, verify, and clear the delivered marker in a single lock acquisition. A separate
             // read then write would let a newer token stored by send() in between be overwritten with
             // the stale snapshot, losing the latest token.

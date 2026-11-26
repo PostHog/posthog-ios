@@ -2421,6 +2421,30 @@
             #expect(server.pushSubscriptionRequests.count == 1)
         }
 
+        @Test("an app_id becoming registerable while opted out leaves the delivered marker for the opt-out cleanup")
+        func keepsDeliveredMarkerWhileOptedOut() async {
+            var isAllowed = true
+            let (handler, storage, _) = makeHandler(
+                isAllowedProvider: { isAllowed },
+                pushAppIdsProvider: { ["com.example.app"] }
+            )
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 1)
+
+            isAllowed = false
+            await withCheckedContinuation { continuation in
+                handler.onPushAppIdsChanged(["com.example.app"]) { continuation.resume() }
+            }
+            #expect(delivered(storage))
+
+            // The cleanup setup() and flush() run: it unregisters only a record still marked delivered
+            handler.retryIfNeeded()
+            #expect(await waitFor { self.server.pushSubscriptionRequests.count == 2 })
+            #expect(server.pushSubscriptionRequests.last?.httpMethod == "DELETE")
+        }
+
         @Test("an unrelated app_id becoming registerable does not re-register")
         func doesNotReregisterForUnrelatedAppId() async {
             let (handler, storage, _) = makeHandler(pushAppIdsProvider: { ["com.example.app"] })

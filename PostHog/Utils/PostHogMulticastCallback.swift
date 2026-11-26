@@ -109,6 +109,11 @@ final class PostHogThrottledMulticastCallback<T> {
     private let lock = NSLock()
     private let onSubscriberCountChanged: ((Int) -> Void)?
 
+    /// Monotonic seconds for throttle windows. Comparing `TimeInterval` instead of `Date` avoids
+    /// `Date.>=`, which Xcode 27.2 marks `@backDeployed(before: iOS 27.2)` and emits as a weak
+    /// reference that resolves to 0x0 on iOS 27.2 builds missing the export.
+    private let clock: () -> TimeInterval
+
     // Heuristic budget: keep small bursts synchronous, but yield under sustained churn instead
     // of letting an unbounded drain monopolize the caller. This is not a measured threshold.
     private let subscriberCountBatchLimit = 32
@@ -129,14 +134,20 @@ final class PostHogThrottledMulticastCallback<T> {
     /// `lock`. May be stale-early (worst case: one extra no-op dispatch), but never
     /// stale-late: `subscribe` resets it, and only the drain on `throttleQueue` moves it
     /// forward from the live subscriber map.
-    private var nextEligibleFire: Date = .distantPast
+    private var nextEligibleFire: TimeInterval = -.infinity
 
     /// Creates a new throttled multicast callback.
-    /// - Parameter onSubscriberCountChanged: Optional closure called when subscriber count changes.
-    ///   Concurrent and reentrant changes are coalesced, and count callbacks never overlap.
-    ///   After a bounded synchronous batch, pending changes are reconciled asynchronously in bounded batches.
-    init(onSubscriberCountChanged: ((Int) -> Void)? = nil) {
+    /// - Parameters:
+    ///   - onSubscriberCountChanged: Optional closure called when subscriber count changes.
+    ///     Concurrent and reentrant changes are coalesced, and count callbacks never overlap.
+    ///     After a bounded synchronous batch, pending changes are reconciled asynchronously in bounded batches.
+    ///   - clock: Monotonic time in seconds. Tests inject a controllable clock here.
+    init(
+        onSubscriberCountChanged: ((Int) -> Void)? = nil,
+        clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
+    ) {
         self.onSubscriberCountChanged = onSubscriberCountChanged
+        self.clock = clock
     }
 
     /// Subscribe to this callback with a throttle interval.
@@ -150,10 +161,10 @@ final class PostHogThrottledMulticastCallback<T> {
     func subscribe(throttle interval: TimeInterval, trailing: Bool = false, _ callback: @escaping (T) -> Void) -> RegistrationToken {
         let id = UUID()
         lock.withLock {
-            callbacks[id] = ThrottledCallback(handler: callback, interval: interval, trailing: trailing)
+            callbacks[id] = ThrottledCallback(handler: callback, interval: interval, trailing: trailing, clock: clock)
             // A new subscriber is immediately eligible; without this reset the invoke()
             // gate could suppress its first fire until the other subscribers' windows open.
-            nextEligibleFire = .distantPast
+            nextEligibleFire = -.infinity
         }
         notifySubscriberCountChanged()
         return RegistrationToken { [weak self] in
@@ -217,7 +228,7 @@ final class PostHogThrottledMulticastCallback<T> {
             for callback in callbacks.values where callback.trailing {
                 callback.invokeTrailing(value)
             }
-            return callbacks.values.contains { !$0.trailing } && now() >= nextEligibleFire
+            return callbacks.values.contains { !$0.trailing } && clock() >= nextEligibleFire
         }
         guard shouldDispatch else { return }
 
@@ -231,7 +242,7 @@ final class PostHogThrottledMulticastCallback<T> {
             // subscriber added mid-drain — eligible immediately — is not gated out.
             // Leading-only subscribers' `lastFired` is only mutated on this serial queue.
             self.lock.withLock {
-                self.nextEligibleFire = self.callbacks.values.filter { !$0.trailing }.map(\.nextEligibleTime).min() ?? .distantFuture
+                self.nextEligibleFire = self.callbacks.values.filter { !$0.trailing }.map(\.nextEligibleTime).min() ?? .infinity
             }
         }
     }
@@ -245,7 +256,8 @@ final class PostHogThrottledMulticastCallback<T> {
         let interval: TimeInterval
         let handler: (T) -> Void
         let trailing: Bool
-        private var lastFired: Date = .distantPast
+        private let clock: () -> TimeInterval
+        private var lastFired: TimeInterval = -.infinity
 
         // Trailing subscriptions accept values synchronously, rather than queueing every layout.
         // Their state is shared with the delayed main-queue delivery and guarded by this lock.
@@ -254,14 +266,15 @@ final class PostHogThrottledMulticastCallback<T> {
         private var pendingWork: DispatchWorkItem?
 
         /// Used only for leading-only subscriptions on the owning callback's `throttleQueue`.
-        var nextEligibleTime: Date {
-            lastFired.addingTimeInterval(interval)
+        var nextEligibleTime: TimeInterval {
+            lastFired.isFinite ? lastFired + interval : -.infinity
         }
 
-        init(handler: @escaping (T) -> Void, interval: TimeInterval, trailing: Bool) {
+        init(handler: @escaping (T) -> Void, interval: TimeInterval, trailing: Bool, clock: @escaping () -> TimeInterval) {
             self.handler = handler
             self.interval = interval
             self.trailing = trailing
+            self.clock = clock
         }
 
         deinit {
@@ -281,7 +294,7 @@ final class PostHogThrottledMulticastCallback<T> {
                 // .some preserves a pending nil when T itself is Optional.
                 pendingValue = .some(value)
                 guard pendingWork == nil else { return }
-                let remaining = max(0, interval - now().timeIntervalSince(lastFired))
+                let remaining = max(0, interval - (clock() - lastFired))
                 let work = DispatchWorkItem { [weak self] in
                     self?.fireTrailing()
                 }
@@ -297,7 +310,7 @@ final class PostHogThrottledMulticastCallback<T> {
                 pendingWork = nil
                 // Start the next window at delivery, not scheduling: a busy main thread must
                 // not accumulate snapshots that then fire back-to-back when it becomes free.
-                lastFired = now()
+                lastFired = clock()
                 return value
             }
             if let value {
@@ -306,8 +319,8 @@ final class PostHogThrottledMulticastCallback<T> {
         }
 
         func invokeIfReady(_ value: T) {
-            let currentTime = now()
-            let timeSinceLastFired = currentTime.timeIntervalSince(lastFired)
+            let currentTime = clock()
+            let timeSinceLastFired = currentTime - lastFired
 
             if timeSinceLastFired >= interval {
                 lastFired = currentTime

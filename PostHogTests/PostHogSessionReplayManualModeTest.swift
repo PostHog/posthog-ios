@@ -280,8 +280,8 @@
 
         // MARK: - Automatic mode control
 
-        @Test("Automatic mode restarts on the next remote config load after a stop")
-        func automaticModeRestartsOnNextRemoteConfigLoad() async throws {
+        @Test("Automatic mode stays stopped across a remote config load until an explicit start")
+        func automaticModeStaysStoppedAcrossRemoteConfigLoad() async throws {
             let sut = getSut(sessionReplay: true)
             defer { sut.close() }
 
@@ -292,7 +292,24 @@
             #expect(integration.isActive() == false)
 
             integration.applyRemoteConfig(remoteConfig: ["sessionRecording": ["endpoint": "/s/"]])
+            #expect(integration.isActive() == false)
+
+            sut.startSessionRecording()
             #expect(integration.isActive() == true)
+        }
+
+        @Test("Automatic mode stays stopped when a remote config load removes the event triggers")
+        func automaticModeStaysStoppedWhenRemoteConfigRemovesTriggers() async throws {
+            let sut = getSut(sessionReplay: true, eventTriggers: ["purchase_completed"])
+            defer { sut.close() }
+
+            let integration = try #require(sut.getReplayIntegration())
+            sut.capture("purchase_completed")
+            #expect(integration.isActive() == true)
+
+            sut.stopSessionRecording()
+            integration.applyRemoteConfig(remoteConfig: ["sessionRecording": ["endpoint": "/s/"]])
+            #expect(integration.isActive() == false)
         }
 
         @Test("Automatic mode with triggers restarts on a matched trigger in a new session after a stop")
@@ -312,6 +329,27 @@
             sut.sessionManager.setSessionId(UUID().uuidString)
             sut.capture("purchase_completed")
             #expect(integration.isActive() == true)
+        }
+
+        @Test("Automatic mode stays stopped when an explicit stop lands while a session change re-evaluates sampling")
+        func automaticModeStaysStoppedWhenStopRacesSessionChange() async throws {
+            let sut = getSut(sessionReplay: true)
+            defer {
+                PostHogReplayIntegration.onSessionChangeGatesPassedForTesting = nil
+                sut.close()
+            }
+
+            let integration = try #require(sut.getReplayIntegration())
+            #expect(integration.isActive() == true)
+
+            PostHogReplayIntegration.onSessionChangeGatesPassedForTesting = {
+                PostHogReplayIntegration.onSessionChangeGatesPassedForTesting = nil
+                sut.stopSessionRecording()
+            }
+            sut.sessionManager.setSessionId(UUID().uuidString)
+
+            #expect(integration.isActive() == false)
+            #expect(integration.isReplayOff == true)
         }
 
         // MARK: - Opt-in

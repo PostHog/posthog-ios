@@ -1589,7 +1589,10 @@
 
         // MARK: - Cost
 
-        @Test("Cost of masking a photo grid at 2x: turn 1 and the whole capture (prints, doesn't assert)")
+        @Test(
+            "Cost of masking a photo grid at 2x: turn 1 and the whole capture (prints, doesn't assert)",
+            .enabled(if: benchmarksEnabled, "compile-gated (GPU_MASK_BENCHMARKS) — use `make gpuMaskBenchmarks`")
+        )
         func photoGridCost() async throws {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
             window.backgroundColor = .white
@@ -1616,7 +1619,10 @@
             print("PHOTO-COST median ms: turn1 \(median(turn1)), capture through encode \(median(total))")
         }
 
-        @Test("Turn-1 cost on a text-heavy screen, with and without inline masking (prints, doesn't assert)")
+        @Test(
+            "Turn-1 cost on a text-heavy screen, with and without inline masking (prints, doesn't assert)",
+            .enabled(if: benchmarksEnabled, "compile-gated (GPU_MASK_BENCHMARKS) — use `make gpuMaskBenchmarks`")
+        )
         func turnOneCost() async throws {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
             window.backgroundColor = .white
@@ -1662,7 +1668,10 @@
             print("INLINE-COST turn1 ms min: walk+freeze \(off.min() ?? 0), walk+inline+freeze cold \(cold.min() ?? 0), warm \(warm.min() ?? 0)")
         }
 
-        @Test("Cost of ph-no-capture cards with text painted over them at 2x (prints, doesn't assert)")
+        @Test(
+            "Cost of ph-no-capture cards with text painted over them at 2x (prints, doesn't assert)",
+            .enabled(if: benchmarksEnabled, "compile-gated (GPU_MASK_BENCHMARKS) — use `make gpuMaskBenchmarks`")
+        )
         func noCaptureCardsCost() async throws {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
             window.backgroundColor = .white

@@ -392,8 +392,8 @@
             // enablement re-arms when the integration restarts after an identity change.
             let pluginTypes = postHog.config.sessionReplayConfig.getPluginTypes()
             let remoteConfig = postHog.remoteConfig?.getRemoteConfig()
+            stopInstalledPlugins()
             let pluginsToStart = installedPluginsLock.withLock {
-                installedPlugins = []
                 for pluginType in pluginTypes {
                     if !pluginType.isEnabledRemotely(remoteConfig: remoteConfig) {
                         hedgeLog("[Session Replay] Plugin \(pluginType) skipped - disabled by cached remote config")
@@ -460,6 +460,8 @@
                 return wasEnabled
             }
             if wasEnabled { tearDownRecording() }
+            // Also stops plugins installed while the recorder was off, which `tearDownRecording()` never sees.
+            stopInstalledPlugins()
             notifyRecordingStatusChanged()
         }
 
@@ -493,15 +495,7 @@
             applicationForegroundedToken = nil
             // drop replay's demand on the shared run-loop publisher
             stopCaptureScheduler()
-            // stop plugins
-            let pluginsToStop = installedPluginsLock.withLock {
-                defer { installedPlugins = [] }
-                return installedPlugins
-            }
-
-            for plugin in pluginsToStop {
-                plugin.stop()
-            }
+            stopInstalledPlugins()
 
             hedgeLog("Session replay recording stopped.")
             notifyRecordingStatusChanged()
@@ -2026,6 +2020,8 @@
             guard let postHog else { return }
 
             let allPluginTypes = postHog.config.sessionReplayConfig.getPluginTypes()
+            // While the recorder is off, `startRecording()` installs the enabled plugins when it claims.
+            let isRecording = isActive()
 
             var pluginsToStop: [PostHogSessionReplayPlugin] = []
             var pluginsToStart: [PostHogSessionReplayPlugin] = []
@@ -2039,7 +2035,7 @@
                         // Installed, but disabled in remote
                         pluginsToStop.append(installedPlugins[index])
                         installedPlugins.remove(at: index)
-                    } else if installedIndex == nil, isEnabled {
+                    } else if installedIndex == nil, isEnabled, isRecording {
                         // Not installed, but enabled in remote
                         let plugin = pluginType.init()
                         installedPlugins.append(plugin)
@@ -2057,6 +2053,27 @@
                 hedgeLog("[Session Replay] Plugin \(type(of: plugin)) installed - enabled by remote config")
             }
         }
+
+        private func stopInstalledPlugins() {
+            let pluginsToStop = installedPluginsLock.withLock {
+                defer { installedPlugins = [] }
+                return installedPlugins
+            }
+
+            for plugin in pluginsToStop {
+                plugin.stop()
+            }
+        }
+
+        #if TESTING
+            var installedPluginsForTesting: [PostHogSessionReplayPlugin] {
+                installedPluginsLock.withLock { installedPlugins }
+            }
+
+            func installPluginForTesting(_ plugin: PostHogSessionReplayPlugin) {
+                installedPluginsLock.withLock { installedPlugins.append(plugin) }
+            }
+        #endif
     }
 
     // MARK: - Debug properties

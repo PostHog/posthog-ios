@@ -82,6 +82,11 @@
         private var eventTriggers: [String]?
         private var triggerActivatedSessionId: String?
 
+        private let maskingLock = NSLock()
+        private var remoteMasking = PostHogRemoteMasking(maskAllTextInputs: false, maskAllImages: false)
+        private var loggedMaskFlags = Set<String>()
+        private var maskingGeneration = 0
+
         // Minimum duration buffering state
         private let bufferingLock = NSLock()
         private var hasPassedMinimumDuration: Bool = false
@@ -222,9 +227,7 @@
                 bufferingLock.withLock { awaitingFirstRemoteConfig = awaiting }
 
                 // Subscribe to remote config changes (needed before start to update triggers)
-                remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] config in
-                    self?.applyRemoteConfig(remoteConfig: config)
-                }
+                subscribeToRemoteConfig(postHog)
 
                 // Subscribe to feature flag reloads so the buffer also resolves after reset()/identity
                 // changes, which reload flags but not `/config` (the only path that fires applyRemoteConfig).
@@ -670,6 +673,7 @@
             recheckTriggerGroupsScreen()
             updatePlugins(from: remoteConfig)
             updateEventTriggers(from: remoteConfig)
+            let droppedForMasking = updateMasking(from: remoteConfig)
             updateCachedMinimumDuration()
 
             // `processSessionRecordingConfig` flipped `sessionReplayFlagActive` before this callback,
@@ -695,7 +699,7 @@
                 && (postHog?.remoteConfig?.isRecordingGatedOnLinkedFlag() ?? false)
 
             if !deferToFeatureFlags {
-                resolveFirstRemoteConfigBuffer(flagActive: flagActive)
+                resolveFirstRemoteConfigBuffer(flagActive: flagActive, droppedForMasking: droppedForMasking)
             }
 
             if !flagActive, !wasFirstRemoteConfig {
@@ -719,7 +723,7 @@
         /// Drops the buffer if recording isn't permitted, else hands it to the minimum-duration gate
         /// (not a force-flush). The `awaitingFirstRemoteConfig` flip is atomic under `bufferingLock`;
         /// the clear/migrate runs after the lock to keep buffer I/O out of the critical section.
-        private func resolveFirstRemoteConfigBuffer(flagActive: Bool) {
+        private func resolveFirstRemoteConfigBuffer(flagActive: Bool, droppedForMasking: Bool) {
             // Read `isEnabled` in the same acquisition as the awaiting flip: an explicit stop() while
             // buffering must drop the window too, or the first `/config` migrates snapshots the
             // recorder was asked to stop.
@@ -730,6 +734,12 @@
             }
 
             guard wasAwaiting else { return }
+
+            // The dropped window was unmasked. Kept activity starts again from the next masked frame.
+            guard !droppedForMasking else {
+                notifyRecordingStatusChanged()
+                return
+            }
 
             // Keep the buffered opening window only if this session is recordable under the fresh
             // config — flag on, still sampled in, and not gated behind a not-yet-fired event trigger.
@@ -782,7 +792,11 @@
             hedgeLog("[Session Replay] Minimum duration met. Migrating \(replayQueue.bufferDepth) buffered events to replay queue.")
             // Flip state before migration so new snapshots don't keep entering the buffer during long-running migrations.
             bufferingLock.withLock { hasPassedMinimumDuration = true }
-            replayQueue.migrateBufferToQueue()
+            guard replayQueue.migrateBufferToQueue() else {
+                // The span came from frames a mask turn-on is about to drop.
+                bufferingLock.withLock { hasPassedMinimumDuration = false }
+                return false
+            }
             return true
         }
 
@@ -817,8 +831,11 @@
                 hedgeLog("[Session Replay] First /config attempt did not complete. Falling back to the disk-cached recording config.")
             }
 
+            // `/config` stores its result before posting `applyRemoteConfig` to main, so a flags reload
+            // queued ahead of that post would otherwise resolve the buffer under the old mask.
+            let droppedForMasking = updateMasking(from: postHog?.remoteConfig?.getRemoteConfig())
             let flagActive = postHog?.remoteConfig?.isSessionReplayFlagActive() ?? false
-            resolveFirstRemoteConfigBuffer(flagActive: flagActive)
+            resolveFirstRemoteConfigBuffer(flagActive: flagActive, droppedForMasking: droppedForMasking)
         }
 
         /// A lowered minimum releases the held window, a raised one leaves already released snapshots alone.
@@ -940,6 +957,13 @@
             }
 
             PostHogReplayIntegration.dispatchQueue.async { [weak self] in
+                // A mask flag turned on after this frame was collected, so it may show content the
+                // config now masks (fail closed).
+                if wireframe.maskingGeneration != self?.currentMaskingGeneration {
+                    hedgeLog("[Session Replay] Skipping snapshot: a mask flag turned on after it was collected")
+                    return
+                }
+
                 // A new bridge episode needs fresh metadata even if its opening render fails.
                 if episodeFirstFrame {
                     snapshotStatus.sentMetaEvent = false
@@ -1020,15 +1044,24 @@
                 let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
                 snapshotsData.append(snapshotData)
 
-                postHog.capture(
-                    "$snapshot",
-                    properties: [
-                        "$snapshot_source": "mobile",
-                        "$snapshot_data": snapshotsData,
-                        "$session_id": sessionId,
-                    ],
-                    timestamp: timestampDate
-                )
+                // The render above takes a while, so check again right before queueing.
+                if wireframe.maskingGeneration != self?.currentMaskingGeneration {
+                    hedgeLog("[Session Replay] Skipping snapshot: a mask flag turned on after it was collected")
+                    return
+                }
+
+                // The capture reaches the replay queue on this thread, which reads the stamp there.
+                Self.withCaptureMaskingGeneration(wireframe.maskingGeneration) {
+                    postHog.capture(
+                        "$snapshot",
+                        properties: [
+                            "$snapshot_source": "mobile",
+                            "$snapshot_data": snapshotsData,
+                            "$session_id": sessionId,
+                        ],
+                        timestamp: timestampDate
+                    )
+                }
             }
         }
 
@@ -1037,8 +1070,10 @@
             return imageHash == lastImageHash
         }
 
-        private func createBasicWireframe(_ view: UIView) -> RRScreenshotFrame {
+        /// - Parameter maskingGeneration: read before the frame's mask flags, so a flag that turns on in between drops the frame.
+        private func createBasicWireframe(_ view: UIView, maskingGeneration: Int) -> RRScreenshotFrame {
             let wireframe = RRScreenshotFrame()
+            wireframe.maskingGeneration = maskingGeneration
 
             // since FE will render each node of the wireframe with position: fixed
             // we need to convert bounds to global screen coordinates
@@ -1106,14 +1141,14 @@
             }
 
             if let reactNativeTextView = reactNativeTextView {
-                if view.isKind(of: reactNativeTextView), config?.sessionReplayConfig.maskAllTextInputs == true {
+                if view.isKind(of: reactNativeTextView), maskAllTextInputs {
                     maskableWidgets.append(.init(view, in: window))
                     return
                 }
             }
 
             if let reactNativeParagraphView = reactNativeParagraphView {
-                if view.isKind(of: reactNativeParagraphView), config?.sessionReplayConfig.maskAllTextInputs == true {
+                if view.isKind(of: reactNativeParagraphView), maskAllTextInputs {
                     maskableWidgets.append(.init(view, in: window))
                     return
                 }
@@ -1130,14 +1165,14 @@
             }
 
             if let reactNativeImageView = reactNativeImageView {
-                if view.isKind(of: reactNativeImageView), config?.sessionReplayConfig.maskAllImages == true {
+                if view.isKind(of: reactNativeImageView), maskAllImages {
                     maskableWidgets.append(.init(view, in: window))
                     return
                 }
             }
 
             if let reactNativeImageComponentView = reactNativeImageComponentView {
-                if view.isKind(of: reactNativeImageComponentView), config?.sessionReplayConfig.maskAllImages == true {
+                if view.isKind(of: reactNativeImageComponentView), maskAllImages {
                     maskableWidgets.append(.init(view, in: window))
                     return
                 }
@@ -1145,8 +1180,8 @@
 
             if let reactNativeSvgView, view.isKind(of: reactNativeSvgView) {
                 let content = reactNativeSvgContent(in: view)
-                let shouldMaskText = content.hasText && config?.sessionReplayConfig.maskAllTextInputs == true
-                let shouldMaskGraphics = content.hasGraphic && config?.sessionReplayConfig.maskAllImages == true
+                let shouldMaskText = content.hasText && maskAllTextInputs
+                let shouldMaskGraphics = content.hasGraphic && maskAllImages
                 if shouldMaskText || shouldMaskGraphics {
                     // SVG nodes share a drawing surface, so mask the root when enabled content is present.
                     maskableWidgets.append(.init(view, in: window))
@@ -1347,12 +1382,13 @@
             // content unmasked. Skip the tick (fail closed), like the transition bail.
             // overrideMaskRects: the settle check's drift band passes swept-region rects
             // measured moments ago, so masks cover the travel path instead of one instant.
+            let maskingGeneration = currentMaskingGeneration
             guard let maskableWidgets = overrideMaskRects ?? collectMaskableRects(in: window) else {
                 hedgeLog("[Session Replay] Skipping snapshot: a masked view hasn't been laid out yet")
                 return nil
             }
 
-            let wireframe = createBasicWireframe(window)
+            let wireframe = createBasicWireframe(window, maskingGeneration: maskingGeneration)
             wireframe.maskableWidgets = maskableWidgets
             wireframe.screenshotPixelScale = config?.sessionReplayConfig.screenshotPixelScale(nativeScale: window.screen.scale) ?? 1
             wireframe.type = "screenshot"
@@ -1576,11 +1612,11 @@
         }
 
         private func isAnyInputSensitive(_ view: UIView) -> Bool {
-            isTextInputSensitive(view) || config?.sessionReplayConfig.maskAllImages == true
+            isTextInputSensitive(view) || maskAllImages
         }
 
         private func isTextInputSensitive(_ view: UIView) -> Bool {
-            config?.sessionReplayConfig.maskAllTextInputs == true || view.isNoCapture()
+            maskAllTextInputs || view.isNoCapture()
         }
 
         private func isLabelSensitive(_ view: UILabel) -> Bool {
@@ -1612,7 +1648,7 @@
         /// mask, so masking images masks text that holds one. Like image views, symbols and
         /// asset-catalog images stay visible; an attachment whose image can't be read is masked.
         private func hasSensitiveImageAttachment(_ text: NSAttributedString?) -> Bool {
-            guard config?.sessionReplayConfig.maskAllImages == true, let text, text.length > 0 else {
+            guard maskAllImages, let text, text.length > 0 else {
                 return false
             }
             var found = false
@@ -1645,7 +1681,7 @@
         private func isSwiftUIImageSensitive(_ view: UIView) -> Bool {
             // No way of checking if this is an asset image or not
             // No way of checking if there's actual content in the image or not
-            config?.sessionReplayConfig.maskAllImages == true || view.isNoCapture()
+            maskAllImages || view.isNoCapture()
         }
 
         private func isImageViewSensitive(_ view: UIImageView) -> Bool {
@@ -1664,7 +1700,7 @@
             }
 
             // asset images and symbols are probably not sensitive
-            return config?.sessionReplayConfig.maskAllImages == true
+            return maskAllImages
                 && sources.contains { !$0.isSymbolImage && !isAssetsImage($0) }
         }
 
@@ -1922,6 +1958,103 @@
         }
     }
 
+    extension PostHogReplayIntegration {
+        /// The mask flags capture applies now, resolved from the local config and the project's mobile masking setting.
+        func resolvedMasking() -> (maskAllTextInputs: Bool, maskAllImages: Bool) {
+            (maskAllTextInputs, maskAllImages)
+        }
+
+        /// Moves each time a mask flag turns on. Frames stamped with an older value are dropped.
+        var currentMaskingGeneration: Int {
+            maskingLock.withLock { maskingGeneration }
+        }
+
+        private var localMasking: (text: Bool, images: Bool) {
+            (config?.sessionReplayConfig.maskAllTextInputs == true, config?.sessionReplayConfig.maskAllImages == true)
+        }
+
+        private var maskAllTextInputs: Bool {
+            config?.sessionReplayConfig.maskAllTextInputs == true || maskingLock.withLock { remoteMasking.maskAllTextInputs }
+        }
+
+        private var maskAllImages: Bool {
+            config?.sessionReplayConfig.maskAllImages == true || maskingLock.withLock { remoteMasking.maskAllImages }
+        }
+
+        private static let captureMaskingGenerationKey = "com.posthog.replay.captureMaskingGeneration"
+
+        /// Runs `body` with `generation` as the current thread's capture stamp, which the replay queue reads when it adds the frame.
+        static func withCaptureMaskingGeneration<T>(_ generation: Int, _ body: () -> T) -> T {
+            let threadDictionary = Thread.current.threadDictionary
+            threadDictionary[captureMaskingGenerationKey] = generation
+            defer { threadDictionary.removeObject(forKey: captureMaskingGenerationKey) }
+            return body()
+        }
+
+        var currentCaptureMaskingGeneration: Int? {
+            Thread.current.threadDictionary[Self.captureMaskingGenerationKey] as? Int
+        }
+
+        /// Flags already logged as turned on by the project's setting, for tests.
+        var loggedMaskFlagsForTesting: Set<String> {
+            maskingLock.withLock { loggedMaskFlags }
+        }
+
+        /// Bumps the generation without clearing the buffer, for tests.
+        func bumpMaskingGenerationForTesting() {
+            maskingLock.withLock { maskingGeneration += 1 }
+        }
+
+        /// Seeds the mask from the stored config after subscribing, so a `/config` that lands during
+        /// install reaches either the listener or the seed.
+        private func subscribeToRemoteConfig(_ postHog: PostHogSDK) {
+            #if TESTING
+                Self.beforeRemoteConfigSubscribeForTesting?()
+            #endif
+            remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] config in
+                self?.applyRemoteConfig(remoteConfig: config)
+            }
+            updateMasking(from: postHog.remoteConfig?.getRemoteConfig(), isInitial: true)
+        }
+
+        /// - Parameter isInitial: seeds the stored value from the cached config, which is not a turn-on.
+        /// - Returns: whether a mask flag turned on and the buffer was dropped.
+        @discardableResult
+        private func updateMasking(from remoteConfig: [String: Any]?, isInitial: Bool = false) -> Bool {
+            let remote = PostHogRemoteMasking.parse(from: remoteConfig)
+            let local = localMasking
+            let next = PostHogRemoteMasking.resolve(local: local, remote: remote)
+
+            let (turnedOn, flagsToLog) = maskingLock.withLock { () -> (Bool, [String]) in
+                let previous = PostHogRemoteMasking.resolve(local: local, remote: remoteMasking)
+                remoteMasking = remote
+                let turnedOn = (next.maskAllTextInputs && !previous.maskAllTextInputs)
+                    || (next.maskAllImages && !previous.maskAllImages)
+                if turnedOn, !isInitial {
+                    maskingGeneration += 1
+                }
+
+                var flags: [String] = []
+                if remote.maskAllTextInputs, !local.text { flags.append("maskAllTextInputs") }
+                if remote.maskAllImages, !local.images { flags.append("maskAllImages") }
+                flags = flags.filter { loggedMaskFlags.insert($0).inserted }
+                return (turnedOn, flags)
+            }
+
+            for flag in flagsToLog {
+                hedgeLog("[Session Replay] The project's mobile masking setting turned on \(flag), which is off in the local config.")
+            }
+
+            guard turnedOn, !isInitial else { return false }
+            replayQueue?.clearBuffer()
+            // The dropped frames carried the meta event and the last frame hash.
+            resetViews()
+            // An idle backoff must not delay the replacement opening frame.
+            captureBackoff.wake()
+            return true
+        }
+    }
+
     // MARK: - Portals
 
     extension PostHogReplayIntegration {
@@ -1977,7 +2110,7 @@
         /// until the commit. An animation drawing an image the view no longer holds, such as a transition from it,
         /// counts too.
         func showsReplacedImage(_ view: UIImageView) -> Bool {
-            guard view.isNoCapture() || config?.sessionReplayConfig.maskAllImages == true else { return false }
+            guard view.isNoCapture() || maskAllImages else { return false }
             if view.animatesReplacedImage {
                 return true
             }
@@ -2711,6 +2844,7 @@
                 // Camera first: its layers can trap when presentation() copies them.
                 guard window.isVisible(), !window.hasCameraForReplay(), !isAnimatingTransition(window) else { return .skipped }
                 guard let frame = mirror.build(window: window, scale: scale) else { return .unbuilt }
+                let maskingGeneration = currentMaskingGeneration
                 let regions = MaskedRegion.deferringRects {
                     collectMaskedRegions(in: window, culledLayers: frame.culledLayers, portalSources: frame.portalSources)
                 }
@@ -2722,7 +2856,7 @@
                 let remaining = mirror.maskInline(regions, in: frame, tag: inlineMaskTag(view:layer:))
                 let remainingRects = remaining.map(\.rect)
                 frame.freeze()
-                let wireframe = createBasicWireframe(window)
+                let wireframe = createBasicWireframe(window, maskingGeneration: maskingGeneration)
                 wireframe.type = "screenshot"
                 wireframe.maskableWidgets = remainingRects
                 wireframe.screenshotPixelScale = frame.scale
@@ -3085,6 +3219,9 @@
             var captureBackoffForTesting: PostHogReplayCaptureBackoff {
                 captureBackoff
             }
+
+            /// Runs during install just before the remote config listener is registered.
+            static var beforeRemoteConfigSubscribeForTesting: (() -> Void)?
         }
     #endif
 

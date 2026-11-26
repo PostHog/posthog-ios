@@ -179,6 +179,7 @@ class MockPostHogServer {
     var disabledFlag: Bool = false
     var sessionRecordingSampleRate: String?
     var sessionRecordingEventTriggers: [String]?
+    var sessionRecordingMasking: [String: Any]?
     /// Served by `/config` only, as a v2 recording config.
     var sessionRecordingTriggerGroups: [[String: Any]]?
     var remoteConfigErrorTracking: Any? = ["autocaptureExceptions": true]
@@ -413,6 +414,10 @@ class MockPostHogServer {
                     sessionRecording["eventTriggers"] = eventTriggers
                 }
 
+                if let masking = self.sessionRecordingMasking {
+                    sessionRecording["masking"] = masking
+                }
+
                 obj["sessionRecording"] = sessionRecording
             } else {
                 obj["sessionRecording"] = false
@@ -549,6 +554,9 @@ class MockPostHogServer {
                     }
                     if let eventTriggers = self.sessionRecordingEventTriggers {
                         sessionRecording["eventTriggers"] = eventTriggers
+                    }
+                    if let masking = self.sessionRecordingMasking {
+                        sessionRecording["masking"] = masking
                     }
                     if let triggerGroups = self.sessionRecordingTriggerGroups {
                         sessionRecording["version"] = 2

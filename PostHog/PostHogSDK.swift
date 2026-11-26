@@ -4061,6 +4061,21 @@ let maxRetryDelay = 30.0
             replayIntegration?.debugProperties() ?? [:]
         }
 
+        /// The session replay mask flags that capture applies now: each local flag, or the project's
+        /// mobile masking setting from remote config when that turns the mask on.
+        /// Keys: `maskAllTextInputs`, `maskAllImages`. Falls back to the local flags when replay is not installed.
+        ///
+        /// SPI, not public API: no stability guarantees.
+        @_spi(PostHogInternal) public func sessionReplayResolvedMasking() -> [String: Bool] {
+            if let resolved = replayIntegration?.resolvedMasking() {
+                return ["maskAllTextInputs": resolved.maskAllTextInputs, "maskAllImages": resolved.maskAllImages]
+            }
+            return [
+                "maskAllTextInputs": config.sessionReplayConfig.maskAllTextInputs,
+                "maskAllImages": config.sessionReplayConfig.maskAllImages,
+            ]
+        }
+
         /// Overrides the minimum duration the replay buffer holds a session for, for first-party wrappers
         /// that evaluate trigger groups themselves. `0` means no minimum, `nil` goes back to the remote
         /// config value, and a negative value is ignored. Takes effect at once and survives session changes.

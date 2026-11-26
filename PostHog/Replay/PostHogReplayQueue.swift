@@ -13,7 +13,13 @@ class PostHogReplayQueue {
     private let bufferIOQueue = DispatchQueue(label: "com.posthog.ReplayBufferIO",
                                               target: .global(qos: .utility))
 
-    weak var bufferDelegate: PostHogReplayBufferDelegate?
+    private let bufferLock = NSLock()
+    private var bufferedMaskingGeneration: Int?
+
+    weak var bufferDelegate: PostHogReplayBufferDelegate? {
+        // A generation only means something to the delegate that issued it.
+        didSet { bufferLock.withLock { bufferedMaskingGeneration = nil } }
+    }
 
     #if TESTING
         /// Runs after `add` routes a snapshot to the real queue and before it writes it.
@@ -68,18 +74,41 @@ class PostHogReplayQueue {
     }
 
     func add(_ event: PostHogEvent) {
+        let frameGeneration = bufferDelegate?.currentCaptureMaskingGeneration
+        func isStale() -> Bool {
+            frameGeneration != nil && frameGeneration != bufferDelegate?.currentMaskingGeneration
+        }
+        func logStale() {
+            hedgeLog("Dropped replay event '\(event.event)': a mask flag turned on after it was captured")
+        }
+
         if bufferDelegate?.shouldBufferSnapshot() == true {
             guard let data = toJSONData(event.toJSON()) else {
                 hedgeLog("Tried to buffer unserialisable PostHogEvent")
                 return
             }
-            bufferQueue.add(data)
-            hedgeLog("Buffered replay event '\(event.event)'. Buffer depth: \(bufferQueue.depth)")
+            let depth: Int? = bufferLock.withLock {
+                if isStale() { return nil }
+                bufferQueue.add(data)
+                // Keep the oldest, taken from the frame's own stamp: the live generation can move after the
+                // stale check, and a fresh label would let a stale window migrate.
+                bufferedMaskingGeneration = bufferedMaskingGeneration ?? frameGeneration ?? bufferDelegate?.currentMaskingGeneration
+                return bufferQueue.depth
+            }
+            guard let depth else {
+                logStale()
+                return
+            }
+            hedgeLog("Buffered replay event '\(event.event)'. Buffer depth: \(depth)")
             bufferDelegate?.replayQueueDidBufferSnapshot(self)
         } else {
             #if TESTING
                 onDirectRouteForTesting?()
             #endif
+            if isStale() {
+                logStale()
+                return
+            }
             innerQueue.add(event)
         }
     }
@@ -98,17 +127,34 @@ class PostHogReplayQueue {
     ///
     /// If called from the main thread, the files are moved on a utility queue
     /// to avoid blocking rendering. On background threads they are moved inline.
-    func migrateBufferToQueue() {
-        let batch = bufferQueue.removeAll()
+    ///
+    /// - Returns: false when skipped because a mask flag turned on after the buffer's frames were captured.
+    @discardableResult
+    func migrateBufferToQueue() -> Bool {
+        let batch: [String]? = bufferLock.withLock {
+            if let buffered = bufferedMaskingGeneration,
+               let delegate = bufferDelegate,
+               buffered != delegate.currentMaskingGeneration
+            {
+                return nil
+            }
+            bufferedMaskingGeneration = nil
+            return bufferQueue.removeAll()
+        }
+        guard let batch else {
+            hedgeLog("Replay buffer migration skipped: a mask flag turned on and the buffer is about to be cleared")
+            return false
+        }
         guard !batch.isEmpty else {
             hedgeLog("No buffered replay events to migrate")
-            return
+            return true
         }
         performBufferOperation { [bufferQueue, innerQueue] in
             bufferQueue.migrate(batch, to: innerQueue.fileQueue)
             hedgeLog("Migrated \(batch.count) buffered replay events to replay queue. Queue depth: \(innerQueue.depth)")
             innerQueue.flushIfOverThreshold()
         }
+        return true
     }
 
     /// Discards all buffered replay events. A snapshot added after this call is kept, so a new
@@ -117,7 +163,10 @@ class PostHogReplayQueue {
     /// If called from the main thread, the files are deleted on a utility queue to
     /// avoid blocking rendering. On background threads they are deleted inline.
     func clearBuffer() {
-        let removed = bufferQueue.removeAll()
+        let removed: [String] = bufferLock.withLock {
+            bufferedMaskingGeneration = nil
+            return bufferQueue.removeAll()
+        }
         performBufferOperation { [bufferQueue] in
             bufferQueue.delete(removed)
             hedgeLog("Replay buffer cleared")
@@ -136,6 +185,9 @@ class PostHogReplayQueue {
     /// Internal, used for testing
     func clear() {
         innerQueue.clear()
-        bufferQueue.clear()
+        bufferLock.withLock {
+            bufferQueue.clear()
+            bufferedMaskingGeneration = nil
+        }
     }
 }

@@ -66,11 +66,16 @@
                 return true
             }
 
-            /// Main thread, after `encode`. Calls `completion` on `queue` with the frame's pixels (nil on failure)
-            /// once the GPU has finished. Keep the frame unreleased until then.
+            /// Main thread, after `encode`. Calls `completion` on `queue` with the frame's pixels (nil on failure, or when
+            /// every pixel is transparent) once the GPU has finished. Keep the frame unreleased until then.
             func readback(on queue: DispatchQueue, completion: @escaping (CGImage?) -> Void) {
+                readbackResult(on: queue) { completion($0.image) }
+            }
+
+            /// `readback`, telling a blank frame apart from a failed one.
+            func readbackResult(on queue: DispatchQueue, completion: @escaping (Readback) -> Void) {
                 guard stage == .encoded else {
-                    queue.async { completion(nil) }
+                    queue.async { completion(.failed) }
                     return
                 }
                 target.readback(on: queue, completion: completion)
@@ -352,10 +357,10 @@
         }
 
         /// Main thread, after the mask walk and before `freeze`. Returns the regions still needing the rect pass.
-        func maskInline(_ regions: [PostHogReplayIntegration.MaskedRegion], in frame: Frame,
+        func maskInline(_ regions: [PostHogReplayIntegration.MaskedRegion], in frame: Frame, usesPresentedBudget: Bool = true,
                         tag: (_ viewClass: AnyClass?, _ layerClass: AnyClass) -> PostHogInlineMask.Tag) -> [PostHogReplayIntegration.MaskedRegion]
         {
-            inlineMask.mask(regions, in: frame, tag: tag) {
+            inlineMask.mask(regions, in: frame, usesPresentedBudget: usesPresentedBudget, tag: tag) {
                 classInfo(type(of: $0)).copiesWithInitLayer
             }
         }

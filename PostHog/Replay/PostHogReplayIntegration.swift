@@ -874,7 +874,12 @@
             // capture necessary touch information on the main thread before performing any asynchronous operations
             // - this ensures that UITouch associated objects like UIView, UIWindow, or [UIGestureRecognizer] are still valid.
             // - these objects may be released or erased by the system if accessed asynchronously, resulting in invalid/zeroed-out touch coordinates
-            let touchInfo = touches.compactMap { recordableTouch($0, in: window) }
+            // A layered frame is drawn in its base window's space, so its touches are too.
+            let recorded = touches.compactMap { recordableTouch($0, in: window) }
+            let space = recorded.isEmpty ? window : (Self.screenshotLayers(for: window).first ?? window)
+            let touchInfo = recorded.map {
+                (phase: $0.phase, location: window.convert($0.location, to: space))
+            }
 
             // A touch is user activity, so this read can start a new session. The touch belongs to
             // that session, and the block below can run much later.
@@ -929,6 +934,22 @@
             sessionId capturedSessionId: String? = nil,
             episodeFirstFrame: Bool = false
         ) {
+            captureSnapshot([wireframe], window: window, windowSize: windowSize, screenName: screenName, postHog: postHog,
+                            timestampDate: timestampDate, sessionId: capturedSessionId, episodeFirstFrame: episodeFirstFrame)
+        }
+
+        /// `wireframes` are one screen's window layers, bottom first. `window` is the bottom one: the meta event and the
+        /// unchanged-frame check belong to it.
+        func captureSnapshot(
+            _ wireframes: [RRScreenshotFrame],
+            window: UIWindow,
+            windowSize: CGSize,
+            screenName: String?,
+            postHog: PostHogSDK,
+            timestampDate: Date,
+            sessionId capturedSessionId: String? = nil,
+            episodeFirstFrame: Bool = false
+        ) {
             let timestamp = timestampDate.toMillis()
 
             guard let sessionId = capturedSessionId ?? postHog.sessionManager.getSessionId(readOnly: true), !sessionId.isEmpty else {
@@ -970,14 +991,20 @@
                     snapshotStatus.metaEventScreenName = nil
                 }
 
-                let wireframeDict = autoreleasepool { wireframe.toDict() }
-                wireframe.image = nil
-                wireframe.maskableWidgets = nil
+                let wireframeDicts = autoreleasepool { wireframes.map { $0.toDict() } }
+                for wireframe in wireframes {
+                    wireframe.image = nil
+                    wireframe.maskableWidgets = nil
+                }
 
                 // Masking failed, so the only image left is the raw screenshot. Drop the
                 // frame instead of sending content the config masks (fail closed).
-                if wireframe.maskRenderFailed {
+                if wireframes.contains(where: \.maskRenderFailed) {
                     hedgeLog("[Session Replay] Skipping snapshot: the masked screenshot could not be rendered")
+                    return
+                }
+                if wireframes.count > 1, !Self.canComposeLayers(wireframeDicts) {
+                    hedgeLog("[Session Replay] Skipping snapshot: a window layer could not be encoded")
                     return
                 }
 
@@ -1007,7 +1034,7 @@
                     snapshotStatus.lastImageHash = nil
                 }
                 let verdict = PostHogReplayIntegration.frameVerdict(
-                    wireframeDict: wireframeDict,
+                    wireframeDicts: wireframeDicts,
                     lastImageHash: snapshotStatus.lastImageHash,
                     hasPendingSnapshotData: !snapshotsData.isEmpty
                 )
@@ -1019,10 +1046,8 @@
                 self?.lastSentSnapshotStatus = snapshotStatus
                 self?.captureBackoff.noteFrame(unchanged: false)
 
-                var wireframes: [Any] = []
-                wireframes.append(wireframeDict)
                 let initialOffset = ["top": 0, "left": 0]
-                let data: [String: Any] = ["initialOffset": initialOffset, "wireframes": wireframes]
+                let data: [String: Any] = ["initialOffset": initialOffset, "wireframes": wireframeDicts as [Any]]
                 let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
                 snapshotsData.append(snapshotData)
 
@@ -1727,35 +1752,43 @@
         /// (blur/video/Metal intact); drift within budget keeps drawHierarchy with masks swept to
         /// cover it, only motion or an unpairable sample drops to render(in:) for alignment, and
         /// skips instead until `presentationTreeResumeTime`.
-        private func scheduleSettledCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) {
+        /// `layers` are the screen's windows, bottom first (see `screenshotLayers(for:)`); each is settle-checked on its
+        /// own, and motion in any of them renders them all with the presentation tree.
+        private func scheduleSettledCapture(layers: [UIWindow], screenName: String?, postHog: PostHogSDK) {
             // Same bails prepareScreenshotWireframe applies, hoisted ahead of the two sampling
             // walks: without this a view controller transition pays for both traversals and then
             // discards them, where before it walked the hierarchy zero times.
-            guard window.isVisible(), !isAnimatingTransition(window) else {
+            guard layers.allSatisfy({ $0.isVisible() && !isAnimatingTransition($0) }) else {
                 finishScreenshotRender()
                 return
             }
 
-            let sentinelRegions = collectMaskedRegions(in: window)
+            let sentinelRegions = layers.map { collectMaskedRegions(in: $0) }
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.settleWindowSeconds) { [weak self] in
                 guard let self else { return }
-                let regionsNow = self.collectMaskedRegions(in: window)
+                let regionsNow = layers.map { self.collectMaskedRegions(in: $0) }
                 // Banded on mask geometry alone, not on layout-event counts: layout events arrive in
                 // bursts, so a count false-positives on the very burst that triggered the capture.
-                let verdict = Self.settleVerdict(before: sentinelRegions, after: regionsNow)
-                let renderer: PostHogScreenshotRenderer = verdict.band.usesFidelity ? .fidelity : .presentationTree
+                let verdicts = zip(sentinelRegions, regionsNow).map { Self.settleVerdict(before: $0, after: $1) }
+                let renderer: PostHogScreenshotRenderer = verdicts.allSatisfy(\.band.usesFidelity) ? .fidelity : .presentationTree
                 if renderer == .presentationTree, CACurrentMediaTime() < self.presentationTreeResumeTime {
                     hedgeLog("[Session Replay] Skipping snapshot: the motion renderer is paused after a slow render")
                     self.finishScreenshotRender()
                     return
                 }
-                self.performScreenshotCapture(
-                    window: window,
-                    screenName: screenName,
-                    postHog: postHog,
-                    renderer: renderer,
-                    overrideMaskRects: verdict.inflatedRects ?? regionsNow?.map(\.rect)
-                )
+                let maskRects = zip(verdicts, regionsNow).map { $0.inflatedRects ?? $1?.map(\.rect) }
+                guard layers.count > 1 else {
+                    self.performScreenshotCapture(
+                        window: layers[0],
+                        screenName: screenName,
+                        postHog: postHog,
+                        renderer: renderer,
+                        overrideMaskRects: maskRects[0]
+                    )
+                    return
+                }
+                self.performLayeredScreenshotCapture(layers: layers, screenName: screenName, postHog: postHog,
+                                                     renderer: renderer, overrideMaskRects: maskRects)
             }
         }
 
@@ -2255,7 +2288,19 @@
         }
 
         static func currentStructureFingerprint() -> Int? {
-            UIApplication.getCurrentWindow().map { structureFingerprint(of: $0) }
+            UIApplication.getCurrentWindow().map { structureFingerprint(ofLayers: screenshotLayers(for: $0)) }
+        }
+
+        /// A window under an alert changes without the alert changing, so a layered screen hashes every layer.
+        static func structureFingerprint(ofLayers layers: [UIWindow]) -> Int {
+            if layers.count == 1 {
+                return structureFingerprint(of: layers[0])
+            }
+            var hasher = Hasher()
+            for layer in layers {
+                hasher.combine(structureFingerprint(of: layer))
+            }
+            return hasher.finalize()
         }
 
         private static func hashStructure(_ view: UIView, into hasher: inout Hasher, budget: inout Int, depthRemaining: Int) {
@@ -2332,7 +2377,15 @@
             lastImageHash: Int?,
             hasPendingSnapshotData: Bool
         ) -> (hash: Int?, unchanged: Bool) {
-            let hash = frameHash(for: wireframeDict)
+            frameVerdict(wireframeDicts: [wireframeDict], lastImageHash: lastImageHash, hasPendingSnapshotData: hasPendingSnapshotData)
+        }
+
+        static func frameVerdict(
+            wireframeDicts: [[String: Any]],
+            lastImageHash: Int?,
+            hasPendingSnapshotData: Bool
+        ) -> (hash: Int?, unchanged: Bool) {
+            let hash = frameHash(for: wireframeDicts)
             let unchanged = shouldSkipUnchangedScreenshot(
                 imageHash: hash,
                 lastImageHash: lastImageHash,
@@ -2344,6 +2397,30 @@
         /// Hashes the frame's encoded screenshot; `nil` when the frame carries no image.
         static func frameHash(for wireframeDict: [String: Any]) -> Int? {
             (wireframeDict["base64"] as? String)?.hashValue
+        }
+
+        /// Layers hash in order with where each sits, so a change in any of them, the base under an alert included, is a
+        /// changed frame.
+        static func frameHash(for wireframeDicts: [[String: Any]]) -> Int? {
+            if wireframeDicts.count == 1 {
+                return frameHash(for: wireframeDicts[0])
+            }
+            var hasher = Hasher()
+            for dict in wireframeDicts {
+                hasher.combine(frameHash(for: dict))
+                for key in ["x", "y", "width", "height"] {
+                    hasher.combine(dict[key] as? Int)
+                }
+            }
+            return hasher.finalize()
+        }
+
+        /// Layers above the base must be WebP: the JPEG fallback has no alpha and would paint over the windows below.
+        static func canComposeLayers(_ wireframeDicts: [[String: Any]]) -> Bool {
+            wireframeDicts.enumerated().allSatisfy { index, dict in
+                guard let base64 = dict["base64"] as? String else { return false }
+                return index == 0 || base64.hasPrefix("data:image/webp")
+            }
         }
     }
 
@@ -2557,11 +2634,14 @@
                 return false
             }
 
+            let layers = Self.screenshotLayers(for: window)
             switch postHog.config.sessionReplayConfig.captureMethod {
+            case .gpu where layers.count > 1:
+                scheduleLayeredGPUCapture(layers: layers, screenName: screenName, postHog: postHog)
             case .gpu:
                 scheduleGPUCapture(window: window, screenName: screenName, postHog: postHog)
             case .standard:
-                scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)
+                scheduleSettledCapture(layers: layers, screenName: screenName, postHog: postHog)
             }
             return true
         }
@@ -2629,7 +2709,7 @@
             }
 
             private struct SettledCaptureRequest {
-                let window: UIWindow
+                let layers: [UIWindow]
                 let screenName: String?
                 let postHog: PostHogSDK
             }
@@ -2639,7 +2719,7 @@
             private func endGPUCapture(_ frame: PostHogGPUMirrorCapture.Frame?, fallback: SettledCaptureRequest? = nil) {
                 frame?.release()
                 if let fallback {
-                    scheduleSettledCapture(window: fallback.window, screenName: fallback.screenName, postHog: fallback.postHog)
+                    scheduleSettledCapture(layers: fallback.layers, screenName: fallback.screenName, postHog: fallback.postHog)
                 } else {
                     finishScreenshotRender()
                 }
@@ -2648,7 +2728,7 @@
             /// Main thread, with the render slot claimed.
             private func scheduleGPUCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) {
                 guard let mirror = gpuMirror else {
-                    endGPUCapture(nil, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
+                    endGPUCapture(nil, fallback: SettledCaptureRequest(layers: [window], screenName: screenName, postHog: postHog))
                     return
                 }
                 let scale = gpuPixelScale(window)
@@ -2684,13 +2764,19 @@
                 /// The mirror left out the full-window cover, so the frame would show what it hides: the default capture path
                 /// takes it instead.
                 case fallback(PostHogGPUMirrorCapture.Frame)
-                /// Frozen, with the regions the mirror couldn't mask itself left on the wireframe for the rect pass.
-                case frozen(PostHogGPUMirrorCapture.Frame, RRScreenshotFrame)
+                /// Frozen, with the regions the mirror couldn't mask itself left on the wireframe for the rect pass. `maskRects`
+                /// are all the window's masked regions, inline ones included, when collected.
+                case frozen(PostHogGPUMirrorCapture.Frame, RRScreenshotFrame, maskRects: [CGRect])
             }
 
             /// Main thread. Mirrors the window, walks it for masked regions, masks what it can in the mirror and freezes
             /// it, all in this turn: nothing may reach the mirror after `freeze`.
-            func mirrorAndMask(_ window: UIWindow, mirror: PostHogGPUMirrorCapture, scale: CGFloat) -> MirroredFrame {
+            /// `collectMaskRects` fills `.frozen`'s `maskRects`, which only a layer above the base needs: reading them measures
+            /// every deferred region on main. Only the key layer notes the screen and spends the presented-text budget, so the
+            /// layers under it can't reopen or close that window.
+            func mirrorAndMask(_ window: UIWindow, mirror: PostHogGPUMirrorCapture, scale: CGFloat, collectMaskRects: Bool = false,
+                               isKeyLayer: Bool = true) -> MirroredFrame
+            {
                 // Camera first: its layers can trap when presentation() copies them.
                 guard window.isVisible(), !window.hasCameraForReplay(), !isAnimatingTransition(window) else { return .skipped }
                 guard let frame = mirror.build(window: window, scale: scale) else { return .unbuilt }
@@ -2701,15 +2787,18 @@
                     return .unsettled(frame)
                 }
                 if leftOutCover(of: frame, in: window) { return .fallback(frame) }
-                mirror.inlineMask.noteScreen(UIViewController.ph_topViewController(base: window.rootViewController) ?? window)
-                let remaining = mirror.maskInline(regions, in: frame, tag: inlineMaskTag(view:layer:))
+                if isKeyLayer {
+                    mirror.inlineMask.noteScreen(UIViewController.ph_topViewController(base: window.rootViewController) ?? window)
+                }
+                let remaining = mirror.maskInline(regions, in: frame, usesPresentedBudget: isKeyLayer, tag: inlineMaskTag(view:layer:))
                 let remainingRects = remaining.map(\.rect)
+                let maskRects = collectMaskRects ? regions.map(\.rect) : []
                 frame.freeze()
                 let wireframe = createBasicWireframe(window)
                 wireframe.type = "screenshot"
                 wireframe.maskableWidgets = remainingRects
                 wireframe.screenshotPixelScale = frame.scale
-                return .frozen(frame, wireframe)
+                return .frozen(frame, wireframe, maskRects: maskRects)
             }
 
             /// One capture instead of settle-then-shoot: the settle check exists because drawHierarchy shows the render
@@ -2723,16 +2812,16 @@
                     endGPUCapture(nil)
                     return
                 case .unbuilt:
-                    endGPUCapture(nil, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
+                    endGPUCapture(nil, fallback: SettledCaptureRequest(layers: [window], screenName: screenName, postHog: postHog))
                     return
                 case let .unsettled(unsettled):
                     hedgeLog("[Session Replay] Skipping snapshot: a masked view hasn't been laid out yet")
                     endGPUCapture(unsettled)
                     return
                 case let .fallback(unused):
-                    endGPUCapture(unused, fallback: SettledCaptureRequest(window: window, screenName: screenName, postHog: postHog))
+                    endGPUCapture(unused, fallback: SettledCaptureRequest(layers: [window], screenName: screenName, postHog: postHog))
                     return
-                case let .frozen(frozen, frozenWireframe):
+                case let .frozen(frozen, frozenWireframe, _):
                     frame = frozen
                     wireframe = frozenWireframe
                 }
@@ -2803,7 +2892,7 @@
                     return
                 }
                 guard frame.encode() else {
-                    endGPUCapture(frame, fallback: SettledCaptureRequest(window: window, screenName: capture.screenName, postHog: postHog))
+                    endGPUCapture(frame, fallback: SettledCaptureRequest(layers: [window], screenName: capture.screenName, postHog: postHog))
                     return
                 }
 
@@ -2820,7 +2909,7 @@
                             return
                         }
                         if image == nil, let window, postHog.isSessionReplayActive() {
-                            self.endGPUCapture(frame, fallback: SettledCaptureRequest(window: window, screenName: capture.screenName, postHog: postHog))
+                            self.endGPUCapture(frame, fallback: SettledCaptureRequest(layers: [window], screenName: capture.screenName, postHog: postHog))
                         } else {
                             self.endGPUCapture(frame)
                         }
@@ -2828,10 +2917,184 @@
                 }
             }
         }
+
+        extension PostHogReplayIntegration {
+            /// The layers of one GPU capture. Windows are held weakly, so a window's last release never lands on the replay
+            /// queue the readback completes on.
+            private final class LayeredGPUCapture {
+                private let layers: [Weak<UIWindow>]
+                let screenName: String?
+                let postHog: PostHogSDK
+                /// The session the layers are captured in; a frame that outlives it is dropped.
+                let sessionId: String
+                let timestampDate = Date()
+                /// The base's size when the layers were picked; the frame is laid out in it.
+                let baseSize: CGSize
+                var captured: [(index: Int, wireframe: RRScreenshotFrame)] = []
+                /// Every layer's masked regions, a blank layer's included, by layer index.
+                var maskRects: [[CGRect]]
+                var count: Int { layers.count }
+
+                init(layers: [UIWindow], screenName: String?, postHog: PostHogSDK, sessionId: String) {
+                    self.layers = layers.map { Weak($0) }
+                    maskRects = Array(repeating: [], count: layers.count)
+                    baseSize = layers.first?.bounds.size ?? .zero
+                    self.screenName = screenName
+                    self.postHog = postHog
+                    self.sessionId = sessionId
+                }
+
+                var windows: [UIWindow]? {
+                    let windows = layers.compactMap(\.value)
+                    return windows.count == layers.count ? windows : nil
+                }
+
+                var fallback: SettledCaptureRequest? {
+                    windows.map { SettledCaptureRequest(layers: $0, screenName: screenName, postHog: postHog) }
+                }
+
+                /// The windows of the captured layers, aligned with `captured`; nil once any window is gone.
+                var capturedWindows: [UIWindow]? {
+                    windows.map { windows in captured.map { windows[$0.index] } }
+                }
+            }
+
+            /// Main thread, with the render slot claimed. Layers are captured one at a time because the mirror holds one frame
+            /// per window size; the slot stays claimed until the last layer is read back.
+            func scheduleLayeredGPUCapture(layers: [UIWindow], screenName: String?, postHog: PostHogSDK) {
+                guard let sessionId = postHog.sessionManager.getSessionId(readOnly: true), !sessionId.isEmpty else {
+                    endGPUCapture(nil)
+                    return
+                }
+                let capture = LayeredGPUCapture(layers: layers, screenName: screenName, postHog: postHog, sessionId: sessionId)
+                guard let mirror = gpuMirror else {
+                    endGPUCapture(nil, fallback: capture.fallback)
+                    return
+                }
+                captureLayer(0, of: capture, mirror: mirror)
+            }
+
+            private func captureLayer(_ index: Int, of capture: LayeredGPUCapture, mirror: PostHogGPUMirrorCapture) {
+                guard let windows = capture.windows, capture.postHog.isRecordingReplay(in: capture.sessionId),
+                      !DI.main.appLifecyclePublisher.isInBackground
+                else {
+                    endGPUCapture(nil)
+                    return
+                }
+                let window = windows[index]
+                let scale = gpuPixelScale(window)
+                if mirror.needsPrewarm(for: window.bounds.size, scale: scale) {
+                    let generation = mirror.purgeGeneration
+                    mirror.prewarm(size: window.bounds.size, scale: scale) { [weak self] in
+                        guard let self else { return }
+                        // A memory warning purged the warm-up: don't start another one under memory pressure.
+                        guard mirror.purgeGeneration == generation else {
+                            self.endGPUCapture(nil)
+                            return
+                        }
+                        self.captureLayer(index, of: capture, mirror: mirror)
+                    }
+                    return
+                }
+                switch mirrorAndMask(window, mirror: mirror, scale: scale, collectMaskRects: index > 0, isKeyLayer: index + 1 == capture.count) {
+                case .skipped:
+                    endGPUCapture(nil)
+                case .unbuilt:
+                    endGPUCapture(nil, fallback: capture.fallback)
+                case let .unsettled(frame):
+                    hedgeLog("[Session Replay] Skipping snapshot: a masked view hasn't been laid out yet")
+                    endGPUCapture(frame)
+                case let .fallback(frame):
+                    endGPUCapture(frame, fallback: capture.fallback)
+                case let .frozen(frame, wireframe, maskRects):
+                    capture.maskRects[index] += maskRects
+                    guard preMeasureUpperLayerMasks(above: index, windows: windows, into: capture) else {
+                        hedgeLog("[Session Replay] Skipping snapshot: a masked view hasn't been laid out yet")
+                        endGPUCapture(frame)
+                        return
+                    }
+                    PostHogGPUMirrorCapture.onNextRunLoopTurn { [weak self] in
+                        guard let self else {
+                            frame.release()
+                            return
+                        }
+                        self.encodeLayer(index, frame: frame, wireframe: wireframe, of: capture, mirror: mirror)
+                    }
+                }
+            }
+
+            /// The layers above freeze later, so a shield removed in between would unmask this layer: measure theirs now, in this
+            /// layer's turn. False when a masked view above isn't laid out yet.
+            private func preMeasureUpperLayerMasks(above index: Int, windows: [UIWindow], into capture: LayeredGPUCapture) -> Bool {
+                for upper in (index + 1) ..< windows.count {
+                    guard let regions = collectMaskedRegions(in: windows[upper]) else { return false }
+                    capture.maskRects[upper] += regions.map(\.rect)
+                }
+                return true
+            }
+
+            private func encodeLayer(_ index: Int, frame: PostHogGPUMirrorCapture.Frame, wireframe: RRScreenshotFrame, of capture: LayeredGPUCapture,
+                                     mirror: PostHogGPUMirrorCapture)
+            {
+                guard capture.windows != nil, capture.postHog.isRecordingReplay(in: capture.sessionId), !DI.main.appLifecyclePublisher.isInBackground else {
+                    endGPUCapture(frame)
+                    return
+                }
+                guard frame.encode() else {
+                    endGPUCapture(frame, fallback: capture.fallback)
+                    return
+                }
+                frame.readbackResult(on: Self.dispatchQueue) { [weak self] readback in
+                    DispatchQueue.main.async {
+                        guard let self else {
+                            frame.release()
+                            return
+                        }
+                        switch readback {
+                        case let .image(image):
+                            wireframe.image = Self.screenshot(image, of: frame)
+                            capture.captured.append((index, wireframe))
+                        case .blank where index > 0 && index + 1 < capture.count:
+                            // A clear window between the base and the key window, such as the surveys window, adds
+                            // nothing. A blank key window may be a cover the mirror can't draw, so it falls back.
+                            break
+                        case .blank, .failed:
+                            let canFallBack = capture.postHog.isRecordingReplay(in: capture.sessionId) && !DI.main.appLifecyclePublisher.isInBackground
+                            self.endGPUCapture(frame, fallback: canFallBack ? capture.fallback : nil)
+                            return
+                        }
+                        // Released before the next layer builds: a same-size window renders through this frame's target.
+                        frame.release()
+                        guard index + 1 == capture.count else {
+                            self.captureLayer(index + 1, of: capture, mirror: mirror)
+                            return
+                        }
+                        if let allWindows = capture.windows, let windows = capture.capturedWindows, windows.allSatisfy({ $0.isVisible() }) {
+                            if windows[0].bounds.size == capture.baseSize {
+                                let wireframes = capture.captured.map(\.wireframe)
+                                Self.addUpperLayerMasks(to: wireframes, of: windows, maskRects: capture.maskRects, in: allWindows)
+                                self.enqueueLayers(wireframes, of: windows, screenName: capture.screenName,
+                                                   postHog: capture.postHog, timestampDate: capture.timestampDate,
+                                                   sessionId: capture.sessionId)
+                            } else {
+                                hedgeLog("[Session Replay] Skipping snapshot: the app window resized during capture")
+                            }
+                        } else {
+                            hedgeLog("[Session Replay] Skipping snapshot: a window layer went away during capture")
+                        }
+                        self.endGPUCapture(nil)
+                    }
+                }
+            }
+        }
     #else
         private extension PostHogReplayIntegration {
             func scheduleGPUCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) {
-                scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)
+                scheduleSettledCapture(layers: [window], screenName: screenName, postHog: postHog)
+            }
+
+            func scheduleLayeredGPUCapture(layers: [UIWindow], screenName: String?, postHog: PostHogSDK) {
+                scheduleSettledCapture(layers: layers, screenName: screenName, postHog: postHog)
             }
 
             func prewarmGPUCapture(_: PostHogSDK) {}
@@ -2912,7 +3175,7 @@
                 let mirrored = mirrorAndMask(window, mirror: mirror, scale: scale)
                 let deferredMeasurements = MaskedRegion.deferredMeasurementsForTesting - measuredBefore
                 let milliseconds = (CACurrentMediaTime() - start) * 1000
-                guard case let .frozen(frame, wireframe) = mirrored else {
+                guard case let .frozen(frame, wireframe, _) = mirrored else {
                     switch mirrored {
                     case let .unsettled(frame), let .fallback(frame): frame.release()
                     case .skipped, .unbuilt, .frozen: break
@@ -3043,6 +3306,166 @@
                 }
             }
             return nil
+        }
+    }
+
+    // MARK: - Window layers
+
+    extension PostHogReplayIntegration {
+        #if TESTING
+            /// Hostless tests have no scene to read the key window's siblings from.
+            static var windowLayerCandidatesForTesting: [UIWindow]?
+        #endif
+
+        /// The windows a screenshot shows, bottom first. The key window alone, unless it sits above the app's own window, as
+        /// React Native's alert does in a window of its own: then the app window and the windows between the two as well.
+        static func screenshotLayers(for keyWindow: UIWindow) -> [UIWindow] {
+            #if TESTING
+                if let candidates = windowLayerCandidatesForTesting {
+                    return screenshotLayers(keyWindow: keyWindow, candidates: candidates)
+                }
+            #endif
+            return screenshotLayers(keyWindow: keyWindow, candidates: keyWindow.windowScene?.windows ?? [])
+        }
+
+        /// The base is the topmost visible `.normal` window. Windows above the key window are left out: nobody is using
+        /// them, and an app with a permanent overlay window would otherwise pay for a second capture on every frame.
+        static func screenshotLayers(keyWindow: UIWindow, candidates: [UIWindow]) -> [UIWindow] {
+            guard keyWindow.windowLevel.rawValue > UIWindow.Level.normal.rawValue, candidates.count > 1 else {
+                return [keyWindow]
+            }
+            let ordered = candidates.enumerated()
+                .sorted { ($0.element.windowLevel.rawValue, $0.offset) < ($1.element.windowLevel.rawValue, $1.offset) }
+                .map(\.element)
+            guard let base = ordered.last(where: { $0.windowLevel == .normal && isLayerCandidate($0) }),
+                  isLayerCandidate(keyWindow), keyWindow.screen === base.screen,
+                  let keyIndex = ordered.firstIndex(where: { $0 === keyWindow })
+            else {
+                return [keyWindow]
+            }
+            let between = ordered[..<keyIndex].filter {
+                $0.windowLevel.rawValue > base.windowLevel.rawValue && isLayerCandidate($0) && $0.screen === base.screen
+            }
+            let layers = [base] + between + [keyWindow]
+            // A screen hidden behind an opaque window, such as a passcode cover, never leaves the device.
+            guard let cover = layers.dropFirst().lastIndex(where: { isOpaqueCover($0, over: base) }) else { return layers }
+            return Array(layers[cover...])
+        }
+
+        private static func isOpaqueCover(_ window: UIWindow, over base: UIWindow) -> Bool {
+            guard isUnclippedCover(window, over: base) else { return false }
+            if PostHogPresentationCover.hasOpaqueBackground(window) { return true }
+            if let root = window.rootViewController?.viewIfLoaded, root.window === window, !root.isHidden,
+               isUnclippedCover(root, over: base), PostHogPresentationCover.hasOpaqueBackground(root)
+            {
+                return true
+            }
+            return !window.hasCameraForReplay() && PostHogPresentationCover.frontmostFullWindowCover(in: window) != nil
+        }
+
+        /// Checks the presentation as well as the model: a cover fading or sliding in doesn't hide the base yet.
+        private static func isUnclippedCover(_ view: UIView, over base: UIWindow) -> Bool {
+            let layer = view.layer
+            guard PostHogPresentationCover.isUnmodifiedRectangle(layer, in: base.layer),
+                  view.convert(view.bounds, to: base).contains(base.bounds)
+            else {
+                return false
+            }
+            // Under an app-defined layer the presentation can't be read without copying it; the model is the screen only
+            // while nothing in either chain animates.
+            if layer.hasAppDefinedLayerInChain || base.layer.hasAppDefinedLayerInChain {
+                return !layer.hasAnimationInChain && !base.layer.hasAnimationInChain
+            }
+            let presentation = layer.presentation() ?? layer
+            let basePresentation = base.layer.presentation() ?? base.layer
+            return PostHogPresentationCover.isUnmodifiedRectangle(presentation, in: basePresentation)
+                && presentation.convert(presentation.bounds, to: basePresentation).contains(basePresentation.bounds)
+        }
+
+        /// For each layer, the mask rects of every layer above it, converted into its own coordinates by `convert(rect,
+        /// sourceLayer, targetLayer)` and clipped to its `bounds`.
+        static func upperLayerMaskRects(_ maskRects: [[CGRect]], bounds: [CGRect],
+                                        convert: (CGRect, _ source: Int, _ target: Int) -> CGRect) -> [[CGRect]]
+        {
+            maskRects.indices.map { lower in
+                maskRects.indices.dropFirst(lower + 1).flatMap { upper in
+                    maskRects[upper].compactMap { rect -> CGRect? in
+                        let clipped = convert(rect, upper, lower).intersection(bounds[lower])
+                        return clipped.isNull || clipped.isEmpty ? nil : clipped
+                    }
+                }
+            }
+        }
+
+        private static func isLayerCandidate(_ window: UIWindow) -> Bool {
+            guard !window.isHidden, window.alpha > 0, !window.bounds.isEmpty else { return false }
+            return !window.isKeyboardWindow && !NSStringFromClass(type(of: window)).hasPrefix("_UI")
+        }
+
+        /// Main thread, settled path. A layer that can't be captured drops the frame, so a window is never sent without
+        /// the ones under it.
+        fileprivate func performLayeredScreenshotCapture(layers: [UIWindow], screenName: String?, postHog: PostHogSDK,
+                                                         renderer: PostHogScreenshotRenderer, overrideMaskRects: [[CGRect]?])
+        {
+            defer { finishScreenshotRender() }
+            guard postHog.isSessionReplayActive() else { return }
+
+            let timestampDate = Date()
+            var wireframes: [RRScreenshotFrame] = []
+            for (layer, maskRects) in zip(layers, overrideMaskRects) {
+                guard let capture = collectScreenshotMetadata(layer, renderer: renderer, overrideMaskRects: maskRects, renderImage: false) else {
+                    return
+                }
+                wireframes.append(capture.wireframe)
+            }
+
+            // One pause covering every layer's render, so a slow scene backs the motion renderer off as a whole.
+            let start = CACurrentMediaTime()
+            defer {
+                if renderer == .presentationTree {
+                    let end = CACurrentMediaTime()
+                    presentationTreeResumeTime = end + (end - start) * Self.presentationTreePauseFactor
+                }
+            }
+            for (layer, wireframe) in zip(layers, wireframes) {
+                guard let image = renderScreenshot(layer, renderer: renderer, uploadScale: wireframe.screenshotPixelScale),
+                      image.size.hasSize()
+                else {
+                    return
+                }
+                wireframe.image = image
+            }
+            Self.addUpperLayerMasks(to: wireframes, of: layers, maskRects: wireframes.map { $0.maskableWidgets ?? [] }, in: layers)
+            enqueueLayers(wireframes, of: layers, screenName: screenName, postHog: postHog, timestampDate: timestampDate)
+        }
+
+        /// A mask hides what's under it, in the windows below too. A translucent or blur shield in an upper window isn't a
+        /// mask, so the layers under it are still captured as drawn. `maskRects` are each of `maskLayers`' masked regions
+        /// in its own coordinates; `maskLayers` are the windows picked for the frame, bottom first, any left out of
+        /// `layers` included.
+        static func addUpperLayerMasks(to wireframes: [RRScreenshotFrame], of layers: [UIWindow], maskRects: [[CGRect]],
+                                       in maskLayers: [UIWindow])
+        {
+            let upperMaskRects = upperLayerMaskRects(maskRects, bounds: maskLayers.map(\.bounds)) { rect, source, target in
+                maskLayers[target].convert(rect, from: maskLayers[source])
+            }
+            for (wireframe, layer) in zip(wireframes, layers) {
+                guard let index = maskLayers.firstIndex(where: { $0 === layer }), !upperMaskRects[index].isEmpty else { continue }
+                wireframe.maskableWidgets = (wireframe.maskableWidgets ?? []) + upperMaskRects[index]
+            }
+        }
+
+        fileprivate func enqueueLayers(_ wireframes: [RRScreenshotFrame], of layers: [UIWindow], screenName: String?, postHog: PostHogSDK,
+                                       timestampDate: Date, sessionId: String? = nil)
+        {
+            guard let base = layers.first, sessionId.map(postHog.isRecordingReplay(in:)) ?? postHog.isSessionReplayActive() else { return }
+            for (wireframe, layer) in zip(wireframes, layers).dropFirst() {
+                let frame = layer.convert(layer.bounds, to: base)
+                wireframe.posX = frame.origin.x.toInt() ?? 0
+                wireframe.posY = frame.origin.y.toInt() ?? 0
+            }
+            captureSnapshot(wireframes, window: base, windowSize: base.bounds.size, screenName: screenName, postHog: postHog,
+                            timestampDate: timestampDate, sessionId: sessionId)
         }
     }
 

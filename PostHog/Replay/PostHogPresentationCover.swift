@@ -45,7 +45,7 @@
         private static func fullWindowCoverView(_ controller: UIViewController, in window: UIWindow) -> UIView? {
             guard
                 let view = controller.viewIfLoaded,
-                isOpaqueCover(view),
+                hasOpaqueBackground(view),
                 hasUnobstructedCoverage(view, in: window),
                 view.convert(view.bounds, to: window).contains(window.bounds),
                 view.toPresentationRect(window).contains(window.bounds)
@@ -78,7 +78,7 @@
 
         // Check both trees: destination values can already be opaque/rectangular while the
         // rendered cover still exposes the presenter. Unknown shapes keep the masks behind them.
-        private static func isUnmodifiedRectangle(_ layer: CALayer, in windowLayer: CALayer) -> Bool {
+        static func isUnmodifiedRectangle(_ layer: CALayer, in windowLayer: CALayer) -> Bool {
             guard !layer.isHidden, layer.opacity >= 1,
                   layer.cornerRadius == 0, layer.mask == nil,
                   CATransform3DIsAffine(layer.transform),
@@ -144,7 +144,9 @@
             return !view.hasRenderedOpacity
         }
 
-        private static func isOpaqueCover(_ view: UIView) -> Bool {
+        /// Whether `view`'s background is opaque both in the model and as rendered: a cover fading in doesn't hide what's
+        /// behind it yet. UIKit stores the layer's color resolved for the view's current traits.
+        static func hasOpaqueBackground(_ view: UIView) -> Bool {
             let layer = view.layer
             // Presentation style and isOpaque are not proof of the pixels currently painted.
             return (layer.backgroundColor?.alpha ?? 0) >= 1 &&

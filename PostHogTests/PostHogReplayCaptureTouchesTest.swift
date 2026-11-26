@@ -94,6 +94,28 @@
             #expect(snapshots.touches.allSatisfy { $0["x"] as? Int == 123 && $0["y"] as? Int == 456 })
         }
 
+        @Test("A touch on a window above the app window is recorded in the app window's space when the frame is layered",
+              arguments: [PostHogSessionReplayCaptureMethod.standard, .gpu])
+        func layeredFrameTouchSpace(captureMethod: PostHogSessionReplayCaptureMethod) async throws {
+            let (sut, integration, snapshots) = try makeScreenshotReplaySut {
+                $0.captureMethod = captureMethod
+            }
+            defer { sut.close() }
+            let app = makeWindow()
+            let alert = UIWindow(frame: CGRect(x: 20, y: 40, width: 200, height: 300))
+            alert.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 1)
+            alert.isHidden = false
+            defer { [app, alert].forEach { $0.isHidden = true } }
+            PostHogReplayIntegration.windowLayerCandidatesForTesting = [app, alert]
+            defer { PostHogReplayIntegration.windowLayerCandidatesForTesting = nil }
+
+            integration.handleApplicationEvent(event: TouchEvent(location: CGPoint(x: 10, y: 10)), date: Date(), window: alert)
+            await drainReplayQueue()
+
+            #expect(snapshots.touches.count == 2)
+            #expect(snapshots.touches.allSatisfy { [$0["x"], $0["y"]] as? [Int] == [30, 50] })
+        }
+
         @Test("Touches inside a ph-no-capture view are dropped", arguments: [true, false])
         func noCaptureViewDropped(markWithIdentifier: Bool) async throws {
             let (sut, integration, snapshots) = try makeSut()

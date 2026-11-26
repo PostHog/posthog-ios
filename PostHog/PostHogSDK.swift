@@ -67,6 +67,8 @@ let maxRetryDelay = 30.0
     private var setupGeneration = 0
     /// Test-only: runs after `captureInternal` builds an event and before it picks the queues.
     var onCapturePreparedForTesting: (() -> Void)?
+    /// Test-only: runs after `setSessionReplayMinimumDuration` checks the SDK is enabled and before it writes.
+    var onMinimumDurationCheckedForTesting: (() -> Void)?
     /// Bumped by `reset()`, so a wrapper send treats a reset that keeps the distinct ID as a new identity.
     private var wrapperResetGeneration = 0
     private var _lastScreenName: String?
@@ -134,6 +136,8 @@ let maxRetryDelay = 30.0
     private var featureFlagsListenerTokens: [UUID: RegistrationToken] = [:]
     /// The last update delivered to listeners, replayed to late subscribers. Nil until flags load.
     private var lastFeatureFlagsLoaded: PostHogFeatureFlagsLoaded?
+    /// Bumped by `close()`, so a flags notification from the setup it ended is dropped.
+    private var featureFlagsSetupGeneration = 0
     private var featureFlagsLoadedToken: RegistrationToken?
 
     /// Logger facade exposing `trace/debug/info/warn/error/fatal(_:attributes:)`.
@@ -153,6 +157,12 @@ let maxRetryDelay = 30.0
         /// and the app's last `startSessionRecording()`/`stopSessionRecording()` while opted in, so consent
         /// doesn't override a stop. Internal stops don't change it. Guarded by `setupLock`.
         private var startSessionRecordingOnOptIn = true
+
+        private var _sessionReplayMinimumDurationOverride: TimeInterval?
+        /// Kept here rather than on the integration so it reaches one installed after the host set it.
+        var sessionReplayMinimumDurationOverride: TimeInterval? {
+            setupLock.withLock { _sessionReplayMinimumDurationOverride }
+        }
     #endif
 
     #if os(iOS) && (!SWIFT_PACKAGE || Surveys)
@@ -228,11 +238,15 @@ let maxRetryDelay = 30.0
             // available for flag requests. Seeded from the anonymous ID on first init.
             _ = config.storageManager?.getDeviceId()
 
-            remoteConfig = PostHogRemoteConfig(config, theStorage, api, { [weak self] in
+            let theRemoteConfig = PostHogRemoteConfig(config, theStorage, api, { [weak self] in
                 self?.getDefaultPersonProperties() ?? [:]
             }, { [weak self] flagKey, flagValue in
                 self?.reportFeatureFlagCalled(flagKey: flagKey, flagValue: flagValue)
+            }, currentSessionId: { [weak self] in
+                // Read-only: takes only the session manager's lock and never rotates.
+                self?.sessionManager.getSessionId(readOnly: true)
             })
+            remoteConfig = theRemoteConfig
 
             #if !os(watchOS)
                 reachability = Reachability()
@@ -241,7 +255,7 @@ let maxRetryDelay = 30.0
                 context = PostHogContext()
             #endif
 
-            pushSubscriptionHandler = PostHogPushSubscriptionHandler(
+            let thePushSubscriptionHandler = PostHogPushSubscriptionHandler(
                 api,
                 theStorage,
                 config,
@@ -254,10 +268,16 @@ let maxRetryDelay = 30.0
                 pushAppIdsProvider: { [weak self] in self?.remoteConfig?.getPushAppIds() },
                 onEventContextChanged: onEventContextChanged
             )
+            pushSubscriptionHandler = thePushSubscriptionHandler
+
+            // The two subscribers below run on the main queue. Reading `self.remoteConfig` there would take
+            // setupLock and wait for setup() to finish, so they capture the instance: weakly, as it stores them.
+            // Without the lock they can run while close() does, so each checks it still belongs to this setup.
+            let flagsGeneration = featureFlagsListenersLock.withLock { featureFlagsSetupGeneration }
 
             // Invoked on the main queue, after the new flags are readable through the getters.
-            featureFlagsLoadedToken = remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] featureFlags in
-                guard let self, let remoteConfig = self.remoteConfig else { return }
+            featureFlagsLoadedToken = theRemoteConfig.onFeatureFlagsLoaded.subscribe { [weak self, weak theRemoteConfig] featureFlags in
+                guard let self, let remoteConfig = theRemoteConfig else { return }
                 let current = remoteConfig.getFeatureFlags() ?? [:]
                 // Each notification carries the flags cached when it was sent. If the cache has moved on
                 // since (reset() or a newer load), drop it: a newer notification follows if there is one.
@@ -270,22 +290,31 @@ let maxRetryDelay = 30.0
                     featureFlags: featureFlags ?? current,
                     errorsLoading: featureFlags == nil || remoteConfig.didLatestFeatureFlagsLoadFail()
                 )
-                self.featureFlagsListenersLock.withLock { self.lastFeatureFlagsLoaded = loaded }
+                let isCurrentSetup = self.featureFlagsListenersLock.withLock { () -> Bool in
+                    guard self.featureFlagsSetupGeneration == flagsGeneration else { return false }
+                    self.lastFeatureFlagsLoaded = loaded
+                    return true
+                }
+                guard isCurrentSetup else { return }
                 self.onFeatureFlagsLoaded.invoke(loaded)
             }
 
             // A device whose project had no push integration was answered 200 and stopped asking.
             // Draining the transition here is the only signal that reaches it.
-            pushRemoteConfigToken = remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] _ in
-                guard let self, let newlyRegisterable = self.remoteConfig?.consumeNewlyRegisterablePushAppIds(),
+            pushRemoteConfigToken = theRemoteConfig.onRemoteConfigLoaded.subscribe { [weak self, weak theRemoteConfig, weak thePushSubscriptionHandler] _ in
+                guard let thePushSubscriptionHandler,
+                      let newlyRegisterable = theRemoteConfig?.consumeNewlyRegisterablePushAppIds(),
                       !newlyRegisterable.isEmpty
                 else {
                     return
                 }
                 // Mark the one-time upgrade recovery done only after the handler has durably cleared
                 // any delivered marker, so a crash in between re-runs recovery instead of stranding.
-                self.pushSubscriptionHandler?.onPushAppIdsChanged(newlyRegisterable) { [weak self] in
-                    self?.remoteConfig?.markPushAppIdsMigrated()
+                // Runs on the handler's queue, also when close() released the handler before it cleared
+                // anything: mark only while this instance is still the one the SDK is set up with.
+                thePushSubscriptionHandler.onPushAppIdsChanged(newlyRegisterable) { [weak self, weak theRemoteConfig] in
+                    guard let self, let theRemoteConfig, self.remoteConfig === theRemoteConfig else { return }
+                    theRemoteConfig.markPushAppIdsMigrated()
                 }
             }
 
@@ -805,6 +834,15 @@ let maxRetryDelay = 30.0
     {
         var props: [String: Any] = [:]
 
+        #if os(iOS)
+            // Before the session resolves below: a $screen that rotates the session must check its own screen.
+            if event == PostHogKnownUnsafeEditableEvent.screen.rawValue, !readOnlySession,
+               let name = properties?["$screen_name"] as? String, !Self.isBlank(name)
+            {
+                remoteConfig?.rememberSessionRecordingScreen(name)
+            }
+        #endif
+
         // Resolve the session before any $sdk_debug_* snapshot below: getSessionId(at:) can rotate
         // here, so the debug keys must describe the session this event lands in (mirrors posthog-js).
         // A caller-supplied $session_id wins so replay snapshots never land in the wrong session.
@@ -1022,6 +1060,10 @@ let maxRetryDelay = 30.0
 
         // Clear all in-memory caches (feature flags, session replay state, etc.)
         remoteConfig?.clear()
+        #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
+            // The new session was checked against the screen before clear() dropped the trigger group activation.
+            replayIntegration?.recheckTriggerGroupsScreen()
+        #endif
         featureFlagsListenersLock.withLock { lastFeatureFlagsLoaded = nil }
 
         lastScreenLock.withLock { _lastScreenName = nil }
@@ -3759,6 +3801,9 @@ let maxRetryDelay = 30.0
             }
 
             uninstallIntegrations()
+            #if os(iOS)
+                remoteConfig?.forgetSessionRecordingScreen()
+            #endif
             return true
         }
 
@@ -3791,6 +3836,12 @@ let maxRetryDelay = 30.0
         setupLock.withLock {
             enabled = false
             wrapperSendLock.withLock { setupGeneration += 1 }
+            featureFlagsListenersLock.withLock {
+                featureFlagsSetupGeneration += 1
+                lastFeatureFlagsLoaded = nil
+            }
+            featureFlagsLoadedToken = nil
+            pushRemoteConfigToken = nil
             PostHogSDK.projectTokens.remove(config.projectToken)
 
             queue?.flush()
@@ -3810,6 +3861,7 @@ let maxRetryDelay = 30.0
             pushSubscriptionHandler = nil
             #if os(iOS) && (!SWIFT_PACKAGE || SessionReplay)
                 startSessionRecordingOnOptIn = true
+                _sessionReplayMinimumDurationOverride = nil
             #endif
             replayDebugPropertiesLock.withLock {
                 lastReplayDebugPropertiesAt = nil
@@ -3823,8 +3875,6 @@ let maxRetryDelay = 30.0
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
             remoteConfig = nil
-            featureFlagsLoadedToken = nil
-            featureFlagsListenersLock.withLock { lastFeatureFlagsLoaded = nil }
             storage = nil
             #if !os(watchOS)
                 self.reachability?.stopNotifier()
@@ -3876,6 +3926,9 @@ let maxRetryDelay = 30.0
          - The session is not sampled,
          - Event triggers are configured and have not been activated for the current session.
 
+         Under React Native, a call also lifts the hold an earlier `stopSessionRecording()` put on automatic
+         starts, even when the call itself can't start recording yet.
+
          - Parameter resumeCurrent:
             Whether to resume recording of current session (true) or start a new session (false).
          */
@@ -3903,6 +3956,9 @@ let maxRetryDelay = 30.0
                 guard let replayIntegration else {
                     return
                 }
+
+                // An explicit start request means the app wants recording: lift the last explicit stop
+                // before the guards below, so a refused request doesn't leave later starts blocked.
                 replayIntegration.clearExplicitStop()
 
                 if resumeCurrent, replayIntegration.isActive() {
@@ -3930,8 +3986,10 @@ let maxRetryDelay = 30.0
 
          With `config.sessionReplay = false`, this also cancels a pending `startSessionRecording()` call, so
          remote config loads, event triggers and session changes will not start recording until the app
-         calls `startSessionRecording()` again. A later `optOut()` and `optIn()` don't restart it either. While opted
-         out this method is ignored.
+         calls `startSessionRecording()` again. Under React Native, where the JS layer drives recording, this
+         holds whatever `config.sessionReplay` is. Otherwise remote config loads, trigger group events and
+         feature flag reloads don't restart it either; a matched event trigger can. A later `optOut()` and
+         `optIn()` don't restart it either. While opted out this method is ignored.
 
          Stopping also starts a best-effort, asynchronous flush of replay snapshots already recorded instead of
          waiting for the next scheduled flush. Normal buffering and delivery limits still apply: snapshots can be
@@ -4001,6 +4059,30 @@ let maxRetryDelay = 30.0
         /// SPI, not public API: no stability guarantees.
         @_spi(PostHogInternal) public func sessionReplayDebugProperties() -> [String: Any] {
             replayIntegration?.debugProperties() ?? [:]
+        }
+
+        /// Overrides the minimum duration the replay buffer holds a session for, for first-party wrappers
+        /// that evaluate trigger groups themselves. `0` means no minimum, `nil` goes back to the remote
+        /// config value, and a negative value is ignored. Takes effect at once and survives session changes.
+        ///
+        /// SPI, not public API: no stability guarantees.
+        @_spi(PostHogInternal) public func setSessionReplayMinimumDuration(_ milliseconds: Int?) {
+            if !isEnabled() {
+                return
+            }
+
+            if let milliseconds, milliseconds < 0 {
+                hedgeLog("[Session Replay] Ignoring negative minimum duration \(milliseconds)ms.")
+                return
+            }
+            onMinimumDurationCheckedForTesting?()
+            let integration = setupLock.withLock { () -> PostHogReplayIntegration? in
+                // close() can land after the check above; its cleared override must stay cleared.
+                guard enabled else { return nil }
+                _sessionReplayMinimumDurationOverride = milliseconds.map { TimeInterval($0) / 1_000.0 }
+                return _replayIntegration
+            }
+            integration?.minimumDurationOverrideDidChange()
         }
     #endif
 

@@ -1,4 +1,4 @@
-.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility checkTestRegistration testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots gpuMaskSnapshots recordGPUMaskSnapshots checkMaskSnapshotRuntime lint bootstrap api apiCheck apiUpdate buildIOS buildSdkSpm buildSdkSpmNoTraits buildTestsSpmTraitsIOS testNoTraits
+.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility checkTestRegistration testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots gpuMaskSnapshots recordGPUMaskSnapshots gpuMaskBenchmarks checkMaskSnapshotRuntime lint bootstrap api apiCheck apiUpdate buildIOS buildSdkSpm buildSdkSpmNoTraits buildTestsSpmTraitsIOS testNoTraits
 
 build: buildSdk buildExamples
 
@@ -193,6 +193,24 @@ recordGPUMaskSnapshots: checkMaskSnapshotRuntime
 	  -destination "platform=iOS Simulator,id=$(MASK_SNAPSHOT_UDID)" \
 	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TEST_MASK_SNAPSHOTS RECORD_MASK_SNAPSHOTS' \
 	  "-only-testing:PostHogTests/PostHogMaskSnapshotTest/recordGPUGoldens()" | xcpretty
+
+# Prints-only GPU masking cost benchmarks; compile-gated so CI and `make test` skip them.
+# Override GPU_MASK_BENCHMARKS_DESTINATION to select a simulator or device.
+GPU_MASK_BENCHMARKS_DESTINATION ?= platform=iOS Simulator,name=$$(xcrun simctl list devices available | grep -E '^[[:space:]]*iPhone' | head -1 | sed -E 's/^[[:space:]]*//; s/ \(.*//')
+gpuMaskBenchmarks:
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog \
+	  -destination "$(GPU_MASK_BENCHMARKS_DESTINATION)" \
+	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) GPU_MASK_BENCHMARKS' \
+	  "-only-testing:PostHogTests/PostHogGPUInlineMaskTest/photoGridCost()" \
+	  "-only-testing:PostHogTests/PostHogGPUInlineMaskTest/turnOneCost()" \
+	  "-only-testing:PostHogTests/PostHogGPUInlineMaskTest/noCaptureCardsCost()" \
+	  "-only-testing:PostHogTests/PostHogGPUSwiftUIMaskTest/turnOneExtentCost()" 2>&1 | tee gpu-mask-benchmarks.log | xcpretty
+	@for prefix in PHOTO INLINE NOCAPTURE EXTENT; do \
+	  grep -q "^$$prefix-COST" gpu-mask-benchmarks.log || { \
+	    echo "error: no $$prefix-COST line printed; the GPU_MASK_BENCHMARKS gate or an -only-testing selector likely broke."; \
+	    exit 1; }; \
+	done
+	@grep -E '^[A-Z]+-COST' gpu-mask-benchmarks.log
 
 # Usage: make test filter=<pattern>
 # Examples:

@@ -5,8 +5,8 @@ import Foundation
 /// duration is met).
 ///
 /// The queue is passive — it delegates all buffering decisions to a
-/// `PostHogReplayBufferDelegate`. When `delegate.isBuffering` is true,
-/// snapshots are routed to the buffer and `flush()` calls are suppressed.
+/// `PostHogReplayBufferDelegate`: `add()` routes a snapshot to the buffer when
+/// `delegate.shouldBufferSnapshot()` is true, and `flush()` is suppressed while `delegate.isBuffering` is.
 class PostHogReplayQueue {
     private let innerQueue: PostHogQueue<PostHogEvent>
     private let bufferQueue: PostHogReplayBufferQueue
@@ -14,6 +14,11 @@ class PostHogReplayQueue {
                                               target: .global(qos: .utility))
 
     weak var bufferDelegate: PostHogReplayBufferDelegate?
+
+    #if TESTING
+        /// Runs after `add` routes a snapshot to the real queue and before it writes it.
+        var onDirectRouteForTesting: (() -> Void)?
+    #endif
 
     /// The time span of buffered snapshots (oldest to newest).
     var bufferDuration: TimeInterval? {
@@ -63,7 +68,7 @@ class PostHogReplayQueue {
     }
 
     func add(_ event: PostHogEvent) {
-        if bufferDelegate?.isBuffering == true {
+        if bufferDelegate?.shouldBufferSnapshot() == true {
             guard let data = toJSONData(event.toJSON()) else {
                 hedgeLog("Tried to buffer unserialisable PostHogEvent")
                 return
@@ -72,6 +77,9 @@ class PostHogReplayQueue {
             hedgeLog("Buffered replay event '\(event.event)'. Buffer depth: \(bufferQueue.depth)")
             bufferDelegate?.replayQueueDidBufferSnapshot(self)
         } else {
+            #if TESTING
+                onDirectRouteForTesting?()
+            #endif
             innerQueue.add(event)
         }
     }

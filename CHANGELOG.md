@@ -1,5 +1,25 @@
 ## Next
 
+## 4.1.0
+
+### Minor Changes
+
+- 9bf7ed2: Support session replay v2 trigger groups from remote config
+  
+  Session replay sampling now handles negative hashes like posthog-js, so a session gets the same sampling decision on mobile and web
+
+## 4.0.11
+
+### Patch Changes
+
+- 870259f: Fix an app hang where the main thread waited for `setup()` to finish when it ran off the main thread (as in React Native) and remote config or feature flags loaded meanwhile, and stop session replay looking up two iOS 26-only SwiftUI class names on earlier iOS versions
+
+## 4.0.10
+
+### Patch Changes
+
+- 93ef04d: Fix a crash on iOS 27.2 in apps built with Xcode 27.2 when session replay, surveys, or crash reporting are enabled.
+
 ## 4.0.9
 
 ### Patch Changes

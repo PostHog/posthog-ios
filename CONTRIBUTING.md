@@ -55,6 +55,7 @@ iOS simulator/UI checks require Xcode with the relevant installed runtime, xcpre
 - `make testPresentationMasks` uses an app host for UIKit presentation checks. Use `PRESENTATION_TEST_DESTINATION` to override the destination; the remaining suite stays hostless because it relies on test-bundle identity and app-group entitlements.
 - `make maskSnapshots` requires the selected Xcode and iOS runtime pinned by `MASK_SNAPSHOT_XCODE` and `MASK_SNAPSHOT_OS` in the Makefile, plus an available iPhone on that runtime. Goldens are byte-sensitive to the compiler/SDK; do not replace these pins with latest-stable or bypass runtime checks.
 - Regenerate with `make recordMaskSnapshots` only after intentional masking or pinned-environment changes, with the same prerequisites. Coordinate toolchain/runtime pin changes with CI and review the resulting image diff before submitting; do not re-record merely to hide a regression.
+- `make gpuMaskBenchmarks` runs the prints-only GPU masking cost tests, which are compile-gated (`GPU_MASK_BENCHMARKS`) and skipped in every other run. Use `GPU_MASK_BENCHMARKS_DESTINATION` to override the destination.
 - Keep the wrappers' raw-log/test-execution assertions: a green xcpretty summary can conceal a zero-test run or broken selector/compile gate.
 
 ### Test and style conventions

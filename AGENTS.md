@@ -11,6 +11,7 @@
 - Public APIs must remain thread-safe and callable from any thread. Preserve offline operation and queue-based event batching; never assume connectivity. `PostHogSDK.shared` is the default singleton; independent instances use `PostHogSDK.with(_:)` with `PostHogConfig`.
 - Preserve replay masking/privacy behavior and privacy-safe error logging; do not expose sensitive user data.
 - Prefer no new dependencies. libwebp is embedded; PHPLCrashReporter is vendored, prefixed PLCrashReporter for native crash reporting on iOS/macOS/tvOS, excluded on watchOS/visionOS. Both are behind default-on package traits (`SessionReplay`, which also gates the replay engine, and `CrashReporting`); gate code that uses them with `#if !SWIFT_PACKAGE || <Trait>`. The survey engine and UI are behind the default-on `Surveys` trait the same way. Once released, never add a new default-on trait on its own: apps that list traits would silently lose the feature. Split an existing trait instead, keeping it as an umbrella that enables the new ones.
+- Record every local change to vendored code under `vendor/` in [vendor/UPSTREAM.md](vendor/UPSTREAM.md), with what to re-apply when re-vendoring. Upstream refs and commit SHAs live there too.
 
 ## Validation selector
 - Use `make` wrappers, not direct `swift`/`xcodebuild`. Iterate with focused tests; before submitting SDK changes, run contributor checks: `make lint`, `make test`, `make buildSdk`.
